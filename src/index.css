@@ -1405,10 +1405,111 @@ img.cover--contain {
   overflow-y: auto;
 }
 
-.settings__block + .settings__block {
+/* 設定のまとまり（カード）。見出し → 1行の説明 → いまの状態 → 操作の順 */
+.settings__card {
+  padding: 18px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: var(--ink-raised);
+}
+
+.settings__card + .settings__card {
+  margin-top: 16px;
+}
+
+/* 最初の画面（ログイン前）は、カードにせず地のまま。続くまとまりとの間だけ空ける */
+.settings__block:not(.settings__card) + .settings__block {
   margin-top: 36px;
   padding-top: 28px;
   border-top: 1px solid var(--line);
+}
+
+.settings__nav {
+  display: none;
+}
+
+.settings__summary {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.settings__statusline {
+  margin-top: 12px;
+}
+
+/* いまの状態を短く示す印 */
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 60%, transparent);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.status-chip__dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--r-good);
+}
+
+.status-chip--off .status-chip__dot {
+  background: var(--muted);
+}
+
+/* 操作のボタンは横に並べる（狭い画面では折り返して幅いっぱいに） */
+.settings__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.settings__actions .btn {
+  flex: 1 1 auto;
+  padding-inline: 10px;
+  white-space: nowrap;
+}
+
+.settings__statusline + .settings__lead {
+  margin-top: 12px;
+}
+
+.settings__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  margin-top: 12px;
+  font-size: 0.9rem;
+}
+
+/* 長い説明は畳む */
+.settings__fold {
+  margin-top: 14px;
+}
+
+.settings__fold > summary {
+  color: var(--muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.settings__fold[open] > summary {
+  margin-bottom: 8px;
+}
+
+.settings__legal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin-top: 16px;
+  font-size: 0.8rem;
 }
 
 .settings__lead a {
@@ -1465,9 +1566,9 @@ img.cover--contain {
 }
 
 .settings__title {
-  margin-bottom: 12px;
+  margin-bottom: 4px;
   font-family: var(--font-display);
-  font-size: 1.5rem;
+  font-size: 1.15rem;
   font-weight: 400;
 }
 
@@ -1799,9 +1900,50 @@ img.cover--contain {
     padding: 24px 0;
   }
 
-  /* 設定 */
+  /* 設定: 左に項目の目次（その場に留まる）、右にカード。ログイン前の最初の画面は1列のまま */
   .settings {
     max-width: 640px;
+  }
+
+  .settings--nav {
+    display: grid;
+    grid-template-columns: 170px minmax(0, 1fr);
+    gap: 32px;
+    max-width: 900px;
+  }
+
+  .settings__nav {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    display: grid;
+    gap: 2px;
+  }
+
+  .settings__navitem {
+    padding: 8px 12px;
+    border: 0;
+    border-radius: var(--radius-s);
+    background: none;
+    color: var(--muted);
+    font-size: 0.9rem;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .settings__navitem:hover {
+    background: var(--ink-raised);
+    color: var(--paper);
+  }
+
+  .settings__card {
+    padding: 22px 24px;
+  }
+
+  /* 広い画面では、ボタンを幅いっぱいに伸ばさない */
+  .settings__actions .btn {
+    flex: 0 0 auto;
+    padding-inline: 18px;
   }
 
   /* 記録・ブラウズ: 操作は横に並べ、一覧は表紙のグリッドにする */

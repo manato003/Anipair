@@ -85,6 +85,9 @@ npm run build
 - [Annict](https://annict.com/) — 記録の保存先とデータ。ありがとうございます
 - [Shikimori](https://shikimori.io/) — 作品データの一部（ジャンル・テーマ・似た作品・一部の表紙）
 
-## ライセンス
+## ライセンス・規約
 
 [MIT](LICENSE)
+
+- [利用規約](https://anipair.vercel.app/terms.html)
+- [プライバシーポリシー](https://anipair.vercel.app/privacy.html)

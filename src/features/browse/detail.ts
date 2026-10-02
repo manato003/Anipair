@@ -51,3 +51,10 @@ export const STATUS_LABEL: Partial<Record<StatusState, string>> = {
   ON_HOLD: '一時中断',
   STOP_WATCHING: '視聴中止',
 }
+
+// 権利表記には先頭に ©。Annict の文字に © や (c) がもう入っていれば、そのまま出す
+export function withCopyrightMark(text: string | null | undefined): string | null {
+  const t = text?.trim()
+  if (!t) return null
+  return /[©Ⓒ]|\(c\)/i.test(t) ? t : `© ${t}`
+}

@@ -1,8 +1,8 @@
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { fetchViewer } from '../../lib/annict'
 import { Logo } from '../../components/Logo'
 import { annictClientId, startLogin } from '../../lib/annictLogin'
-import { TAGLINE_PHRASES } from '../../lib/brand'
+import { TAGLINE, TAGLINE_PHRASES } from '../../lib/brand'
 import { checkAccess, type GithubConnection } from '../../lib/github'
 import { parseRepo, saveAnnictToken, saveGithubRepo, saveGithubToken } from '../../lib/storage'
 import { messageOf } from '../../lib/useWriteQueue'
@@ -10,6 +10,7 @@ import { loadBackupStatus, runBackup, type BackupResult, type BackupStatus } fro
 import { exportBackupFile, type ExportResult } from '../backup/exportFile'
 import { describeCounts } from '../backup/snapshot'
 import { Keybinds } from './Keybinds'
+import { Section, StatusChip } from './Section'
 
 export function Settings(props: {
   annictToken: string | null
@@ -37,23 +38,75 @@ export function Settings(props: {
     )
   }
   return (
-    <section className="settings">
-      <TokenField
-        title="Annict とつなぐ"
-        lead="記録はすべて Annict に保存します。"
-        label="Annict の個人用アクセストークン"
-        token={props.annictToken}
-        verify={verifyAnnictToken}
-        save={(t) => {
-          saveAnnictToken(t)
-          props.onAnnictTokenChange(t)
-        }}
-      />
-      <GithubBlock github={props.github} onChange={props.onGithubChange} />
-      <BackupBlock annictToken={props.annictToken} github={props.github} />
-      <Keybinds />
-      <About />
+    <section className="settings settings--nav">
+      <SectionNav />
+      <div className="settings__main">
+        <AccountBlock token={props.annictToken} onChange={props.onAnnictTokenChange} />
+        <GithubBlock github={props.github} onChange={props.onGithubChange} />
+        <BackupBlock annictToken={props.annictToken} github={props.github} />
+        <Keybinds />
+        <About />
+      </div>
     </section>
+  )
+}
+
+// 広い画面だけ、左に出るページ内の目次（押すとその項目へ動く）。狭い画面では出さない
+const SECTIONS = [
+  { id: 'settings-account', label: 'アカウント' },
+  { id: 'settings-github', label: 'GitHub 連携' },
+  { id: 'settings-backup', label: 'バックアップ' },
+  { id: 'settings-keys', label: 'キー操作' },
+  { id: 'settings-about', label: 'このアプリについて' },
+] as const
+
+function SectionNav() {
+  return (
+    <nav className="settings__nav" aria-label="設定の項目">
+      {SECTIONS.map((x) => (
+        <button key={x.id} type="button" className="settings__navitem" onClick={() => document.getElementById(x.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+          {x.label}
+        </button>
+      ))}
+    </nav>
+  )
+}
+
+// 接続しているアカウントの名前（Annict に1回だけ聞く。読めなくても「接続中」とは出せる）
+const viewerCache = new Map<string, Promise<{ name: string; username: string }>>()
+
+function AccountBlock(props: { token: string; onChange: (token: string | null) => void }) {
+  const [viewer, setViewer] = useState<{ name: string; username: string } | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    const p = viewerCache.get(props.token) ?? fetchViewer(props.token)
+    viewerCache.set(props.token, p)
+    p.then((v) => !cancelled && setViewer(v)).catch(() => viewerCache.delete(props.token))
+    return () => {
+      cancelled = true
+    }
+  }, [props.token])
+
+  return (
+    <Section
+      id="settings-account"
+      title="アカウント（Annict）"
+      summary="記録はすべて Annict に保存します。"
+      status={<StatusChip>{viewer ? `${viewer.name}（@${viewer.username}）として接続中` : 'Annict に接続中'}</StatusChip>}
+    >
+      <div className="settings__actions">
+        <button
+          type="button"
+          className="btn"
+          onClick={() => {
+            saveAnnictToken(null)
+            props.onChange(null)
+          }}
+        >
+          トークンを消す
+        </button>
+      </div>
+    </Section>
   )
 }
 
@@ -97,6 +150,7 @@ function Welcome(props: { clientId: string | null; busy: boolean; error: string 
         </a>
         してください。
       </p>
+      <LegalLinks className="settings__legal" />
       {/* ログインのボタンが無いとき（ローカルの開発など）は、最初から開いておく */}
       <details className="settings__dev" open={!props.clientId}>
         <summary>開発者向け: 個人用アクセストークンで使う</summary>
@@ -109,7 +163,6 @@ function Welcome(props: { clientId: string | null; busy: boolean; error: string 
         </p>
         <TokenForm
           label="Annict の個人用アクセストークン"
-          token={null}
           verify={verifyAnnictToken}
           save={(t) => {
             saveAnnictToken(t)
@@ -121,32 +174,52 @@ function Welcome(props: { clientId: string | null; busy: boolean; error: string 
   )
 }
 
-// 設定の末尾。何のアプリで、何が外に出て、何が出ないか
+// 利用規約とプライバシーポリシー（public/ の静的なページ）
+function LegalLinks(props: { className?: string }) {
+  return (
+    <p className={props.className}>
+      <a href="/terms.html" target="_blank" rel="noreferrer">
+        利用規約
+      </a>
+      <a href="/privacy.html" target="_blank" rel="noreferrer">
+        プライバシーポリシー
+      </a>
+    </p>
+  )
+}
+
+// 設定の末尾。何のアプリで、何が外に出て、何が出ないか。要点だけ出して、通信先・画像・あらすじの細かい説明は畳む
 function About() {
   return (
-    <div className="settings__block">
-      <h1 className="settings__title">このアプリについて</h1>
+    <Section id="settings-about" title="このアプリについて">
+      <p className="settings__lead">{TAGLINE}</p>
       <ul className="settings__list settings__lead">
         <li>Anipair は、Annict の非公式の個人開発アプリです。Annict とは関係がありません。</li>
         <li>運営のサーバーはありません。ログインの受け渡しと Shikimori への中継をする関数があるだけで、利用者の情報は何も保存しません。</li>
-        <li>通信先は Annict と、作品データの Shikimori（このサイトの中継を通します）です。GitHub とつないだ場合だけ、GitHub にも送ります。</li>
         <li>トークンはこの端末の中にだけ保存します。</li>
-        <li>表紙の画像は Annict の画像（各作品の公式サイトのもの）と Shikimori のポスターを表示しています。権利は各権利者にあります。</li>
         <li>
           作品データの一部（ジャンル・似た作品・一部の表紙）:{' '}
           <a href="https://shikimori.io/" target="_blank" rel="noreferrer">
             Shikimori
           </a>
         </li>
-        <li>作品の詳細に出すあらすじは Annict の作品ページから読み、引用元を付けて表示しています。</li>
       </ul>
+      <details className="settings__fold">
+        <summary>通信先・画像・あらすじについて</summary>
+        <ul className="settings__list settings__lead">
+          <li>通信先は Annict と、作品データの Shikimori（このサイトの中継を通します）です。GitHub とつないだ場合だけ、GitHub にも送ります。</li>
+          <li>表紙の画像は Annict の画像（各作品の公式サイトのもの）と Shikimori のポスターを表示しています。権利は各権利者にあります。</li>
+          <li>作品の詳細に出すあらすじは Annict の作品ページから読み、引用元を付けて表示しています。</li>
+        </ul>
+      </details>
       <p className="settings__lead settings__about-foot">
         <a href="https://github.com/manato003/anipair" target="_blank" rel="noreferrer">
           ソースコード（GitHub）
         </a>
         <span className="settings__version">版 {__APP_VERSION__}</span>
       </p>
-    </div>
+      <LegalLinks className="settings__about-foot" />
+    </Section>
   )
 }
 
@@ -192,44 +265,55 @@ function GithubBlock(props: { github: GithubConnection | null; onChange: (github
   }
 
   return (
-    <div className="settings__block">
-      <h1 className="settings__title">GitHub とつなぐ（任意）</h1>
-      <p className="settings__lead">つなぐと、次のことができます。</p>
-      <ul className="settings__list settings__lead">
-        <li>パス・スルー・見てないを、PC とスマホで共有する</li>
-        <li>全記録を、自分の GitHub に毎日バックアップする（履歴つき）</li>
-      </ul>
-      <p className="settings__lead">つながなくても、ほかの機能はすべて使えます。そのときパス・スルー・見てないは、端末ごとに記録します。</p>
-      {props.github ? (
-        <div className="settings__row">
-          <p>
-            つながっています:{' '}
+    <Section
+      id="settings-github"
+      title="GitHub 連携（任意）"
+      summary="つながなくても、ほかの機能はすべて使えます。そのときパス・スルー・見てないは、端末ごとに記録します。"
+      status={
+        props.github ? (
+          <StatusChip>
             <a href={`https://github.com/${props.github.repo}`} target="_blank" rel="noreferrer">
               {props.github.repo}
-            </a>
-          </p>
+            </a>{' '}
+            に接続中
+          </StatusChip>
+        ) : (
+          <StatusChip tone="off">未接続</StatusChip>
+        )
+      }
+    >
+      {props.github ? (
+        <div className="settings__actions">
           <button type="button" className="btn" onClick={disconnect}>
             つなぐのをやめる
           </button>
         </div>
       ) : (
         <>
-          <ol className="settings__list settings__lead">
-            <li>
-              GitHub で private リポジトリを作ります（
-              <a href="https://github.com/new?name=anipair-data&visibility=private" target="_blank" rel="noreferrer">
-                作成画面を開く
-              </a>
-              。名前は anipair-data のままで大丈夫です。Private のまま作ってください）
-            </li>
-            <li>
-              <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noreferrer">
-                Fine-grained トークンの作成画面
-              </a>
-              で、Repository access を「Only select repositories」にして、いま作ったリポジトリだけを選び、Permissions の Contents を「Read and write」にしてトークンを作ります
-            </li>
-            <li>リポジトリ名（ユーザー名/anipair-data）とトークンを入れて、「つなぐ」を押します</li>
-          </ol>
+          <p className="settings__lead">つなぐと、次のことができます。</p>
+          <ul className="settings__list settings__lead">
+            <li>パス・スルー・見てないを、PC とスマホで共有する</li>
+            <li>全記録を、自分の GitHub に毎日バックアップする（履歴つき）</li>
+          </ul>
+          <details className="settings__fold" open>
+            <summary>つなぎ方（3ステップ）</summary>
+            <ol className="settings__list settings__lead">
+              <li>
+                GitHub で private リポジトリを作ります（
+                <a href="https://github.com/new?name=anipair-data&visibility=private" target="_blank" rel="noreferrer">
+                  作成画面を開く
+                </a>
+                。名前は anipair-data のままで大丈夫です。Private のまま作ってください）
+              </li>
+              <li>
+                <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noreferrer">
+                  Fine-grained トークンの作成画面
+                </a>
+                で、Repository access を「Only select repositories」にして、いま作ったリポジトリだけを選び、Permissions の Contents を「Read and write」にしてトークンを作ります
+              </li>
+              <li>リポジトリ名（ユーザー名/anipair-data）とトークンを入れて、「つなぐ」を押します</li>
+            </ol>
+          </details>
           <form className="settings__form" onSubmit={connect}>
             <input
               type="text"
@@ -257,7 +341,7 @@ function GithubBlock(props: { github: GithubConnection | null; onChange: (github
         </>
       )}
       {message && <p className={message.ok ? 'settings__ok' : 'settings__error'}>{message.text}</p>}
-    </div>
+    </Section>
   )
 }
 
@@ -306,71 +390,64 @@ function BackupBlock(props: { annictToken: string; github: GithubConnection | nu
   }
 
   return (
-    <div className="settings__block">
-      <h1 className="settings__title">バックアップ</h1>
-      <p className="settings__lead">見た・見たいなどの状態と日時、評価（5項目と本文）、パス・スルー、「見てない」を、JSON ファイルにして控えられます。</p>
-      <div className="settings__row">
+    <Section
+      id="settings-backup"
+      title="バックアップ"
+      summary="見た・見たいなどの状態と日時、評価（5項目と本文）、パス・スルー、「見てない」を、JSON ファイルにして控えられます。"
+      status={
+        props.github ? (
+          <StatusChip tone={status.error ? 'off' : 'ok'}>
+            {status.lastAt ? `前回: ${formatTime(status.lastAt)}（${status.written ? '保存' : '変更なし'}）` : 'まだ取っていません'}
+          </StatusChip>
+        ) : undefined
+      }
+    >
+      {props.github && status.error && <p className="settings__error">前回の失敗: {status.error}</p>}
+      <div className="settings__actions">
         <button type="button" className="btn" disabled={exporting} onClick={exportNow}>
           {exporting ? '書き出しています…' : 'ファイルに書き出す'}
         </button>
+        {props.github && (
+          <button type="button" className="btn" disabled={running} onClick={backupNow}>
+            {running ? 'バックアップ中…' : '今すぐバックアップ'}
+          </button>
+        )}
       </div>
       {exportError && <p className="settings__error">{exportError}</p>}
       {exported && <p className="settings__ok">{`書き出しました（${exported.fileName}。${describeCounts(exported.counts)}）`}</p>}
+      {result && (
+        <p className="settings__ok">
+          {result.written ? `保存しました（${describeCounts(result.counts)}）` : '前回から変わっていないので、書き込みませんでした'}
+        </p>
+      )}
       {!props.github ? (
         <p className="settings__status">上の「GitHub とつなぐ」でつなぐと、毎日の自動バックアップも取れます（履歴つき）。</p>
       ) : (
         <>
-          <p className="settings__lead settings__auto">
-            つないだ GitHub の {props.github.repo} の backup.json にも保存し、変わったときだけ書き込むので、過去の版は GitHub の履歴に残ります。
-            アプリを開いたとき、前回から1日たっていれば自動でも取ります。
-          </p>
-          <p className="settings__status">
-            {status.lastAt ? `前回: ${formatTime(status.lastAt)}（${status.written ? '保存' : '変更なし'}）` : 'まだ取っていません'}
-          </p>
-          {status.error && <p className="settings__error">前回の失敗: {status.error}</p>}
-          <div className="settings__row">
-            <button type="button" className="btn" disabled={running} onClick={backupNow}>
-              {running ? 'バックアップ中…' : '今すぐバックアップ'}
-            </button>
+          <p className="settings__links">
             <a href={`https://github.com/${props.github.repo}/blob/main/backup.json`} target="_blank" rel="noreferrer">
               GitHub で見る
             </a>
             <a href={`https://github.com/${props.github.repo}/commits/main/backup.json`} target="_blank" rel="noreferrer">
               履歴
             </a>
-          </div>
-          {result && (
-            <p className="settings__ok">
-              {result.written ? `保存しました（${describeCounts(result.counts)}）` : '前回から変わっていないので、書き込みませんでした'}
+          </p>
+          <details className="settings__fold">
+            <summary>自動バックアップのしくみ</summary>
+            <p className="settings__lead">
+              つないだ GitHub の {props.github.repo} の backup.json にも保存し、変わったときだけ書き込むので、過去の版は GitHub の履歴に残ります。
+              アプリを開いたとき、前回から1日たっていれば自動でも取ります。
             </p>
-          )}
+          </details>
         </>
       )}
-    </div>
+    </Section>
   )
 }
 
-function TokenField(props: {
-  title: string
-  lead: ReactNode
-  label: string
-  token: string | null
-  verify: (token: string) => Promise<string>
-  save: (token: string | null) => void
-}) {
-  return (
-    <div className="settings__block">
-      <h1 className="settings__title">{props.title}</h1>
-      <p className="settings__lead">{props.lead}</p>
-      <TokenForm label={props.label} token={props.token} verify={props.verify} save={props.save} />
-    </div>
-  )
-}
-
-// トークンを貼って確かめて保存する欄（つながっているときは「トークンを消す」）
+// トークンを貼って確かめて保存する欄（開発者向け）
 function TokenForm(props: {
   label: string
-  token: string | null
   verify: (token: string) => Promise<string>
   save: (token: string | null) => void
 }) {
@@ -398,22 +475,7 @@ function TokenForm(props: {
 
   return (
     <>
-      {props.token ? (
-        <div className="settings__row">
-          <p>この端末はつながっています。</p>
-          <button
-            type="button"
-            className="btn"
-            onClick={() => {
-              props.save(null)
-              setMessage({ ok: true, text: 'この端末からトークンを消しました' })
-            }}
-          >
-            トークンを消す
-          </button>
-        </div>
-      ) : (
-        <form className="settings__form" onSubmit={connect}>
+      <form className="settings__form" onSubmit={connect}>
           <input
             type="password"
             autoComplete="off"
@@ -426,8 +488,7 @@ function TokenForm(props: {
           <button type="submit" className="btn btn--primary" disabled={checking || !draft.trim()}>
             {checking ? '確認中…' : 'つなぐ'}
           </button>
-        </form>
-      )}
+      </form>
       {message && <p className={message.ok ? 'settings__ok' : 'settings__error'}>{message.text}</p>}
     </>
   )

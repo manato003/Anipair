@@ -148,6 +148,12 @@ describe('WorkDetail', () => {
     expect((await screen.findByText(copyright)).className).toBe('detail__copyright')
   })
 
+  it('puts © in front of a notice that has none', async () => {
+    copyright = '山田鐘人・アベツカサ／小学館'
+    render(<WorkDetail token="t" work={work} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
+    expect((await screen.findByText('© 山田鐘人・アベツカサ／小学館')).className).toBe('detail__copyright')
+  })
+
   it('links to Shikimori only when the work has a MyAnimeList id', () => {
     const { unmount } = render(<WorkDetail token="t" work={{ ...work, malAnimeId: '52991' }} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
     expect(screen.getByRole('link', { name: 'Shikimori で見る' }).getAttribute('href')).toBe('https://shikimori.io/animes/52991')

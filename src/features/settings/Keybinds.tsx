@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react'
+import { Section } from './Section'
 import { DEFAULT_KEYMAP, KEY_ACTIONS, assignKey, keyLabel, normalizeKey, setKeymap, useKeymap, type KeyAction } from '../../lib/keymap'
+
+// タッチの端末（指で触る画面）では、キーボードの設定は使わないので畳んでおく
+function isTouchDevice(): boolean {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches
+}
 
 export function Keybinds() {
   const keymap = useKeymap()
@@ -35,10 +41,11 @@ export function Keybinds() {
   const isDefault = KEY_ACTIONS.every(({ action }) => keymap[action] === DEFAULT_KEYMAP[action])
 
   return (
-    <div className="settings__block">
-      <h1 className="settings__title">キー操作（PC）</h1>
+    <Section id="settings-keys" title="キー操作（PC）" summary="評価画面とマッチングで使うキーボードの割り当てです。">
+      <details className="settings__fold" open={!isTouchDevice()}>
+        <summary>キーの割り当て</summary>
       <p className="settings__lead">
-        評価画面とマッチングで使うキーです。変えたい操作のキーを押してから、割り当てたいキーを押してください。
+        変えたい操作のキーを押してから、割り当てたいキーを押してください。
         別の操作が使っているキーを選ぶと、2つのキーが入れ替わります。Esc でやめられます。
       </p>
       <ul className="keybinds">
@@ -78,6 +85,7 @@ export function Keybinds() {
         </button>
         {message && <p className="settings__note">{message}</p>}
       </div>
-    </div>
+      </details>
+    </Section>
   )
 }

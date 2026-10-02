@@ -150,7 +150,7 @@ describe('Settings GitHub block', () => {
 
   it('says what connecting adds, and that everything else works without it', () => {
     show({ github: null })
-    expect(screen.getByRole('heading', { name: 'GitHub とつなぐ（任意）' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'GitHub 連携（任意）' })).toBeTruthy()
     expect(screen.getByText('パス・スルー・見てないを、PC とスマホで共有する')).toBeTruthy()
     expect(screen.getByText('全記録を、自分の GitHub に毎日バックアップする（履歴つき）')).toBeTruthy()
     expect(screen.getByText(/つながなくても、ほかの機能はすべて使えます。そのときパス・スルー・見てないは、端末ごとに記録します/)).toBeTruthy()
@@ -284,7 +284,7 @@ describe('Settings first screen (no Annict token)', () => {
   it('shows only the welcome and the about block (no GitHub, backup or keys yet)', () => {
     show({ annictToken: null, clientId: 'cid' })
     expect(screen.getByRole('heading', { name: 'このアプリについて' })).toBeTruthy()
-    expect(screen.queryByRole('heading', { name: 'GitHub とつなぐ（任意）' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'GitHub 連携（任意）' })).toBeNull()
     expect(screen.queryByRole('heading', { name: 'バックアップ' })).toBeNull()
   })
 
@@ -329,7 +329,7 @@ describe('Settings first screen (no Annict token)', () => {
   it('does not show the login button once there is a token', () => {
     show({ clientId: 'cid' })
     expect(screen.queryByRole('button', { name: 'Annict でログイン' })).toBeNull()
-    expect(screen.getByRole('heading', { name: 'GitHub とつなぐ（任意）' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'GitHub 連携（任意）' })).toBeTruthy()
   })
 })
 
@@ -361,5 +361,89 @@ describe('Settings about block', () => {
     show()
     expect((screen.getByRole('link', { name: 'ソースコード（GitHub）' }) as HTMLAnchorElement).href).toBe('https://github.com/manato003/anipair')
     expect(screen.getByText(/^版 \d+\.\d+\.\d+/)).toBeTruthy()
+  })
+})
+
+describe('Settings layout (sections, status first, folded explanations)', () => {
+  const headings = () => screen.getAllByRole('heading').map((h) => h.textContent)
+
+  it('has the five sections in order, each a card with a short heading', () => {
+    show()
+    expect(headings()).toEqual(['アカウント（Annict）', 'GitHub 連携（任意）', 'バックアップ', 'キー操作（PC）', 'このアプリについて'])
+    expect(document.querySelectorAll('.settings__card')).toHaveLength(5)
+  })
+
+  it('has a section index that points at every section (shown on wide screens by CSS)', () => {
+    show()
+    const nav = screen.getByRole('navigation', { name: '設定の項目' })
+    expect(nav.querySelectorAll('button')).toHaveLength(5)
+    for (const b of nav.querySelectorAll('button')) expect(b.textContent).toBeTruthy()
+    for (const id of ['settings-account', 'settings-github', 'settings-backup', 'settings-keys', 'settings-about']) expect(document.getElementById(id)).toBeTruthy()
+  })
+
+  it('has no index on the signed-out first screen', () => {
+    show({ annictToken: null, clientId: 'cid' })
+    expect(screen.queryByRole('navigation', { name: '設定の項目' })).toBeNull()
+  })
+
+  it('shows who is connected as the status of the account section', async () => {
+    show()
+    expect(await screen.findByText('テスト（@tester）として接続中')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'トークンを消す' })).toBeTruthy()
+  })
+
+  it('GitHub connected: shows the repo as the status and hides the setup steps and the form', () => {
+    show()
+    expect(screen.getByRole('link', { name: 'me/anipair-data' }).closest('.status-chip')?.textContent).toContain('に接続中')
+    expect(document.querySelector('.settings__card#settings-github ol')).toBeNull()
+    expect(screen.queryByText('つなぎ方（3ステップ）')).toBeNull()
+  })
+
+  it('GitHub not connected: shows the steps (open) and the not-connected status', () => {
+    show({ github: null })
+    expect(screen.getByText('未接続')).toBeTruthy()
+    expect((screen.getByText('つなぎ方（3ステップ）').closest('details') as HTMLDetailsElement).open).toBe(true)
+  })
+
+  it('puts the export and the backup-now buttons side by side, and folds the explanation of the automatic backup', () => {
+    show()
+    const row = screen.getByRole('button', { name: 'ファイルに書き出す' }).parentElement!
+    expect(row.className).toBe('settings__actions')
+    expect(row.contains(screen.getByRole('button', { name: '今すぐバックアップ' }))).toBe(true)
+    expect((screen.getByText('自動バックアップのしくみ').closest('details') as HTMLDetailsElement).open).toBe(false)
+  })
+
+  it('shows the last backup as a status chip', () => {
+    store({ lastAt: new Date(2026, 9, 2, 21, 4).toISOString(), written: true, error: null })
+    show()
+    expect(screen.getByText('前回: 2026/10/2 21:04（保存）').className).toContain('status-chip')
+  })
+
+  it('keys: open by default (PC), folded on touch devices', () => {
+    const { unmount } = show()
+    expect((screen.getByText('キーの割り当て').closest('details') as HTMLDetailsElement).open).toBe(true)
+    unmount()
+    const original = window.matchMedia
+    window.matchMedia = ((q: string) => ({ matches: q === '(pointer: coarse)' })) as typeof window.matchMedia
+    try {
+      show()
+      expect((screen.getByText('キーの割り当て').closest('details') as HTMLDetailsElement).open).toBe(false)
+    } finally {
+      window.matchMedia = original
+    }
+  })
+
+  it.each([
+    ['signed in', {}],
+    ['signed out', { annictToken: null, clientId: null }],
+  ])('links to the terms and the privacy policy when %s', (_name, over) => {
+    show(over)
+    expect((screen.getAllByRole('link', { name: '利用規約' })[0] as HTMLAnchorElement).getAttribute('href')).toBe('/terms.html')
+    expect((screen.getAllByRole('link', { name: 'プライバシーポリシー' })[0] as HTMLAnchorElement).getAttribute('href')).toBe('/privacy.html')
+  })
+
+  it('the signed-out first screen also has the small footer links under the sign-up note', () => {
+    const { container } = show({ annictToken: null, clientId: 'cid' })
+    expect(container.querySelector('.settings__legal a[href="/terms.html"]')).toBeTruthy()
   })
 })
