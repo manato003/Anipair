@@ -1,0 +1,16 @@
+{
+  "name": "Anipair",
+  "short_name": "Anipair",
+  "description": "Annict の視聴記録を、タップだけで付けていくためのアプリ。見たアニメを1タップで評価して、好みに合う作品も提案します。",
+  "lang": "ja",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#161a2e",
+  "theme_color": "#161a2e",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
