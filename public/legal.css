@@ -1,0 +1,74 @@
+/* プライバシーポリシーと利用規約のページ（アプリ本体とは別の静的ページ）。色はアプリの暗い地に合わせる */
+:root {
+  color-scheme: dark;
+  --ink: #161a2e;
+  --paper: #eef0ff;
+  --muted: #a3a9cf;
+  --line: #2b3154;
+  --brand-blue: #7b9dff;
+}
+
+body {
+  margin: 0;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: 'Zen Kaku Gothic New', system-ui, sans-serif;
+  line-height: 1.8;
+}
+
+main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 40px 16px 64px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+header img {
+  width: 40px;
+  height: 40px;
+}
+
+header a {
+  color: var(--paper);
+  font-weight: 700;
+  font-size: 1.2rem;
+  text-decoration: none;
+}
+
+h1 {
+  font-size: 1.6rem;
+  margin: 24px 0 4px;
+}
+
+h2 {
+  font-size: 1.1rem;
+  margin: 32px 0 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.date,
+.note {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+a {
+  color: var(--brand-blue);
+}
+
+ul {
+  padding-left: 1.2em;
+}
+
+.en {
+  margin-top: 48px;
+  padding-top: 8px;
+  border-top: 2px solid var(--line);
+}

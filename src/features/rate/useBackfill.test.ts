@@ -23,7 +23,7 @@ const works: AnnictWork[] = [1, 2, 3].map((n) => ({
   malAnimeId: String(1000 + n),
   watchersCount: 100,
   viewerStatusState: 'NO_STATE',
-  ogImageUrl: null,
+  imageUrl: null,
 }))
 
 vi.mock('../../lib/annict', async (orig) => ({
@@ -38,7 +38,7 @@ vi.mock('../../lib/annict', async (orig) => ({
   deleteReview: vi.fn(async (_t: string, rid: string) => void calls.push(`delete ${rid}`)),
 }))
 
-vi.mock('../../lib/anilist', () => ({ fetchCovers: vi.fn(async () => new Map()) }))
+vi.mock('../../lib/covers', async (orig) => ({ ...(await orig<typeof import('../../lib/covers')>()), fetchCovers: vi.fn(async () => new Map()) }))
 vi.mock('../../lib/myReviews', () => ({
   rememberReview: vi.fn(async (_t: string, id: number, r: { id: string; ratingOverallState: string } | null) => {
     remembered.push(r ? `${id} ${r.id} ${r.ratingOverallState}` : `${id} null`)

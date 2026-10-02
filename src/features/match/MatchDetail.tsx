@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { CoverImage } from '../../components/CoverImage'
 import { Sheet } from '../../components/Sheet'
 import { annictSearchUrl, type WorkRef } from '../../lib/annict'
 import { messageOf } from '../../lib/useWriteQueue'
@@ -7,8 +8,8 @@ import { titleOf, type MatchCard } from './useMatching'
 
 type Found = { kind: 'loading' } | { kind: 'found'; ref: WorkRef } | { kind: 'missing' } | { kind: 'error'; message: string }
 
-// マッチングの候補の詳細（読むだけ）。候補は AniList の作品なので、詳細を出すには先に Annict の作品を特定する。
-// 探しているあいだと見つからなかったときは、AniList の題名と表紙だけの簡素なシートを出す。
+// マッチングの候補の詳細（読むだけ）。候補は Shikimori の作品なので、詳細を出すには先に Annict の作品を特定する。
+// 探しているあいだと見つからなかったときは、Shikimori の題名とポスターだけの簡素なシートを出す。
 // 候補ごとに作り直す（呼ぶ側で key を候補にする）
 export function MatchDetail(props: {
   token: string
@@ -38,7 +39,7 @@ export function MatchDetail(props: {
   return (
     <Sheet label={title} active={props.active} onClose={props.onClose}>
       <header className="detail__head">
-        <div className="detail__cover">{card.media.cover && <img src={card.media.cover.url} alt="" />}</div>
+        <div className="detail__cover">{card.media.cover && <CoverImage cover={card.media.cover} size="large" />}</div>
         <div className="detail__titles">
           <h2 className="detail__title">{title}</h2>
           {found.kind === 'loading' && <p className="detail__meta">Annict で作品を探しています</p>}

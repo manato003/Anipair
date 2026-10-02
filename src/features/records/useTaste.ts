@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { fetchMediaByMal } from '../../lib/anilist'
+import { fetchMedia } from '../../lib/shikimori'
 import { messageOf } from '../../lib/useWriteQueue'
 import { collectPool } from '../match/taste'
 import { forgetTaste, loadTaste, type Taste } from '../match/tasteLoader'
@@ -60,10 +60,10 @@ export function useWannaScores(taste: Taste | null, key: string): { scores: Map<
     let cancelled = false
     const malIds = key ? key.split(',').map(Number) : []
     const wanted = new Set(malIds)
-    fetchMediaByMal(malIds).then(
+    fetchMedia(malIds).then(
       (details) => {
-        // 推薦は、除外なしで集めたもののうち、見たい作品だけを使う
-        const pool = collectPool(taste.topSeeds, taste.seedMedia, new Set()).filter((e) => wanted.has(e.malId))
+        // 似た作品は、除外なしで集めたもののうち、見たい作品だけを使う
+        const pool = collectPool(taste.similarSeeds, taste.similar, new Set()).filter((e) => wanted.has(e.malId))
         if (!cancelled) setRes({ taste, scores: scoreWanna(malIds, details, pool, taste.profile), error: null })
       },
       (e) => !cancelled && setRes({ taste, scores: null, error: messageOf(e) }),

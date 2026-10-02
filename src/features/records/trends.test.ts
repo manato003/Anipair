@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { LibraryEntry, RatingState, StatusState } from '../../lib/annict'
-import { genreName, ratingDistribution, tagName, topTrends } from './trends'
+import { genreName } from '../match/taste'
+import { ratingDistribution, topTrends } from './trends'
 
 const entry = (annictId: number, state: StatusState): LibraryEntry => ({ workId: `W${annictId}`, annictId, title: `作品${annictId}`, malAnimeId: null, state, stateAt: null })
 
@@ -62,34 +63,34 @@ describe('topTrends', () => {
     expect(t.genres.map((g) => g.name)).toEqual(['Fantasy', 'Music', 'Drama', 'Action', 'Comedy'])
   })
 
-  it('takes the top 3 disliked genres, most negative first, and only tags/genres that are actually negative', () => {
+  it('takes the top 3 disliked genres, most negative first, and only themes/genres that are actually negative', () => {
     expect(t.dislikedGenres.map((g) => g.name)).toEqual(['Horror', 'Ecchi', 'Sports'])
-    expect(t.dislikedTags.map((g) => g.name)).toEqual(['Gore'])
+    expect(t.dislikedThemes.map((g) => g.name)).toEqual(['Gore'])
   })
 
-  it('keeps tags and studios apart from genres, and lists liked ones only', () => {
-    expect(t.tags.map((x) => x.name)).toEqual(['Isekai'])
+  it('keeps themes and studios apart from genres, and lists liked ones only', () => {
+    expect(t.themes.map((x) => x.name)).toEqual(['Isekai'])
     expect(t.studios.map((x) => x.name)).toEqual(['Bones', 'Madhouse'])
   })
 
-  it('limits tags to 8', () => {
-    const many = new Map(Array.from({ length: 12 }, (_, i) => [`t:Tag${String(i).padStart(2, '0')}`, 1 - i / 100] as const))
-    expect(topTrends(many).tags).toHaveLength(8)
+  it('limits themes to 8', () => {
+    const many = new Map(Array.from({ length: 12 }, (_, i) => [`t:Theme${String(i).padStart(2, '0')}`, 1 - i / 100] as const))
+    expect(topTrends(many).themes).toHaveLength(8)
   })
 
   it('has nothing to show for an empty profile, and orders ties by name so the list does not shuffle', () => {
     const e = topTrends(new Map())
-    expect(e).toEqual({ genres: [], tags: [], studios: [], dislikedGenres: [], dislikedTags: [] })
+    expect(e).toEqual({ genres: [], themes: [], studios: [], dislikedGenres: [], dislikedThemes: [] })
     const ties = topTrends(new Map([['g:B', 1], ['g:A', 1]]))
     expect(ties.genres.map((g) => g.name)).toEqual(['A', 'B'])
   })
 })
 
 describe('names', () => {
-  it('uses Japanese for known genres and tags, and the English name otherwise', () => {
+  it('uses Japanese for known genres and themes, and the English name otherwise', () => {
     expect(genreName('Fantasy')).toBe('ファンタジー')
     expect(genreName('Unknown Genre')).toBe('Unknown Genre')
-    expect(tagName('Isekai')).toBe('異世界')
-    expect(tagName('Rare Tag')).toBe('Rare Tag')
+    expect(genreName('Isekai')).toBe('異世界')
+    expect(genreName('Rare Theme')).toBe('Rare Theme')
   })
 })

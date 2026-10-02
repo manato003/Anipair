@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Bookmark } from '../../components/Bookmark'
+import { CoverImage } from '../../components/CoverImage'
 import { Empty } from '../../components/Empty'
 import { CheckIcon, InfoIcon, PauseIcon, StopIcon, UndoIcon } from '../../components/Icons'
 import { SaveStatus } from '../../components/SaveStatus'
@@ -103,7 +104,6 @@ export function Backfill({ token, github, active }: { token: string; github: Git
       }
   useShortcuts(sheetOpen ? { detail: toggleSheet } : { ...answers, detail: toggleSheet }, active)
 
-  const accent = shown?.cover?.color ?? null
   const hasCurrent = shown !== null
   const canUndo = back ? b.canUndo : w.canUndo
   const undo = back ? b.undo : w.undo
@@ -111,8 +111,8 @@ export function Backfill({ token, github, active }: { token: string; github: Git
 
   return (
     <>
-      <section className="rate" style={accent ? ({ '--cover-tint': accent } as CSSProperties) : undefined}>
-        {shown?.cover && <div className="rate__backdrop" style={{ backgroundImage: `url(${shown.cover.url})` }} aria-hidden />}
+      <section className="rate">
+        {shown?.cover && <div className="rate__backdrop" style={{ backgroundImage: `url(${shown.cover.thumb})` }} aria-hidden />}
 
         <div className="rate__top">
           <div className="toggle toggle--full" role="group" aria-label="評価の種類">
@@ -298,7 +298,7 @@ function WorkCard({ shown, onOpen }: { shown: Shown; onOpen: () => void }) {
   return (
     <article className="card">
       <button type="button" className="card__cover" onClick={onOpen} aria-label="詳しく見る">
-        {shown.cover ? <img src={shown.cover.url} alt="" /> : <span className="card__noimage">{shown.title}</span>}
+        {shown.cover ? <CoverImage cover={shown.cover} size="large" fallback={<span className="card__noimage">{shown.title}</span>} /> : <span className="card__noimage">{shown.title}</span>}
         <span className="card__info" aria-hidden>
           <InfoIcon />
         </span>

@@ -13,7 +13,7 @@ export interface PassEntry {
   kind: HideKind
 }
 
-// キーは MyAnimeList の ID（候補は AniList から来るので Annict の ID はまだ分からない）
+// キーは MyAnimeList の ID（候補は Shikimori から来るので Annict の ID はまだ分からない）
 export type Passes = Map<number, PassEntry>
 
 export function parsePasses(value: unknown): Passes {

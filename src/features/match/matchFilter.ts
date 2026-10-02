@@ -3,7 +3,7 @@
 export type FormatGroup = 'tv' | 'movie' | 'ova'
 
 export const FORMAT_GROUPS: readonly { id: FormatGroup; label: string; formats: readonly string[] }[] = [
-  { id: 'tv', label: 'TV', formats: ['TV', 'TV_SHORT'] },
+  { id: 'tv', label: 'TV', formats: ['TV'] },
   { id: 'movie', label: '劇場版', formats: ['MOVIE'] },
   { id: 'ova', label: 'OVA・配信', formats: ['OVA', 'ONA'] },
 ]

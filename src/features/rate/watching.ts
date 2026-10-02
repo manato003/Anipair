@@ -25,13 +25,7 @@ export function pickWatching(library: LibraryEntry[]): LibraryEntry[] {
     })
 }
 
+// covers は Annict の作品 ID ごとの表紙（lib/covers.ts の fetchCovers）
 export function toWatchCards(entries: LibraryEntry[], covers: ReadonlyMap<number, Cover>): WatchCard[] {
-  return entries.map((entry) => {
-    const mal = Number(entry.malAnimeId)
-    return { entry, cover: (Number.isInteger(mal) ? covers.get(mal) : undefined) ?? null }
-  })
-}
-
-export function watchMalIds(entries: LibraryEntry[]): number[] {
-  return entries.map((e) => Number(e.malAnimeId)).filter((n) => Number.isInteger(n) && n > 0)
+  return entries.map((entry) => ({ entry, cover: covers.get(entry.annictId) ?? null }))
 }

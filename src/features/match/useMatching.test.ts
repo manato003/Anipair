@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { AniMedia } from '../../lib/anilist'
 import type { LibraryEntry, RatingState } from '../../lib/annict'
 import type { GithubConnection } from '../../lib/github'
+import type { Media } from '../../lib/shikimori'
 
 const calls: string[] = []
 // 共有の感想の控えへの出し入れ（送信の順番とは別に見る）
@@ -14,9 +14,8 @@ let resolvable = new Set<number>()
 // 立てると、同期がこの Promise の解決まで止まる（同期の最中の変更を試すため）
 let syncGate: Promise<void> | null = null
 
-function media(idMal: number, extra: Partial<AniMedia> = {}): AniMedia {
+function media(idMal: number, extra: Partial<Media> = {}): Media {
   return {
-    id: idMal,
     idMal,
     title: { native: `作品${idMal}`, romaji: null, english: null },
     format: 'TV',
@@ -24,18 +23,20 @@ function media(idMal: number, extra: Partial<AniMedia> = {}): AniMedia {
     isAdult: false,
     seasonYear: 2020,
     genres: ['Music'],
-    tags: [],
+    themes: [],
+    demographics: [],
     studios: [],
     cover: null,
+    score: null,
     prequels: [],
-    recommendations: [],
     ...extra,
   }
 }
 
-// 好きな作品 1 から、候補 10・11・12 が推薦されている。12 は記録済みなので出ない
-const catalog = new Map<number, AniMedia>([
-  [1, media(1, { recommendations: [{ idMal: 10, rating: 40 }, { idMal: 11, rating: 20 }, { idMal: 12, rating: 90 }] })],
+// 好きな作品 1 に、候補 10・11・12 が似ている（似ている順）。12 は記録済みなので出ない
+const similarTable = new Map<number, number[]>([[1, [10, 11, 12]]])
+const catalog = new Map<number, Media>([
+  [1, media(1)],
   [10, media(10)],
   [11, media(11)],
   [12, media(12)],
@@ -52,8 +53,9 @@ vi.mock('../../lib/annict', async (orig) => ({
   }),
   deleteReview: vi.fn(async (_t: string, id: string) => void calls.push(`delete ${id}`)),
 }))
-vi.mock('../../lib/anilist', () => ({
-  fetchMediaByMal: vi.fn(async (ids: number[]) => new Map(ids.filter((i) => catalog.has(i)).map((i) => [i, catalog.get(i)!]))),
+vi.mock('../../lib/shikimori', () => ({
+  fetchMedia: vi.fn(async (ids: number[]) => new Map(ids.filter((i) => catalog.has(i)).map((i) => [i, catalog.get(i)!]))),
+  fetchSimilarMany: vi.fn(async (ids: number[]) => new Map(ids.map((i) => [i, similarTable.get(i) ?? []]))),
 }))
 vi.mock('../../lib/myReviews', () => ({
   rememberReview: vi.fn(async (_t: string, id: number, r: { id: string; ratingOverallState: string } | null) => {
@@ -61,7 +63,7 @@ vi.mock('../../lib/myReviews', () => ({
   }),
 }))
 vi.mock('./resolve', () => ({
-  resolveAnnictWork: vi.fn(async (_t: string, m: AniMedia) =>
+  resolveAnnictWork: vi.fn(async (_t: string, m: Media) =>
     resolvable.has(m.idMal) ? { id: `A${m.idMal}`, annictId: m.idMal, title: '', malAnimeId: String(m.idMal) } : null,
   ),
 }))
@@ -77,7 +79,7 @@ vi.mock('./passStore', async (orig) => ({
 const { useMatching } = await import('./useMatching')
 const { syncPasses } = await import('./passStore')
 const { resolveAnnictWork } = await import('./resolve')
-const { fetchMediaByMal } = await import('../../lib/anilist')
+const { fetchMedia: fetchMediaByMal } = await import('../../lib/shikimori')
 
 beforeEach(() => {
   calls.length = 0
@@ -262,13 +264,13 @@ describe('useMatching', () => {
   })
 
   describe('filters', () => {
-    // 好きな作品 1 に、候補 200〜279（80件）を推薦させる
+    // 好きな作品 1 に、候補 200〜279（80件）を似させる
     function bigCatalog() {
-      const original = catalog.get(1)!
-      catalog.set(1, media(1, { recommendations: Array.from({ length: 80 }, (_, i) => ({ idMal: 200 + i, rating: 80 - i })) }))
+      const original = similarTable.get(1)!
+      similarTable.set(1, Array.from({ length: 80 }, (_, i) => 200 + i))
       for (let i = 0; i < 80; i++) catalog.set(200 + i, media(200 + i, { format: i % 2 ? 'MOVIE' : 'TV', seasonYear: 1990 + i }))
       return () => {
-        catalog.set(1, original)
+        similarTable.set(1, original)
         for (let i = 0; i < 80; i++) catalog.delete(200 + i)
       }
     }

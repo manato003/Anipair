@@ -33,8 +33,10 @@ vi.mock('../../lib/annict', async (orig) => ({
   }),
   updateReview: vi.fn(async () => void calls.push('update')),
 }))
-vi.mock('../../lib/anilist', () => ({
-  fetchCovers: vi.fn(async () => new Map([[101, { url: 'https://img.example/101.jpg', color: null }]])),
+// 表紙は Annict の作品 ID ごと。作品 1 だけに付く
+vi.mock('../../lib/covers', async (orig) => ({
+  ...(await orig<typeof import('../../lib/covers')>()),
+  fetchCovers: vi.fn(async () => new Map([[1, { url: 'https://img.example/101.jpg', thumb: 'https://img.example/101-s.jpg', landscape: false }]])),
 }))
 
 const { useRecords } = await import('./useRecords')

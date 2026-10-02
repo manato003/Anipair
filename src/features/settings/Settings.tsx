@@ -128,10 +128,16 @@ function About() {
       <h1 className="settings__title">このアプリについて</h1>
       <ul className="settings__list settings__lead">
         <li>Anipair は、Annict の非公式の個人開発アプリです。Annict とは関係がありません。</li>
-        <li>運営のサーバーはありません。ログインの受け渡しをする関数が1つあるだけで、何も保存しません。</li>
-        <li>通信先は Annict と AniList です。GitHub とつないだ場合だけ、GitHub にも送ります。</li>
+        <li>運営のサーバーはありません。ログインの受け渡しと Shikimori への中継をする関数があるだけで、利用者の情報は何も保存しません。</li>
+        <li>通信先は Annict と、作品データの Shikimori（このサイトの中継を通します）です。GitHub とつないだ場合だけ、GitHub にも送ります。</li>
         <li>トークンはこの端末の中にだけ保存します。</li>
-        <li>表紙の画像は AniList から表示しています。権利は各権利者にあります。</li>
+        <li>表紙の画像は Annict の画像（各作品の公式サイトのもの）と Shikimori のポスターを表示しています。権利は各権利者にあります。</li>
+        <li>
+          作品データの一部（ジャンル・似た作品・一部の表紙）:{' '}
+          <a href="https://shikimori.io/" target="_blank" rel="noreferrer">
+            Shikimori
+          </a>
+        </li>
         <li>作品の詳細に出すあらすじは Annict の作品ページから読み、引用元を付けて表示しています。</li>
       </ul>
       <p className="settings__lead settings__about-foot">

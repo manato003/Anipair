@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createReview, deleteReview, fetchSeasonWorks, updateStatus } from '../../lib/annict'
-import { fetchCovers } from '../../lib/anilist'
+import { fetchCovers } from '../../lib/covers'
 import type { GithubConnection } from '../../lib/github'
 import { rememberReview } from '../../lib/myReviews'
 import { blankReview } from '../../lib/reviewOps'
@@ -10,7 +10,7 @@ import { useCoalescedTask } from '../../lib/useCoalescedTask'
 import { messageOf, useWriteQueue } from '../../lib/useWriteQueue'
 import { activeUnseenIds } from './unseen'
 import { loadLocalUnseen, setUnseen, syncUnseen } from './unseenStore'
-import { OLDEST_YEAR, malIdsOf, pickQueue, toCards, type Answer, type Card } from './queue'
+import { OLDEST_YEAR, pickQueue, toCards, type Answer, type Card } from './queue'
 
 interface UndoEntry {
   card: Card
@@ -69,7 +69,7 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
           }
           return
         }
-        const covers = await fetchCovers(malIdsOf(works))
+        const covers = await fetchCovers(works)
         if (cancelled) return
         setCards(toCards(works, covers))
       } catch (e) {

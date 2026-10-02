@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { fetchCovers, fetchScores } from '../../lib/anilist'
+import { fetchCovers, quickCovers } from '../../lib/covers'
 import { browseWorks, type BrowseOrder, type BrowseWork, type RatingState } from '../../lib/annict'
 import { getMyReviews } from '../../lib/myReviews'
 import { seasonOf, toSlug, type Season } from '../../lib/season'
+import { fetchMedia } from '../../lib/shikimori'
 import type { Cover } from '../../lib/storage'
 import { messageOf } from '../../lib/useWriteQueue'
 import { malIdOf } from '../match/taste'
-import { sortByScore, type BrowseSort } from './browseSort'
+import { scoreOf, sortByScore, type BrowseScore, type BrowseSort } from './browseSort'
 
 const DEBOUNCE_MS = 400
 // 評価順は全件の点数が要るので、まとめて読む。上限はクール1つぶん（200作品前後）が収まる数
@@ -31,7 +32,8 @@ export function useBrowse(token: string, active = true) {
   const [covers, setCovers] = useState<Map<number, Cover>>(new Map())
   const [ratings, setRatings] = useState<Map<number, RatingState>>(new Map())
   const [sort, setSortState] = useState<BrowseSort>('popular')
-  const [scores, setScores] = useState<Map<number, number | null>>(new Map())
+  // 評価順で並べたときの、作品（Annict の ID）ごとの点数と出どころ
+  const [scores, setScores] = useState<Map<number, BrowseScore>>(new Map())
   const [progress, setProgress] = useState<string | null>(null)
   // 新しい順はタイトル検索のときだけ（クール一覧はすべて同じ時期）
   const effectiveSort: BrowseSort = sort === 'newest' && !searched ? 'popular' : sort
@@ -49,8 +51,10 @@ export function useBrowse(token: string, active = true) {
     return () => clearTimeout(t)
   }, [query])
 
+  // 表紙は Annict の作品 ID ごと。Annict の画像は手元にあるので先に出し、Shikimori のポスターは取れてから足す
   const addCovers = useCallback(async (list: BrowseWork[]) => {
-    const got = await fetchCovers(list.map(malIdOf).filter((n): n is number => n !== null))
+    setCovers((cur) => new Map([...cur, ...quickCovers(list)]))
+    const got = await fetchCovers(list)
     setCovers((cur) => new Map([...cur, ...got]))
   }, [])
 
@@ -70,11 +74,19 @@ export function useBrowse(token: string, active = true) {
             if (!page.hasNext || all.length >= MAX_FOR_SCORE) break
             after = page.endCursor
           }
-          setProgress(`AniList の平均点を集めています（${all.length}作品）`)
-          const got = await fetchScores(all.map(malIdOf).filter((n): n is number => n !== null))
+          // Annict の満足度が無い作品だけ、Shikimori の点数を取る
+          const lacking = all.filter((w) => !(typeof w.satisfactionRate === 'number' && w.satisfactionRate > 0)).map(malIdOf).filter((n): n is number => n !== null)
+          setProgress(`Shikimori の点数を集めています（${all.length}作品）`)
+          const media = lacking.length > 0 ? await fetchMedia(lacking) : new Map()
           if (cancelled) return
+          const shikimori = new Map<number, number | null>([...media].map(([id, m]) => [id, m.score]))
+          const got = new Map<number, BrowseScore>()
+          for (const w of all) {
+            const sc = scoreOf(w, shikimori)
+            if (sc) got.set(w.annictId, sc)
+          }
           setScores((cur) => new Map([...cur, ...got]))
-          setWorks(sortByScore(all, got))
+          setWorks(sortByScore(all, shikimori))
           setCursor({ endCursor: null, hasNext: false })
           setProgress(null)
           await addCovers(all)

@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import type { AniMedia } from '../../lib/anilist'
+import type { Media } from '../../lib/shikimori'
 import { collectPool, type Seed } from '../match/taste'
 import { orderByScore, scoreWanna } from './wannaRank'
 
-function media(idMal: number, extra: Partial<AniMedia> = {}): AniMedia {
+function media(idMal: number, extra: Partial<Media> = {}): Media {
   return {
-    id: idMal + 100000,
     idMal,
     title: { native: `作品${idMal}`, romaji: null, english: null },
     format: 'TV',
@@ -13,11 +12,12 @@ function media(idMal: number, extra: Partial<AniMedia> = {}): AniMedia {
     isAdult: false,
     seasonYear: 2020,
     genres: [],
-    tags: [],
+    themes: [],
+    demographics: [],
     studios: [],
     cover: null,
+    score: null,
     prequels: [],
-    recommendations: [],
     ...extra,
   }
 }
@@ -29,8 +29,8 @@ const profile = new Map([
 ])
 
 describe('scoreWanna', () => {
-  // 好きな作品 1 が 10 だけを推薦している。11 は推薦に無い。12 は続編（前作は未視聴）、13 は成人向け、14 は劇場版
-  const seedMedia = new Map([[1, media(1, { recommendations: [{ idMal: 10, rating: 50 }, { idMal: 12, rating: 40 }] })]])
+  // 好きな作品 1 に似た作品は 10 と 12 だけ。11 は似た作品に無い。12 は続編（前作は未視聴）、13 は成人向け、14 は劇場版
+  const similar = new Map([[1, [10, 12]]])
   const details = new Map([
     [10, media(10, { genres: ['Music'] })],
     [11, media(11, { genres: ['Music'] })],
@@ -38,21 +38,21 @@ describe('scoreWanna', () => {
     [13, media(13, { isAdult: true, genres: ['Music'] })],
     [14, media(14, { format: 'MOVIE', genres: ['Music'] })],
   ])
-  const pool = collectPool([seed], seedMedia, new Set())
+  const pool = collectPool([seed], similar, new Set())
 
   it('scores every wanna work that has data, without dropping sequels, adult works or other formats', () => {
     const scores = scoreWanna([10, 11, 12, 13, 14, 15], details, pool, profile)
     expect([...scores.keys()].sort((a, b) => a - b)).toEqual([10, 11, 12, 13, 14])
   })
 
-  it('uses the same formula as the matching: recommendation strength plus 0.6 of the content match', () => {
+  it('uses the same formula as the matching: similarity strength plus 0.6 of the content match', () => {
     const scores = scoreWanna([10, 11], details, pool, profile)
-    // 10 は推薦の強さも中身も最大 → 1 + 0.6。11 は推薦が無い（0）ので中身の分だけ
+    // 10 は似ている度合いも中身も最大 → 1 + 0.6。11 は似た作品の一覧に無い（0）ので中身の分だけ
     expect(scores.get(10)!.score).toBeCloseTo(1.6, 5)
     expect(scores.get(11)!.score).toBeCloseTo(0.6, 5)
   })
 
-  it('a disliked genre pulls the score down even when the work is recommended', () => {
+  it('a disliked genre pulls the score down even when the work is among the similar ones', () => {
     const scores = scoreWanna([10, 12], details, pool, profile)
     expect(scores.get(12)!.score).toBeLessThan(scores.get(11)?.score ?? 0.6)
     expect(scores.get(10)!.score).toBeGreaterThan(scores.get(12)!.score)
@@ -66,8 +66,8 @@ describe('scoreWanna', () => {
     expect(none.get(11)!.reason).toBeNull()
   })
 
-  it('only counts recommendations for the wanna works themselves', () => {
-    // 推薦に 10 と 12 があるが、見たいのは 11 だけ
+  it('only counts the similar-work list for the wanna works themselves', () => {
+    // 似た作品に 10 と 12 があるが、見たいのは 11 だけ
     const scores = scoreWanna([11], details, pool, profile)
     expect([...scores.keys()]).toEqual([11])
     expect(scores.get(11)!.score).toBeCloseTo(0.6, 5)

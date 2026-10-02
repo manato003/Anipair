@@ -17,7 +17,7 @@ const entry = (annictId: number, state: LibraryEntry['state'], stateAt: string):
 })
 const row = (e: LibraryEntry): RecordRow => ({ entry: e, review: null, cover: null })
 
-// 見たいは新しい順に 1（新）→ 2 → 3（古）。3 は AniList に情報が無い
+// 見たいは新しい順に 1（新）→ 2 → 3（古）。3 は Shikimori に情報が無い
 const rows = [
   row(entry(1, 'WANNA_WATCH', '2026-09-03T00:00:00Z')),
   row(entry(2, 'WANNA_WATCH', '2026-09-02T00:00:00Z')),
@@ -47,6 +47,8 @@ const taste: Taste = {
   seeds: [{ malId: 104, title: '好き', weight: 2 }],
   topSeeds: [],
   seedMedia: new Map(),
+  similarSeeds: [],
+  similar: new Map(),
   profile: new Map([
     ['g:Fantasy', 0.9],
     ['t:Isekai', 0.5],

@@ -2,32 +2,6 @@ import type { StatusState } from '../../lib/annict'
 
 // ブラウズの詳細画面で使う純粋な関数
 
-const ENTITIES: Record<string, string> = {
-  '&amp;': '&',
-  '&quot;': '"',
-  '&#039;': "'",
-  '&apos;': "'",
-  '&lt;': '<',
-  '&gt;': '>',
-  '&mdash;': '—',
-  '&ndash;': '–',
-  '&hellip;': '…',
-  '&nbsp;': ' ',
-}
-
-// AniList のあらすじは asHtml: false でも <br> や <i> が混ざる。タグを外して段落だけ残す（表示は React が文字として出す）
-export function cleanDescription(text: string | null | undefined): string {
-  if (!text) return ''
-  return text
-    // <br> の直後に改行文字が続くことが多い。合わせて1回の改行にする
-    .replace(/<br\s*\/?>\n?/gi, '\n')
-    .replace(/<[^>]*>/g, '')
-    .replace(/&[a-z#0-9]+;/gi, (e) => ENTITIES[e.toLowerCase()] ?? e)
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
-}
-
 // 「その他」を除き、同じ役職をまとめる。並びは Annict の並び順のまま
 export function mainStaff(staffs: { role: string; name: string }[], limit = 10): { role: string; names: string[] }[] {
   const out: { role: string; names: string[] }[] = []

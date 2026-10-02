@@ -1,4 +1,4 @@
-import type { AniMedia } from '../../lib/anilist'
+import type { Media } from '../../lib/shikimori'
 import { contentScore, explain, type PoolEntry } from '../match/taste'
 
 // 見たい作品を好みの順に並べる（純粋な関数）。マッチングの rankCandidates と同じ式だが、
@@ -10,11 +10,11 @@ export interface WannaScore {
   reason: string | null
 }
 
-// malIds: 見たい作品の MyAnimeList ID。pool: 好きな作品からの推薦（collectPool で、除外なしで集めたもの）。
-// 戻り値は AniList の情報が取れた作品だけ。推薦に無い作品の推薦の強さは 0
+// malIds: 見たい作品の MyAnimeList ID。pool: 好きな作品に似た作品（collectPool で、除外なしで集めたもの）。
+// 戻り値は Shikimori の情報が取れた作品だけ。似た作品の一覧に無い作品の「似ている度合い」は 0
 export function scoreWanna(
   malIds: readonly number[],
-  details: ReadonlyMap<number, AniMedia>,
+  details: ReadonlyMap<number, Media>,
   pool: readonly PoolEntry[],
   profile: ReadonlyMap<string, number>,
 ): Map<number, WannaScore> {
@@ -35,7 +35,7 @@ export function scoreWanna(
   )
 }
 
-// 点数の高い順に並べる。点数の無い作品（MAL の ID が無い・AniList に情報が無い）は、もとの順のまま最後に置く
+// 点数の高い順に並べる。点数の無い作品（MAL の ID が無い・Shikimori に情報が無い）は、もとの順のまま最後に置く
 export function orderByScore<T>(items: readonly T[], malIdOf: (item: T) => number | null, scores: ReadonlyMap<number, WannaScore>): T[] {
   const scored: { item: T; score: number; i: number }[] = []
   const rest: T[] = []

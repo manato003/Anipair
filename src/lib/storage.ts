@@ -10,7 +10,10 @@ const KEYS = {
   // 旧: 「見てない」の作品 ID の配列。いまは unseen に移した（読んで移したら消す）
   skipped: 'animax.backfill.skipped',
   unseen: 'animax.backfill.unseen',
-  covers: 'animax.covers.v1',
+  // 旧: 前の版の表紙の控え（animax.covers.v1。別の出どころの画像で、形も違う）。新しい鍵（v2）に切り替えて、旧い方は clearLegacyCovers で消す
+  legacyCovers: 'animax.covers.v1',
+  covers: 'animax.covers.v2',
+  similar: 'animax.similar.v1',
   githubToken: 'animax.githubToken',
   githubRepo: 'animax.githubRepo',
   passes: 'animax.passes',
@@ -161,30 +164,78 @@ export function clearLegacySkipped(): void {
   write(KEYS.skipped, null)
 }
 
+// 表紙。url は大きく出す画像（評価・マッチングのカードと詳細）、thumb は一覧の小さい画像。
+// landscape は Annict の API の画像（公式サイトの横長の画像）で、縦長の枠では中央を切り取って出す（詳細だけは切らずに出す）
 export interface Cover {
   url: string
-  color: string | null
+  thumb: string
+  landscape: boolean
 }
 
-export function parseCovers(value: unknown): Map<number, Cover> {
-  const out = new Map<number, Cover>()
+// Shikimori のポスター（MyAnimeList の ID ごと）。o は大きい画像（約 700×1000）、m は小さい画像（225×318）
+export interface Poster {
+  o: string
+  m: string
+}
+
+const isHttps = (v: unknown): v is string => typeof v === 'string' && /^https:\/\//.test(v)
+
+export function parsePosters(value: unknown): Map<number, Poster> {
+  const out = new Map<number, Poster>()
   if (!value || typeof value !== 'object' || Array.isArray(value)) return out
   for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
     const id = Number(k)
-    if (!Number.isInteger(id) || !v || typeof v !== 'object') continue
-    const { url, color } = v as Record<string, unknown>
-    if (typeof url !== 'string' || !/^https:\/\//.test(url)) continue
-    out.set(id, { url, color: typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color) ? color : null })
+    if (!Number.isInteger(id) || id <= 0 || !v || typeof v !== 'object') continue
+    const { o, m } = v as Record<string, unknown>
+    if (isHttps(o) && isHttps(m)) out.set(id, { o, m })
   }
   return out
 }
 
-export function loadCovers(): Map<number, Cover> {
-  return parseCovers(readJson(KEYS.covers))
+export function loadPosters(): Map<number, Poster> {
+  return parsePosters(readJson(KEYS.covers))
 }
 
-export function saveCovers(covers: Map<number, Cover>): void {
-  write(KEYS.covers, JSON.stringify(Object.fromEntries(covers)))
+export function savePosters(posters: Map<number, Poster>): void {
+  write(KEYS.covers, JSON.stringify(Object.fromEntries(posters)))
+}
+
+// 前の版は表紙を animax.covers.v1 に控えていた。使わないので消す（いつ呼んでも害は無い）
+export function clearLegacyCovers(): void {
+  write(KEYS.legacyCovers, null)
+}
+
+// 似た作品の一覧の控え（MyAnimeList の ID ごと。at は取った時刻のミリ秒）。作品どうしの関係はほとんど変わらないので長く使い回す
+export const SIMILAR_TTL_MS = 30 * 24 * 60 * 60 * 1000
+const SIMILAR_MAX_ENTRIES = 500
+
+export interface SimilarEntry {
+  at: number
+  ids: number[]
+}
+
+// 形の壊れたもの・期限の切れたものは捨てる。多すぎるときは古いものから捨てる
+export function parseSimilar(value: unknown, now: number): Map<number, SimilarEntry> {
+  const out = new Map<number, SimilarEntry>()
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return out
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    const id = Number(k)
+    if (!Number.isInteger(id) || id <= 0 || !v || typeof v !== 'object') continue
+    const { at, ids } = v as Record<string, unknown>
+    if (typeof at !== 'number' || !Number.isFinite(at) || now - at >= SIMILAR_TTL_MS || at > now + 60_000) continue
+    if (!Array.isArray(ids) || !ids.every((n) => Number.isInteger(n) && n > 0)) continue
+    out.set(id, { at, ids: ids as number[] })
+  }
+  if (out.size <= SIMILAR_MAX_ENTRIES) return out
+  return new Map([...out].sort((a, b) => b[1].at - a[1].at).slice(0, SIMILAR_MAX_ENTRIES))
+}
+
+export function loadSimilar(now: number = Date.now()): Map<number, SimilarEntry> {
+  return parseSimilar(readJson(KEYS.similar), now)
+}
+
+export function saveSimilar(entries: Map<number, SimilarEntry>): void {
+  write(KEYS.similar, JSON.stringify(Object.fromEntries(entries)))
 }
 
 // 「Annict でログイン」の state（なりすましの確認用）。ログイン画面へ行って戻ってくるまでの間だけ、そのタブの sessionStorage に置く

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { fetchCovers } from '../../lib/anilist'
+import { fetchCovers } from '../../lib/covers'
 import { fetchLibrary, updateStatus, type RatingState, type StatusState } from '../../lib/annict'
 import { getMyReviews, rememberReview } from '../../lib/myReviews'
 import { changeRating } from '../../lib/reviewOps'
 import { messageOf, useWriteQueue } from '../../lib/useWriteQueue'
-import { pickWatching, toWatchCards, watchMalIds, type WatchAnswer, type WatchCard } from './watching'
+import { pickWatching, toWatchCards, type WatchAnswer, type WatchCard } from './watching'
 
 interface UndoEntry {
   card: WatchCard
@@ -42,7 +42,7 @@ export function useWatching(token: string) {
 
   const load = useCallback(async (): Promise<WatchCard[]> => {
     const entries = pickWatching(await fetchLibrary(token))
-    const covers = await fetchCovers(watchMalIds(entries))
+    const covers = await fetchCovers(entries)
     return toWatchCards(entries, covers)
   }, [token])
 

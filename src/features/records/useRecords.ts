@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { fetchCovers } from '../../lib/anilist'
+import { fetchCovers, quickCovers } from '../../lib/covers'
 import { fetchLibrary, updateStatus, type RatingState, type StatusState } from '../../lib/annict'
 import { forgetMyReviews, getMyReviews, rememberReview } from '../../lib/myReviews'
 import { blankReview, changeRating } from '../../lib/reviewOps'
 import type { Cover } from '../../lib/storage'
 import { hasPendingWrites, messageOf, useWriteQueue } from '../../lib/useWriteQueue'
-import { malIdOf } from '../match/taste'
 import type { RecordRow } from './recordList'
 
 // ライブラリと自分の感想を読む。感想はブラウズの詳細と共有の控え（myReviews.ts）に読み直して入れる。
@@ -20,11 +19,9 @@ async function fetchRecords(token: string) {
 type Fetched = Awaited<ReturnType<typeof fetchRecords>>
 
 // covers を渡さなければ表紙は空（後から埋める）
+// covers は Annict の作品 ID ごとの表紙
 function toRows({ library, myReviews }: Fetched, covers?: Map<number, Cover>): RecordRow[] {
-  return library.map((entry) => {
-    const id = malIdOf(entry)
-    return { entry, review: myReviews.get(entry.annictId) ?? null, cover: (covers && id && covers.get(id)) || null }
-  })
+  return library.map((entry) => ({ entry, review: myReviews.get(entry.annictId) ?? null, cover: covers?.get(entry.annictId) ?? null }))
 }
 
 // active: 画面が表示されているか。隠れているだけで残っているとき、再び表示されたら裏で読み直す
@@ -42,17 +39,11 @@ export function useRecords(token: string, active = true) {
       try {
         const fetched = await fetchRecords(token)
         if (cancelled) return
-        setRows(toRows(fetched))
-        // 表紙は後から埋める（件数が多いと AniList の呼び出しに時間がかかるため）
-        const ids = fetched.library.map(malIdOf).filter((n): n is number => n !== null)
-        const covers = await fetchCovers(ids)
+        // Annict の画像はもう手元にあるので先に出し、Shikimori のポスターは後から埋める（件数が多いと問い合わせに時間がかかるため）
+        setRows(toRows(fetched, quickCovers(fetched.library)))
+        const covers = await fetchCovers(fetched.library)
         if (cancelled) return
-        setRows((cur) =>
-          (cur ?? []).map((r) => {
-            const id = malIdOf(r.entry)
-            return { ...r, cover: (id && covers.get(id)) || null }
-          }),
-        )
+        setRows((cur) => (cur ?? []).map((r) => ({ ...r, cover: covers.get(r.entry.annictId) ?? null })))
         // 表紙まで揃ってから。途中で裏の読み直しが走ると、後から来た表紙で上書きされてしまう
         loaded.current = true
       } catch (e) {
@@ -74,7 +65,7 @@ export function useRecords(token: string, active = true) {
       try {
         const fetched = await fetchRecords(token)
         // 表紙は端末に控えがあるので、置き換えの時点で表紙が消えないように先に取る
-        const covers = await fetchCovers(fetched.library.map(malIdOf).filter((n): n is number => n !== null))
+        const covers = await fetchCovers(fetched.library)
         if (cancelled || hasPendingWrites()) return
         setRows(toRows(fetched, covers))
       } catch {

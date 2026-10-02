@@ -41,8 +41,10 @@ vi.mock('../../lib/annict', async (orig) => ({
   deleteReview: vi.fn(async (_t: string, id: string) => void calls.push(`delete ${id}`)),
   updateReview: vi.fn(async (_t: string, id: string, r: string) => void calls.push(`update ${id} ${r}`)),
 }))
-vi.mock('../../lib/anilist', () => ({
-  fetchCovers: vi.fn(async () => new Map([[101, { url: 'https://img.example/101.jpg', color: null }]])),
+// 表紙は Annict の作品 ID ごと。作品 1 だけに付く
+vi.mock('../../lib/covers', async (orig) => ({
+  ...(await orig<typeof import('../../lib/covers')>()),
+  fetchCovers: vi.fn(async () => new Map([[1, { url: 'https://img.example/101.jpg', thumb: 'https://img.example/101-s.jpg', landscape: false }]])),
 }))
 vi.mock('../../lib/myReviews', () => ({
   getMyReviews: vi.fn(async () => cache),

@@ -348,10 +348,12 @@ describe('Settings about block', () => {
     const text = screen.getByRole('heading', { name: 'このアプリについて' }).parentElement!.textContent!
     expect(text).toContain('Annict の非公式の個人開発アプリ')
     expect(text).toContain('運営のサーバーはありません')
-    expect(text).toContain('ログインの受け渡しをする関数が1つあるだけで、何も保存しません')
-    expect(text).toContain('通信先は Annict と AniList です。GitHub とつないだ場合だけ、GitHub にも送ります')
+    expect(text).toContain('ログインの受け渡しと Shikimori への中継をする関数があるだけで、利用者の情報は何も保存しません')
+    expect(text).toContain('通信先は Annict と、作品データの Shikimori（このサイトの中継を通します）です。GitHub とつないだ場合だけ、GitHub にも送ります')
     expect(text).toContain('トークンはこの端末の中にだけ保存します')
-    expect(text).toContain('表紙の画像は AniList から表示しています。権利は各権利者にあります')
+    expect(text).toContain('Shikimori のポスターを表示しています。権利は各権利者にあります')
+    expect(text).toContain('作品データの一部（ジャンル・似た作品・一部の表紙）: Shikimori')
+    expect((screen.getByRole('link', { name: 'Shikimori' }) as HTMLAnchorElement).href).toBe('https://shikimori.io/')
     expect(text).toContain('引用元を付けて表示しています')
   })
 

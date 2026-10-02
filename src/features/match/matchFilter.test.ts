@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import type { AniMedia } from '../../lib/anilist'
+import type { Media } from '../../lib/shikimori'
 import { DEFAULT_FILTER, isDefaultFilter, matchesFilter, parseMatchFilter, type MatchFilter } from './matchFilter'
 import { rankCandidates } from './taste'
 
-function media(idMal: number, extra: Partial<AniMedia> = {}): AniMedia {
+function media(idMal: number, extra: Partial<Media> = {}): Media {
   return {
-    id: idMal + 100000,
     idMal,
     title: { native: `作品${idMal}`, romaji: null, english: null },
     format: 'TV',
@@ -13,11 +12,12 @@ function media(idMal: number, extra: Partial<AniMedia> = {}): AniMedia {
     isAdult: false,
     seasonYear: 2020,
     genres: [],
-    tags: [],
+    themes: [],
+    demographics: [],
     studios: [],
     cover: null,
+    score: null,
     prequels: [],
-    recommendations: [],
     ...extra,
   }
 }
@@ -48,8 +48,8 @@ describe('parseMatchFilter', () => {
 describe('matchesFilter', () => {
   const only = (formats: MatchFilter['formats']): MatchFilter => ({ formats, fromYear: null })
 
-  it('groups TV_SHORT with TV, and OVA with ONA', () => {
-    expect(matchesFilter({ format: 'TV_SHORT', seasonYear: 2020 }, only(['tv']))).toBe(true)
+  it('puts TV in the TV group, and OVA with ONA', () => {
+    expect(matchesFilter({ format: 'TV', seasonYear: 2020 }, only(['tv']))).toBe(true)
     expect(matchesFilter({ format: 'MOVIE', seasonYear: 2020 }, only(['tv']))).toBe(false)
     expect(matchesFilter({ format: 'ONA', seasonYear: 2020 }, only(['ova']))).toBe(true)
     expect(matchesFilter({ format: 'OVA', seasonYear: 2020 }, only(['ova']))).toBe(true)

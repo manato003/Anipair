@@ -1,0 +1,214 @@
+import { createThrottle } from './throttle'
+import { loadSimilar, saveSimilar, type Cover, type SimilarEntry } from './storage'
+
+// 作品データの出どころ（いまは Shikimori）。この1ファイルと、サーバー側の api/shiki.ts だけが出どころを知っていて、
+// ほかは下の WorkDataProvider の3つ（fetchMedia = 作品の情報、fetchSimilar = 似た作品、fetchRelated = 関連作品）だけを使う。
+// 公式の MyAnimeList API などに切り替えるときは、この2つを差し替える。
+//
+// Shikimori（https://shikimori.io/）の作品データ。Annict に無いものだけをここから取る:
+// ジャンル・テーマ・制作会社・前作・点数・ポスター・「似た作品」。Shikimori の ID は MyAnimeList の ID と同じ。
+// 直接ではなく、自分のサイトの中継（api/shiki.ts）を通す。Shikimori の決まり（User-Agent にアプリ名を入れる）を守るためと、
+// CDN の控えで同じ作品の問い合わせを全利用者で1回にするため
+const ENDPOINT = '/api/shiki'
+
+// Shikimori は 1秒5回・1分90回まで。中継の先で守りきれないので、こちらでも約1.4回/秒に抑える
+export const SHIKI_INTERVAL_MS = 700
+const schedule = createThrottle(SHIKI_INTERVAL_MS)
+
+const BATCH = 50
+
+export interface MediaTitle {
+  native: string | null
+  romaji: string | null
+  english: string | null
+}
+
+// 作品の情報（マッチング・見たいのおすすめ順・傾向・詳細のジャンル・表紙・評価順が使う）
+export interface Media {
+  idMal: number
+  title: MediaTitle
+  // TV / MOVIE / OVA / ONA / TV_SPECIAL / SPECIAL / MUSIC / PV / CM。分からなければ null
+  format: string | null
+  // NOT_YET_RELEASED / RELEASING / FINISHED。分からなければ null
+  status: string | null
+  isAdult: boolean
+  seasonYear: number | null
+  // MyAnimeList と同じ分類。ジャンル・テーマ・対象層（少年向けなど）。関連度の数値は無い
+  genres: string[]
+  themes: string[]
+  demographics: string[]
+  // 制作会社
+  studios: string[]
+  cover: Cover | null
+  // Shikimori の点数（10点満点）。点数の無い作品は null
+  score: number | null
+  // 前作（MyAnimeList の ID）
+  prequels: number[]
+}
+
+// 中継が返す、画面が使う項目だけの形（api/shiki.ts の trim と同じ）
+interface RawAnime {
+  id: number
+  name: string | null
+  japanese: string | null
+  english: string | null
+  kind: string | null
+  rating: string | null
+  status: string | null
+  score: number | null
+  year: number | null
+  poster: { o: string; m: string } | null
+  genres: { n: string; k: string }[]
+  studios: string[]
+  prequels: number[]
+}
+
+const FORMATS: Record<string, string> = {
+  tv: 'TV',
+  movie: 'MOVIE',
+  ova: 'OVA',
+  ona: 'ONA',
+  tv_special: 'TV_SPECIAL',
+  special: 'SPECIAL',
+  music: 'MUSIC',
+  pv: 'PV',
+  cm: 'CM',
+}
+
+const STATUSES: Record<string, string> = { released: 'FINISHED', ongoing: 'RELEASING', anons: 'NOT_YET_RELEASED' }
+
+// 成人向け: Shikimori の年齢区分が rx（ヘンタイ）か、ジャンルが Hentai / Erotica。
+// r_plus（軽い裸の表現。お色気のある一般の作品も多い）は成人向けとしない。前の版（成人向けの旗だけを見ていた）と同じ扱い
+const ADULT_GENRES = new Set(['Hentai', 'Erotica'])
+
+export function normalize(raw: RawAnime): Media | null {
+  if (!raw || !Number.isInteger(raw.id) || raw.id <= 0) return null
+  const genres = Array.isArray(raw.genres) ? raw.genres : []
+  const names = (kind: string) => genres.filter((g) => g.k === kind).map((g) => g.n)
+  const poster = raw.poster
+  return {
+    idMal: raw.id,
+    title: { native: raw.japanese ?? null, romaji: raw.name ?? null, english: raw.english ?? null },
+    format: raw.kind ? (FORMATS[raw.kind] ?? null) : null,
+    status: raw.status ? (STATUSES[raw.status] ?? null) : null,
+    isAdult: raw.rating === 'rx' || genres.some((g) => ADULT_GENRES.has(g.n)),
+    seasonYear: raw.year ?? null,
+    genres: names('genre'),
+    themes: names('theme'),
+    demographics: names('demographic'),
+    studios: Array.isArray(raw.studios) ? raw.studios : [],
+    cover: poster ? { url: poster.o, thumb: poster.m, landscape: false } : null,
+    score: typeof raw.score === 'number' && raw.score > 0 ? raw.score : null,
+    prequels: Array.isArray(raw.prequels) ? raw.prequels : [],
+  }
+}
+
+export function shikimoriUrl(malId: number): string {
+  return `https://shikimori.io/animes/${malId}`
+}
+
+async function call(query: string): Promise<unknown> {
+  return schedule(async () => {
+    let res: Response
+    try {
+      res = await fetch(`${ENDPOINT}?${query}`)
+    } catch {
+      throw new Error('Shikimori に接続できませんでした。通信を確認してください')
+    }
+    if (res.status === 429) throw new Error('Shikimori の利用制限に達しました。1分ほど待ってからもう一度試してください')
+    let body: unknown
+    try {
+      body = await res.json()
+    } catch {
+      // 中継が無い（関数の動かない環境）と、JSON でない 404 が返る
+      throw new Error('Shikimori への中継が動いていません。ローカルでは npm run dev か vercel dev で起動してください')
+    }
+    if (!res.ok) {
+      const code = body && typeof body === 'object' ? (body as { error?: unknown }).error : null
+      throw new Error(`Shikimori から読めませんでした（${typeof code === 'string' ? code : `HTTP ${res.status}`}）`)
+    }
+    return body
+  })
+}
+
+// 1回の起動の中では取り直さない。null は「問い合わせたが返ってこなかった」（何度も問い合わせない）
+const mediaCache = new Map<number, Media | null>()
+
+// 取り込み済みの作品の情報（問い合わせない）。無ければ undefined
+export function peekMedia(malId: number): Media | null | undefined {
+  return mediaCache.get(malId)
+}
+
+// MyAnimeList の ID から作品の情報を引く。50件ずつまとめて1回の問い合わせにする。
+// 失敗したら例外（呼び出し側が、使えるところまで使うか止めるかを決める）
+export async function fetchMedia(malIds: readonly number[]): Promise<Map<number, Media>> {
+  const missing = [...new Set(malIds)].filter((id) => Number.isInteger(id) && id > 0 && !mediaCache.has(id)).sort((a, b) => a - b)
+  for (let i = 0; i < missing.length; i += BATCH) {
+    const chunk = missing.slice(i, i + BATCH)
+    const body = (await call(`op=animes&ids=${chunk.join(',')}`)) as { animes?: RawAnime[] }
+    if (!body || !Array.isArray(body.animes)) throw new Error('Shikimori の応答を読めませんでした')
+    for (const id of chunk) mediaCache.set(id, null)
+    for (const raw of body.animes) {
+      const m = normalize(raw)
+      if (m) mediaCache.set(m.idMal, m)
+    }
+  }
+  const out = new Map<number, Media>()
+  for (const id of malIds) {
+    const m = mediaCache.get(id)
+    if (m) out.set(id, m)
+  }
+  return out
+}
+
+// 似た作品の一覧（似ている順の MyAnimeList の ID）。端末に30日、起動中はメモリに控える
+let similarStore: Map<number, SimilarEntry> | null = null
+
+function store(): Map<number, SimilarEntry> {
+  return (similarStore ??= loadSimilar())
+}
+
+export async function fetchSimilar(malId: number): Promise<number[]> {
+  const hit = store().get(malId)
+  if (hit) return hit.ids
+  const body = (await call(`op=similar&id=${malId}`)) as { ids?: unknown }
+  if (!body || !Array.isArray(body.ids) || !body.ids.every((n) => Number.isInteger(n) && n > 0)) throw new Error('Shikimori の応答を読めませんでした')
+  const ids = body.ids as number[]
+  store().set(malId, { at: Date.now(), ids })
+  saveSimilar(store())
+  return ids
+}
+
+// 複数の作品の似た作品を順に集める（1作品ずつ並べて問い合わせるので、初めてのときは時間がかかる）。
+// 1つ失敗したらそこで止めて例外にする（端末に控えた分は次に使える）
+export async function fetchSimilarMany(malIds: readonly number[], onProgress?: (done: number, total: number) => void): Promise<Map<number, number[]>> {
+  const out = new Map<number, number[]>()
+  const unique = [...new Set(malIds)]
+  let done = 0
+  for (const id of unique) {
+    out.set(id, await fetchSimilar(id))
+    onProgress?.(++done, unique.length)
+  }
+  return out
+}
+
+// テスト用: 起動中の控えを捨てる
+export function resetShikimoriMemory(): void {
+  mediaCache.clear()
+  similarStore = null
+}
+
+// 関連作品（いまは前作だけ）。作品の情報の問い合わせに含まれているので、追加の通信は要らない
+export async function fetchRelated(malId: number): Promise<{ prequels: number[] }> {
+  const m = (await fetchMedia([malId])).get(malId)
+  return { prequels: m?.prequels ?? [] }
+}
+
+// 出どころを差し替えるときの境目。返すのは、この画面の側の正規化した型（Media・MyAnimeList の ID）だけ
+export interface WorkDataProvider {
+  fetchMedia: (malIds: readonly number[]) => Promise<Map<number, Media>>
+  fetchSimilar: (malId: number) => Promise<number[]>
+  fetchRelated: (malId: number) => Promise<{ prequels: number[] }>
+}
+
+export const workData: WorkDataProvider = { fetchMedia, fetchSimilar, fetchRelated }

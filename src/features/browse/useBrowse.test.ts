@@ -33,10 +33,10 @@ vi.mock('../../lib/annict', async (orig) => ({
     return pages[after ?? 'first']
   }),
 }))
-vi.mock('../../lib/anilist', () => ({
-  fetchCovers: vi.fn(async () => new Map()),
-  // 視聴者の少ない 3 が一番高い
-  fetchScores: vi.fn(async (ids: number[]) => new Map(ids.map((id) => [id, id === 103 ? 95 : id === 101 ? 70 : null]))),
+vi.mock('../../lib/covers', async (orig) => ({ ...(await orig<typeof import('../../lib/covers')>()), fetchCovers: vi.fn(async () => new Map()) }))
+// 視聴者の少ない 3 の Shikimori の点数が一番高い（9.5 → 95）。1 は 7.0。2 は点数なし
+vi.mock('../../lib/shikimori', () => ({
+  fetchMedia: vi.fn(async (ids: number[]) => new Map(ids.map((id) => [id, { idMal: id, score: id === 103 ? 9.5 : id === 101 ? 7 : null }]))),
 }))
 vi.mock('../../lib/myReviews', () => ({ getMyReviews: vi.fn(async () => new Map()) }))
 
@@ -60,7 +60,7 @@ describe('useBrowse sorting', () => {
     expect(calls).toEqual([{ filter: { seasons: [expect.any(String)] }, after: null, first: 30, order: 'WATCHERS_COUNT' }])
   })
 
-  it('score: collects every page first, then orders by AniList score with unscored last', async () => {
+  it('score: collects every page first, then orders by Annict satisfaction, else the Shikimori score, with unscored last', async () => {
     const hook = await setup()
     calls.length = 0
     act(() => hook.result.current.setSort('score'))
@@ -71,7 +71,7 @@ describe('useBrowse sorting', () => {
       [null, 50],
       ['c1', 50],
     ])
-    expect(hook.result.current.scores.get(103)).toBe(95)
+    expect(hook.result.current.scores.get(3)).toEqual({ value: 95, label: 'Shikimori 9.5' })
   })
 
   it('newest only applies while searching; the season list stays by popularity', async () => {

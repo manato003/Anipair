@@ -10,7 +10,7 @@ let reviewsPromise: Promise<Map<number, MyReview>> = Promise.resolve(new Map())
 
 vi.mock('../../lib/annict', async (orig) => ({
   ...(await orig<typeof import('../../lib/annict')>()),
-  fetchWorkDetail: vi.fn(async () => ({ ...work, titleKana: null, episodesCount: 12, officialSiteUrl: 'javascript:alert(1)', wikipediaUrl: null, twitterUsername: null, casts: [], staffs: [] })),
+  fetchWorkDetail: vi.fn(async () => ({ ...work, titleKana: null, episodesCount: 12, officialSiteUrl: 'javascript:alert(1)', wikipediaUrl: null, twitterUsername: null, copyright, casts: [], staffs: [] })),
   updateStatus: vi.fn(async (_t: string, id: string, s: string) => void calls.push(`status ${id} ${s}`)),
   createReview: vi.fn(async (_t: string, id: string, r: string) => {
     calls.push(`create ${id} ${r}`)
@@ -20,8 +20,13 @@ vi.mock('../../lib/annict', async (orig) => ({
 }))
 let synopsis: { text: string; source: string | null } | null = null
 let vods: { name: string; url: string }[] = []
-let english: { description: string | null; genres: string[] } | null = null
-vi.mock('../../lib/anilist', () => ({ fetchDescription: vi.fn(async () => english) }))
+let copyright: string | null = null
+// Shikimori はジャンルとテーマ（と Shikimori へのリンク）だけに使う。あらすじは取らない
+let shikiMedia: { genres: string[]; themes: string[] } | null = null
+vi.mock('../../lib/shikimori', async (orig) => ({
+  ...(await orig<typeof import('../../lib/shikimori')>()),
+  fetchMedia: vi.fn(async (ids: number[]) => new Map(shikiMedia ? ids.map((id) => [id, { idMal: id, ...shikiMedia }]) : [])),
+}))
 vi.mock('../../lib/annictPage', () => ({ fetchWorkPage: vi.fn(async () => ({ synopsis, vods })) }))
 vi.mock('../../lib/myReviews', () => ({
   getMyReviews: vi.fn(() => reviewsPromise),
@@ -68,8 +73,9 @@ function queue() {
 beforeEach(() => {
   calls.length = 0
   synopsis = null
+  shikiMedia = null
   vods = []
-  english = null
+  copyright = null
   vi.mocked(getMyReviews).mockClear()
   vi.mocked(rememberReview).mockClear()
   reviewsPromise = new Promise((resolve) => (releaseReviews = resolve))
@@ -115,25 +121,50 @@ describe('WorkDetail', () => {
     expect(screen.getByRole('link', { name: 'Annict' }).getAttribute('href')).toBe('https://annict.com/works/1')
   })
 
-  it("shows Annict's Japanese synopsis with its source, not AniList's English one", async () => {
+  it("shows Annict's Japanese synopsis with its source, and the genres and themes from Shikimori in Japanese", async () => {
     // 改行を含む文字列は、エスケープを使わずテンプレートリテラルに本物の改行で書く（ツール経由でエスケープが化けるため）
     const text = `勇者ヒンメルたちと共に、
 魔王を打ち倒し。`
     synopsis = { text, source: 'https://frieren-anime.jp/story/' }
-    english = { description: 'The adventure is over.', genres: ['Fantasy'] }
+    shikiMedia = { genres: ['Fantasy'], themes: ['Award Winning'] }
     render(<WorkDetail token="t" work={{ ...work, malAnimeId: '52991' }} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
     await waitFor(() => expect(screen.getByText('あらすじ')).toBeTruthy())
     expect(document.querySelector('.detail__text')?.textContent).toBe(text)
     expect(screen.getByRole('link', { name: '引用元' }).getAttribute('href')).toBe('https://frieren-anime.jp/story/')
-    expect(screen.queryByText('The adventure is over.')).toBeNull()
-    expect(screen.getByText('ファンタジー')).toBeTruthy()
+    expect(await screen.findByText('ファンタジー・受賞作')).toBeTruthy()
   })
 
-  it("falls back to AniList's English synopsis, labelled, only when Annict has none", async () => {
-    english = { description: 'The adventure is over.', genres: [] }
+  it('shows no synopsis at all when Annict has none (no English fallback)', async () => {
+    shikiMedia = { genres: [], themes: [] }
     render(<WorkDetail token="t" work={{ ...work, malAnimeId: '52991' }} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
-    await waitFor(() => expect(screen.getByText('The adventure is over.')).toBeTruthy())
-    expect(screen.getByText('あらすじ（Annict に無いため AniList の英語版）')).toBeTruthy()
+    await waitFor(() => expect(screen.getByText('2023年秋 TV 12話')).toBeTruthy())
+    expect(screen.queryByText('あらすじ')).toBeNull()
+    expect(document.querySelector('.detail__text')).toBeNull()
+  })
+
+  it('shows the copyright notice from Annict under the cover, when there is one', async () => {
+    copyright = '© 山田鐘人・アベツカサ／小学館／「葬送のフリーレン」製作委員会'
+    render(<WorkDetail token="t" work={work} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
+    expect((await screen.findByText(copyright)).className).toBe('detail__copyright')
+  })
+
+  it('links to Shikimori only when the work has a MyAnimeList id', () => {
+    const { unmount } = render(<WorkDetail token="t" work={{ ...work, malAnimeId: '52991' }} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
+    expect(screen.getByRole('link', { name: 'Shikimori で見る' }).getAttribute('href')).toBe('https://shikimori.io/animes/52991')
+    unmount()
+    render(<WorkDetail token="t" work={{ ...work, malAnimeId: null }} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
+    expect(screen.queryByRole('link', { name: 'Shikimori で見る' })).toBeNull()
+  })
+
+  it('shows a landscape (official-site) cover uncropped, and a poster as is', () => {
+    const { unmount } = render(
+      <WorkDetail token="t" work={work} cover={{ url: 'https://og.example/a.jpg', thumb: 'https://og.example/a.jpg', landscape: true }} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />,
+    )
+    expect(document.querySelector('.detail__cover--landscape img.cover--contain')).toBeTruthy()
+    unmount()
+    render(<WorkDetail token="t" work={work} cover={{ url: 'https://s.example/p.jpg', thumb: 'https://s.example/p-s.jpg', landscape: false }} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
+    expect(document.querySelector('.detail__cover--landscape')).toBeNull()
+    expect(document.querySelector('.detail__cover img')?.className).toBe('')
   })
 
   it('closes on Escape', () => {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { LibraryEntry } from '../../lib/annict'
-import { pickWatching, toWatchCards, watchMalIds } from './watching'
+import type { Cover } from '../../lib/storage'
+import { pickWatching, toWatchCards } from './watching'
 
 const entry = (annictId: number, state: LibraryEntry['state'], stateAt: string | null, malAnimeId: string | null = String(100 + annictId)): LibraryEntry => ({
   workId: `W${annictId}`,
@@ -30,10 +31,9 @@ describe('pickWatching', () => {
 })
 
 describe('covers', () => {
-  it('matches covers by MyAnimeList id and tolerates missing ids', () => {
-    const cover = { url: 'https://img.example/1.jpg', color: null }
+  it('matches covers by the Annict id and tolerates works without one', () => {
+    const cover: Cover = { url: 'https://img.example/1.jpg', thumb: 'https://img.example/1-s.jpg', landscape: true }
     const entries = [entry(1, 'WATCHING', null), entry(2, 'WATCHING', null, null)]
-    expect(toWatchCards(entries, new Map([[101, cover]])).map((c) => c.cover)).toEqual([cover, null])
-    expect(watchMalIds(entries)).toEqual([101])
+    expect(toWatchCards(entries, new Map([[1, cover]])).map((c) => c.cover)).toEqual([cover, null])
   })
 })

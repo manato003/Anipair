@@ -7,7 +7,6 @@
   --line-strong: #4b5385;
   --paper: #eeeaf6;
   --muted: #9a9dbd;
-  --sakura: #ff9ec0;
 
   --r-bad: #8e97b8;
   --r-average: #d9c48f;
@@ -232,7 +231,8 @@ kbd {
 /* ── 評価（さかのぼり） ── */
 
 .rate {
-  --cover-tint: var(--sakura);
+  /* 表紙の周りのにじみの色。表紙から色を取らなくなったので、ブランドの色で固定 */
+  --cover-tint: var(--brand-lavender);
   position: relative;
   display: grid;
   grid-template-rows: auto auto 1fr auto;
@@ -242,7 +242,7 @@ kbd {
   padding: 12px 16px 12px;
 }
 
-/* 表紙の色を画面全体ににじませる。この画面で唯一の飾り */
+/* 表紙を画面全体ににじませる。この画面で唯一の飾り */
 .rate__backdrop {
   position: fixed;
   inset: -10%;
@@ -1226,6 +1226,32 @@ kbd {
   object-fit: cover;
 }
 
+/* Annict の画像は公式サイトの横長のもの。詳細では切らずに、そのままの比率で出す */
+.detail__head:has(.detail__cover--landscape) {
+  grid-template-columns: 176px 1fr;
+}
+
+.detail__cover--landscape {
+  aspect-ratio: auto;
+  background: none;
+}
+
+.detail__cover--landscape img {
+  height: auto;
+}
+
+/* 横長の画像は切らない（クレジットが切れるため）。余白は枠の地の色 */
+img.cover--contain {
+  object-fit: contain;
+}
+
+.detail__copyright {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.4;
+}
+
 .detail__titles {
   display: grid;
   gap: 4px;
@@ -1661,7 +1687,7 @@ kbd {
 
   /* 評価・マッチング: 左に表紙、右に操作。表紙は画面の高さに収まる大きさ（幅の足りないときは幅で抑える） */
   .rate {
-    --cover-h: min(calc(100dvh - var(--topbar) - 56px), 900px, calc((100vw - 580px) * 1.5));
+    --cover-h: min(calc(100dvh - var(--topbar) - 56px), 480px, calc((100vw - 580px) * 1.5));
     display: grid;
     grid-template-columns: calc(var(--cover-h) * 2 / 3) 460px;
     grid-template-rows: auto auto 1fr auto;
@@ -1957,6 +1983,10 @@ kbd {
   .detail__head {
     grid-template-columns: 220px 1fr;
     gap: 24px;
+  }
+
+  .detail__head:has(.detail__cover--landscape) {
+    grid-template-columns: 300px 1fr;
   }
 
   .detail__title {

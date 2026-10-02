@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { CoverImage } from '../../components/CoverImage'
 import { Empty } from '../../components/Empty'
 import { SaveStatus } from '../../components/SaveStatus'
 import type { RatingState, StatusState } from '../../lib/annict'
@@ -187,7 +188,7 @@ function RecordItem(props: {
   return (
     <li className="row">
       <button type="button" className="row__thumb" onClick={props.onOpen} tabIndex={-1} aria-hidden>
-        {cover && <img src={cover.url} alt="" loading="lazy" />}
+        {cover && <CoverImage cover={cover} size="thumb" lazy />}
       </button>
       <div className="row__body">
         <button type="button" className="row__open" onClick={props.onOpen} aria-label={`${entry.title}の詳細`}>

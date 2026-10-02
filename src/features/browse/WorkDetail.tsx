@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
+import { CoverImage } from '../../components/CoverImage'
 import { Sheet } from '../../components/Sheet'
-import { fetchDescription } from '../../lib/anilist'
 import { fetchWorkPage, type WorkPage } from '../../lib/annictPage'
 import { annictWorkUrl, fetchWorkDetail, updateStatus, type RatingState, type StatusState, type WorkDetail as Detail } from '../../lib/annict'
 import { getMyReviews, rememberReview } from '../../lib/myReviews'
 import { changeRating } from '../../lib/reviewOps'
+import { fetchMedia, shikimoriUrl, type Media } from '../../lib/shikimori'
 import type { Cover } from '../../lib/storage'
 import { messageOf } from '../../lib/useWriteQueue'
-import { GENRE_JA, malIdOf } from '../match/taste'
+import { genreName, malIdOf } from '../match/taste'
 import { RATINGS } from '../rate/queue'
 import { STATE_OPTIONS } from '../records/recordList'
-import { STATUS_LABEL, cleanDescription, mainStaff, safeHttpUrl, workMeta, xUrl } from './detail'
+import { STATUS_LABEL, mainStaff, safeHttpUrl, workMeta, xUrl } from './detail'
 
 // シートを開く作品の手がかり。詳細を読み込むまでは、ここにある項目だけで出す（分からない項目は省く）
 export interface WorkSeed {
@@ -49,9 +50,9 @@ export function WorkDetail(
   const [detail, setDetail] = useState<Detail | null>(null)
   const [error, setError] = useState<string | null>(null)
   // 作品ページの内容（あらすじと配信サービス）。読み込み中は undefined、読めなかったときは null。
-  // あらすじは Annict の日本語のもの。AniList はジャンルと、Annict にあらすじが無いときの代わりにだけ使う
+  // あらすじは Annict の日本語のもの。無ければ出さない。Shikimori はジャンルとテーマ（Annict に無い）にだけ使う
   const [page, setPage] = useState<WorkPage | null | undefined>(undefined)
-  const [about, setAbout] = useState<{ description: string; genres: string[] } | null>(null)
+  const [shiki, setShiki] = useState<Media | null>(null)
   const [expanded, setExpanded] = useState(false)
   // Annict は未記録を null ではなく NO_STATE で返す。画面では「記録なし」にそろえる
   const [state, setState] = useState<StatusState | null>(work.viewerStatusState && work.viewerStatusState !== 'NO_STATE' ? work.viewerStatusState : null)
@@ -68,7 +69,9 @@ export function WorkDetail(
       .catch(() => !cancelled && setPage(null))
     const mal = malIdOf(work)
     if (mal) {
-      fetchDescription(mal).then((a) => !cancelled && a && setAbout({ description: cleanDescription(a.description), genres: a.genres }))
+      fetchMedia([mal])
+        .then((m) => !cancelled && setShiki(m.get(mal) ?? null))
+        .catch(() => undefined)
     }
     // 読むだけのシートは、自分の評価を読まない（アクティビティを全部辿るので重い）
     if (!readOnly) {
@@ -112,7 +115,8 @@ export function WorkDetail(
   const official = safeHttpUrl(detail?.officialSiteUrl)
   const wikipedia = safeHttpUrl(detail?.wikipediaUrl)
   const x = xUrl(detail?.twitterUsername)
-  const genres = (about?.genres ?? []).map((g) => GENRE_JA[g]).filter(Boolean)
+  const genres = [...(shiki?.genres ?? []), ...(shiki?.themes ?? [])].map(genreName)
+  const mal = malIdOf(work)
   const staff = mainStaff(detail?.staffs ?? [])
   const synopsis = page?.synopsis
   const vods = page?.vods ?? []
@@ -123,7 +127,12 @@ export function WorkDetail(
   return (
     <Sheet label={work.title} size="large" active={props.active} onClose={props.onClose}>
       <header className="detail__head">
-        <div className="detail__cover">{props.cover && <img src={props.cover.url} alt="" />}</div>
+        <div>
+          <div className={props.cover?.landscape ? 'detail__cover detail__cover--landscape' : 'detail__cover'}>
+            {props.cover && <CoverImage cover={props.cover} size="large" />}
+          </div>
+          {detail?.copyright && <p className="detail__copyright">{detail.copyright}</p>}
+        </div>
         <div className="detail__titles">
           <h2 className="detail__title">{work.title}</h2>
           {detail?.titleKana && <p className="detail__kana">{detail.titleKana}</p>}
@@ -180,10 +189,10 @@ export function WorkDetail(
 
       {error && <p className="settings__error">{error}</p>}
 
-      {(genres.length > 0 || synopsis || about?.description) && (
+      {(genres.length > 0 || synopsis) && (
         <section className="detail__section">
           {genres.length > 0 && <p className="detail__genres">{genres.join('・')}</p>}
-          {synopsis ? (
+          {synopsis && (
             <>
               <h3 className="detail__label">あらすじ</h3>
               <p className={expanded ? 'detail__text' : 'detail__text detail__text--clamped'}>{synopsis.text}</p>
@@ -198,17 +207,6 @@ export function WorkDetail(
                 )}
               </div>
             </>
-          ) : (
-            page !== undefined &&
-            about?.description && (
-              <>
-                <h3 className="detail__label">あらすじ（Annict に無いため AniList の英語版）</h3>
-                <p className={expanded ? 'detail__text' : 'detail__text detail__text--clamped'}>{about.description}</p>
-                <button type="button" className="link" onClick={() => setExpanded((v) => !v)}>
-                  {expanded ? '閉じる' : '続きを読む'}
-                </button>
-              </>
-            )
           )}
         </section>
       )}
@@ -261,6 +259,11 @@ export function WorkDetail(
         {x && (
           <a href={x} target="_blank" rel="noreferrer">
             X
+          </a>
+        )}
+        {mal && (
+          <a href={shikimoriUrl(mal)} target="_blank" rel="noreferrer">
+            Shikimori で見る
           </a>
         )}
       </section>

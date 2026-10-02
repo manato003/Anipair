@@ -1,11 +1,10 @@
 // @vitest-environment jsdom
 import { renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { AniMedia } from '../../lib/anilist'
+import type { Media } from '../../lib/shikimori'
 import type { Taste } from '../match/tasteLoader'
 
-const media = (idMal: number, genres: string[], recs: { idMal: number; rating: number }[] = []): AniMedia => ({
-  id: idMal,
+const media = (idMal: number, genres: string[]): Media => ({
   idMal,
   title: { native: null, romaji: null, english: null },
   format: 'TV',
@@ -13,11 +12,12 @@ const media = (idMal: number, genres: string[], recs: { idMal: number; rating: n
   isAdult: false,
   seasonYear: 2020,
   genres,
-  tags: [],
+  themes: [],
+  demographics: [],
   studios: [],
   cover: null,
+  score: null,
   prequels: [],
-  recommendations: recs,
 })
 
 const details = new Map([
@@ -29,7 +29,10 @@ const taste: Taste = {
   ratings: new Map(),
   seeds: [{ malId: 1, title: '好きな作品', weight: 2 }],
   topSeeds: [{ malId: 1, title: '好きな作品', weight: 2 }],
-  seedMedia: new Map([[1, media(1, ['Music'], [{ idMal: 10, rating: 50 }])]]),
+  seedMedia: new Map([[1, media(1, ['Music'])]]),
+  // 好きな作品 1 に似た作品は 10 だけ
+  similarSeeds: [{ malId: 1, title: '好きな作品', weight: 2 }],
+  similar: new Map([[1, [10]]]),
   profile: new Map([
     ['g:Music', 1],
     ['g:Horror', -1],
@@ -45,8 +48,8 @@ vi.mock('../match/tasteLoader', async (orig) => ({
   }),
   forgetTaste: vi.fn(),
 }))
-vi.mock('../../lib/anilist', () => ({
-  fetchMediaByMal: vi.fn(async (ids: number[]) => new Map(ids.filter((i) => details.has(i)).map((i) => [i, details.get(i)!]))),
+vi.mock('../../lib/shikimori', () => ({
+  fetchMedia: vi.fn(async (ids: number[]) => new Map(ids.filter((i) => details.has(i)).map((i) => [i, details.get(i)!]))),
 }))
 
 const { useTaste, useWannaScores } = await import('./useTaste')
@@ -93,7 +96,7 @@ describe('useTaste', () => {
 })
 
 describe('useWannaScores', () => {
-  it('scores the wanna works, with the recommended one first', async () => {
+  it('scores the wanna works, with the similar one first', async () => {
     const hook = renderHook(() => useWannaScores(taste, '10,11'))
     await waitFor(() => expect(hook.result.current.scores).not.toBeNull())
     const s = hook.result.current.scores!

@@ -1,5 +1,6 @@
-import { useState, type CSSProperties } from 'react'
+import { useState } from 'react'
 import { Bookmark } from '../../components/Bookmark'
+import { CoverImage } from '../../components/CoverImage'
 import { Empty } from '../../components/Empty'
 import { BackIcon, CheckIcon, EyeIcon, InfoIcon, UndoIcon } from '../../components/Icons'
 import { SaveStatus } from '../../components/SaveStatus'
@@ -15,7 +16,6 @@ import { titleOf, useMatching, type MatchCard } from './useMatching'
 
 const FORMAT_JA: Record<string, string> = {
   TV: 'TV',
-  TV_SHORT: 'TV（短編）',
   MOVIE: '劇場版',
   ONA: '配信',
   OVA: 'OVA',
@@ -53,14 +53,13 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
   }
   useShortcuts(sheetOpen ? { detail: toggleSheet } : { ...answers, detail: toggleSheet }, props.active && !filterOpen)
 
-  const accent = m.current?.media.cover?.color ?? null
   const showDeck = m.phase.kind === 'ready'
 
   return (
     <>
-      <section className="rate" style={accent ? ({ '--cover-tint': accent } as CSSProperties) : undefined}>
+      <section className="rate">
         {m.current?.media.cover && (
-          <div className="rate__backdrop" style={{ backgroundImage: `url(${m.current.media.cover.url})` }} aria-hidden />
+          <div className="rate__backdrop" style={{ backgroundImage: `url(${m.current.media.cover.thumb})` }} aria-hidden />
         )}
 
         <header className="rate__head">
@@ -245,7 +244,7 @@ function MatchCardView({ card, onOpen }: { card: MatchCard; onOpen: () => void }
   return (
     <article className="card">
       <button type="button" className="card__cover" onClick={onOpen} aria-label="詳しく見る">
-        {media.cover ? <img src={media.cover.url} alt="" /> : <span className="card__noimage">{title}</span>}
+        {media.cover ? <CoverImage cover={media.cover} size="large" fallback={<span className="card__noimage">{title}</span>} /> : <span className="card__noimage">{title}</span>}
         <span className="card__info" aria-hidden>
           <InfoIcon />
         </span>

@@ -1,18 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { nextSeason, previousSeason, type Season } from '../../lib/season'
-import { cleanDescription, mainStaff, safeHttpUrl, workMeta, xUrl } from './detail'
-
-describe('cleanDescription', () => {
-  it('turns <br> into line breaks, drops other tags and decodes common entities', () => {
-    const raw = 'Elf mage <i>Frieren</i> &amp; friends.<br><br>\n<br>It&#039;s over &mdash; or is it?<br>\n(Source: Crunchyroll)'
-    expect(cleanDescription(raw)).toBe("Elf mage Frieren & friends.\n\nIt's over — or is it?\n(Source: Crunchyroll)")
-  })
-
-  it('leaves unknown entities alone and handles empty input', () => {
-    expect(cleanDescription('a &foo; b')).toBe('a &foo; b')
-    expect(cleanDescription(null)).toBe('')
-  })
-})
+import { mainStaff, safeHttpUrl, workMeta, xUrl } from './detail'
 
 describe('mainStaff', () => {
   it('drops "その他", groups repeated roles in order and dedupes names', () => {

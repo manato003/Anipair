@@ -1,9 +1,9 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { fetchMediaByMal, type AniMedia } from '../../lib/anilist'
 import { rememberReview } from '../../lib/myReviews'
 import type { GithubConnection } from '../../lib/github'
 import { annictSearchUrl, createReview, deleteReview, updateStatus, type RatingState, type WorkRef } from '../../lib/annict'
 import { blankReview } from '../../lib/reviewOps'
+import { fetchMedia, type Media } from '../../lib/shikimori'
 import { loadMatchFilterRaw, saveMatchFilterRaw } from '../../lib/storage'
 import { useCoalescedTask } from '../../lib/useCoalescedTask'
 import { WriteError, messageOf, useWriteQueue } from '../../lib/useWriteQueue'
@@ -14,7 +14,7 @@ import { isDefaultFilter, parseMatchFilter, type MatchFilter } from './matchFilt
 import { collectPool, malIdOf, rankCandidates, seenMalIds } from './taste'
 import { forgetTaste, loadTaste } from './tasteLoader'
 
-// 候補の詳しい情報を取るのは推薦の強い順にこの件数まで（AniList 1回ぶん）。
+// 候補の詳しい情報を取るのは、似ている度合いの強い順にこの件数まで（Shikimori 1回ぶん）。
 // 形式や放送年で絞っているときは、絞ったあとにも候補が残るように2回ぶん取る
 const POOL_SIZE = 50
 const FILTERED_POOL_SIZE = 100
@@ -30,7 +30,7 @@ export type MatchAnswer =
   | { kind: 'watched' }
 
 export interface MatchCard {
-  media: AniMedia
+  media: Media
   reasons: string[]
 }
 
@@ -51,7 +51,7 @@ interface UndoEntry {
   reviewId: string | null
 }
 
-export function titleOf(m: AniMedia): string {
+export function titleOf(m: Media): string {
   return m.title.native ?? m.title.romaji ?? m.title.english ?? `MAL ${m.idMal}`
 }
 
@@ -84,7 +84,7 @@ export function useMatching(annictToken: string, github: GithubConnection | null
     forgetTaste()
     setPhase({ kind: 'loading', step: 'Annict の記録を読んでいます' })
     try {
-      const { library, ratings, seeds, topSeeds, seedMedia, profile } = await loadTaste(annictToken, (step) => {
+      const { library, ratings, seeds, similarSeeds, similar, profile } = await loadTaste(annictToken, (step) => {
         if (alive()) setPhase({ kind: 'loading', step })
       })
       if (!alive()) return
@@ -109,10 +109,10 @@ export function useMatching(annictToken: string, github: GithubConnection | null
 
       const recorded = library.map(malIdOf).filter((n): n is number => n !== null)
       const exclude = new Set([...recorded, ...activePassIds(passes, new Date())])
-      const pool = collectPool(topSeeds, seedMedia, exclude).slice(0, isDefaultFilter(filter) ? POOL_SIZE : FILTERED_POOL_SIZE)
+      const pool = collectPool(similarSeeds, similar, exclude).slice(0, isDefaultFilter(filter) ? POOL_SIZE : FILTERED_POOL_SIZE)
 
       setPhase({ kind: 'loading', step: '候補を調べています' })
-      const details = await fetchMediaByMal(pool.map((p) => p.malId))
+      const details = await fetchMedia(pool.map((p) => p.malId))
       if (!alive()) return
       const ranked = rankCandidates(pool, details, profile, seenMalIds(library), filter).slice(0, MAX_CARDS)
       if (ranked.length === 0) {

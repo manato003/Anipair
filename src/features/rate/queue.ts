@@ -24,16 +24,9 @@ export function pickQueue(works: AnnictWork[], skipped: ReadonlySet<number>): An
   return works.filter((w) => (w.viewerStatusState ?? 'NO_STATE') === 'NO_STATE' && !skipped.has(w.annictId))
 }
 
+// covers は Annict の作品 ID ごとの表紙（lib/covers.ts の fetchCovers）
 export function toCards(works: AnnictWork[], covers: ReadonlyMap<number, Cover>): Card[] {
-  return works.map((work) => {
-    const mal = Number(work.malAnimeId)
-    const cover = (Number.isInteger(mal) ? covers.get(mal) : undefined) ?? null
-    return { work, cover: cover ?? (work.ogImageUrl ? { url: work.ogImageUrl, color: null } : null) }
-  })
-}
-
-export function malIdsOf(works: AnnictWork[]): number[] {
-  return works.map((w) => Number(w.malAnimeId)).filter((n) => Number.isInteger(n) && n > 0)
+  return works.map((work) => ({ work, cover: covers.get(work.annictId) ?? null }))
 }
 
 // キーの割り当ては設定画面で変えられる（lib/keymap.ts）

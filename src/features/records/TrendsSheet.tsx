@@ -1,7 +1,8 @@
 import { Sheet } from '../../components/Sheet'
+import { genreName } from '../match/taste'
 import { ENOUGH_LIKED, type Taste } from '../match/tasteLoader'
 import type { TasteState } from './useTaste'
-import { genreName, ratingDistribution, tagName, topTrends, type Ranked } from './trends'
+import { ratingDistribution, topTrends, type Ranked } from './trends'
 
 const BARS = [
   { key: 'GREAT', label: 'とても良い', tone: 'var(--r-great)' },
@@ -10,7 +11,7 @@ const BARS = [
   { key: 'BAD', label: '良くない', tone: 'var(--r-bad)' },
 ] as const
 
-// 好みの傾向（読むだけ）。評価の分布と、好みのジャンル・タグ・制作会社、苦手なもの
+// 好みの傾向（読むだけ）。評価の分布と、好みのジャンル・テーマ・制作会社、苦手なもの
 export function TrendsSheet(props: { state: TasteState; onRetry: () => void; active: boolean; onClose: () => void }) {
   return (
     <Sheet label="好みの傾向" active={props.active} onClose={props.onClose}>
@@ -36,7 +37,7 @@ function TrendsBody({ taste }: { taste: Taste }) {
   const trends = topTrends(taste.profile)
   const liked = taste.seeds.filter((s) => s.weight > 0).length
   const max = Math.max(1, dist.watchedUnrated, ...BARS.map((b) => dist.ratings[b.key]))
-  const hasLikes = trends.genres.length + trends.tags.length + trends.studios.length > 0
+  const hasLikes = trends.genres.length + trends.themes.length + trends.studios.length > 0
 
   return (
     <>
@@ -59,17 +60,17 @@ function TrendsBody({ taste }: { taste: Taste }) {
       {hasLikes ? (
         <>
           <TrendList title="好きなジャンル" items={trends.genres} name={genreName} />
-          <TrendList title="好きなタグ" items={trends.tags} name={tagName} />
+          <TrendList title="好きなテーマ" items={trends.themes} name={genreName} />
           <TrendList title="好きな制作会社" items={trends.studios} name={(s) => s} />
         </>
       ) : (
         <p className="detail__hint">好きな作品の記録がまだありません。評価すると、ここに好みが出ます。</p>
       )}
 
-      {(trends.dislikedGenres.length > 0 || trends.dislikedTags.length > 0) && (
+      {(trends.dislikedGenres.length > 0 || trends.dislikedThemes.length > 0) && (
         <>
           <TrendList title="苦手なジャンル" items={trends.dislikedGenres} name={genreName} />
-          <TrendList title="苦手なタグ" items={trends.dislikedTags} name={tagName} />
+          <TrendList title="苦手なテーマ" items={trends.dislikedThemes} name={genreName} />
         </>
       )}
     </>

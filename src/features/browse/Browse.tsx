@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { CoverImage } from '../../components/CoverImage'
 import { Empty } from '../../components/Empty'
 import { SaveStatus } from '../../components/SaveStatus'
 import { SeasonPicker } from '../../components/SeasonPicker'
@@ -6,7 +7,7 @@ import type { BrowseWork } from '../../lib/annict'
 import { RATING_LABEL } from '../../lib/reviewOps'
 import { nextSeason, seasonLabel, seasonOf } from '../../lib/season'
 import { useWriteQueue } from '../../lib/useWriteQueue'
-import { malIdOf } from '../match/taste'
+
 import { OLDEST_SEASON } from '../rate/queue'
 import { SORTS } from './browseSort'
 import { STATUS_LABEL, workMeta } from './detail'
@@ -19,10 +20,7 @@ export function Browse({ token, active = true }: { token: string; active?: boole
   const [open, setOpen] = useState<BrowseWork | null>(null)
   // 来期の作品までは見られる
   const latest = nextSeason(seasonOf(new Date()))
-  const coverOf = (w: BrowseWork) => {
-    const id = malIdOf(w)
-    return (id && b.covers.get(id)) || null
-  }
+  const coverOf = (w: BrowseWork) => b.covers.get(w.annictId) ?? null
 
   return (
     <section className="records">
@@ -49,7 +47,7 @@ export function Browse({ token, active = true }: { token: string; active?: boole
             </button>
           ))}
         </div>
-        {b.sort === 'score' && <p className="note">AniList の平均点（100点満点）の高い順です。点数の無い作品は最後に並びます。</p>}
+        {b.sort === 'score' && <p className="note">Annict の満足度の高い順です。満足度の無い作品は Shikimori の点数（10点満点）で並べ、点数の無い作品は最後に並びます。</p>}
         <SaveStatus pending={q.pending} failed={q.failed} onRetry={q.retryFailed} />
       </div>
 
@@ -71,17 +69,16 @@ export function Browse({ token, active = true }: { token: string; active?: boole
                 const rating = b.ratings.get(w.annictId)
                 const state = w.viewerStatusState && w.viewerStatusState !== 'NO_STATE' ? w.viewerStatusState : null
                 const cover = coverOf(w)
-                const mal = malIdOf(w)
-                const score = mal ? b.scores.get(mal) : undefined
+                const score = b.scores.get(w.annictId)
                 return (
                   <li key={w.id} className="row row--button">
                     <button type="button" className="row__hit" onClick={() => setOpen(w)} aria-label={`${w.title}の詳細`}>
-                      <span className="row__thumb">{cover && <img src={cover.url} alt="" loading="lazy" />}</span>
+                      <span className="row__thumb">{cover && <CoverImage cover={cover} size="thumb" lazy />}</span>
                       <span className="row__body">
                         <span className="row__title">{w.title}</span>
                         <span className="row__date">
                           {workMeta(w)}
-                          {typeof score === 'number' && <span className="row__score">AniList {score}点</span>}
+                          {score && <span className="row__score">{score.label}</span>}
                         </span>
                       </span>
                       {rating ? (

@@ -3,7 +3,13 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import {
   loadGithubConnection,
   loadGithubRepo,
-  parseCovers,
+  clearLegacyCovers,
+  loadPosters,
+  loadSimilar,
+  parsePosters,
+  parseSimilar,
+  savePosters,
+  saveSimilar,
   parseRepo,
   parseSkipped,
   saveGithubRepo,
@@ -20,23 +26,73 @@ describe('parseSkipped', () => {
   })
 })
 
-describe('parseCovers', () => {
+describe('parsePosters', () => {
   it('drops broken entries and keeps the rest', () => {
-    const covers = parseCovers({
-      '52991': { url: 'https://img.example/a.jpg', color: '#e4a15d' },
-      '1': { url: 'javascript:alert(1)', color: '#000000' },
-      '2': { url: 'http://insecure.example/b.jpg', color: null },
-      abc: { url: 'https://img.example/c.jpg', color: null },
+    const posters = parsePosters({
+      '52991': { o: 'https://img.example/a.jpg', m: 'https://img.example/a-s.webp' },
+      '1': { o: 'javascript:alert(1)', m: 'https://img.example/x.webp' },
+      '2': { o: 'https://img.example/b.jpg', m: 'http://insecure.example/b.webp' },
+      abc: { o: 'https://img.example/c.jpg', m: 'https://img.example/c-s.webp' },
+      '0': { o: 'https://img.example/z.jpg', m: 'https://img.example/z-s.webp' },
       '3': 'nope',
-      '4': { url: 'https://img.example/d.jpg', color: 'red' },
+      '4': { o: 'https://img.example/d.jpg', m: 'https://img.example/d-s.webp' },
     })
-    expect([...covers.keys()]).toEqual([4, 52991])
-    expect(covers.get(52991)).toEqual({ url: 'https://img.example/a.jpg', color: '#e4a15d' })
-    expect(covers.get(4)).toEqual({ url: 'https://img.example/d.jpg', color: null })
+    expect([...posters.keys()]).toEqual([4, 52991])
+    expect(posters.get(52991)).toEqual({ o: 'https://img.example/a.jpg', m: 'https://img.example/a-s.webp' })
   })
 
-  it.each([null, [], 'x'])('treats %j as empty', (v) => {
-    expect(parseCovers(v).size).toBe(0)
+  it.each([null, undefined, [], 'x'])('treats %j as empty', (v) => {
+    expect(parsePosters(v).size).toBe(0)
+  })
+
+  it('stores under a new key and removes the previous version once', () => {
+    localStorage.setItem('animax.covers.v1', '{"1":{"url":"https://old.example/1.jpg","color":null}}')
+    savePosters(new Map([[5, { o: 'https://a.example/o.jpg', m: 'https://a.example/m.webp' }]]))
+    expect(JSON.parse(localStorage.getItem('animax.covers.v2')!)).toEqual({ '5': { o: 'https://a.example/o.jpg', m: 'https://a.example/m.webp' } })
+    expect(loadPosters().get(5)?.m).toBe('https://a.example/m.webp')
+    clearLegacyCovers()
+    expect(localStorage.getItem('animax.covers.v1')).toBeNull()
+    expect(localStorage.getItem('animax.covers.v2')).not.toBeNull()
+  })
+})
+
+describe('parseSimilar', () => {
+  const NOW = 1_800_000_000_000
+  const DAY = 24 * 60 * 60 * 1000
+
+  it('keeps valid entries and drops broken or expired ones (30 days)', () => {
+    const m = parseSimilar(
+      {
+        '1': { at: NOW - 29 * DAY, ids: [10, 11] },
+        '2': { at: NOW - 31 * DAY, ids: [10] },
+        '3': { at: NOW, ids: [10, 'x'] },
+        '4': { at: 'now', ids: [1] },
+        '5': { at: NOW, ids: 'nope' },
+        '6': { at: NOW + 10 * DAY, ids: [1] },
+        abc: { at: NOW, ids: [1] },
+        '7': { at: NOW - DAY, ids: [] },
+      },
+      NOW,
+    )
+    expect([...m.keys()]).toEqual([1, 7])
+    expect(m.get(1)?.ids).toEqual([10, 11])
+  })
+
+  it.each([null, undefined, [], 'x', 5])('treats %j as empty', (v) => {
+    expect(parseSimilar(v, NOW).size).toBe(0)
+  })
+
+  it('keeps at most 500 entries, the newest', () => {
+    const raw = Object.fromEntries(Array.from({ length: 520 }, (_, i) => [String(i + 1), { at: NOW - i * 1000, ids: [1] }]))
+    const m = parseSimilar(raw, NOW)
+    expect(m.size).toBe(500)
+    expect(m.has(1)).toBe(true)
+    expect(m.has(520)).toBe(false)
+  })
+
+  it('round-trips through localStorage', () => {
+    saveSimilar(new Map([[9, { at: Date.now(), ids: [1, 2, 3] }]]))
+    expect(loadSimilar().get(9)?.ids).toEqual([1, 2, 3])
   })
 })
 

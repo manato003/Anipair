@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>プライバシーポリシー | Anipair</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/legal.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <img src="/favicon.svg" alt="" />
+        <a href="/">Anipair</a>
+      </header>
+
+      <h1>プライバシーポリシー</h1>
+      <p class="date">制定日: 2026年10月2日</p>
+
+      <p>
+        Anipair（以下「本アプリ」）は、個人が開発・運営する、無料・非商用の非公式アプリです。
+        本アプリは、運営者のもとに利用者の情報を集めたり保存したりしません。このページでは、本アプリを使うときに、どの情報がどこに送られ、どこに置かれるかを説明します。
+      </p>
+
+      <h2>1. 運営者が集める情報</h2>
+      <p>
+        ありません。本アプリには、運営者が管理するデータベースや利用者の登録の仕組みはありません。
+        アクセス解析、広告、Cookie による追跡も行っていません。
+      </p>
+
+      <h2>2. 利用者の端末に置く情報</h2>
+      <p>次の情報は、利用者のブラウザの保存領域（localStorage・sessionStorage）にだけ置きます。運営者には送られません。</p>
+      <ul>
+        <li>Annict のアクセストークン（ログインしたとき）</li>
+        <li>GitHub のトークンとリポジトリ名（利用者が任意でつないだとき）</li>
+        <li>パス・スルー・「見てない」にした作品の記録、キーの割り当て、画面の設定</li>
+        <li>作品情報の一時的な控え（表紙の画像の場所など）</li>
+      </ul>
+      <p>保存した情報は、設定画面でトークンを消すか、ブラウザのサイトデータを消すと削除できます。</p>
+
+      <h2>3. 本アプリが通信する先</h2>
+      <ul>
+        <li>
+          <strong>Annict</strong>（<a href="https://annict.com/" rel="noreferrer">annict.com</a>）:
+          ログイン、視聴の記録と評価の読み書き、作品情報とあらすじの取得。記録は利用者自身の Annict アカウントに保存されます。
+          取り扱いは <a href="https://annict.com/privacy" rel="noreferrer">Annict のプライバシーポリシー</a> に従います。
+        </li>
+        <li>
+          <strong>作品情報の提供元</strong>（現在は <a href="https://shikimori.io/" rel="noreferrer">Shikimori</a>）:
+          ジャンル、似た作品、関連作品、表紙の画像などの公開データ。本アプリの中継の仕組みを通して取得し、利用者を特定する情報は送りません。
+        </li>
+        <li>
+          <strong>GitHub</strong>（利用者が任意でつないだ場合だけ）:
+          パス・スルー・「見てない」の記録とバックアップを、利用者自身のリポジトリに保存します。
+        </li>
+        <li>
+          <strong>Google Fonts</strong>: 画面の文字の表示のために、フォントを読み込みます。
+        </li>
+      </ul>
+
+      <h2>4. サーバーの関数とホスティング</h2>
+      <p>
+        本アプリは Vercel で公開しています。サーバーで動く処理は、次の2つだけです。どちらも受け取った情報を保存せず、記録にも残しません。
+      </p>
+      <ul>
+        <li>「Annict でログイン」のとき、Annict から受け取った認可コードをアクセストークンに交換する処理</li>
+        <li>作品情報の提供元に、公開データを問い合わせて中継する処理</li>
+      </ul>
+      <p>
+        ホスティングの事業者である Vercel は、通信の仕組みとして IP アドレスなどを記録することがあります。取り扱いは
+        <a href="https://vercel.com/legal/privacy-policy" rel="noreferrer">Vercel のプライバシーポリシー</a> に従います。
+      </p>
+
+      <h2>5. 第三者への提供</h2>
+      <p>運営者は利用者の情報を持たないため、第三者に提供することはありません。</p>
+
+      <h2>6. このポリシーの変更</h2>
+      <p>本アプリの仕組みを変えたときは、このページを更新します。大きな変更は、本アプリの公開リポジトリでもお知らせします。</p>
+
+      <h2>7. お問い合わせ</h2>
+      <p>
+        本アプリの公開リポジトリの Issue（<a href="https://github.com/manato003/anipair/issues" rel="noreferrer">github.com/manato003/anipair/issues</a>）からご連絡ください。
+      </p>
+
+      <section class="en" lang="en">
+        <h1>Privacy Policy (English)</h1>
+        <p class="date">Effective date: October 2, 2026</p>
+        <p>
+          Anipair is a free, non-commercial, unofficial app developed and run by an individual. The operator does not collect or store any user information.
+        </p>
+        <h2>1. Information we collect</h2>
+        <p>None. Anipair has no operator-run database or user registration, and uses no analytics, advertising or tracking cookies.</p>
+        <h2>2. Information kept on your device</h2>
+        <p>
+          Your Annict access token, your optional GitHub token and repository name, your pass, skip and "not watched" records, key bindings, display settings,
+          and short-lived caches of anime information are stored only in your browser's storage. They are never sent to the operator. You can delete them by
+          removing the token in Settings or by clearing the site data in your browser.
+        </p>
+        <h2>3. Services Anipair connects to</h2>
+        <ul>
+          <li><strong>Annict</strong>: login, reading and writing your watch records and ratings, anime information and synopses. Your records are stored in your own Annict account.</li>
+          <li><strong>Anime data provider</strong> (currently Shikimori): public data such as genres, similar and related anime, and cover images, fetched through Anipair's proxy without any information that identifies you.</li>
+          <li><strong>GitHub</strong>, only if you connect it: your pass, skip and "not watched" records and backups are saved to your own repository.</li>
+          <li><strong>Google Fonts</strong>: web fonts used to display the app.</li>
+        </ul>
+        <h2>4. Server functions and hosting</h2>
+        <p>
+          Anipair is hosted on Vercel. Only two server functions run: one exchanges the Annict authorization code for an access token, and one relays requests
+          for public anime data. Neither stores or logs what it receives. Vercel may record technical information such as IP addresses as part of its service,
+          under the <a href="https://vercel.com/legal/privacy-policy" rel="noreferrer">Vercel Privacy Policy</a>.
+        </p>
+        <h2>5. Sharing with third parties</h2>
+        <p>The operator holds no user information and therefore shares none.</p>
+        <h2>6. Changes</h2>
+        <p>This page will be updated when the way Anipair works changes.</p>
+        <h2>7. Contact</h2>
+        <p>Please open an issue at <a href="https://github.com/manato003/anipair/issues" rel="noreferrer">github.com/manato003/anipair/issues</a>.</p>
+      </section>
+    </main>
+  </body>
+</html>
