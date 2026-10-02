@@ -1,4 +1,5 @@
 import { Fragment, useState, type ReactNode } from 'react'
+import { Logo } from './components/Logo'
 import { useAutoBackup } from './features/backup/useAutoBackup'
 import { Browse } from './features/browse/Browse'
 import { Matching } from './features/match/Matching'
@@ -99,7 +100,7 @@ export default function App() {
       <nav className="tabs" aria-label="画面の切り替え">
         {/* 広い画面だけ、上の帯の左に出す */}
         <span className="tabs__brand" aria-hidden>
-          Anipair
+          <Logo size="small" />
         </span>
         {TABS.map((t) => (
           <button

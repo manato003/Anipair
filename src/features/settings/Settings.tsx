@@ -1,6 +1,8 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { fetchViewer } from '../../lib/annict'
+import { Logo } from '../../components/Logo'
 import { annictClientId, startLogin } from '../../lib/annictLogin'
+import { TAGLINE_PHRASES } from '../../lib/brand'
 import { checkAccess, type GithubConnection } from '../../lib/github'
 import { parseRepo, saveAnnictToken, saveGithubRepo, saveGithubToken } from '../../lib/storage'
 import { messageOf } from '../../lib/useWriteQueue'
@@ -64,7 +66,14 @@ async function verifyAnnictToken(token: string): Promise<string> {
 function Welcome(props: { clientId: string | null; busy: boolean; error: string | null; onAnnictTokenChange: (token: string | null) => void }) {
   return (
     <div className="settings__block">
-      <h1 className="settings__title">Anipair</h1>
+      <h1 className="welcome__logo">
+        <Logo size="large" />
+      </h1>
+      <p className="welcome__tagline">
+        {TAGLINE_PHRASES.map((phrase) => (
+          <span key={phrase}>{phrase}</span>
+        ))}
+      </p>
       <p className="settings__lead">Annict の記録を、タップだけで付けていくアプリです。見たアニメを1タップで評価し、好みに合う作品も提案します。</p>
       {props.clientId && (
         <button

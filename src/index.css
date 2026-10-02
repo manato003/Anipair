@@ -17,6 +17,13 @@
 
   --danger: #ff7a7a;
 
+  /* ブランドの色（ロゴとコンセプトアートの配色）。ボタン・現在のタブ・リンク・フォーカスなど、ブランドを表す場所だけに使う。
+     評価の4段階・見たい・状態・エラーの色は意味を持つので、ここには寄せない */
+  --brand-blue: #7b9dff;
+  --brand-lavender: #c5b8ff;
+  --brand-pink: #ffb8d9;
+  --brand-gradient: linear-gradient(135deg, var(--brand-blue), var(--brand-lavender) 50%, var(--brand-pink));
+
   --font-ui: 'Zen Kaku Gothic New', system-ui, sans-serif;
   --font-display: 'Dela Gothic One', 'Zen Kaku Gothic New', sans-serif;
 
@@ -57,11 +64,11 @@ input {
 }
 
 a {
-  color: var(--sakura);
+  color: var(--brand-blue);
 }
 
 :focus-visible {
-  outline: 2px solid var(--sakura);
+  outline: 2px solid var(--brand-lavender);
   outline-offset: 2px;
 }
 
@@ -109,6 +116,33 @@ kbd {
   display: none;
 }
 
+/* ロゴ: 印の画像と「Anipair」の字。字は index.html で読む Quicksand（丸みのある幾何学的な書体） */
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  font-family: 'Quicksand', var(--font-ui);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.logo__mark {
+  height: 1em;
+  width: auto;
+}
+
+.logo__text {
+  letter-spacing: 0.01em;
+}
+
+.logo--small {
+  font-size: 1.5rem;
+}
+
+.logo--large {
+  font-size: 2.6rem;
+}
+
 .tabs__item {
   position: relative;
   padding: 12px 0 14px;
@@ -133,7 +167,7 @@ kbd {
   height: 4px;
   margin-left: -2px;
   border-radius: 50%;
-  background: var(--sakura);
+  background: var(--brand-gradient);
 }
 
 .tabs__item:disabled {
@@ -153,9 +187,10 @@ kbd {
   cursor: pointer;
 }
 
+/* ブランドのグラデーションに濃い字（コントラストは、どの色の上でも 6.6 以上） */
 .btn--primary {
-  border-color: var(--sakura);
-  background: var(--sakura);
+  border-color: transparent;
+  background: var(--brand-gradient);
   color: var(--ink);
   font-weight: 700;
 }
@@ -872,13 +907,13 @@ kbd {
 
 @media (hover: hover) {
   .row__open:hover .row__title {
-    color: var(--sakura);
+    color: var(--brand-blue);
   }
 }
 
 /* おすすめ順で添える理由。マッチングの理由と同じ控えめな見た目 */
 .row__reason {
-  color: var(--sakura);
+  color: var(--brand-lavender);
   font-size: 0.75rem;
   opacity: 0.85;
 }
@@ -1097,7 +1132,7 @@ kbd {
 
 @media (hover: hover) {
   .row__hit:hover .row__title {
-    color: var(--sakura);
+    color: var(--brand-blue);
   }
 }
 
@@ -1394,8 +1429,8 @@ kbd {
 }
 
 .keycap[aria-pressed='true'] {
-  border-color: var(--sakura);
-  color: var(--sakura);
+  border-color: var(--brand-blue);
+  color: var(--brand-blue);
 }
 
 .settings__note {
@@ -1440,6 +1475,23 @@ kbd {
   margin-top: 24px;
   padding: 14px 16px;
   font-size: 1rem;
+}
+
+/* 最初の画面のロゴとキャッチコピー */
+.welcome__logo {
+  font-weight: 700;
+}
+
+.welcome__tagline {
+  margin-top: 14px;
+  margin-bottom: 14px;
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+
+/* 句の途中では折り返さない（狭い画面では「…と、」と「次の…」の2行になる） */
+.welcome__tagline span {
+  display: inline-block;
 }
 
 .settings__need {
@@ -1577,9 +1629,6 @@ kbd {
   .tabs__brand {
     display: block;
     margin-right: auto;
-    font-family: var(--font-display);
-    font-size: 1.35rem;
-    letter-spacing: 0.02em;
   }
 
   .tabs__item {
@@ -1851,7 +1900,7 @@ kbd {
   }
 
   .rows:not(.rows--edit) .row__open:focus-visible::after {
-    outline: 2px solid var(--sakura);
+    outline: 2px solid var(--brand-lavender);
     outline-offset: 2px;
   }
 

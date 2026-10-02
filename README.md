@@ -1,4 +1,9 @@
-# Anipair
+<h1 align="center">
+  <img src="public/logo-mark.svg" width="72" alt=""><br>
+  Anipair
+</h1>
+
+<p align="center"><strong>あなたの「好き」と、次の「好き」をつなぐ。</strong></p>
 
 [Annict](https://annict.com/) の視聴記録を、タップだけで付けていくためのアプリです。見たアニメを1タップで評価でき、評価から好みを推定して、まだ見ていない作品も提案します。記録はすべて自分の Annict に保存されます。
 

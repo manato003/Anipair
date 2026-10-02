@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { TAGLINE } from '../../lib/brand'
 import { GitHubError, type GithubConnection } from '../../lib/github'
 
 vi.mock('../backup/backupStore', async (orig) => ({
@@ -271,6 +272,13 @@ describe('Settings first screen (no Annict token)', () => {
     expect(screen.getByRole('button', { name: 'Annict でログイン' })).toBeTruthy()
     expect(screen.getByText(/使うには Annict のアカウントが必要です/)).toBeTruthy()
     expect((screen.getByRole('link', { name: 'Annict に登録' }) as HTMLAnchorElement).href).toBe('https://annict.com/sign_up')
+  })
+
+  it('puts the logo and the tagline at the top of the welcome', () => {
+    show({ annictToken: null, clientId: 'cid' })
+    const heading = screen.getByRole('heading', { name: 'Anipair' })
+    expect(heading.querySelector('img[src="/logo-mark.svg"]')).toBeTruthy()
+    expect(heading.nextElementSibling?.textContent).toBe(TAGLINE)
   })
 
   it('shows only the welcome and the about block (no GitHub, backup or keys yet)', () => {
