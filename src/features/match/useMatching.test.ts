@@ -133,6 +133,15 @@ describe('useMatching', () => {
     expect(calls).toEqual(['status A10 WANNA_WATCH', 'status A10 NO_STATE'])
   })
 
+  it('"watching" sets WATCHING on the Annict work; undo clears it', async () => {
+    const hook = await ready()
+    act(() => hook.result.current.answer({ kind: 'watching' }))
+    expect(hook.result.current.current?.media.idMal).toBe(11)
+    act(() => hook.result.current.undo())
+    await settle(hook)
+    expect(calls).toEqual(['status A10 WATCHING', 'status A10 NO_STATE'])
+  })
+
   it('"seen it" with a rating records WATCHED and the rating; undo removes both', async () => {
     const hook = await ready()
     act(() => hook.result.current.answer({ kind: 'rate', rating: 'GOOD' }))

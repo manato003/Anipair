@@ -21,13 +21,14 @@ const FILTERED_POOL_SIZE = 100
 const MAX_CARDS = 30
 
 // wanna: 見たい / pass: パス（3ヶ月出さない）/ skip: スルー（今は決めない。1週間後にまた出す）/
-// rate: 見たことがあって評価する / watched: 見たことがあるが覚えていない
+// rate: 見たことがあって評価する / watched: 見たことがあるが覚えていない / watching: いま見ている
 export type MatchAnswer =
   | { kind: 'wanna' }
   | { kind: 'pass' }
   | { kind: 'skip' }
   | { kind: 'rate'; rating: RatingState }
   | { kind: 'watched' }
+  | { kind: 'watching' }
 
 export interface MatchCard {
   media: Media
@@ -178,7 +179,9 @@ export function useMatching(annictToken: string, github: GithubConnection | null
         return
       }
       const title = titleOf(card.media)
-      const label = a.kind === 'wanna' ? `「${title}」の見たいへの追加` : `「${title}」の記録`
+      const label =
+        a.kind === 'wanna' ? `「${title}」の見たいへの追加` : a.kind === 'watching' ? `「${title}」の見てるへの追加` : `「${title}」の記録`
+      const state = a.kind === 'wanna' ? 'WANNA_WATCH' : a.kind === 'watching' ? 'WATCHING' : 'WATCHED'
       enqueue(label, async () => {
         entry.ref ??= await resolveCard(card)
         if (!entry.ref) {
@@ -187,7 +190,7 @@ export function useMatching(annictToken: string, github: GithubConnection | null
             text: 'Annict で探して登録する',
           })
         }
-        await updateStatus(annictToken, entry.ref.id, a.kind === 'wanna' ? 'WANNA_WATCH' : 'WATCHED')
+        await updateStatus(annictToken, entry.ref.id, state)
         if (a.kind === 'rate') {
           entry.reviewId = await createReview(annictToken, entry.ref.id, a.rating)
           // 共有の感想の控えにも入れる（あとで詳細のシートから評価を変えたときに、作った感想を見つけられるように）

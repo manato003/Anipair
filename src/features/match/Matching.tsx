@@ -23,7 +23,7 @@ const FORMAT_JA: Record<string, string> = {
 
 export function Matching(props: { annictToken: string; github: GithubConnection | null; active: boolean }) {
   const m = useMatching(props.annictToken, props.github)
-  // 「見たことがある」を押すと、パス・見たいの段が評価の段に入れ替わる。カードが変わったら閉じる
+  // 「見たことがある」を押すと、パス・見たいの段が評価の段に入れ替わる（見てる・見たけど覚えていないもそこに出す）。カードが変わったら閉じる
   const [seenFor, setSeenFor] = useState<number | null>(null)
   const seenOpen = m.current !== null && seenFor === m.current.media.idMal
 
@@ -49,6 +49,7 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
     pass: () => m.answer({ kind: 'pass' }),
     later: () => m.answer({ kind: 'skip' }),
     watched: () => m.answer({ kind: 'watched' }),
+    watching: () => m.answer({ kind: 'watching' }),
     undo: m.undo,
   }
   useShortcuts(sheetOpen ? { detail: toggleSheet } : { ...answers, detail: toggleSheet }, props.active && !filterOpen)
@@ -176,6 +177,10 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
                 <button type="button" className="misc" onClick={() => m.answer({ kind: 'watched' })}>
                   <CheckIcon />
                   見たけど覚えていない <kbd className="hint">{keyLabel(keys.watched)}</kbd>
+                </button>
+                <button type="button" className="misc" onClick={() => m.answer({ kind: 'watching' })} title="Annict で「見てる」にします">
+                  <EyeIcon />
+                  見てる <kbd className="hint">{keyLabel(keys.watching)}</kbd>
                 </button>
                 <button type="button" className="misc" onClick={() => setSeenFor(null)}>
                   <BackIcon />

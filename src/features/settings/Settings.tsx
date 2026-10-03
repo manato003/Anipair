@@ -282,6 +282,11 @@ function GithubBlock(props: { github: GithubConnection | null; onChange: (github
         )
       }
     >
+      {/* なぜ GitHub なのかを、つないでいてもいなくても見せる */}
+      <p className="settings__lead">
+        パス・スルー・見てないは Anipair だけの印で、Annict には記録する場所がありません。Anipair は運営のサーバーを持たないので、
+        端末をまたいで残したいときは、あなた自身の GitHub のリポジトリを置き場所に使います。評価や見た・見たいなどは、つながなくても Annict に保存されます。
+      </p>
       {props.github ? (
         <div className="settings__actions">
           <button type="button" className="btn" onClick={disconnect}>
