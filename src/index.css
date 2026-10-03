@@ -99,15 +99,17 @@ kbd {
 }
 
 .tabs {
+  /* 塗ったアイコンの抜く部分は、この地の色で描く（Icons.tsx の TabIcon） */
+  --tabs-bg: #1b2038;
   position: relative;
   z-index: 2;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  max-width: var(--col);
   width: 100%;
   margin: 0 auto;
-  padding-bottom: env(safe-area-inset-bottom);
-  border-top: 1px solid var(--line);
+  padding: 0 max(0px, calc((100% - var(--col)) / 2)) env(safe-area-inset-bottom);
+  border-top: 1px solid var(--line-strong);
+  background: var(--tabs-bg);
 }
 
 /* Anipair の字は広い画面の上の帯だけに出す */
@@ -142,31 +144,65 @@ kbd {
   font-size: 2.6rem;
 }
 
+/* 下のタブ: アイコンの下に名前。選んでいないタブは灰色の線のアイコン、選んでいるタブは差し色で塗ったアイコンと太字 */
 .tabs__item {
   position: relative;
-  padding: 12px 0 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 2px 8px;
   border: 0;
   background: none;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 0.7rem;
   font-weight: 500;
+  line-height: 1.3;
+  white-space: nowrap;
   cursor: pointer;
+  touch-action: manipulation;
+}
+
+/* タブの区切り。帯の高さの半分ほどの縦線 */
+.tabs__item + .tabs__item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 28%;
+  bottom: 28%;
+  width: 1px;
+  background: var(--line);
+}
+
+.tabs__icon {
+  flex: none;
+  box-sizing: content-box;
+  width: 22px;
+  height: 22px;
+  padding: 3px 16px;
+  border-radius: 999px;
+  transition: background 0.15s ease;
+}
+
+.tabs__cut {
+  stroke: var(--tabs-bg);
+  fill: var(--tabs-bg);
 }
 
 .tabs__item[aria-current='page'] {
-  color: var(--paper);
+  color: var(--brand-blue);
+  font-weight: 700;
 }
 
-.tabs__item[aria-current='page']::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  bottom: 6px;
-  width: 4px;
-  height: 4px;
-  margin-left: -2px;
-  border-radius: 50%;
-  background: var(--brand-gradient);
+/* 選んでいるタブは、アイコンの後ろに淡い差し色の丸を敷く */
+.tabs__item[aria-current='page'] .tabs__icon {
+  background: color-mix(in srgb, var(--brand-blue) 20%, transparent);
+}
+
+.tabs__item:active:not(:disabled) .tabs__icon {
+  background: color-mix(in srgb, var(--brand-blue) 12%, transparent);
 }
 
 .tabs__item:disabled {
@@ -486,7 +522,8 @@ kbd {
   padding-top: 14px;
 }
 
-/* 見た：4段階の評価。ボタン全体をその段階の色で塗る */
+/* 見た：4段階の評価。答えのボタンはどれも「暗い地 + 枠」の同じ作りにし、段階の色は枠と文字と薄い地にだけ使う
+   （4色の塗りつぶしが並ぶと、ほかのボタンと作りが揃わず、画面がにぎやかになりすぎるため）。押した瞬間だけ塗る */
 .answers__ratings {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -500,23 +537,23 @@ kbd {
   align-items: center;
   justify-content: center;
   gap: 2px;
-  min-height: 64px;
+  min-height: 60px;
   padding: 6px 2px;
-  border: 1px solid var(--tone);
+  border: 1px solid color-mix(in srgb, var(--tone) 60%, transparent);
   border-radius: var(--radius-s);
-  background: var(--tone);
-  color: var(--ink);
+  background: color-mix(in srgb, var(--tone) 12%, var(--ink-raised));
+  color: var(--tone);
   font-size: 0.85rem;
   font-weight: 700;
   line-height: 1.3;
   cursor: pointer;
   touch-action: manipulation;
-  transition: transform 0.08s ease, filter 0.1s ease;
+  transition: transform 0.08s ease, background 0.1s ease, color 0.1s ease;
 }
 
 .rating .hint {
   margin-left: 0;
-  opacity: 0.55;
+  color: var(--muted);
 }
 
 .rating--bad {
@@ -534,13 +571,18 @@ kbd {
 
 @media (hover: hover) {
   .rating:hover:not(:disabled) {
-    filter: brightness(1.1);
+    background: color-mix(in srgb, var(--tone) 22%, var(--ink-raised));
   }
 }
 
 .rating:active:not(:disabled) {
   transform: scale(0.95);
-  filter: brightness(1.15);
+  background: var(--tone);
+  color: var(--ink);
+}
+
+.rating:active:not(:disabled) .hint {
+  color: inherit;
 }
 
 /* 見てない：「見てない」と「見たい」。評価と区別するため塗らずに枠だけ */
@@ -558,7 +600,7 @@ kbd {
   gap: 6px;
   min-height: 48px;
   padding: 6px 4px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   border-radius: var(--radius-s);
   background: var(--ink-raised);
   color: var(--paper);
@@ -571,7 +613,8 @@ kbd {
 
 .unseen--wanna {
   --tone: var(--wanna);
-  border-color: var(--wanna);
+  border-color: color-mix(in srgb, var(--wanna) 60%, transparent);
+  background: color-mix(in srgb, var(--wanna) 12%, var(--ink-raised));
   color: var(--wanna);
 }
 
@@ -1749,6 +1792,7 @@ img.cover--contain {
     padding: 0 max(24px, calc((100% - var(--wide)) / 2 + 24px));
     border-top: 0;
     border-bottom: 1px solid var(--line);
+    --tabs-bg: var(--ink);
     background: color-mix(in srgb, var(--ink) 55%, transparent);
     backdrop-filter: blur(10px);
   }
@@ -1758,14 +1802,29 @@ img.cover--contain {
     margin-right: auto;
   }
 
+  /* 上の帯では、アイコンを名前の左に小さく置く。区切りの線と丸の地は出さず、下線で示す */
   .tabs__item {
+    flex-direction: row;
+    gap: 6px;
     height: 100%;
     padding: 0 16px;
     font-size: 0.9rem;
   }
 
+  .tabs__item + .tabs__item::before {
+    display: none;
+  }
+
+  .tabs__icon,
+  .tabs__item[aria-current='page'] .tabs__icon {
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    background: none;
+  }
+
   @media (hover: hover) {
-    .tabs__item:not(:disabled):hover {
+    .tabs__item:not(:disabled):not([aria-current='page']):hover {
       color: var(--paper);
     }
   }
@@ -1775,8 +1834,11 @@ img.cover--contain {
     border-radius: var(--radius-s);
   }
 
-  /* 現在のタブは点ではなく下線 */
+  /* 現在のタブには下線 */
   .tabs__item[aria-current='page']::after {
+    content: '';
+    position: absolute;
+    background: var(--brand-gradient);
     left: 16px;
     right: 16px;
     bottom: -1px;

@@ -1,4 +1,5 @@
 import { Fragment, useState, type ReactNode } from 'react'
+import { TabIcon } from './components/Icons'
 import { Logo } from './components/Logo'
 import { useAutoBackup } from './features/backup/useAutoBackup'
 import { Browse } from './features/browse/Browse'
@@ -111,7 +112,8 @@ export default function App() {
             disabled={!token && t.id !== 'settings'}
             onClick={() => go(t.id)}
           >
-            {t.label}
+            <TabIcon name={t.id} active={tab === t.id} />
+            <span className="tabs__label">{t.label}</span>
           </button>
         ))}
       </nav>
