@@ -41,7 +41,7 @@ export function Keybinds() {
   const isDefault = KEY_ACTIONS.every(({ action }) => keymap[action] === DEFAULT_KEYMAP[action])
 
   return (
-    <Section id="settings-keys" title="キー操作（PC）" summary="評価画面とマッチングで使うキーボードの割り当てです。">
+    <Section id="settings-keys" title="キーバインド（PC）" summary="評価画面とマッチングで使うキーボードの割り当てです。">
       <details className="settings__fold" open={!isTouchDevice()}>
         <summary>キーの割り当て</summary>
       <p className="settings__lead">

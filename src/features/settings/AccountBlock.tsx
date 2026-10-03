@@ -21,7 +21,7 @@ export function AccountBlock(props: { token: string; onChange: (token: string | 
   return (
     <Section
       id="settings-account"
-      title="アカウント（Annict）"
+      title="Annict 連携（必須）"
       summary="記録はすべて Annict に保存します。"
       status={<StatusChip>{viewer ? `${viewer.name}（@${viewer.username}）として接続中` : 'Annict に接続中'}</StatusChip>}
     >

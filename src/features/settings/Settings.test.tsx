@@ -334,13 +334,16 @@ describe('Settings first screen (no Annict token)', () => {
 })
 
 describe('Settings about block', () => {
-  it.each([
-    ['signed out', { annictToken: null, clientId: null }],
-    ['signed in', {}],
-  ])('is at the end of the screen when %s', (_name, over) => {
-    show(over)
+  it('is at the end of the screen when signed out', () => {
+    show({ annictToken: null, clientId: null })
     const headings = screen.getAllByRole('heading').map((h) => h.textContent)
     expect(headings.at(-1)).toBe('このアプリについて')
+  })
+
+  it('comes before the long key bindings list when signed in', () => {
+    show()
+    const headings = screen.getAllByRole('heading').map((h) => h.textContent)
+    expect(headings.slice(-2)).toEqual(['このアプリについて', 'キーバインド（PC）'])
   })
 
   it('states what the app is and where data goes', () => {
@@ -369,7 +372,7 @@ describe('Settings layout (sections, status first, folded explanations)', () => 
 
   it('has the five sections in order, each a card with a short heading', () => {
     show()
-    expect(headings()).toEqual(['アカウント（Annict）', 'GitHub 連携（任意）', 'バックアップ', 'キー操作（PC）', 'このアプリについて'])
+    expect(headings()).toEqual(['Annict 連携（必須）', 'GitHub 連携（任意）', 'バックアップ', 'このアプリについて', 'キーバインド（PC）'])
     expect(document.querySelectorAll('.settings__card')).toHaveLength(5)
   })
 

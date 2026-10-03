@@ -18,7 +18,7 @@ export function Settings(props: {
   // 指定が無ければビルドに埋め込まれた client_id を使う（無ければログインのボタンを出さない）
   clientId?: string | null
 }) {
-  // ログインする前は、最初の画面として説明とログインだけを出す（GitHub やキー操作は、使い始めてからでよい）
+  // ログインする前は、最初の画面として説明とログインだけを出す（GitHub やキーバインドは、使い始めてからでよい）
   if (!props.annictToken) {
     return (
       <section className="settings">
@@ -39,8 +39,9 @@ export function Settings(props: {
         <AccountBlock token={props.annictToken} onChange={props.onAnnictTokenChange} />
         <GithubBlock github={props.github} onChange={props.onGithubChange} />
         <BackupBlock annictToken={props.annictToken} github={props.github} />
-        <Keybinds />
+        {/* このアプリについては大切な説明なので、長いキーバインドの一覧より前に置く（キーバインドは PC だけで使うもの） */}
         <AboutBlock />
+        <Keybinds />
       </div>
     </section>
   )
@@ -48,11 +49,11 @@ export function Settings(props: {
 
 // 広い画面だけ、左に出るページ内の目次（押すとその項目へ動く）。狭い画面では出さない
 const SECTIONS = [
-  { id: 'settings-account', label: 'アカウント' },
+  { id: 'settings-account', label: 'Annict 連携' },
   { id: 'settings-github', label: 'GitHub 連携' },
   { id: 'settings-backup', label: 'バックアップ' },
-  { id: 'settings-keys', label: 'キー操作' },
   { id: 'settings-about', label: 'このアプリについて' },
+  { id: 'settings-keys', label: 'キーバインド' },
 ] as const
 
 function SectionNav() {
