@@ -42,7 +42,7 @@ export function TokenForm(props: {
             aria-label={props.label}
           />
           <button type="submit" className="btn btn--primary" disabled={checking || !draft.trim()}>
-            {checking ? '確認中…' : 'つなぐ'}
+            {checking ? '確認しています…' : '連携する'}
           </button>
       </form>
       {message && <p className={message.ok ? 'settings__ok' : 'settings__error'}>{message.text}</p>}

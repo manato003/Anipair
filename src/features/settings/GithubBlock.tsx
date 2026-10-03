@@ -17,7 +17,7 @@ export function GithubBlock(props: { github: GithubConnection | null; onChange: 
     const token = tokenDraft.trim()
     if (!token) return
     if (!repo) {
-      setMessage({ ok: false, text: 'リポジトリ名は「ユーザー名/anipair-data」の形で入れてください' })
+      setMessage({ ok: false, text: 'リポジトリ名は「ユーザー名/anipair-data」の形式で入力してください' })
       return
     }
     setChecking(true)
@@ -30,7 +30,7 @@ export function GithubBlock(props: { github: GithubConnection | null; onChange: 
       props.onChange({ token, repo })
       setRepoDraft('')
       setTokenDraft('')
-      setMessage({ ok: true, text: `${repo} につながりました` })
+      setMessage({ ok: true, text: `${repo} と連携しました` })
     } catch (err) {
       setMessage({ ok: false, text: messageOf(err) })
     } finally {
@@ -42,62 +42,62 @@ export function GithubBlock(props: { github: GithubConnection | null; onChange: 
     saveGithubToken(null)
     saveGithubRepo(null)
     props.onChange(null)
-    setMessage({ ok: true, text: 'GitHub とのつなぎをやめました。この端末からトークンとリポジトリ名を消しました' })
+    setMessage({ ok: true, text: 'GitHub との連携を解除しました。この端末からトークンとリポジトリ名を削除しました' })
   }
 
   return (
     <Section
       id="settings-github"
       title="GitHub 連携（任意）"
-      summary="つながなくても、ほかの機能はすべて使えます。そのときパス・スルー・見てないは、端末ごとに記録します。"
+      summary="連携しなくても、すべての機能を使えます。"
       status={
         props.github ? (
           <StatusChip>
             <a href={`https://github.com/${props.github.repo}`} target="_blank" rel="noreferrer">
               {props.github.repo}
             </a>{' '}
-            に接続中
+            と連携中
           </StatusChip>
         ) : (
-          <StatusChip tone="off">未接続</StatusChip>
+          <StatusChip tone="off">未連携</StatusChip>
         )
       }
     >
-      {/* なぜ GitHub なのかを、つないでいてもいなくても見せる */}
+      {/* なぜ GitHub なのかを、連携していてもいなくても見せる */}
       <p className="settings__lead">
-        パス・スルー・見てないは Anipair だけの印で、Annict には記録する場所がありません。Anipair は運営のサーバーを持たないので、
-        端末をまたいで残したいときは、あなた自身の GitHub のリポジトリを置き場所に使います。評価や見た・見たいなどは、つながなくても Annict に保存されます。
+        パス・スルー・見てないは Anipair 独自の記録で、Annict には保存できません。Anipair は運営サーバーを持たないため、これらはあなた自身の GitHub リポジトリに保存します。連携しない場合は、この端末の中にだけ保存されます。
       </p>
       {props.github ? (
         <div className="settings__actions">
           <button type="button" className="btn" onClick={disconnect}>
-            つなぐのをやめる
+            連携を解除
           </button>
         </div>
       ) : (
         <>
-          <p className="settings__lead">つなぐと、次のことができます。</p>
+          <p className="settings__lead">連携すると、次のことができます。</p>
           <ul className="settings__list settings__lead">
             <li>パス・スルー・見てないを、PC とスマホで共有する</li>
-            <li>全記録を、自分の GitHub に毎日バックアップする（履歴つき）</li>
+            <li>すべての記録を、毎日自動でバックアップする（変更履歴つき）</li>
           </ul>
           <details className="settings__fold" open>
-            <summary>つなぎ方（3ステップ）</summary>
+            <summary>連携の手順（3ステップ）</summary>
             <ol className="settings__list settings__lead">
               <li>
-                GitHub で private リポジトリを作ります（
+                GitHub で private リポジトリを作成します（
                 <a href="https://github.com/new?name=anipair-data&visibility=private" target="_blank" rel="noreferrer">
-                  作成画面を開く
+                  リポジトリの作成画面を開く
                 </a>
-                。名前は anipair-data のままで大丈夫です。Private のまま作ってください）
+                ）。名前は anipair-data のままでかまいません。公開範囲は Private のままにしてください。
               </li>
               <li>
+                Fine-grained トークンを作成します（
                 <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noreferrer">
-                  Fine-grained トークンの作成画面
+                  トークンの作成画面を開く
                 </a>
-                で、Repository access を「Only select repositories」にして、いま作ったリポジトリだけを選び、Permissions の Contents を「Read and write」にしてトークンを作ります
+                ）。Repository access は「Only select repositories」にして手順1のリポジトリだけを選び、Permissions の Contents を「Read and write」にします。
               </li>
-              <li>リポジトリ名（ユーザー名/anipair-data）とトークンを入れて、「つなぐ」を押します</li>
+              <li>下の欄にリポジトリ名（ユーザー名/anipair-data）とトークンを入力し、「連携する」を押します。</li>
             </ol>
           </details>
           <form className="settings__form" onSubmit={connect}>
@@ -121,7 +121,7 @@ export function GithubBlock(props: { github: GithubConnection | null; onChange: 
               aria-label="GitHub の Fine-grained トークン"
             />
             <button type="submit" className="btn btn--primary" disabled={checking || !repoDraft.trim() || !tokenDraft.trim()}>
-              {checking ? '確認中…' : 'つなぐ'}
+              {checking ? '確認しています…' : '連携する'}
             </button>
           </form>
         </>

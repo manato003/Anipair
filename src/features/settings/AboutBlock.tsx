@@ -6,12 +6,13 @@ import { LegalLinks } from './LegalLinks'
 import { Section } from './Section'
 
 // 設定の末尾。何のアプリで、何が外に出て、何が出ないか。要点だけ出して、通信先・画像・あらすじの細かい説明は畳む
-export function AboutBlock() {
+// showTagline: ログイン前の最初の画面では、すぐ上にキャッチコピーがあるので出さない
+export function AboutBlock({ showTagline = true }: { showTagline?: boolean }) {
   // 初めての人に出す使い方のシートを、ここからいつでも見直せる
   const [guideOpen, setGuideOpen] = useState(false)
   return (
     <Section id="settings-about" title="このアプリについて">
-      <p className="settings__lead">{TAGLINE}</p>
+      {showTagline && <p className="settings__lead">{TAGLINE}</p>}
       <p className="settings__about-foot">
         <button type="button" className="link" onClick={() => setGuideOpen(true)}>
           使い方を見る
@@ -27,29 +28,30 @@ export function AboutBlock() {
         />
       )}
       <ul className="settings__list settings__lead">
-        <li>Anipair は、Annict の非公式の個人開発アプリです。Annict とは関係がありません。</li>
-        <li>運営のサーバーはありません。ログインの受け渡しと Shikimori への中継をする関数があるだけで、利用者の情報は何も保存しません。</li>
-        <li>トークンはこの端末の中にだけ保存します。</li>
+        <li>Anipair は個人が開発した Annict の非公式アプリで、Annict の運営とは関係ありません。</li>
+        <li>運営サーバーはなく、利用者の情報は保存しません。サーバーで動くのは、ログインの受け渡しと Shikimori への中継の2つの処理だけです。</li>
+        <li>トークンは、この端末の中にだけ保存されます。</li>
         <li>
-          作品データの一部（ジャンル・似た作品・一部の表紙）:{' '}
+          作品データの一部（ジャンル・似た作品・一部の表紙）は{' '}
           <a href="https://shikimori.io/" target="_blank" rel="noreferrer">
             Shikimori
-          </a>
+          </a>{' '}
+          から取得しています。
         </li>
       </ul>
       <details className="settings__fold">
         <summary>通信先・画像・あらすじについて</summary>
         <ul className="settings__list settings__lead">
-          <li>通信先は Annict と、作品データの Shikimori（このサイトの中継を通します）です。GitHub とつないだ場合だけ、GitHub にも送ります。</li>
-          <li>表紙の画像は Annict の画像（各作品の公式サイトのもの）と Shikimori のポスターを表示しています。権利は各権利者にあります。</li>
-          <li>作品の詳細に出すあらすじは Annict の作品ページから読み、引用元を付けて表示しています。</li>
+          <li>通信先は Annict と Shikimori（このサイトの中継を経由）です。GitHub と連携した場合は、GitHub にも送信します。</li>
+          <li>表紙には、Annict の画像（各作品の公式サイトの画像）と Shikimori のポスターを表示しています。権利は各権利者に帰属します。</li>
+          <li>作品の詳細に表示するあらすじは Annict の作品ページから取得し、引用元を明記しています。</li>
         </ul>
       </details>
       <p className="settings__lead settings__about-foot">
         <a href="https://github.com/manato003/anipair" target="_blank" rel="noreferrer">
           ソースコード（GitHub）
         </a>
-        <span className="settings__version">版 {__APP_VERSION__}</span>
+        <span className="settings__version">バージョン {__APP_VERSION__}</span>
       </p>
       <LegalLinks className="settings__about-foot" />
     </Section>

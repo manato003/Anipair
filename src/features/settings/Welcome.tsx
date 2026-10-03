@@ -8,7 +8,7 @@ import { TokenForm } from './TokenForm'
 
 async function verifyAnnictToken(token: string): Promise<string> {
   const v = await fetchViewer(token)
-  return `${v.name}（@${v.username}）として接続しました`
+  return `${v.name}（@${v.username}）で連携しました`
 }
 
 // ログインする前の最初の画面
@@ -23,7 +23,7 @@ export function Welcome(props: { clientId: string | null; busy: boolean; error: 
           <span key={phrase}>{phrase}</span>
         ))}
       </p>
-      <p className="settings__lead">Annict の記録を、タップだけで付けていくアプリです。見たアニメを1タップで評価し、好みに合う作品も提案します。</p>
+      <p className="settings__lead">Annict の視聴記録を、タップだけで付けられるアプリです。見たアニメを評価していくと、好みに合う作品を提案します。</p>
       {props.clientId && (
         <button
           type="button"
@@ -40,9 +40,9 @@ export function Welcome(props: { clientId: string | null; busy: boolean; error: 
         </p>
       )}
       <p className="settings__lead settings__need">
-        使うには Annict のアカウントが必要です。まだお持ちでなければ、
+        ご利用には Annict のアカウントが必要です。お持ちでない方は、
         <a href="https://annict.com/sign_up" target="_blank" rel="noreferrer">
-          Annict に登録
+          Annict で新規登録
         </a>
         してください。
       </p>
@@ -53,9 +53,9 @@ export function Welcome(props: { clientId: string | null; busy: boolean; error: 
         <p className="settings__lead">
           Annict の
           <a href="https://annict.com/settings/apps" target="_blank" rel="noreferrer">
-            アプリケーションの設定
+            アプリケーション設定
           </a>
-          で個人用アクセストークンを作り、権限は「読み込み + 書き込み」を選んで、ここに貼ってください。
+          で、スコープを「読み込み + 書き込み」にして個人用アクセストークンを作成し、下の欄に貼り付けてください。
         </p>
         <TokenForm
           label="Annict の個人用アクセストークン"

@@ -54,35 +54,35 @@ export function BackupBlock(props: { annictToken: string; github: GithubConnecti
     <Section
       id="settings-backup"
       title="バックアップ"
-      summary="見た・見たいなどの状態と日時、評価（5項目と本文）、パス・スルー、「見てない」を、JSON ファイルにして控えられます。"
+      summary="すべての記録を JSON ファイルとして保存できます。視聴状況とその日時、評価（5項目と本文）、パス・スルー・見てないを含みます。"
       status={
         props.github ? (
           <StatusChip tone={status.error ? 'off' : 'ok'}>
-            {status.lastAt ? `前回: ${formatTime(status.lastAt)}（${status.written ? '保存' : '変更なし'}）` : 'まだ取っていません'}
+            {status.lastAt ? `前回: ${formatTime(status.lastAt)}（${status.written ? '保存' : '変更なし'}）` : 'まだバックアップしていません'}
           </StatusChip>
         ) : undefined
       }
     >
-      {props.github && status.error && <p className="settings__error">前回の失敗: {status.error}</p>}
+      {props.github && status.error && <p className="settings__error">前回のバックアップに失敗しました: {status.error}</p>}
       <div className="settings__actions">
         <button type="button" className="btn" disabled={exporting} onClick={exportNow}>
           {exporting ? '書き出しています…' : 'ファイルに書き出す'}
         </button>
         {props.github && (
           <button type="button" className="btn" disabled={running} onClick={backupNow}>
-            {running ? 'バックアップ中…' : '今すぐバックアップ'}
+            {running ? 'バックアップしています…' : '今すぐバックアップ'}
           </button>
         )}
       </div>
       {exportError && <p className="settings__error">{exportError}</p>}
-      {exported && <p className="settings__ok">{`書き出しました（${exported.fileName}。${describeCounts(exported.counts)}）`}</p>}
+      {exported && <p className="settings__ok">{`${exported.fileName} を保存しました（${describeCounts(exported.counts)}）`}</p>}
       {result && (
         <p className="settings__ok">
-          {result.written ? `保存しました（${describeCounts(result.counts)}）` : '前回から変わっていないので、書き込みませんでした'}
+          {result.written ? `バックアップしました（${describeCounts(result.counts)}）` : '前回から変更がないため、保存しませんでした'}
         </p>
       )}
       {!props.github ? (
-        <p className="settings__status">上の「GitHub とつなぐ」でつなぐと、毎日の自動バックアップも取れます（履歴つき）。</p>
+        <p className="settings__status">GitHub と連携すると、毎日自動でバックアップされ、変更履歴も残ります。</p>
       ) : (
         <>
           <p className="settings__links">
@@ -90,14 +90,13 @@ export function BackupBlock(props: { annictToken: string; github: GithubConnecti
               GitHub で見る
             </a>
             <a href={`https://github.com/${props.github.repo}/commits/main/backup.json`} target="_blank" rel="noreferrer">
-              履歴
+              変更履歴
             </a>
           </p>
           <details className="settings__fold">
-            <summary>自動バックアップのしくみ</summary>
+            <summary>自動バックアップについて</summary>
             <p className="settings__lead">
-              つないだ GitHub の {props.github.repo} の backup.json にも保存し、変わったときだけ書き込むので、過去の版は GitHub の履歴に残ります。
-              アプリを開いたとき、前回から1日たっていれば自動でも取ります。
+              アプリを開いたとき、前回から1日以上たっていれば、{props.github.repo} の backup.json に自動で保存します。内容が変わったときだけ書き込むため、過去の版は GitHub の変更履歴から確認できます。
             </p>
           </details>
         </>

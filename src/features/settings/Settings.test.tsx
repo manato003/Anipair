@@ -12,7 +12,7 @@ vi.mock('../backup/exportFile', async (orig) => ({
   ...(await orig<typeof import('../backup/exportFile')>()),
   exportBackupFile: vi.fn(),
 }))
-// GitHub には触れない。つなぐときの確認だけ偽物にする
+// GitHub には触れない。連携するときの確認だけ偽物にする
 vi.mock('../../lib/github', async (orig) => ({
   ...(await orig<typeof import('../../lib/github')>()),
   checkAccess: vi.fn(async () => undefined),
@@ -63,22 +63,22 @@ describe('Settings backup block', () => {
     show({ github: null })
     expect(screen.getByRole('heading', { name: 'バックアップ' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'ファイルに書き出す' })).toBeTruthy()
-    expect(screen.getByText(/つなぐと、毎日の自動バックアップも取れます/)).toBeTruthy()
+    expect(screen.getByText(/GitHub と連携すると、毎日自動でバックアップされ、変更履歴も残ります/)).toBeTruthy()
     expect(screen.queryByRole('button', { name: '今すぐバックアップ' })).toBeNull()
     expect(screen.queryByText('GitHub で見る')).toBeNull()
-    expect(screen.queryByText('履歴')).toBeNull()
+    expect(screen.queryByText('変更履歴')).toBeNull()
   })
 
   it('explains where it is saved and that past versions stay in the history', () => {
     show()
-    const text = screen.getByText(/backup\.json にも保存し/).textContent
+    const text = screen.getByText(/backup\.json に自動で保存します/).textContent
     expect(text).toContain('me/anipair-data')
-    expect(text).toContain('履歴に残ります')
+    expect(text).toContain('過去の版は GitHub の変更履歴から確認できます')
   })
 
   it('says it has not run yet', () => {
     show()
-    expect(screen.getByText('まだ取っていません')).toBeTruthy()
+    expect(screen.getByText('まだバックアップしていません')).toBeTruthy()
   })
 
   it('shows the last time, local time, with whether it was unchanged', () => {
@@ -97,13 +97,13 @@ describe('Settings backup block', () => {
   it('shows the last error', () => {
     store({ lastAt: null, written: false, error: 'GitHub に接続できませんでした。通信を確認してください' })
     show()
-    expect(screen.getByText(/前回の失敗: GitHub に接続できませんでした/)).toBeTruthy()
+    expect(screen.getByText(/前回のバックアップに失敗しました: GitHub に接続できませんでした/)).toBeTruthy()
   })
 
   it('links to the file and its history in the configured repo', () => {
     show({ github: { token: 'g', repo: 'someone/their-data' } })
     expect((screen.getByRole('link', { name: 'GitHub で見る' }) as HTMLAnchorElement).href).toBe('https://github.com/someone/their-data/blob/main/backup.json')
-    expect((screen.getByRole('link', { name: '履歴' }) as HTMLAnchorElement).href).toBe('https://github.com/someone/their-data/commits/main/backup.json')
+    expect((screen.getByRole('link', { name: '変更履歴' }) as HTMLAnchorElement).href).toBe('https://github.com/someone/their-data/commits/main/backup.json')
   })
 
   it('backs up with the Annict token and the connection, showing the progress and the result', async () => {
@@ -112,10 +112,10 @@ describe('Settings backup block', () => {
     show()
     fireEvent.click(screen.getByRole('button', { name: '今すぐバックアップ' }))
     expect(runBackup).toHaveBeenCalledWith('a', CONN)
-    const busy = screen.getByRole('button', { name: 'バックアップ中…' }) as HTMLButtonElement
+    const busy = screen.getByRole('button', { name: 'バックアップしています…' }) as HTMLButtonElement
     expect(busy.disabled).toBe(true)
     finish({ written: true, at: '2026-10-01T12:00:00.000Z', counts })
-    expect(await screen.findByText('保存しました（見た 60・見たい 45・評価 58）')).toBeTruthy()
+    expect(await screen.findByText('バックアップしました（見た 60・見たい 45・評価 58）')).toBeTruthy()
     expect((screen.getByRole('button', { name: '今すぐバックアップ' }) as HTMLButtonElement).disabled).toBe(false)
   })
 
@@ -123,7 +123,7 @@ describe('Settings backup block', () => {
     vi.mocked(runBackup).mockResolvedValue({ written: false, at: '2026-10-01T12:00:00.000Z', counts })
     show()
     fireEvent.click(screen.getByRole('button', { name: '今すぐバックアップ' }))
-    expect(await screen.findByText('前回から変わっていないので、書き込みませんでした')).toBeTruthy()
+    expect(await screen.findByText('前回から変更がないため、保存しませんでした')).toBeTruthy()
   })
 
   it('shows the failure from the stored error and enables the button again', async () => {
@@ -133,9 +133,9 @@ describe('Settings backup block', () => {
     })
     show()
     fireEvent.click(screen.getByRole('button', { name: '今すぐバックアップ' }))
-    expect(await screen.findByText(/前回の失敗: Annict のトークンが使えません/)).toBeTruthy()
+    expect(await screen.findByText(/前回のバックアップに失敗しました: Annict のトークンが使えません/)).toBeTruthy()
     await waitFor(() => expect((screen.getByRole('button', { name: '今すぐバックアップ' }) as HTMLButtonElement).disabled).toBe(false))
-    expect(screen.queryByText(/保存しました/)).toBeNull()
+    expect(screen.queryByText(/バックアップしました/)).toBeNull()
   })
 })
 
@@ -152,22 +152,22 @@ describe('Settings GitHub block', () => {
     show({ github: null })
     expect(screen.getByRole('heading', { name: 'GitHub 連携（任意）' })).toBeTruthy()
     expect(screen.getByText('パス・スルー・見てないを、PC とスマホで共有する')).toBeTruthy()
-    expect(screen.getByText('全記録を、自分の GitHub に毎日バックアップする（履歴つき）')).toBeTruthy()
-    expect(screen.getByText(/つながなくても、ほかの機能はすべて使えます。そのときパス・スルー・見てないは、端末ごとに記録します/)).toBeTruthy()
+    expect(screen.getByText('すべての記録を、毎日自動でバックアップする（変更履歴つき）')).toBeTruthy()
+    expect(screen.getByText(/連携しなくても、すべての機能を使えます/)).toBeTruthy()
   })
 
   it('not connected: shows the steps with links, and the form', () => {
     show({ github: null })
-    expect((screen.getByRole('link', { name: '作成画面を開く' }) as HTMLAnchorElement).href).toBe(
+    expect((screen.getByRole('link', { name: 'リポジトリの作成画面を開く' }) as HTMLAnchorElement).href).toBe(
       'https://github.com/new?name=anipair-data&visibility=private',
     )
-    expect((screen.getByRole('link', { name: 'Fine-grained トークンの作成画面' }) as HTMLAnchorElement).href).toBe(
+    expect((screen.getByRole('link', { name: 'トークンの作成画面を開く' }) as HTMLAnchorElement).href).toBe(
       'https://github.com/settings/personal-access-tokens/new',
     )
     expect(screen.getByText(/Contents を「Read and write」/)).toBeTruthy()
     expect(screen.getByLabelText('GitHub のリポジトリ名')).toBeTruthy()
     expect(screen.getByLabelText('GitHub の Fine-grained トークン')).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'つなぐのをやめる' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '連携を解除' })).toBeNull()
     // 作者の旧リポジトリ名はどこにも出ない
     expect(document.body.textContent).not.toContain('animax-data')
   })
@@ -189,7 +189,7 @@ describe('Settings GitHub block', () => {
     expect(checkAccess).toHaveBeenCalledWith({ token: 'tok', repo: 'me/anipair-data' })
     expect(localStorage.getItem('animax.githubToken')).toBe('tok')
     expect(localStorage.getItem('animax.githubRepo')).toBe('me/anipair-data')
-    expect(await screen.findByText('me/anipair-data につながりました')).toBeTruthy()
+    expect(await screen.findByText('me/anipair-data と連携しました')).toBeTruthy()
   })
 
   it('on a verification failure shows the error and saves nothing', async () => {
@@ -209,7 +209,7 @@ describe('Settings GitHub block', () => {
     show({ github: null })
     fill('https://github.com/me/anipair-data', 'tok')
     fireEvent.submit(formOf())
-    expect(screen.getByText(/リポジトリ名は「ユーザー名\/anipair-data」の形で入れてください/)).toBeTruthy()
+    expect(screen.getByText(/リポジトリ名は「ユーザー名\/anipair-data」の形式で入力してください/)).toBeTruthy()
     expect(checkAccess).not.toHaveBeenCalled()
     expect(onGithubChange).not.toHaveBeenCalled()
   })
@@ -217,7 +217,7 @@ describe('Settings GitHub block', () => {
   it('connected: shows owner/name as a link and the disconnect button, without the form', () => {
     show()
     expect((screen.getByRole('link', { name: 'me/anipair-data' }) as HTMLAnchorElement).href).toBe('https://github.com/me/anipair-data')
-    expect(screen.getByRole('button', { name: 'つなぐのをやめる' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '連携を解除' })).toBeTruthy()
     expect(screen.queryByLabelText('GitHub のリポジトリ名')).toBeNull()
     expect(screen.queryByLabelText('GitHub の Fine-grained トークン')).toBeNull()
   })
@@ -226,7 +226,7 @@ describe('Settings GitHub block', () => {
     localStorage.setItem('animax.githubToken', 'g')
     localStorage.setItem('animax.githubRepo', 'me/anipair-data')
     show()
-    fireEvent.click(screen.getByRole('button', { name: 'つなぐのをやめる' }))
+    fireEvent.click(screen.getByRole('button', { name: '連携を解除' }))
     expect(onGithubChange).toHaveBeenCalledWith(null)
     expect(localStorage.getItem('animax.githubToken')).toBeNull()
     expect(localStorage.getItem('animax.githubRepo')).toBeNull()
@@ -248,7 +248,7 @@ describe('Settings file export', () => {
     const busy = screen.getByRole('button', { name: '書き出しています…' }) as HTMLButtonElement
     expect(busy.disabled).toBe(true)
     finish(exportResult)
-    expect(await screen.findByText('書き出しました（anipair-backup-2026-10-01.json。見た 60・見たい 45・評価 58）')).toBeTruthy()
+    expect(await screen.findByText('anipair-backup-2026-10-01.json を保存しました（見た 60・見たい 45・評価 58）')).toBeTruthy()
     expect((screen.getByRole('button', { name: 'ファイルに書き出す' }) as HTMLButtonElement).disabled).toBe(false)
     // GitHub のバックアップは動かさない
     expect(runBackup).not.toHaveBeenCalled()
@@ -260,7 +260,7 @@ describe('Settings file export', () => {
     fireEvent.click(screen.getByRole('button', { name: 'ファイルに書き出す' }))
     expect(await screen.findByText('Annict のトークンが使えません')).toBeTruthy()
     await waitFor(() => expect((screen.getByRole('button', { name: 'ファイルに書き出す' }) as HTMLButtonElement).disabled).toBe(false))
-    expect(screen.queryByText(/書き出しました/)).toBeNull()
+    expect(screen.queryByText(/を保存しました/)).toBeNull()
   })
 })
 
@@ -268,10 +268,10 @@ describe('Settings first screen (no Annict token)', () => {
   it('says what the app is, offers the login, and links to Annict sign-up', () => {
     show({ annictToken: null, clientId: 'cid' })
     expect(screen.getByRole('heading', { name: 'Anipair' })).toBeTruthy()
-    expect(screen.getByText(/タップだけで付けていくアプリです/)).toBeTruthy()
+    expect(screen.getByText(/タップだけで付けられるアプリです/)).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Annict でログイン' })).toBeTruthy()
-    expect(screen.getByText(/使うには Annict のアカウントが必要です/)).toBeTruthy()
-    expect((screen.getByRole('link', { name: 'Annict に登録' }) as HTMLAnchorElement).href).toBe('https://annict.com/sign_up')
+    expect(screen.getByText(/ご利用には Annict のアカウントが必要です/)).toBeTruthy()
+    expect((screen.getByRole('link', { name: 'Annict で新規登録' }) as HTMLAnchorElement).href).toBe('https://annict.com/sign_up')
   })
 
   it('puts the logo and the tagline at the top of the welcome', () => {
@@ -321,7 +321,7 @@ describe('Settings first screen (no Annict token)', () => {
   it('connects with a personal token from the developer form', async () => {
     show({ annictToken: null, clientId: null })
     fireEvent.change(screen.getByLabelText('Annict の個人用アクセストークン'), { target: { value: ' tok ' } })
-    fireEvent.click(screen.getByRole('button', { name: 'つなぐ' }))
+    fireEvent.click(screen.getByRole('button', { name: '連携する' }))
     await waitFor(() => expect(onAnnictTokenChange).toHaveBeenCalledWith('tok'))
     expect(localStorage.getItem('animax.annictToken')).toBe('tok')
   })
@@ -349,21 +349,21 @@ describe('Settings about block', () => {
   it('states what the app is and where data goes', () => {
     show()
     const text = screen.getByRole('heading', { name: 'このアプリについて' }).parentElement!.textContent!
-    expect(text).toContain('Annict の非公式の個人開発アプリ')
-    expect(text).toContain('運営のサーバーはありません')
-    expect(text).toContain('ログインの受け渡しと Shikimori への中継をする関数があるだけで、利用者の情報は何も保存しません')
-    expect(text).toContain('通信先は Annict と、作品データの Shikimori（このサイトの中継を通します）です。GitHub とつないだ場合だけ、GitHub にも送ります')
-    expect(text).toContain('トークンはこの端末の中にだけ保存します')
-    expect(text).toContain('Shikimori のポスターを表示しています。権利は各権利者にあります')
-    expect(text).toContain('作品データの一部（ジャンル・似た作品・一部の表紙）: Shikimori')
+    expect(text).toContain('個人が開発した Annict の非公式アプリ')
+    expect(text).toContain('運営サーバーはなく、利用者の情報は保存しません')
+    expect(text).toContain('サーバーで動くのは、ログインの受け渡しと Shikimori への中継の2つの処理だけです')
+    expect(text).toContain('通信先は Annict と Shikimori（このサイトの中継を経由）です。GitHub と連携した場合は、GitHub にも送信します')
+    expect(text).toContain('トークンは、この端末の中にだけ保存されます')
+    expect(text).toContain('Shikimori のポスターを表示しています。権利は各権利者に帰属します')
+    expect(text).toContain('作品データの一部（ジャンル・似た作品・一部の表紙）は Shikimori から取得しています')
     expect((screen.getByRole('link', { name: 'Shikimori' }) as HTMLAnchorElement).href).toBe('https://shikimori.io/')
-    expect(text).toContain('引用元を付けて表示しています')
+    expect(text).toContain('引用元を明記しています')
   })
 
   it('links to the source code and shows the version', () => {
     show()
     expect((screen.getByRole('link', { name: 'ソースコード（GitHub）' }) as HTMLAnchorElement).href).toBe('https://github.com/manato003/anipair')
-    expect(screen.getByText(/^版 \d+\.\d+\.\d+/)).toBeTruthy()
+    expect(screen.getByText(/^バージョン \d+\.\d+\.\d+/)).toBeTruthy()
   })
 })
 
@@ -391,21 +391,21 @@ describe('Settings layout (sections, status first, folded explanations)', () => 
 
   it('shows who is connected as the status of the account section', async () => {
     show()
-    expect(await screen.findByText('テスト（@tester）として接続中')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'トークンを消す' })).toBeTruthy()
+    expect(await screen.findByText('テスト（@tester）で連携中')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'ログアウト' })).toBeTruthy()
   })
 
   it('GitHub connected: shows the repo as the status and hides the setup steps and the form', () => {
     show()
-    expect(screen.getByRole('link', { name: 'me/anipair-data' }).closest('.status-chip')?.textContent).toContain('に接続中')
+    expect(screen.getByRole('link', { name: 'me/anipair-data' }).closest('.status-chip')?.textContent).toContain('と連携中')
     expect(document.querySelector('.settings__card#settings-github ol')).toBeNull()
-    expect(screen.queryByText('つなぎ方（3ステップ）')).toBeNull()
+    expect(screen.queryByText('連携の手順（3ステップ）')).toBeNull()
   })
 
   it('GitHub not connected: shows the steps (open) and the not-connected status', () => {
     show({ github: null })
-    expect(screen.getByText('未接続')).toBeTruthy()
-    expect((screen.getByText('つなぎ方（3ステップ）').closest('details') as HTMLDetailsElement).open).toBe(true)
+    expect(screen.getByText('未連携')).toBeTruthy()
+    expect((screen.getByText('連携の手順（3ステップ）').closest('details') as HTMLDetailsElement).open).toBe(true)
   })
 
   it('puts the export and the backup-now buttons side by side, and folds the explanation of the automatic backup', () => {
@@ -413,7 +413,7 @@ describe('Settings layout (sections, status first, folded explanations)', () => 
     const row = screen.getByRole('button', { name: 'ファイルに書き出す' }).parentElement!
     expect(row.className).toBe('settings__actions')
     expect(row.contains(screen.getByRole('button', { name: '今すぐバックアップ' }))).toBe(true)
-    expect((screen.getByText('自動バックアップのしくみ').closest('details') as HTMLDetailsElement).open).toBe(false)
+    expect((screen.getByText('自動バックアップについて').closest('details') as HTMLDetailsElement).open).toBe(false)
   })
 
   it('shows the last backup as a status chip', () => {

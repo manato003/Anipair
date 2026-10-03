@@ -25,12 +25,12 @@ export function Keybinds() {
       if (e.ctrlKey || e.metaKey || e.altKey) return
       const key = normalizeKey(e.key)
       if (!key) {
-        setMessage(`${e.key === ' ' ? 'Space' : e.key} は割り当てられません。文字・数字・矢印・BackSpace のどれかを押してください`)
+        setMessage(`${e.key === ' ' ? 'Space' : e.key} は割り当てられません。英数字・矢印キー・BackSpace のいずれかを押してください`)
         return
       }
       const holder = KEY_ACTIONS.find((a) => a.action !== waiting && keymap[a.action] === key)
       setKeymap(assignKey(keymap, waiting, key))
-      setMessage(holder ? `「${holder.label}」と入れ替えました` : null)
+      setMessage(holder ? `「${holder.label}」のキーと入れ替えました` : null)
       setWaiting(null)
     }
     // 他の画面のショートカットより先に受け取る
@@ -41,12 +41,11 @@ export function Keybinds() {
   const isDefault = KEY_ACTIONS.every(({ action }) => keymap[action] === DEFAULT_KEYMAP[action])
 
   return (
-    <Section id="settings-keys" title="キーバインド（PC）" summary="評価画面とマッチングで使うキーボードの割り当てです。">
+    <Section id="settings-keys" title="キーバインド（PC）" summary="評価画面とマッチングで使うキーを変更できます。">
       <details className="settings__fold" open={!isTouchDevice()}>
         <summary>キーの割り当て</summary>
       <p className="settings__lead">
-        変えたい操作のキーを押してから、割り当てたいキーを押してください。
-        別の操作が使っているキーを選ぶと、2つのキーが入れ替わります。Esc でやめられます。
+        変更したい操作のキーをクリックしてから、新しく割り当てるキーを押してください。ほかの操作で使っているキーを選ぶと、2つのキーが入れ替わります。Esc で取り消せます。
       </p>
       <ul className="keybinds">
         {KEY_ACTIONS.map(({ action, label, where }) => (
@@ -78,10 +77,10 @@ export function Keybinds() {
           onClick={() => {
             setKeymap({ ...DEFAULT_KEYMAP })
             setWaiting(null)
-            setMessage('既定に戻しました')
+            setMessage('初期設定に戻しました')
           }}
         >
-          既定に戻す
+          初期設定に戻す
         </button>
         {message && <p className="settings__note">{message}</p>}
       </div>

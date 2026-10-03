@@ -28,7 +28,7 @@ export function Settings(props: {
           error={props.loginError ?? null}
           onAnnictTokenChange={props.onAnnictTokenChange}
         />
-        <AboutBlock />
+        <AboutBlock showTagline={false} />
       </section>
     )
   }

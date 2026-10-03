@@ -3,7 +3,7 @@ import { fetchViewer } from '../../lib/annict'
 import { saveAnnictToken } from '../../lib/storage'
 import { Section, StatusChip } from './Section'
 
-// 接続しているアカウントの名前（Annict に1回だけ聞く。読めなくても「接続中」とは出せる）
+// 連携しているアカウントの名前（Annict に1回だけ聞く。読めなくても「連携中」とは出せる）
 const viewerCache = new Map<string, Promise<{ name: string; username: string }>>()
 
 export function AccountBlock(props: { token: string; onChange: (token: string | null) => void }) {
@@ -22,8 +22,8 @@ export function AccountBlock(props: { token: string; onChange: (token: string | 
     <Section
       id="settings-account"
       title="Annict 連携（必須）"
-      summary="記録はすべて Annict に保存します。"
-      status={<StatusChip>{viewer ? `${viewer.name}（@${viewer.username}）として接続中` : 'Annict に接続中'}</StatusChip>}
+      summary="評価や視聴状況は、すべてあなたの Annict アカウントに保存されます。"
+      status={<StatusChip>{viewer ? `${viewer.name}（@${viewer.username}）で連携中` : 'Annict と連携中'}</StatusChip>}
     >
       <div className="settings__actions">
         <button
@@ -34,9 +34,10 @@ export function AccountBlock(props: { token: string; onChange: (token: string | 
             props.onChange(null)
           }}
         >
-          トークンを消す
+          ログアウト
         </button>
       </div>
+      <p className="settings__lead">この端末から Annict のログイン情報を削除します。Annict の記録は消えません。</p>
     </Section>
   )
 }

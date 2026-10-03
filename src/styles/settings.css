@@ -78,6 +78,11 @@
   margin-top: 16px;
 }
 
+/* ボタンのすぐ下に添える補足（ログアウトの説明など） */
+.settings__actions + .settings__lead {
+  margin-top: 8px;
+}
+
 .settings__actions .btn {
   flex: 1 1 auto;
   padding-inline: 10px;
