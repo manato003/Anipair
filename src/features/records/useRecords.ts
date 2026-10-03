@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchCovers, quickCovers } from '../../lib/covers'
 import { fetchLibrary, updateStatus, type RatingState, type StatusState } from '../../lib/annict'
-import { forgetMyReviews, getMyReviews, rememberReview } from '../../lib/myReviews'
+import { getMyReviews, refreshMyReviews, rememberReview } from '../../lib/myReviews'
 import { blankReview, changeRating } from '../../lib/reviewOps'
 import type { Cover } from '../../lib/storage'
 import { hasPendingWrites, messageOf, useWriteQueue } from '../../lib/useWriteQueue'
 import type { RecordRow } from './recordList'
 
-// ライブラリと自分の感想を読む。感想はブラウズの詳細と共有の控え（myReviews.ts）に読み直して入れる。
+// ライブラリと自分の感想を読む。感想はブラウズの詳細と共有の控え（myReviews.ts）に差分だけ読み直して入れる
+// （full は利用者が読み直しを求めたときだけ。全部を読み直す）。
 // 何が現在の感想かは、この控えだけが持つ（送信のときもここから読む）
-async function fetchRecords(token: string) {
+async function fetchRecords(token: string, full = false) {
   const library = await fetchLibrary(token)
-  forgetMyReviews()
-  const myReviews = await getMyReviews(token)
+  const myReviews = await refreshMyReviews(token, { full })
   return { library, myReviews }
 }
 
@@ -32,12 +32,16 @@ export function useRecords(token: string, active = true) {
   const { pending, failed, enqueue, retryFailed, dismissFailed } = useWriteQueue()
   // 最初の読み込みが済んだか（済むまでは裏で読み直さない）
   const loaded = useRef(false)
+  // 「もう一度読み込む」で読み直すときだけ、感想を全部読み直す（Annict のサイトでの変更に追いつくため）
+  const fullNext = useRef(false)
 
   useEffect(() => {
     let cancelled = false
+    const full = fullNext.current
+    fullNext.current = false
     ;(async () => {
       try {
-        const fetched = await fetchRecords(token)
+        const fetched = await fetchRecords(token, full)
         if (cancelled) return
         // Annict の画像はもう手元にあるので先に出し、Shikimori のポスターは後から埋める（件数が多いと問い合わせに時間がかかるため）
         setRows(toRows(fetched, quickCovers(fetched.library)))
@@ -79,6 +83,7 @@ export function useRecords(token: string, active = true) {
 
   const reload = useCallback(() => {
     loaded.current = false
+    fullNext.current = true
     setRows(null)
     setLoadError(null)
     setReloadTick((t) => t + 1)

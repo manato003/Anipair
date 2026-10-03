@@ -1,6 +1,14 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
+  ALL_KEYS,
+  clearAll,
+  loadOnboardingSeen,
+  loadReviewsRaw,
+  parseOnboardingSeen,
+  saveOnboardingSeen,
+  saveAnnictToken,
+  saveReviewsRaw,
   loadGithubConnection,
   loadGithubRepo,
   clearLegacyCovers,
@@ -170,5 +178,70 @@ describe('GitHub connection in localStorage', () => {
     saveGithubRepo(null)
     expect(loadGithubConnection()).toBeNull()
     expect(localStorage.getItem('animax.githubRepo')).toBeNull()
+  })
+})
+
+describe('the reviews snapshot (animax.reviews.v1)', () => {
+  beforeEach(() => localStorage.clear())
+
+  it('is part of ALL_KEYS and is removed by clearAll', () => {
+    expect(ALL_KEYS).toContain('animax.reviews.v1')
+    saveReviewsRaw({ v: 1 })
+    clearAll()
+    expect(loadReviewsRaw()).toBeNull()
+  })
+
+  it('is removed when the Annict token changes to another value, or is cleared', () => {
+    saveAnnictToken('A')
+    saveReviewsRaw({ v: 1 })
+    saveAnnictToken('B')
+    expect(loadReviewsRaw()).toBeNull()
+
+    saveReviewsRaw({ v: 1 })
+    saveAnnictToken(null)
+    expect(loadReviewsRaw()).toBeNull()
+  })
+
+  it('is kept when the same token is saved again (even with spaces around it)', () => {
+    saveAnnictToken('A')
+    saveReviewsRaw({ v: 1 })
+    saveAnnictToken('A')
+    saveAnnictToken(' A ')
+    expect(loadReviewsRaw()).toEqual({ v: 1 })
+  })
+
+  it('reads a broken value as nothing', () => {
+    localStorage.setItem('animax.reviews.v1', '{broken')
+    expect(loadReviewsRaw()).toBeNull()
+  })
+})
+
+describe('the first-run guide flag (animax.onboarding.v1)', () => {
+  beforeEach(() => localStorage.clear())
+
+  it('is unseen until saved, and saving false forgets it', () => {
+    expect(loadOnboardingSeen()).toBe(false)
+    saveOnboardingSeen(true)
+    expect(loadOnboardingSeen()).toBe(true)
+    expect(JSON.parse(localStorage.getItem('animax.onboarding.v1')!)).toMatchObject({ v: 1 })
+    saveOnboardingSeen(false)
+    expect(loadOnboardingSeen()).toBe(false)
+    expect(localStorage.getItem('animax.onboarding.v1')).toBeNull()
+  })
+
+  it.each([null, undefined, true, 'seen', [], {}, { v: 2, at: 'x' }, { v: 1 }, { v: 1, at: 5 }])('treats the broken value %j as unseen', (v) => {
+    expect(parseOnboardingSeen(v)).toBe(false)
+  })
+
+  it('reads a damaged saved value as unseen', () => {
+    localStorage.setItem('animax.onboarding.v1', '{not json')
+    expect(loadOnboardingSeen()).toBe(false)
+  })
+
+  it('is part of ALL_KEYS and is removed by clearAll', () => {
+    expect(ALL_KEYS).toContain('animax.onboarding.v1')
+    saveOnboardingSeen(true)
+    clearAll()
+    expect(loadOnboardingSeen()).toBe(false)
   })
 })

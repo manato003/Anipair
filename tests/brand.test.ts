@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest'
 import { TAGLINE } from '../src/lib/brand'
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf-8')
-const css = read('src/index.css')
+// 色の変数と .btn--primary は共通の部品を置く base.css にある（index.css は @import の列だけ）
+const css = read('src/styles/base.css')
 
 function token(name: string): string {
   const m = css.match(new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6})`))

@@ -20,6 +20,10 @@ const KEYS = {
   keymap: 'animax.keymap',
   matchFilter: 'animax.match.filter',
   backup: 'animax.backup',
+  // 自分の感想の控え（差分で読むための印つき）。今のトークンの持ち主のもので、トークンが変わったら消す
+  reviews: 'animax.reviews.v1',
+  // 初めての人への案内（評価画面の「Anipair の使い方」）を見たか。端末ごと
+  onboarding: 'animax.onboarding.v1',
 } as const
 
 export const ALL_KEYS: readonly string[] = Object.values(KEYS)
@@ -57,6 +61,10 @@ export function loadAnnictToken(): string | null {
 }
 
 export function saveAnnictToken(token: string | null): void {
+  // 感想の控えは、いまログインしている人のもの（トークンそのものは控えに置けない）。
+  // 別の値に変わった・消えたら、別のアカウントの感想を混ぜないよう控えも消す
+  const next = token && token.trim() ? token.trim() : null
+  if (loadAnnictToken() !== next) write(KEYS.reviews, null)
   write(KEYS.annictToken, token)
 }
 
@@ -122,6 +130,34 @@ export function loadBackupStatusRaw(): unknown {
 
 export function saveBackupStatusRaw(value: unknown): void {
   write(KEYS.backup, JSON.stringify(value))
+}
+
+// 自分の感想の控えの検証は lib/myReviews.ts の parseReviewsSnapshot が行う
+export function loadReviewsRaw(): unknown {
+  return readJson(KEYS.reviews)
+}
+
+export function saveReviewsRaw(value: unknown): void {
+  write(KEYS.reviews, JSON.stringify(value))
+}
+
+export function clearReviewsRaw(): void {
+  write(KEYS.reviews, null)
+}
+
+// 「Anipair の使い方」を見たか。{ v: 1, at: 見た日時 } の形のときだけ「見た」とみなす（壊れていれば、もう一度出す）
+export function parseOnboardingSeen(value: unknown): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const { v, at } = value as Record<string, unknown>
+  return v === 1 && typeof at === 'string'
+}
+
+export function loadOnboardingSeen(): boolean {
+  return parseOnboardingSeen(readJson(KEYS.onboarding))
+}
+
+export function saveOnboardingSeen(seen: boolean): void {
+  write(KEYS.onboarding, seen ? JSON.stringify({ v: 1, at: new Date().toISOString() }) : null)
 }
 
 // キー割り当ての検証は lib/keymap.ts の parseKeymap が行う

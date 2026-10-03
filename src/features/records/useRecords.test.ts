@@ -20,7 +20,7 @@ vi.mock('../../lib/annict', async (orig) => ({
   ...(await orig<typeof import('../../lib/annict')>()),
   fetchLibrary: vi.fn(async () => library),
   // 控え（myReviews.ts）が中身を書き換えるので、毎回コピーを返す
-  fetchMyReviews: vi.fn(async () => new Map(reviews)),
+  scanMyReviews: vi.fn(async () => ({ reviews: new Map(reviews), newest: null })),
   updateStatus: vi.fn(async (_t: string, id: string, s: string) => void calls.push(`status ${id} ${s}`)),
   createReview: vi.fn(async (_t: string, id: string, r: string) => {
     const rid = `N${++seq}`
@@ -40,12 +40,14 @@ vi.mock('../../lib/covers', async (orig) => ({
 }))
 
 const { useRecords } = await import('./useRecords')
-const { fetchLibrary } = await import('../../lib/annict')
-const { rememberReview } = await import('../../lib/myReviews')
+const { fetchLibrary, scanMyReviews } = await import('../../lib/annict')
+const { rememberReview, resetMyReviewsMemory } = await import('../../lib/myReviews')
 
 const initialLibrary = [...library]
 
 beforeEach(() => {
+  // 共有の感想の控えは起動中ずっと残るので、テストごとに捨てる
+  resetMyReviewsMemory()
   calls.length = 0
   seq = 0
   deleteGate = null
@@ -175,3 +177,26 @@ describe('useRecords', () => {
     })
   })
 })
+
+describe('how the reviews are read', () => {
+  it('reads everything the first time, only the difference when shown again, and everything again on a manual reload', async () => {
+    vi.mocked(scanMyReviews).mockClear()
+    const hook = await setup()
+    expect(vi.mocked(scanMyReviews)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(scanMyReviews).mock.calls[0]).toEqual(['t'])
+
+    // 再び表示したときの裏の読み直しは差分だけ（stopBefore がある）
+    hook.rerender({ active: false })
+    hook.rerender({ active: true })
+    await waitFor(() => expect(vi.mocked(scanMyReviews)).toHaveBeenCalledTimes(2))
+    expect(vi.mocked(scanMyReviews).mock.calls[1][1]).toEqual({ stopBefore: expect.any(String) })
+
+    // 「もう一度読み込む」は全部を読み直す
+    await waitFor(() => expect(hook.result.current.rows).not.toBeNull())
+    act(() => hook.result.current.reload())
+    await waitFor(() => expect(vi.mocked(scanMyReviews)).toHaveBeenCalledTimes(3))
+    expect(vi.mocked(scanMyReviews).mock.calls[2]).toEqual(['t'])
+    await waitFor(() => expect(hook.result.current.rows?.[0]?.cover?.url).toBeTypeOf('string'))
+  })
+})
+

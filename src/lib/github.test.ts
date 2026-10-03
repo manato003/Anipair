@@ -61,3 +61,44 @@ describe('github functions use the repository they are given', () => {
     await expect(checkAccess(conn)).rejects.toMatchObject({ kind: 'auth' })
   })
 })
+
+describe('403 is not always a bad token', () => {
+  const reply403 = (headers: Record<string, string>, body: unknown = {}) => new Response(JSON.stringify(body), { status: 403, headers })
+
+  it('treats a plain 403 as an auth error', async () => {
+    fetchMock.mockResolvedValue(reply403({}, { message: 'Resource not accessible by personal access token' }))
+    await expect(readJson(conn, 'x.json')).rejects.toMatchObject({ kind: 'auth' })
+  })
+
+  it.each([
+    ['x-ratelimit-remaining is 0', { 'x-ratelimit-remaining': '0' }, {}],
+    ['retry-after is present', { 'retry-after': '60' }, {}],
+    ['the message says rate limit', {}, { message: 'API rate limit exceeded for user ID 1.' }],
+    ['the message says secondary rate limit', {}, { message: 'You have exceeded a secondary rate limit.' }],
+  ])('reports a usage limit as an api error (%s)', async (_label, headers, body) => {
+    fetchMock.mockResolvedValue(reply403(headers, body))
+    const err = await readJson(conn, 'x.json').catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(GitHubError)
+    expect((err as GitHubError).kind).toBe('api')
+    expect((err as GitHubError).message).toContain('利用制限')
+  })
+
+  it('still treats a 403 with requests left as an auth error', async () => {
+    fetchMock.mockResolvedValue(reply403({ 'x-ratelimit-remaining': '4999' }, { message: 'Forbidden' }))
+    await expect(readJson(conn, 'x.json')).rejects.toMatchObject({ kind: 'auth' })
+  })
+
+  it('treats 429 as a usage limit, and 401 stays an auth error even with the limit headers', async () => {
+    fetchMock.mockResolvedValueOnce(new Response('{}', { status: 429 }))
+    await expect(readJson(conn, 'x.json')).rejects.toMatchObject({ kind: 'api', message: expect.stringContaining('利用制限') })
+    fetchMock.mockResolvedValueOnce(new Response('{}', { status: 401, headers: { 'x-ratelimit-remaining': '0' } }))
+    await expect(readJson(conn, 'x.json')).rejects.toMatchObject({ kind: 'auth' })
+  })
+
+  it('also covers writes and the access check', async () => {
+    fetchMock.mockResolvedValue(reply403({ 'x-ratelimit-remaining': '0' }))
+    await expect(writeJson(conn, 'x.json', {}, null, 'm')).rejects.toMatchObject({ kind: 'api' })
+    await expect(checkAccess(conn)).rejects.toMatchObject({ kind: 'api' })
+  })
+})
+

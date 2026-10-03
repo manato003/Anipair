@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { previousSeason, seasonOf, type Season } from '../../lib/season'
 
@@ -71,8 +71,13 @@ vi.mock('../browse/WorkDetail', () => ({
 
 const { Backfill } = await import('./Backfill')
 
+// 使い方の案内は「見た」ことにしておく（案内のテストだけ、消してから始める）
+const seen = () => localStorage.setItem('animax.onboarding.v1', JSON.stringify({ v: 1, at: '2026-10-03T00:00:00.000Z' }))
+beforeEach(seen)
+
 afterEach(() => {
   cleanup()
+  localStorage.clear()
   answer.mockClear()
   watchAnswer.mockClear()
   refreshIfIdle.mockClear()
@@ -174,5 +179,53 @@ describe('Backfill detail sheet', () => {
     // 詳細のシートは読むだけで開く
     press('i')
     expect(screen.getByTestId('sheet').getAttribute('data-readonly')).toBe('true')
+  })
+})
+
+describe('Backfill first-run guide', () => {
+  it('opens once on the first visit; はじめる closes it and it does not come back', () => {
+    localStorage.clear()
+    const { unmount } = render(<Backfill token="t" github={null} active />)
+    expect(screen.getByRole('dialog', { name: 'Anipair の使い方' })).toBeTruthy()
+    expect(screen.getByText('Anipair の使い方')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'はじめる' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(localStorage.getItem('animax.onboarding.v1')).toContain('"v":1')
+    unmount()
+
+    // 次に開いたときは出ない
+    render(<Backfill token="t" github={null} active />)
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('counts as seen however it is closed', () => {
+    localStorage.clear()
+    render(<Backfill token="t" github={null} active />)
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(localStorage.getItem('animax.onboarding.v1')).not.toBeNull()
+  })
+
+  it('keeps every answer shortcut, and the detail key, off while the guide is open', () => {
+    localStorage.clear()
+    render(<Backfill token="t" github={null} active />)
+    press('3')
+    press('w')
+    press('0')
+    press('i')
+    expect(answer).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('sheet')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'はじめる' }))
+    press('3')
+    expect(answer).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not open over a hidden tab, but opens when the tab is first shown', () => {
+    localStorage.clear()
+    const { rerender } = render(<Backfill token="t" github={null} active={false} />)
+    expect(screen.queryByRole('dialog')).toBeNull()
+    rerender(<Backfill token="t" github={null} active />)
+    expect(screen.getByRole('dialog', { name: 'Anipair の使い方' })).toBeTruthy()
   })
 })

@@ -26,12 +26,28 @@ function headers(token: string): HeadersInit {
   }
 }
 
+// 利用制限の応答か: 残り回数 0（x-ratelimit-remaining）、待ち時間の指示（retry-after）、本文の "rate limit"。429 はそれだけで制限
+async function isRateLimited(res: Response): Promise<boolean> {
+  if (res.status === 429) return true
+  if (res.headers.get('x-ratelimit-remaining') === '0' || res.headers.get('retry-after') !== null) return true
+  try {
+    const body = (await res.clone().json()) as { message?: unknown }
+    return typeof body.message === 'string' && /rate limit/i.test(body.message)
+  } catch {
+    return false
+  }
+}
+
 async function call(url: string, init: RequestInit): Promise<Response> {
   let res: Response
   try {
     res = await fetch(url, init)
   } catch {
     throw new GitHubError('GitHub に接続できませんでした。通信を確認してください', 'network')
+  }
+  // 403 は、利用制限（レート制限）でも返る。トークンの問題と分けないと、入れ直しを促してしまう
+  if ((res.status === 403 || res.status === 429) && (await isRateLimited(res))) {
+    throw new GitHubError('GitHub の利用制限に達しました。しばらく待ってからもう一度試してください', 'api')
   }
   if (res.status === 401 || res.status === 403) {
     throw new GitHubError('GitHub のトークンが使えません。設定で入れ直してください', 'auth')

@@ -1,4 +1,6 @@
+import { emitAnnictAuthFailed } from './authEvents'
 import { annictImageOf } from './covers'
+import { delay, parseRetryAfter } from './retry'
 import { createThrottle } from './throttle'
 
 // Annict GraphQL API。型は annict/annict の rails/app/graphql/beta/schema.graphql が正
@@ -33,27 +35,48 @@ export interface AnnictWork {
   imageUrl: string | null
 }
 
+// 429（回数の制限）で自動で待って送り直す回数。Annict は rack-attack で IP ごとに数えている。
+// 制限で断られた要求は処理されていないので、書き込みも送り直してよい
+const RATE_LIMIT_RETRIES = 2
+const RATE_LIMIT_DEFAULT_WAIT_MS = 2_000
+const RATE_LIMIT_MAX_WAIT_MS = 30_000
+
+type GqlOutcome<T> = { data: T } | { retryAfterMs: number }
+
 async function gql<T>(token: string, query: string, variables: Record<string, unknown> = {}): Promise<T> {
-  return schedule(async () => {
-    let res: Response
-    try {
-      res = await fetch(ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ query, variables }),
-      })
-    } catch {
-      throw new AnnictError('Annict に接続できませんでした。通信を確認してください', 'network')
+  for (let attempt = 0; ; attempt++) {
+    // 待つあいだは列を握らない（1回ごとに列に並べ直す）。待っている間に、ほかの問い合わせが先に進める
+    const outcome = await schedule<GqlOutcome<T>>(async () => {
+      let res: Response
+      try {
+        res = await fetch(ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ query, variables }),
+        })
+      } catch {
+        throw new AnnictError('Annict に接続できませんでした。通信を確認してください', 'network')
+      }
+      if (res.status === 401) {
+        // 画面全体に知らせる（帯を出す）。呼び出し元には、今までどおり例外で返す
+        emitAnnictAuthFailed(token)
+        throw new AnnictError('Annict のトークンが使えません。設定で入れ直してください', 'auth')
+      }
+      if (res.status === 429) {
+        return { retryAfterMs: parseRetryAfter(res.headers.get('Retry-After'), RATE_LIMIT_DEFAULT_WAIT_MS, RATE_LIMIT_MAX_WAIT_MS) }
+      }
+      if (!res.ok) throw new AnnictError(`Annict がエラーを返しました（HTTP ${res.status}）`, 'api')
+      const json = (await res.json()) as { data?: T; errors?: { message: string }[] }
+      if (json.errors?.length) throw new AnnictError(`Annict がエラーを返しました: ${json.errors[0].message}`, 'api')
+      if (!json.data) throw new AnnictError('Annict の応答が空でした', 'api')
+      return { data: json.data }
+    })
+    if ('data' in outcome) return outcome.data
+    if (attempt >= RATE_LIMIT_RETRIES) {
+      throw new AnnictError('Annict の利用制限に達しました。しばらく待ってからもう一度試してください', 'api')
     }
-    if (res.status === 401) {
-      throw new AnnictError('Annict のトークンが使えません。設定で入れ直してください', 'auth')
-    }
-    if (!res.ok) throw new AnnictError(`Annict がエラーを返しました（HTTP ${res.status}）`, 'api')
-    const json = (await res.json()) as { data?: T; errors?: { message: string }[] }
-    if (json.errors?.length) throw new AnnictError(`Annict がエラーを返しました: ${json.errors[0].message}`, 'api')
-    if (!json.data) throw new AnnictError('Annict の応答が空でした', 'api')
-    return json.data
-  })
+    await delay(outcome.retryAfterMs)
+  }
 }
 
 export async function fetchViewer(token: string): Promise<{ username: string; name: string }> {
@@ -233,10 +256,22 @@ interface RawReviewItem extends Partial<ReviewAxes> {
   work?: { annictId: number }
 }
 
-// 自分の感想（作品の annictId → 感想）。自分の感想はアクティビティから辿る。
-// 同じ作品に複数あれば新しいものを採る
-export async function fetchMyReviews(token: string): Promise<Map<number, MyReview>> {
+// アクティビティの読み取りの結果
+export interface ReviewScan {
+  // 読んだ範囲にあった感想（作品の annictId → 感想）。同じ作品に複数あれば新しいものを採る
+  reviews: Map<number, MyReview>
+  // 読んだ範囲で一番新しいアクティビティの日時（種類は問わない）。1件も無ければ null
+  newest: string | null
+}
+
+// 自分の感想はアクティビティから辿る。アクティビティは状態の変更やエピソードの記録も含み、感想よりずっと多いので、
+// 新しい順（2026-10-03 に実測。既定は古い順）に読み、stopBefore より古い項目に来たらそこで止める。
+// stopBefore が無ければ最後まで読む。
+// 注意: 感想のアクティビティは作ったときだけ増える。Annict のサイトで感想を直した・消した変更は、差分の読み込みでは見えない
+export async function scanMyReviews(token: string, opts: { stopBefore?: string | null } = {}): Promise<ReviewScan> {
+  const stopAt = opts.stopBefore ? Date.parse(opts.stopBefore) : null
   const latest = new Map<number, MyReview>()
+  let newest: string | null = null
   let after: string | null = null
   for (;;) {
     const data: {
@@ -248,17 +283,30 @@ export async function fetchMyReviews(token: string): Promise<Map<number, MyRevie
       }
     } = await gql(
       token,
-      `query($after: String) { viewer { activities(first: 100, after: $after) {
+      `query($after: String) { viewer { activities(first: 100, after: $after, orderBy: {field: CREATED_AT, direction: DESC}) {
         pageInfo { hasNextPage endCursor }
-        edges { item { __typename ... on Review {
-          id body createdAt work { annictId }
-          ratingOverallState ratingStoryState ratingAnimationState ratingMusicState ratingCharacterState
-        } } }
+        edges { item { __typename
+          ... on Review {
+            id body createdAt work { annictId }
+            ratingOverallState ratingStoryState ratingAnimationState ratingMusicState ratingCharacterState
+          }
+          ... on Status { createdAt }
+          ... on Record { createdAt }
+          ... on MultipleRecord { createdAt }
+        } }
       } } }`,
       { after },
     )
     const conn = data.viewer.activities
+    let reachedOld = false
     for (const { item } of conn.edges) {
+      const at = item?.createdAt
+      if (at && (!newest || Date.parse(at) > Date.parse(newest))) newest = at
+      // 新しい順なので、これより後ろはすべて古い
+      if (at && stopAt !== null && Date.parse(at) < stopAt) {
+        reachedOld = true
+        break
+      }
       if (item?.__typename !== 'Review' || !item.id || !item.work || !item.createdAt) continue
       const prev = latest.get(item.work.annictId)
       if (prev && prev.createdAt >= item.createdAt) continue
@@ -273,17 +321,10 @@ export async function fetchMyReviews(token: string): Promise<Map<number, MyRevie
         ratingCharacterState: item.ratingCharacterState ?? null,
       })
     }
-    if (!conn.pageInfo.hasNextPage) break
+    if (reachedOld || !conn.pageInfo.hasNextPage) break
     after = conn.pageInfo.endCursor
   }
-  return latest
-}
-
-// 自分が付けた総合評価（作品の annictId → 評価）
-export async function fetchMyRatings(token: string): Promise<Map<number, RatingState>> {
-  const out = new Map<number, RatingState>()
-  for (const [id, r] of await fetchMyReviews(token)) if (r.ratingOverallState) out.set(id, r.ratingOverallState)
-  return out
+  return { reviews: latest, newest }
 }
 
 export interface BrowseWork {

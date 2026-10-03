@@ -5,11 +5,12 @@ import { Empty } from '../../components/Empty'
 import { CheckIcon, InfoIcon, PauseIcon, StopIcon, UndoIcon } from '../../components/Icons'
 import { SaveStatus } from '../../components/SaveStatus'
 import { SeasonPicker } from '../../components/SeasonPicker'
+import { UsageGuide } from '../../components/UsageGuide'
 import { keyLabel, useKeymap } from '../../lib/keymap'
 import type { GithubConnection } from '../../lib/github'
 import { useShortcuts } from '../../lib/useShortcuts'
 import { previousSeason, sameSeason, seasonLabel, seasonOf } from '../../lib/season'
-import type { Cover } from '../../lib/storage'
+import { loadOnboardingSeen, saveOnboardingSeen, type Cover } from '../../lib/storage'
 import { WorkDetail, type WorkSeed } from '../browse/WorkDetail'
 import { formatDate } from '../records/recordList'
 import { OLDEST_SEASON, OLDEST_YEAR, RATINGS } from './queue'
@@ -60,6 +61,14 @@ export function Backfill({ token, github, active }: { token: string; github: Git
     }
   }, [back, bCurrent, wCurrent])
 
+  // 初めて評価の画面を開いたときだけ、使い方のシートを出す。どう閉じても「見た」ことにして、次からは出さない
+  const [guideOpen, setGuideOpen] = useState(() => !loadOnboardingSeen())
+  const showGuide = guideOpen && active
+  const closeGuide = () => {
+    saveOnboardingSeen(true)
+    setGuideOpen(false)
+  }
+
   // 詳細のシートを開いている作品。カードが変わったら閉じる
   const [sheetFor, setSheetFor] = useState<string | null>(null)
   const sheetOpen = shown !== null && sheetFor === shown.key
@@ -72,7 +81,8 @@ export function Backfill({ token, github, active }: { token: string; github: Git
   const canWatching = sameSeason(b.season, thisSeason) || sameSeason(b.season, previousSeason(thisSeason))
 
   // PC ではキーボードで答えられる。割り当ては設定画面で変えられる。
-  // シートを開いているあいだは、詳細のキー以外は効かせない（あらすじを読みながら押した数字で、下のカードに評価が付かないように）
+  // シートを開いているあいだは、詳細のキー以外は効かせない（あらすじを読みながら押した数字で、下のカードに評価が付かないように）。
+  // 使い方のシートのあいだは、すべて効かせない（読みながら押したキーで答えたり、下の作品の詳細が開いたりしないように）
   const keys = useKeymap()
   const ratingKeys = back
     ? {
@@ -102,7 +112,7 @@ export function Backfill({ token, github, active }: { token: string; github: Git
         watching: () => w.answer({ kind: 'still' }),
         undo: w.undo,
       }
-  useShortcuts(sheetOpen ? { detail: toggleSheet } : { ...answers, detail: toggleSheet }, active)
+  useShortcuts(showGuide ? {} : sheetOpen ? { detail: toggleSheet } : { ...answers, detail: toggleSheet }, active)
 
   const hasCurrent = shown !== null
   const canUndo = back ? b.canUndo : w.canUndo
@@ -289,6 +299,7 @@ export function Backfill({ token, github, active }: { token: string; github: Git
       </section>
 
       {/* .rate の直下の要素は position を上書きされるので、シートは外に出す */}
+      {showGuide && <UsageGuide onClose={closeGuide} />}
       {sheetOpen && shown && <WorkDetail readOnly token={token} work={shown.seed} cover={shown.cover} active={active} onClose={() => setSheetFor(null)} />}
     </>
   )

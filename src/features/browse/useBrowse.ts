@@ -7,14 +7,33 @@ import { fetchMedia } from '../../lib/shikimori'
 import type { Cover } from '../../lib/storage'
 import { messageOf } from '../../lib/useWriteQueue'
 import { malIdOf } from '../match/taste'
-import { scoreOf, sortByScore, type BrowseScore, type BrowseSort } from './browseSort'
+import { forgetTaste, loadTaste } from '../match/tasteLoader'
+import { rankByTaste, scoreOf, sortByScore, type BrowseScore, type BrowseSort } from './browseSort'
 
 const DEBOUNCE_MS = 400
 // 評価順は全件の点数が要るので、まとめて読む。上限はクール1つぶん（200作品前後）が収まる数
 const MAX_FOR_SCORE = 300
 
+// 好み順の手がかりが無いときの注意（好きな作品が1件も無い）
+export const NO_LIKES_NOTE = '好みの手がかりがまだありません。評価画面で、好きな作品を評価すると使えます。'
+
 function filterOf(query: string, season: Season) {
   return query ? { titles: [query] } : { seasons: [toSlug(season)] }
+}
+
+// クールの作品を、50件ずつ上限（MAX_FOR_SCORE）まで集める（評価順と好み順が、全件を手元で並べるために使う）。
+// 途中で取り消されたら null
+async function collectAll(token: string, filter: ReturnType<typeof filterOf>, isCancelled: () => boolean): Promise<BrowseWork[] | null> {
+  const all: BrowseWork[] = []
+  let after: string | null = null
+  for (;;) {
+    const page = await browseWorks(token, filter, { after, first: 50 })
+    if (isCancelled()) return null
+    all.push(...page.works)
+    if (!page.hasNext || all.length >= MAX_FOR_SCORE) break
+    after = page.endCursor
+  }
+  return all
 }
 
 // active: 画面が表示されているか（隠れているだけで残っているタブは、評価のバッジを読み直さない）
@@ -35,8 +54,11 @@ export function useBrowse(token: string, active = true) {
   // 評価順で並べたときの、作品（Annict の ID）ごとの点数と出どころ
   const [scores, setScores] = useState<Map<number, BrowseScore>>(new Map())
   const [progress, setProgress] = useState<string | null>(null)
-  // 新しい順はタイトル検索のときだけ（クール一覧はすべて同じ時期）
-  const effectiveSort: BrowseSort = sort === 'newest' && !searched ? 'popular' : sort
+  // 好み順で並べたときの、作品（Annict の ID）ごとの理由と、並べられなかったときの注意（好みの手がかりが無い・好みを読めない）
+  const [reasons, setReasons] = useState<Map<number, string>>(new Map())
+  const [tasteNote, setTasteNote] = useState<string | null>(null)
+  // 新しい順はタイトル検索のときだけ、好み順はクール一覧のときだけ（クール一覧はすべて同じ時期。好み順はクールの全作品を並べる）
+  const effectiveSort: BrowseSort = (sort === 'newest' && !searched) || (sort === 'taste' && searched) ? 'popular' : sort
   const order: BrowseOrder = effectiveSort === 'newest' ? 'SEASON' : 'WATCHERS_COUNT'
 
   useEffect(() => {
@@ -65,15 +87,8 @@ export function useBrowse(token: string, active = true) {
         const filter = filterOf(searched, season)
         if (effectiveSort === 'score') {
           setProgress('作品を集めています')
-          const all: BrowseWork[] = []
-          let after: string | null = null
-          for (;;) {
-            const page = await browseWorks(token, filter, { after, first: 50 })
-            if (cancelled) return
-            all.push(...page.works)
-            if (!page.hasNext || all.length >= MAX_FOR_SCORE) break
-            after = page.endCursor
-          }
+          const all = await collectAll(token, filter, () => cancelled)
+          if (!all) return
           // Annict の満足度が無い作品だけ、Shikimori の点数を取る
           const lacking = all.filter((w) => !(typeof w.satisfactionRate === 'number' && w.satisfactionRate > 0)).map(malIdOf).filter((n): n is number => n !== null)
           setProgress(`Shikimori の点数を集めています（${all.length}作品）`)
@@ -87,6 +102,43 @@ export function useBrowse(token: string, active = true) {
           }
           setScores((cur) => new Map([...cur, ...got]))
           setWorks(sortByScore(all, shikimori))
+          setCursor({ endCursor: null, hasNext: false })
+          setProgress(null)
+          await addCovers(all)
+        } else if (effectiveSort === 'taste') {
+          // 評価順と同じく、全件を集めてから手元で並べる（「もっと見る」は無い）。
+          // 好みは見たいのおすすめ順と共通（起動中は使い回す）。好みを調べられなくても、一覧は人気順で見せる
+          setTasteNote(null)
+          setProgress('作品を集めています')
+          const all = await collectAll(token, filter, () => cancelled)
+          if (!all) return
+          let ordered = all
+          let why = new Map<number, string>()
+          let note: string | null = null
+          setProgress('好みを調べています')
+          try {
+            const taste = await loadTaste(token, (step) => {
+              if (!cancelled) setProgress(step)
+            })
+            if (cancelled) return
+            if (!taste.seeds.some((s) => s.weight > 0)) {
+              note = NO_LIKES_NOTE
+            } else {
+              setProgress(`作品の情報を集めています（${all.length}作品）`)
+              const malIds = all.map(malIdOf).filter((n): n is number => n !== null)
+              const details = malIds.length > 0 ? await fetchMedia(malIds) : new Map()
+              if (cancelled) return
+              const ranking = rankByTaste(all, details, taste)
+              ordered = ranking.works
+              why = ranking.reasons
+            }
+          } catch (e) {
+            if (cancelled) return
+            note = `好みを読み込めませんでした（${messageOf(e)}）。人気順で並べています。`
+          }
+          setReasons(why)
+          setTasteNote(note)
+          setWorks(ordered)
           setCursor({ endCursor: null, hasNext: false })
           setProgress(null)
           await addCovers(all)
@@ -108,6 +160,17 @@ export function useBrowse(token: string, active = true) {
       cancelled = true
     }
   }, [token, searched, season, reloadTick, effectiveSort, order, addCovers])
+
+  // 隠れていたタブが再び表示されたときは、好みの控えを捨てる（そのあいだに評価が増えているかもしれない。次に好み順にしたときに読み直す）
+  const wasHidden = useRef(false)
+  useEffect(() => {
+    if (!active) {
+      wasHidden.current = true
+    } else if (wasHidden.current) {
+      wasHidden.current = false
+      forgetTaste()
+    }
+  }, [active])
 
   // 自分の評価をバッジに出す（読めなくても一覧は使える）。ほかの画面で評価を変えることがあるので、表示されるたびに共有の控えから読み直す
   useEffect(() => {
@@ -184,6 +247,8 @@ export function useBrowse(token: string, active = true) {
     sort: effectiveSort,
     setSort,
     scores,
+    reasons,
+    tasteNote,
     progress,
     works,
     hasMore: cursor.hasNext,

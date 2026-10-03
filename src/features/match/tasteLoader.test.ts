@@ -32,7 +32,10 @@ vi.mock('../../lib/annict', async (orig) => ({
     }
     return library
   }),
-  fetchMyRatings: vi.fn(async () => ratings),
+}))
+// 感想の共有の控え。評価だけを持つ偽物の感想で返す
+vi.mock('../../lib/myReviews', () => ({
+  refreshMyReviews: vi.fn(async () => new Map([...ratings].map(([id, r]) => [id, { id: `R${id}`, body: '', createdAt: '', ratingOverallState: r }]))),
 }))
 vi.mock('../../lib/shikimori', () => ({
   fetchMedia: vi.fn(async (ids: number[]) => new Map(ids.map((i) => [i, media(i)]))),
@@ -43,9 +46,10 @@ vi.mock('../../lib/shikimori', () => ({
   }),
 }))
 
-const { loadTaste, forgetTaste, pickSimilarSeeds, MAX_SEEDS, MAX_SIMILAR_LIKED, MAX_SIMILAR_DISLIKED } = await import('./tasteLoader')
+const { loadTaste, forgetTaste, prefetchTaste, resetPrefetchedTaste, pickSimilarSeeds, MAX_SEEDS, MAX_SIMILAR_LIKED, MAX_SIMILAR_DISLIKED } = await import('./tasteLoader')
 const { fetchLibrary } = await import('../../lib/annict')
 const { fetchMedia, fetchSimilarMany } = await import('../../lib/shikimori')
+const { refreshMyReviews } = await import('../../lib/myReviews')
 
 const entry = (annictId: number, state: LibraryEntry['state']): LibraryEntry => ({
   workId: `W${annictId}`,
@@ -58,6 +62,7 @@ const entry = (annictId: number, state: LibraryEntry['state']): LibraryEntry => 
 
 beforeEach(() => {
   forgetTaste()
+  resetPrefetchedTaste()
   failNext = false
   library = [entry(1, 'WATCHED'), entry(2, 'WATCHED'), entry(3, 'WANNA_WATCH')]
   ratings = new Map([
@@ -67,13 +72,14 @@ beforeEach(() => {
   vi.mocked(fetchLibrary).mockClear()
   vi.mocked(fetchMedia).mockClear()
   vi.mocked(fetchSimilarMany).mockClear()
+  vi.mocked(refreshMyReviews).mockClear()
 })
 
 describe('loadTaste', () => {
   it('builds seeds, the strongest ones first, the media for them, and a profile', async () => {
     const taste = await loadTaste('t')
     expect(taste.library).toBe(library)
-    expect(taste.ratings).toBe(ratings)
+    expect(taste.ratings).toEqual(ratings)
     // 見たい（3）は手がかりにならない。重みの絶対値が大きい順（GREAT=2、BAD=-1.5）
     expect(taste.topSeeds.map((s) => s.malId)).toEqual([1, 2])
     expect([...taste.seedMedia.keys()]).toEqual([1, 2])
@@ -146,6 +152,64 @@ describe('loadTaste', () => {
     const again: string[] = []
     await loadTaste('t', (s) => again.push(s))
     expect(again).toEqual([])
+  })
+})
+
+describe('loadTaste and the shared reviews', () => {
+  it('reads the ratings from the shared reviews with an incremental refresh (not a full walk)', async () => {
+    await loadTaste('t')
+    expect(refreshMyReviews).toHaveBeenCalledTimes(1)
+    expect(refreshMyReviews).toHaveBeenCalledWith('t')
+  })
+
+  it('asks Shikimori with the default (foreground) priority', async () => {
+    await loadTaste('t')
+    expect(fetchMedia).toHaveBeenCalledWith([1, 2], {})
+    expect(vi.mocked(fetchSimilarMany).mock.calls[0][2]).toEqual({})
+  })
+})
+
+describe('prefetchTaste', () => {
+  it('runs the same steps with Shikimori in background priority', async () => {
+    await prefetchTaste('t')
+    expect(fetchLibrary).toHaveBeenCalledTimes(1)
+    expect(refreshMyReviews).toHaveBeenCalledWith('t')
+    expect(fetchMedia).toHaveBeenCalledWith([1, 2], { background: true })
+    expect(fetchSimilarMany).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(fetchSimilarMany).mock.calls[0][0]).toEqual([1, 2])
+    expect(vi.mocked(fetchSimilarMany).mock.calls[0][2]).toEqual({ background: true })
+  })
+
+  it('does not fill the shared taste cache (a later loadTaste reads fresh)', async () => {
+    await prefetchTaste('t')
+    ratings = new Map([
+      [1, 'GREAT'],
+      [2, 'GREAT'],
+    ])
+    const taste = await loadTaste('t')
+    expect(fetchLibrary).toHaveBeenCalledTimes(2)
+    expect(taste.ratings.get(2)).toBe('GREAT')
+  })
+
+  it('runs once per token in a session, even when it failed', async () => {
+    failNext = true
+    await expect(prefetchTaste('t')).resolves.toBeUndefined()
+    await prefetchTaste('t')
+    expect(fetchLibrary).toHaveBeenCalledTimes(1)
+    await prefetchTaste('other')
+    expect(fetchLibrary).toHaveBeenCalledTimes(2)
+  })
+
+  it('swallows errors', async () => {
+    failNext = true
+    await expect(prefetchTaste('t')).resolves.toBeUndefined()
+  })
+
+  it('does nothing when the taste for this token is already loaded or loading', async () => {
+    const loading = loadTaste('t')
+    await prefetchTaste('t')
+    await loading
+    expect(fetchLibrary).toHaveBeenCalledTimes(1)
   })
 })
 

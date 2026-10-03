@@ -1,0 +1,255 @@
+/* アプリの枠（画面の入れ物・ログイン切れの帯・タブ・落ちたときの画面） */
+
+.app {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  height: 100dvh;
+}
+
+/* 主な画面（.app__main）と、その上に出る帯（.auth-banner）を縦に並べる枠。帯が無いときは .app__main が高さをすべて使う */
+.app__body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.app__main {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Annict のログインが切れたときの帯。画面の上（広い画面では上のタブの下）に、閉じるまで出す */
+.auth-banner {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 16px;
+  padding: 10px 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--danger) 45%, var(--line));
+  background: color-mix(in srgb, var(--danger) 14%, var(--ink-raised));
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.auth-banner__text {
+  text-align: center;
+  text-wrap: balance;
+}
+
+.auth-banner__actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.auth-banner .btn {
+  padding: 6px 14px;
+  font-size: 0.85rem;
+}
+
+/* 隠したタブの画面。中の画面は height: 100% なので、ここも 100% にして以前と同じ寸法にする */
+.app__screen {
+  height: 100%;
+}
+
+.app__screen[hidden] {
+  display: none;
+}
+
+.tabs {
+  /* 塗ったアイコンの抜く部分は、この地の色で描く（Icons.tsx の TabIcon） */
+  --tabs-bg: #1b2038;
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 max(0px, calc((100% - var(--col)) / 2)) env(safe-area-inset-bottom);
+  border-top: 1px solid var(--line-strong);
+  background: var(--tabs-bg);
+}
+
+/* Anipair の字は広い画面の上の帯だけに出す */
+.tabs__brand {
+  display: none;
+}
+
+/* 下のタブ: アイコンの下に名前。選んでいないタブは灰色の線のアイコン、選んでいるタブは差し色で塗ったアイコンと太字 */
+.tabs__item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 2px 8px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1.3;
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+/* タブの区切り。帯の高さの半分ほどの縦線 */
+.tabs__item + .tabs__item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 28%;
+  bottom: 28%;
+  width: 1px;
+  background: var(--line);
+}
+
+.tabs__icon {
+  flex: none;
+  box-sizing: content-box;
+  width: 22px;
+  height: 22px;
+  padding: 3px 16px;
+  border-radius: 999px;
+  transition: background 0.15s ease;
+}
+
+.tabs__cut {
+  stroke: var(--tabs-bg);
+  fill: var(--tabs-bg);
+}
+
+.tabs__item[aria-current='page'] {
+  color: var(--brand-blue);
+  font-weight: 700;
+}
+
+/* 選んでいるタブは、アイコンの後ろに淡い差し色の丸を敷く */
+.tabs__item[aria-current='page'] .tabs__icon {
+  background: color-mix(in srgb, var(--brand-blue) 20%, transparent);
+}
+
+.tabs__item:active:not(:disabled) .tabs__icon {
+  background: color-mix(in srgb, var(--brand-blue) 12%, transparent);
+}
+
+.tabs__item:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.crash {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  max-width: var(--col);
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.crash__title {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.crash__body,
+.crash__note {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* ── 広い画面（幅 960px 以上） ──
+   上の帯にタブを移し、評価・マッチングは表紙と操作を左右に並べ、記録・ブラウズは表紙のグリッドにする。
+   600〜960px は、狭い画面の作りを中央に寄せたまま使う */
+@media (min-width: 960px) {
+  :root {
+    --topbar: 60px;
+    --wide: 1200px;
+  }
+
+  .app {
+    grid-template-rows: auto 1fr;
+  }
+
+  /* 画面を縦の中央に置く（評価・マッチングの2列が、高さの余りの真ん中に来るように） */
+  .app__screen {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  /* 上の帯。Anipair の字を左、タブを右に置き、中身の左右の端にそろえる */
+  .tabs {
+    order: -1;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    max-width: none;
+    height: var(--topbar);
+    margin: 0;
+    padding: 0 max(24px, calc((100% - var(--wide)) / 2 + 24px));
+    border-top: 0;
+    border-bottom: 1px solid var(--line);
+    --tabs-bg: var(--ink);
+    background: color-mix(in srgb, var(--ink) 55%, transparent);
+    backdrop-filter: blur(10px);
+  }
+
+  .tabs__brand {
+    display: block;
+    margin-right: auto;
+  }
+
+  /* 上の帯では、アイコンを名前の左に小さく置く。区切りの線と丸の地は出さず、下線で示す */
+  .tabs__item {
+    flex-direction: row;
+    gap: 6px;
+    height: 100%;
+    padding: 0 16px;
+    font-size: 0.9rem;
+  }
+
+  .tabs__item + .tabs__item::before {
+    display: none;
+  }
+
+  .tabs__icon,
+  .tabs__item[aria-current='page'] .tabs__icon {
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    background: none;
+  }
+
+  @media (hover: hover) {
+    .tabs__item:not(:disabled):not([aria-current='page']):hover {
+      color: var(--paper);
+    }
+  }
+
+  .tabs__item:focus-visible {
+    outline-offset: -6px;
+    border-radius: var(--radius-s);
+  }
+
+  /* 現在のタブには下線 */
+  .tabs__item[aria-current='page']::after {
+    content: '';
+    position: absolute;
+    background: var(--brand-gradient);
+    left: 16px;
+    right: 16px;
+    bottom: -1px;
+    width: auto;
+    height: 2px;
+    margin: 0;
+    border-radius: 2px;
+  }
+}

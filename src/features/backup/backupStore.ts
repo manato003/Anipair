@@ -1,5 +1,6 @@
-import { fetchLibrary, fetchMyReviews } from '../../lib/annict'
+import { fetchLibrary } from '../../lib/annict'
 import { GitHubError, readJson, writeJson, type GithubConnection } from '../../lib/github'
+import { refreshMyReviews } from '../../lib/myReviews'
 import { loadBackupStatusRaw, saveBackupStatusRaw } from '../../lib/storage'
 import { messageOf } from '../../lib/useWriteQueue'
 import { loadLocalPasses } from '../match/passStore'
@@ -66,10 +67,10 @@ export function runBackup(annictToken: string, conn: GithubConnection, opts: { f
 }
 
 // 全記録のスナップショットを作る（GitHub へのバックアップとファイルへの書き出しで共通）。
-// 控えを使い回さず、Annict から読み直す（感想の共有の控えは画面の都合で古いことがある）。
+// 感想は共有の控え（myReviews.ts）を、取る直前に差分で読み直して使う（バックアップが最新になり、全部を辿り直さずに済む）。
 // パスと「見てない」は端末の控え。GitHub につないでいれば同期のたびに内容を合わせてあるので、そのまま使う
 export async function collectSnapshot(annictToken: string, now: Date = new Date()): Promise<Snapshot> {
-  const [library, reviews] = await Promise.all([fetchLibrary(annictToken), fetchMyReviews(annictToken)])
+  const [library, reviews] = await Promise.all([fetchLibrary(annictToken), refreshMyReviews(annictToken)])
   return buildSnapshot({ library, reviews, passes: loadLocalPasses(), unseen: loadLocalUnseen(), now })
 }
 

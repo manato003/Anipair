@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnnictError } from './annict'
 
 export interface FailedWrite {
@@ -38,6 +38,13 @@ export function hasPendingWrites(): boolean {
 export function useWriteQueue() {
   const [pending, setPending] = useState(0)
   const [failed, setFailed] = useState<FailedWrite[]>([])
+  // 失敗の一覧の最新を ref にも持つ。送り直しを状態の更新関数の中でやると、StrictMode（開発時）で更新関数が2回走って2重に送るため、
+  // 送り直す一覧は ref から読み、状態は表示のためだけに合わせる
+  const failedRef = useRef<FailedWrite[]>([])
+  const updateFailed = useCallback((next: FailedWrite[]) => {
+    failedRef.current = next
+    setFailed(next)
+  }, [])
 
   const enqueue = useCallback((label: string, task: () => Promise<void>) => {
     setPending((p) => p + 1)
@@ -47,22 +54,21 @@ export function useWriteQueue() {
         await task()
       } catch (e) {
         const link = e instanceof WriteError ? e.link : undefined
-        setFailed((f) => [...f, { label, message: messageOf(e), link, task }])
+        updateFailed([...failedRef.current, { label, message: messageOf(e), link, task }])
       } finally {
         pendingAll--
         setPending((p) => p - 1)
       }
     })
-  }, [])
+  }, [updateFailed])
 
   const retryFailed = useCallback(() => {
-    setFailed((list) => {
-      for (const f of list) enqueue(f.label, f.task)
-      return []
-    })
-  }, [enqueue])
+    const list = failedRef.current
+    updateFailed([])
+    for (const f of list) enqueue(f.label, f.task)
+  }, [enqueue, updateFailed])
 
-  const dismissFailed = useCallback(() => setFailed([]), [])
+  const dismissFailed = useCallback(() => updateFailed([]), [updateFailed])
 
   // 送信が残っているうちにタブを閉じようとしたら止める
   useEffect(() => {

@@ -12,8 +12,8 @@ const written: unknown[] = []
 vi.mock('../../lib/annict', async (orig) => ({
   ...(await orig<typeof import('../../lib/annict')>()),
   fetchLibrary: vi.fn(async () => library),
-  fetchMyReviews: vi.fn(async () => reviews),
 }))
+vi.mock('../../lib/myReviews', () => ({ refreshMyReviews: vi.fn(async () => reviews) }))
 
 // GitHub は偽物。runBackup が書こうとした中身を受け取って、書き出したファイルと比べる
 vi.mock('../../lib/github', async (orig) => ({
@@ -22,7 +22,8 @@ vi.mock('../../lib/github', async (orig) => ({
   writeJson: vi.fn(async (_c: unknown, _p: string, value: unknown) => void written.push(value)),
 }))
 
-const { fetchLibrary, fetchMyReviews } = await import('../../lib/annict')
+const { fetchLibrary } = await import('../../lib/annict')
+const { refreshMyReviews } = await import('../../lib/myReviews')
 const { runBackup } = await import('./backupStore')
 const { exportBackupFile, exportFileName } = await import('./exportFile')
 
@@ -111,7 +112,7 @@ describe('exportBackupFile', () => {
   it('reads fresh data from Annict with the given token', async () => {
     await exportBackupFile('annict-token')
     expect(fetchLibrary).toHaveBeenCalledWith('annict-token')
-    expect(fetchMyReviews).toHaveBeenCalledWith('annict-token')
+    expect(refreshMyReviews).toHaveBeenCalledWith('annict-token')
   })
 
   it('clicks a temporary download link with the file name, then removes it and frees the URL later', async () => {

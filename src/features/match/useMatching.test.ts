@@ -45,7 +45,6 @@ const catalog = new Map<number, Media>([
 vi.mock('../../lib/annict', async (orig) => ({
   ...(await orig<typeof import('../../lib/annict')>()),
   fetchLibrary: vi.fn(async () => library),
-  fetchMyRatings: vi.fn(async () => ratings),
   updateStatus: vi.fn(async (_t: string, id: string, state: string) => void calls.push(`status ${id} ${state}`)),
   createReview: vi.fn(async (_t: string, id: string, rating: string) => {
     calls.push(`review ${id} ${rating}`)
@@ -58,6 +57,7 @@ vi.mock('../../lib/shikimori', () => ({
   fetchSimilarMany: vi.fn(async (ids: number[]) => new Map(ids.map((i) => [i, similarTable.get(i) ?? []]))),
 }))
 vi.mock('../../lib/myReviews', () => ({
+  refreshMyReviews: vi.fn(async () => new Map([...ratings].map(([id, r]) => [id, { id: `R${id}`, body: '', createdAt: '', ratingOverallState: r }]))),
   rememberReview: vi.fn(async (_t: string, id: number, r: { id: string; ratingOverallState: string } | null) => {
     remembered.push(r ? `${id} ${r.id} ${r.ratingOverallState}` : `${id} null`)
   }),

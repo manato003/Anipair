@@ -1,0 +1,66 @@
+/* ブラウズ（来期へのリンク・一覧の行ボタン） */
+
+/* ブラウズ: クールの選択の下にある、来期へ移るリンク（右寄せで控えめに） */
+.browse__jump {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -4px;
+}
+
+/* 一覧の行全体を押せるボタンにする。見た目は記録ページの行と同じ */
+.row--button {
+  display: block;
+  padding: 0;
+}
+
+.row__hit {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.row__hit .row__thumb,
+.row__hit .row__body {
+  display: grid;
+}
+
+@media (hover: hover) {
+  .row__hit:hover .row__title {
+    color: var(--brand-blue);
+  }
+}
+
+.row__score {
+  margin-left: 10px;
+  color: var(--paper);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 広い画面（幅 960px 以上） ── */
+@media (min-width: 960px) {
+  .row__hit {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 0;
+    border-radius: var(--radius-m);
+  }
+
+  .row__hit > span:empty {
+    display: none;
+  }
+
+  .row__score {
+    display: block;
+    margin-left: 0;
+  }
+}

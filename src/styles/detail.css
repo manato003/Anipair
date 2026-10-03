@@ -1,0 +1,236 @@
+/* 作品の詳細のシートと「Anipair の使い方」のシートの中身 */
+
+.detail__head {
+  display: grid;
+  grid-template-columns: 112px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.detail__cover {
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border-radius: var(--radius-s);
+  background: var(--ink-raised);
+}
+
+.detail__cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Annict の画像は公式サイトの横長のもの。詳細では切らずに、そのままの比率で出す */
+.detail__head:has(.detail__cover--landscape) {
+  grid-template-columns: 176px 1fr;
+}
+
+.detail__cover--landscape {
+  aspect-ratio: auto;
+  background: none;
+}
+
+.detail__cover--landscape img {
+  height: auto;
+}
+
+/* 横長の画像は切らない（クレジットが切れるため）。余白は枠の地の色 */
+img.cover--contain {
+  object-fit: contain;
+}
+
+.detail__copyright {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.4;
+}
+
+.detail__titles {
+  display: grid;
+  gap: 4px;
+}
+
+.detail__title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+/* 「Anipair の使い方」のシート。3つの手順を、番号の丸つきで並べる */
+.guide__steps {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+  list-style: none;
+  counter-reset: guide;
+}
+
+.guide__steps li {
+  position: relative;
+  min-height: 28px;
+  padding-left: 40px;
+  font-size: 0.9rem;
+  line-height: 1.7;
+  counter-increment: guide;
+}
+
+.guide__steps li::before {
+  content: counter(guide);
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--brand-gradient);
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.guide__steps strong {
+  display: block;
+  font-weight: 700;
+}
+
+.guide__actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 22px;
+}
+
+.detail__kana,
+.detail__meta,
+.detail__hint {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.detail__section {
+  display: grid;
+  gap: 8px;
+  margin-top: 22px;
+}
+
+.detail__label {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.state-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.detail__genres {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.detail__text {
+  font-size: 0.85rem;
+  line-height: 1.7;
+  white-space: pre-line;
+}
+
+.detail__text--clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.detail__section > .link {
+  justify-self: start;
+  padding: 0;
+}
+
+.detail__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.detail__row .link {
+  padding: 0;
+}
+
+.detail__source {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.credits {
+  display: grid;
+  gap: 6px;
+}
+
+.credits__row {
+  display: grid;
+  grid-template-columns: minmax(0, 9em) 1fr;
+  gap: 12px;
+  font-size: 0.85rem;
+}
+
+.credits__row dt {
+  color: var(--muted);
+}
+
+/* 配信サービス。押すとそのサービスの作品ページが開く */
+.vods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip--link {
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  .chip--link:hover {
+    border-color: var(--paper);
+    color: var(--paper);
+  }
+}
+
+.detail__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  font-size: 0.85rem;
+}
+
+/* ── 広い画面（幅 960px 以上） ── */
+@media (min-width: 960px) {
+  .detail__head {
+    grid-template-columns: 220px 1fr;
+    gap: 24px;
+  }
+
+  .detail__head:has(.detail__cover--landscape) {
+    grid-template-columns: 300px 1fr;
+  }
+
+  .detail__title {
+    font-size: 1.5rem;
+  }
+
+  .detail__credits {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 0 32px;
+    margin-top: 22px;
+    align-items: start;
+  }
+
+  .detail__credits > .detail__section {
+    margin-top: 0;
+  }
+}

@@ -5,7 +5,7 @@ import { SaveStatus } from '../../components/SaveStatus'
 import { SeasonPicker } from '../../components/SeasonPicker'
 import type { BrowseWork } from '../../lib/annict'
 import { RATING_LABEL } from '../../lib/reviewOps'
-import { nextSeason, seasonLabel, seasonOf } from '../../lib/season'
+import { nextSeason, sameSeason, seasonLabel, seasonOf } from '../../lib/season'
 import { useWriteQueue } from '../../lib/useWriteQueue'
 
 import { OLDEST_SEASON } from '../rate/queue'
@@ -38,16 +38,29 @@ export function Browse({ token, active = true }: { token: string; active?: boole
           aria-label="タイトルで探す"
         />
         {!b.searching && (
-          <SeasonPicker value={b.season} min={OLDEST_SEASON} max={latest} onChange={b.setSeason} />
+          <>
+            <SeasonPicker value={b.season} min={OLDEST_SEASON} max={latest} onChange={b.setSeason} />
+            {/* 来期の作品は放送前から Annict にあるので、いまのクールからすぐ移れるようにする */}
+            {!sameSeason(b.season, latest) && (
+              <div className="browse__jump">
+                <button type="button" className="link" title={`${seasonLabel(latest)}へ`} onClick={() => b.setSeason(latest)}>
+                  来期
+                </button>
+              </div>
+            )}
+          </>
         )}
         <div className="toggle toggle--full" role="group" aria-label="並べ替え">
-          {SORTS.filter((o) => b.searching || !o.searchOnly).map((o) => (
+          {SORTS.filter((o) => (b.searching ? !o.seasonOnly : !o.searchOnly)).map((o) => (
             <button key={o.id} type="button" aria-pressed={b.sort === o.id} onClick={() => b.setSort(o.id)}>
               {o.label}
             </button>
           ))}
         </div>
         {b.sort === 'score' && <p className="note">Annict の満足度の高い順です。満足度の無い作品は Shikimori の点数（10点満点）で並べ、点数の無い作品は最後に並びます。</p>}
+        {b.sort === 'taste' && b.works && (
+          <p className="note">{b.tasteNote ?? 'あなたの評価から、好みに合いそうな順に並べています。情報の無い作品は最後に並びます。'}</p>
+        )}
         <SaveStatus pending={q.pending} failed={q.failed} onRetry={q.retryFailed} />
       </div>
 
@@ -70,6 +83,7 @@ export function Browse({ token, active = true }: { token: string; active?: boole
                 const state = w.viewerStatusState && w.viewerStatusState !== 'NO_STATE' ? w.viewerStatusState : null
                 const cover = coverOf(w)
                 const score = b.scores.get(w.annictId)
+                const reason = b.sort === 'taste' ? b.reasons.get(w.annictId) : undefined
                 return (
                   <li key={w.id} className="row row--button">
                     <button type="button" className="row__hit" onClick={() => setOpen(w)} aria-label={`${w.title}の詳細`}>
@@ -80,6 +94,7 @@ export function Browse({ token, active = true }: { token: string; active?: boole
                           {workMeta(w)}
                           {score && <span className="row__score">{score.label}</span>}
                         </span>
+                        {reason && <span className="row__reason">{reason}</span>}
                       </span>
                       {rating ? (
                         <span className={`badge badge--${rating.toLowerCase()}`}>{RATING_LABEL[rating]}</span>

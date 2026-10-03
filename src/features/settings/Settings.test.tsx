@@ -447,3 +447,20 @@ describe('Settings layout (sections, status first, folded explanations)', () => 
     expect(container.querySelector('.settings__legal a[href="/terms.html"]')).toBeTruthy()
   })
 })
+
+describe('Settings 使い方を見る', () => {
+  it('opens the usage guide from 「このアプリについて」, and closing it counts as seen', () => {
+    show()
+    expect(screen.queryByRole('dialog')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '使い方を見る' }))
+    expect(screen.getByRole('dialog', { name: 'Anipair の使い方' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'はじめる' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(localStorage.getItem('animax.onboarding.v1')).toContain('"v":1')
+  })
+
+  it('is also there on the signed-out first screen', () => {
+    show({ annictToken: null, clientId: null })
+    expect(screen.getByRole('button', { name: '使い方を見る' })).toBeTruthy()
+  })
+})

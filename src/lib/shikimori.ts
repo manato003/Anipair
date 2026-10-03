@@ -1,4 +1,5 @@
-import { createThrottle } from './throttle'
+import { delay, parseRetryAfter } from './retry'
+import { createThrottle, type ScheduleOptions } from './throttle'
 import { loadSimilar, saveSimilar, type Cover, type SimilarEntry } from './storage'
 
 // 作品データの出どころ（いまは Shikimori）。この1ファイルと、サーバー側の api/shiki.ts だけが出どころを知っていて、
@@ -16,6 +17,14 @@ export const SHIKI_INTERVAL_MS = 700
 const schedule = createThrottle(SHIKI_INTERVAL_MS)
 
 const BATCH = 50
+
+// 429 は Retry-After（秒。中継は 5 を返す）だけ待って送り直す。2回まで
+const RATE_LIMIT_RETRIES = 2
+const RATE_LIMIT_DEFAULT_WAIT_MS = 5_000
+const RATE_LIMIT_MAX_WAIT_MS = 30_000
+
+// background: true なら裏の仕事（先読みなど）。画面の問い合わせが待っているあいだは始まらない
+export type FetchOptions = ScheduleOptions
 
 export interface MediaTitle {
   native: string | null
@@ -107,28 +116,36 @@ export function shikimoriUrl(malId: number): string {
   return `https://shikimori.io/animes/${malId}`
 }
 
-async function call(query: string): Promise<unknown> {
-  return schedule(async () => {
-    let res: Response
-    try {
-      res = await fetch(`${ENDPOINT}?${query}`)
-    } catch {
-      throw new Error('Shikimori に接続できませんでした。通信を確認してください')
-    }
-    if (res.status === 429) throw new Error('Shikimori の利用制限に達しました。1分ほど待ってからもう一度試してください')
-    let body: unknown
-    try {
-      body = await res.json()
-    } catch {
-      // 中継が無い（関数の動かない環境）と、JSON でない 404 が返る
-      throw new Error('Shikimori への中継が動いていません。ローカルでは npm run dev か vercel dev で起動してください')
-    }
-    if (!res.ok) {
-      const code = body && typeof body === 'object' ? (body as { error?: unknown }).error : null
-      throw new Error(`Shikimori から読めませんでした（${typeof code === 'string' ? code : `HTTP ${res.status}`}）`)
-    }
-    return body
-  })
+async function call(query: string, opts: FetchOptions = {}): Promise<unknown> {
+  for (let attempt = 0; ; attempt++) {
+    // 待つあいだは列を握らない（1回ごとに列に並べ直す）。待っている間に、画面の問い合わせが先に進める
+    const outcome = await schedule<{ body: unknown } | { retryAfterMs: number }>(async () => {
+      let res: Response
+      try {
+        res = await fetch(`${ENDPOINT}?${query}`)
+      } catch {
+        throw new Error('Shikimori に接続できませんでした。通信を確認してください')
+      }
+      if (res.status === 429) {
+        return { retryAfterMs: parseRetryAfter(res.headers.get('Retry-After'), RATE_LIMIT_DEFAULT_WAIT_MS, RATE_LIMIT_MAX_WAIT_MS) }
+      }
+      let body: unknown
+      try {
+        body = await res.json()
+      } catch {
+        // 中継が無い（関数の動かない環境）と、JSON でない 404 が返る
+        throw new Error('Shikimori への中継が動いていません。ローカルでは npm run dev か vercel dev で起動してください')
+      }
+      if (!res.ok) {
+        const code = body && typeof body === 'object' ? (body as { error?: unknown }).error : null
+        throw new Error(`Shikimori から読めませんでした（${typeof code === 'string' ? code : `HTTP ${res.status}`}）`)
+      }
+      return { body }
+    }, opts)
+    if ('body' in outcome) return outcome.body
+    if (attempt >= RATE_LIMIT_RETRIES) throw new Error('Shikimori の利用制限に達しました。1分ほど待ってからもう一度試してください')
+    await delay(outcome.retryAfterMs)
+  }
 }
 
 // 1回の起動の中では取り直さない。null は「問い合わせたが返ってこなかった」（何度も問い合わせない）
@@ -141,11 +158,11 @@ export function peekMedia(malId: number): Media | null | undefined {
 
 // MyAnimeList の ID から作品の情報を引く。50件ずつまとめて1回の問い合わせにする。
 // 失敗したら例外（呼び出し側が、使えるところまで使うか止めるかを決める）
-export async function fetchMedia(malIds: readonly number[]): Promise<Map<number, Media>> {
+export async function fetchMedia(malIds: readonly number[], opts: FetchOptions = {}): Promise<Map<number, Media>> {
   const missing = [...new Set(malIds)].filter((id) => Number.isInteger(id) && id > 0 && !mediaCache.has(id)).sort((a, b) => a - b)
   for (let i = 0; i < missing.length; i += BATCH) {
     const chunk = missing.slice(i, i + BATCH)
-    const body = (await call(`op=animes&ids=${chunk.join(',')}`)) as { animes?: RawAnime[] }
+    const body = (await call(`op=animes&ids=${chunk.join(',')}`, opts)) as { animes?: RawAnime[] }
     if (!body || !Array.isArray(body.animes)) throw new Error('Shikimori の応答を読めませんでした')
     for (const id of chunk) mediaCache.set(id, null)
     for (const raw of body.animes) {
@@ -168,10 +185,10 @@ function store(): Map<number, SimilarEntry> {
   return (similarStore ??= loadSimilar())
 }
 
-export async function fetchSimilar(malId: number): Promise<number[]> {
+export async function fetchSimilar(malId: number, opts: FetchOptions = {}): Promise<number[]> {
   const hit = store().get(malId)
   if (hit) return hit.ids
-  const body = (await call(`op=similar&id=${malId}`)) as { ids?: unknown }
+  const body = (await call(`op=similar&id=${malId}`, opts)) as { ids?: unknown }
   if (!body || !Array.isArray(body.ids) || !body.ids.every((n) => Number.isInteger(n) && n > 0)) throw new Error('Shikimori の応答を読めませんでした')
   const ids = body.ids as number[]
   store().set(malId, { at: Date.now(), ids })
@@ -180,13 +197,18 @@ export async function fetchSimilar(malId: number): Promise<number[]> {
 }
 
 // 複数の作品の似た作品を順に集める（1作品ずつ並べて問い合わせるので、初めてのときは時間がかかる）。
+// opts.background は先読み用（画面の問い合わせを遅らせない）。
 // 1つ失敗したらそこで止めて例外にする（端末に控えた分は次に使える）
-export async function fetchSimilarMany(malIds: readonly number[], onProgress?: (done: number, total: number) => void): Promise<Map<number, number[]>> {
+export async function fetchSimilarMany(
+  malIds: readonly number[],
+  onProgress?: (done: number, total: number) => void,
+  opts: FetchOptions = {},
+): Promise<Map<number, number[]>> {
   const out = new Map<number, number[]>()
   const unique = [...new Set(malIds)]
   let done = 0
   for (const id of unique) {
-    out.set(id, await fetchSimilar(id))
+    out.set(id, await fetchSimilar(id, opts))
     onProgress?.(++done, unique.length)
   }
   return out
@@ -206,8 +228,8 @@ export async function fetchRelated(malId: number): Promise<{ prequels: number[] 
 
 // 出どころを差し替えるときの境目。返すのは、この画面の側の正規化した型（Media・MyAnimeList の ID）だけ
 export interface WorkDataProvider {
-  fetchMedia: (malIds: readonly number[]) => Promise<Map<number, Media>>
-  fetchSimilar: (malId: number) => Promise<number[]>
+  fetchMedia: (malIds: readonly number[], opts?: FetchOptions) => Promise<Map<number, Media>>
+  fetchSimilar: (malId: number, opts?: FetchOptions) => Promise<number[]>
   fetchRelated: (malId: number) => Promise<{ prequels: number[] }>
 }
 

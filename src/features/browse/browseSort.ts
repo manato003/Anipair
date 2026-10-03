@@ -1,14 +1,46 @@
 import type { BrowseWork } from '../../lib/annict'
-import { malIdOf } from '../match/taste'
+import type { Media } from '../../lib/shikimori'
+import { collectPool, malIdOf } from '../match/taste'
+import type { Taste } from '../match/tasteLoader'
+import { orderByScore, scoreWanna } from '../records/wannaRank'
 
-// ブラウズの並べ替え。人気順と新しい順は Annict が並べる。評価順は、Annict の満足度があればそれ、無ければ Shikimori の点数で、手元で並べる
-export type BrowseSort = 'popular' | 'score' | 'newest'
+// ブラウズの並べ替え。人気順と新しい順は Annict が並べる。評価順は、Annict の満足度があればそれ、無ければ Shikimori の点数で、手元で並べる。
+// 好み順は、見たいのおすすめ順と同じ式（wannaRank.ts）で、クールの作品を手元で並べる
+export type BrowseSort = 'popular' | 'score' | 'taste' | 'newest'
 
-export const SORTS: readonly { id: BrowseSort; label: string; searchOnly: boolean }[] = [
-  { id: 'popular', label: '人気順', searchOnly: false },
-  { id: 'score', label: '評価順', searchOnly: false },
-  { id: 'newest', label: '新しい順', searchOnly: true },
+// searchOnly: タイトル検索のときだけ出す。seasonOnly: クール一覧のときだけ出す
+export const SORTS: readonly { id: BrowseSort; label: string; searchOnly: boolean; seasonOnly: boolean }[] = [
+  { id: 'popular', label: '人気順', searchOnly: false, seasonOnly: false },
+  { id: 'score', label: '評価順', searchOnly: false, seasonOnly: false },
+  { id: 'taste', label: '好み順', searchOnly: false, seasonOnly: true },
+  { id: 'newest', label: '新しい順', searchOnly: true, seasonOnly: false },
 ]
+
+// 好み順に使う好みの部分（Taste のうち、点数に要るものだけ）
+export type TasteForRanking = Pick<Taste, 'similarSeeds' | 'similar' | 'profile'>
+
+export interface TasteRanking {
+  works: BrowseWork[]
+  // 作品（Annict の ID）ごとの理由。理由の無い作品は入れない
+  reasons: Map<number, string>
+}
+
+// 作品を好みの順に並べる（純粋な関数）。点数は見たいのおすすめ順と同じ。
+// 似た作品は、除外なしで集めたもののうち、ここに並べる作品の分だけを使う。
+// MAL の ID が無い・Shikimori に情報が無い作品は、もとの順のまま最後に置く
+export function rankByTaste(works: readonly BrowseWork[], details: ReadonlyMap<number, Media>, taste: TasteForRanking): TasteRanking {
+  const malIds = works.map(malIdOf).filter((n): n is number => n !== null)
+  const wanted = new Set(malIds)
+  const pool = collectPool(taste.similarSeeds, taste.similar, new Set()).filter((e) => wanted.has(e.malId))
+  const scores = scoreWanna(malIds, details, pool, taste.profile)
+  const reasons = new Map<number, string>()
+  for (const w of works) {
+    const id = malIdOf(w)
+    const reason = id === null ? null : (scores.get(id)?.reason ?? null)
+    if (reason) reasons.set(w.annictId, reason)
+  }
+  return { works: orderByScore(works, malIdOf, scores), reasons }
+}
 
 // 作品の点数。value は 0〜100 にそろえた値（並べるのに使う）、label は出どころが分かる表示
 export interface BrowseScore {

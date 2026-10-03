@@ -1,5 +1,6 @@
-import { fetchLibrary, fetchMyRatings, type LibraryEntry, type RatingState } from '../../lib/annict'
-import { fetchMedia, fetchSimilarMany, type Media } from '../../lib/shikimori'
+import { fetchLibrary, type LibraryEntry, type RatingState } from '../../lib/annict'
+import { refreshMyReviews } from '../../lib/myReviews'
+import { fetchMedia, fetchSimilarMany, type FetchOptions, type Media } from '../../lib/shikimori'
 import { buildProfile, buildSeeds, type Seed } from './taste'
 
 // 好みを調べる作品の上限（Shikimori 2回ぶん）
@@ -34,21 +35,31 @@ export function pickSimilarSeeds(seeds: Seed[]): Seed[] {
   return [...liked, ...disliked]
 }
 
+// 感想から総合評価だけを取り出す（作品の annictId → 評価）
+function ratingsOf(reviews: ReadonlyMap<number, { ratingOverallState: RatingState | null }>): Map<number, RatingState> {
+  const out = new Map<number, RatingState>()
+  for (const [id, r] of reviews) if (r.ratingOverallState) out.set(id, r.ratingOverallState)
+  return out
+}
+
 // 手順: Annict のライブラリと評価を読む → 重みの大きい作品（上限 MAX_SEEDS）の情報を Shikimori から取って好みを作る →
-// 好きな作品の「似た作品」を Shikimori から集める。好きな作品が1件も無いときは Shikimori を呼ばない
-async function load(token: string, onStep?: (step: string) => void): Promise<Taste> {
+// 好きな作品の「似た作品」を Shikimori から集める。好きな作品が1件も無いときは Shikimori を呼ばない。
+// 評価は共有の感想の控え（myReviews.ts）から。ここで差分だけ読み直すので、全部を辿り直すことは無い。
+// shikimori は Shikimori への問い合わせの優先度（先読みのときは裏の優先度にして、画面の問い合わせを遅らせない）
+async function load(token: string, onStep?: (step: string) => void, shikimori: FetchOptions = {}): Promise<Taste> {
   onStep?.('Annict の記録を読んでいます')
   const library = await fetchLibrary(token)
-  const ratings = await fetchMyRatings(token)
+  const ratings = ratingsOf(await refreshMyReviews(token))
   const seeds = buildSeeds(library, ratings)
   const topSeeds = [...seeds].sort((a, b) => Math.abs(b.weight) - Math.abs(a.weight)).slice(0, MAX_SEEDS)
   const hasLikes = seeds.some((s) => s.weight > 0)
   onStep?.('好みを調べています')
-  const seedMedia = hasLikes ? await fetchMedia(topSeeds.map((s) => s.malId)) : new Map<number, Media>()
+  const seedMedia = hasLikes ? await fetchMedia(topSeeds.map((s) => s.malId), shikimori) : new Map<number, Media>()
   const similarSeeds = hasLikes ? pickSimilarSeeds(topSeeds) : []
   const similar = await fetchSimilarMany(
     similarSeeds.map((s) => s.malId),
     (done, total) => onStep?.(`似た作品を調べています（${done}/${total}）`),
+    shikimori,
   )
   return { library, ratings, seeds, topSeeds, seedMedia, similarSeeds, similar, profile: buildProfile(topSeeds, seedMedia) }
 }
@@ -71,4 +82,28 @@ export function loadTaste(token: string, onStep?: (step: string) => void): Promi
 
 export function forgetTaste(): void {
   cache = null
+}
+
+// 起動中に先読みした印（トークンごと。1起動に1回まで）
+const prefetched = new Set<string>()
+
+// 好みの先読み。loadTaste と同じ手順で、Shikimori への問い合わせを裏の優先度で行う。
+// 目的は、似た作品の一覧（端末に30日控える）と作品の情報を先に集めておくこと。
+// 読んだ好みそのものは使い回しの控え（loadTaste の cache）には入れない
+// （あとで評価が増えたときに、古い好みを返さないため。マッチングは毎回 forgetTaste して読み直す）。
+// 失敗は黙って捨てる（本番の読み込みが改めて試す）。同じトークンでは1起動に1回だけ。
+// すでに本番の読み込みが始まっているなら何もしない
+export async function prefetchTaste(token: string): Promise<void> {
+  if (prefetched.has(token) || (cache && cache.token === token)) return
+  prefetched.add(token)
+  try {
+    await load(token, undefined, { background: true })
+  } catch {
+    // 先読みなので、失敗しても何も出さない
+  }
+}
+
+// テスト用: 先読みした印を消す
+export function resetPrefetchedTaste(): void {
+  prefetched.clear()
 }

@@ -1,0 +1,359 @@
+/* 記録ページと、ブラウズも使う一覧（見出し・操作・行・タイル・分布の棒） */
+
+.records {
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  height: 100%;
+  max-width: var(--col);
+  margin: 0 auto;
+  padding: 12px 16px 0;
+}
+
+.records__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.records__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.records__head .btn {
+  padding: 6px 16px;
+  font-size: 0.85rem;
+}
+
+.records__controls {
+  display: grid;
+  gap: 10px;
+  padding-top: 10px;
+}
+
+.records__tools {
+  display: flex;
+  gap: 8px;
+}
+
+.records__controls .save {
+  margin: 0;
+}
+
+.records__list {
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 16px;
+}
+
+.records__list .empty {
+  margin: 48px auto 0;
+}
+
+.records__loading {
+  padding: 48px 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.rows {
+  list-style: none;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.row__thumb {
+  display: block;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+  align-self: start;
+  width: 56px;
+  height: 80px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--ink-raised);
+}
+
+.row__thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.row__body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.row__title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--paper);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.45;
+  text-decoration: none;
+}
+
+/* 記録の題名。押すと詳細のシートが開く（題名の見た目は .row__title のまま） */
+.row__open {
+  justify-self: start;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .row__open:hover .row__title {
+    color: var(--brand-blue);
+  }
+}
+
+/* おすすめ順で添える理由。マッチングの理由と同じ控えめな見た目 */
+.row__reason {
+  color: var(--brand-lavender);
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+
+/* 評価の分布の棒 */
+.bars {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+}
+
+.bars__row {
+  display: grid;
+  grid-template-columns: 9.5em 1fr 2.5em;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+}
+
+.bars__label {
+  color: var(--muted);
+}
+
+.bars__track {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 5px;
+  background: var(--ink-raised);
+}
+
+.bars__fill {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+}
+
+.bars__count {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.row__date {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.row__edit {
+  display: grid;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.mini-ratings {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+/* 色（--tone）は上の .mini-rating--* だけが決める。ここで既定値を置くと、後に書いたこちらが勝って色が消える */
+.mini-rating {
+  min-height: 36px;
+  padding: 4px 2px;
+  border: 1px solid var(--tone);
+  border-radius: var(--radius-s);
+  background: none;
+  color: var(--tone);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.mini-rating[aria-pressed='true'] {
+  background: var(--tone);
+  color: var(--ink);
+}
+
+.row__actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.row__actions select {
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--ink-raised);
+  color: var(--paper);
+  font-family: inherit;
+  font-size: 0.8rem;
+}
+
+/* ── 広い画面（幅 960px 以上） ── */
+@media (min-width: 960px) {
+  /* 記録・ブラウズ: 操作は横に並べ、一覧は表紙のグリッドにする */
+  .records {
+    width: 100%;
+    max-width: var(--wide);
+    padding: 20px 24px 0;
+  }
+
+  .records__controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 16px;
+    padding-top: 14px;
+  }
+
+  .records__controls > .note,
+  .records__controls > .save {
+    flex-basis: 100%;
+  }
+
+  .records__controls > .save:empty {
+    display: none;
+  }
+
+  .records__tools {
+    flex: 1 1 320px;
+  }
+
+  .records__controls > .search {
+    flex: 1 1 280px;
+    max-width: 460px;
+  }
+
+  .records__controls .stepper {
+    gap: 8px;
+    justify-content: flex-start;
+  }
+
+  .records__controls .toggle--full {
+    display: inline-flex;
+  }
+
+  .records__controls .toggle--full button {
+    flex: none;
+    padding: 6px 16px;
+  }
+
+  /* タイルの輪郭線（キーボードの印）が、一覧の端で切れないように */
+  .records__list {
+    margin: 0 -6px;
+    padding: 16px 6px 24px;
+  }
+
+  .rows:not(.rows--edit) {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 24px 16px;
+  }
+
+  .rows:not(.rows--edit) .row {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 0;
+    border-bottom: 0;
+  }
+
+  .rows:not(.rows--edit) .row__thumb,
+  .row__hit .row__thumb {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 2 / 3;
+    border-radius: var(--radius-s);
+  }
+
+  /* 評価・状態の印は表紙の隅に重ねる */
+  .rows:not(.rows--edit) .row > .badge,
+  .row__hit > .badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  }
+
+  .rows:not(.rows--edit) .row > .badge {
+    pointer-events: none;
+  }
+
+  /* 記録では、題名のボタンをタイル全体に広げて、どこを押しても詳細が開くようにする */
+  .rows:not(.rows--edit) .row__open::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radius-m);
+  }
+
+  .rows:not(.rows--edit) .row__open:focus-visible {
+    outline: none;
+  }
+
+  .rows:not(.rows--edit) .row__open:focus-visible::after {
+    outline: 2px solid var(--brand-lavender);
+    outline-offset: 2px;
+  }
+
+  .rows:not(.rows--edit) .row__reason {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 0.72rem;
+  }
+
+  /* 編集モードは操作に幅が要るので、これまでどおりの行。サムネイルは少し大きく */
+  .rows--edit {
+    max-width: 880px;
+    margin: 0 auto;
+  }
+
+  .rows--edit .row {
+    grid-template-columns: 64px 1fr auto;
+  }
+
+  .rows--edit .row__thumb {
+    width: 64px;
+    height: 90px;
+  }
+
+  .rows--edit .mini-ratings {
+    max-width: 420px;
+  }
+}

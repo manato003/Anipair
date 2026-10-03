@@ -19,8 +19,8 @@ vi.mock('../../lib/annict', async (orig) => ({
     if (libraryGate) await libraryGate
     return library
   }),
-  fetchMyReviews: vi.fn(async () => reviews),
 }))
+vi.mock('../../lib/myReviews', () => ({ refreshMyReviews: vi.fn(async () => reviews) }))
 
 vi.mock('../../lib/github', async (orig) => ({
   ...(await orig<typeof import('../../lib/github')>()),
@@ -40,7 +40,8 @@ vi.mock('../../lib/github', async (orig) => ({
   }),
 }))
 
-const { fetchLibrary, fetchMyReviews } = await import('../../lib/annict')
+const { fetchLibrary } = await import('../../lib/annict')
+const { refreshMyReviews } = await import('../../lib/myReviews')
 const { readJson, writeJson } = await import('../../lib/github')
 const { BACKUP_INTERVAL_MS, isBackupDue, loadBackupStatus, parseBackupStatus, runBackup } = await import('./backupStore')
 
@@ -93,12 +94,12 @@ describe('runBackup', () => {
     expect(writeJson).toHaveBeenCalledWith(mine, 'backup.json', expect.anything(), null, expect.any(String))
   })
 
-  it('reads fresh data from Annict with the given token, and the local passes and unseen', async () => {
+  it('reads the library and refreshes the shared reviews (incrementally) with the given token, and the local passes and unseen', async () => {
     setPass(10, true, { now: new Date('2026-09-30T01:00:00Z') })
     setUnseen(5, true, new Date('2026-09-30T02:00:00Z'))
     await runBackup('annict-token', conn)
     expect(fetchLibrary).toHaveBeenCalledWith('annict-token')
-    expect(fetchMyReviews).toHaveBeenCalledWith('annict-token')
+    expect(refreshMyReviews).toHaveBeenCalledWith('annict-token')
     expect(writes[0].value).toMatchObject({
       passes: { passes: { '10': { active: true } } },
       unseen: { unseen: { '5': { active: true } } },

@@ -1,13 +1,16 @@
-import { Fragment, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useState, type ReactNode } from 'react'
+import { AuthExpiredBanner } from './components/AuthExpiredBanner'
 import { TabIcon } from './components/Icons'
 import { Logo } from './components/Logo'
 import { useAutoBackup } from './features/backup/useAutoBackup'
 import { Browse } from './features/browse/Browse'
 import { Matching } from './features/match/Matching'
+import { usePrefetchTaste } from './features/match/usePrefetchTaste'
 import { Backfill } from './features/rate/Backfill'
 import { Records } from './features/records/Records'
 import { Settings } from './features/settings/Settings'
 import { useAnnictLogin } from './features/settings/useAnnictLogin'
+import { onAnnictAuthFailed } from './lib/authEvents'
 import type { GithubConnection } from './lib/github'
 import { loadAnnictToken, loadGithubConnection } from './lib/storage'
 
@@ -53,51 +56,68 @@ export default function App() {
     if (next) setTab('rate')
   }
 
+  // Annict が 401 を返したら（トークンが使えない）、上に「もう一度ログイン」の帯を出す。
+  // 失敗したトークンがいまのものと違えば（ログインし直したあとに遅れて届いた古い要求）無視する。トークンが変われば帯は消える
+  const [expiredToken, setExpiredToken] = useState<string | null>(null)
+  useEffect(() => {
+    if (!token) return
+    return onAnnictAuthFailed((failed) => {
+      if (failed === token) setExpiredToken(failed)
+    })
+  }, [token])
+  const authExpired = token !== null && expiredToken === token
+
   // 「Annict でログイン」から戻ってきたとき、ここで受け取る（成功すればトークンが入り、評価の画面に移る）
   const login = useAnnictLogin(onTokenChange)
 
   const showSettings = tab === 'settings' || !token
   // 表示中の画面（設定のときは null）
   const shown = showSettings ? null : tab
+  // 評価の画面を出して少したったら、好みの先読みを裏で1回だけ始める（マッチングや記録の初回を速くする）
+  usePrefetchTaste(token, shown === 'rate')
 
   return (
     <div className="app">
-      <main className="app__main">
-        {showSettings && (
-          <Settings
-            annictToken={token}
-            github={github}
-            onAnnictTokenChange={onTokenChange}
-            onGithubChange={setGithub}
-            loginBusy={login.busy}
-            loginError={login.error}
-          />
-        )}
-        {token && (
-          <Fragment key={token}>
-            {visited.has('rate') && (
-              <Screen active={shown === 'rate'}>
-                <Backfill token={token} github={github} active={shown === 'rate'} />
-              </Screen>
-            )}
-            {visited.has('match') && (
-              <Screen active={shown === 'match'}>
-                <Matching annictToken={token} github={github} active={shown === 'match'} />
-              </Screen>
-            )}
-            {visited.has('records') && (
-              <Screen active={shown === 'records'}>
-                <Records token={token} active={shown === 'records'} />
-              </Screen>
-            )}
-            {visited.has('browse') && (
-              <Screen active={shown === 'browse'}>
-                <Browse token={token} active={shown === 'browse'} />
-              </Screen>
-            )}
-          </Fragment>
-        )}
-      </main>
+      {/* 帯を主な画面の上に出すための枠（広い画面では上の帯のタブのすぐ下になる） */}
+      <div className="app__body">
+        {authExpired && <AuthExpiredBanner onOpenSettings={() => go('settings')} onDismiss={() => setExpiredToken(null)} />}
+        <main className="app__main">
+          {showSettings && (
+            <Settings
+              annictToken={token}
+              github={github}
+              onAnnictTokenChange={onTokenChange}
+              onGithubChange={setGithub}
+              loginBusy={login.busy}
+              loginError={login.error}
+            />
+          )}
+          {token && (
+            <Fragment key={token}>
+              {visited.has('rate') && (
+                <Screen active={shown === 'rate'}>
+                  <Backfill token={token} github={github} active={shown === 'rate'} />
+                </Screen>
+              )}
+              {visited.has('match') && (
+                <Screen active={shown === 'match'}>
+                  <Matching annictToken={token} github={github} active={shown === 'match'} />
+                </Screen>
+              )}
+              {visited.has('records') && (
+                <Screen active={shown === 'records'}>
+                  <Records token={token} active={shown === 'records'} />
+                </Screen>
+              )}
+              {visited.has('browse') && (
+                <Screen active={shown === 'browse'}>
+                  <Browse token={token} active={shown === 'browse'} />
+                </Screen>
+              )}
+            </Fragment>
+          )}
+        </main>
+      </div>
       <nav className="tabs" aria-label="画面の切り替え">
         {/* 広い画面だけ、上の帯の左に出す */}
         <span className="tabs__brand" aria-hidden>

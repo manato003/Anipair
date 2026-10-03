@@ -1,8 +1,16 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-// 間隔の待ちは無し（間隔そのものは throttle.test.ts で確かめている）
-vi.mock('./throttle', () => ({ createThrottle: () => <T,>(task: () => Promise<T>) => task() }))
+// 間隔の待ちは無し（間隔と優先度そのものは throttle.test.ts で確かめている）。列に頼んだときの優先度の指定だけ控える
+const { scheduleOpts } = vi.hoisted(() => ({ scheduleOpts: [] as unknown[] }))
+vi.mock('./throttle', () => ({
+  createThrottle:
+    () =>
+    <T,>(task: () => Promise<T>, opts?: unknown) => {
+      scheduleOpts.push(opts)
+      return task()
+    },
+}))
 
 const { fetchMedia, fetchRelated, fetchSimilar, fetchSimilarMany, normalize, peekMedia, resetShikimoriMemory, shikimoriUrl, workData } = await import('./shikimori')
 
@@ -37,8 +45,17 @@ beforeEach(() => {
   localStorage.clear()
   resetShikimoriMemory()
   fetchMock.mockReset()
+  scheduleOpts.length = 0
   vi.stubGlobal('fetch', fetchMock)
 })
+
+afterEach(() => {
+  vi.useRealTimers()
+})
+
+function limited(retryAfter?: string): Response {
+  return new Response(JSON.stringify({ error: 'rate_limited' }), { status: 429, headers: retryAfter ? { 'Retry-After': retryAfter } : {} })
+}
 
 describe('normalize', () => {
   it('maps a trimmed Shikimori work to our own Media', () => {
@@ -138,9 +155,7 @@ describe('fetchMedia', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('explains a rate limit, a missing proxy and other failures in Japanese', async () => {
-    fetchMock.mockResolvedValueOnce(reply({ error: 'rate_limited' }, 429))
-    await expect(fetchMedia([1])).rejects.toThrow('利用制限')
+  it('explains a missing proxy and other failures in Japanese', async () => {
     fetchMock.mockResolvedValueOnce(new Response('<html>404</html>', { status: 404 }))
     await expect(fetchMedia([2])).rejects.toThrow('中継が動いていません')
     fetchMock.mockResolvedValueOnce(reply({ error: 'upstream_error' }, 502))
@@ -219,5 +234,64 @@ describe('provider interface', () => {
 
   it('builds the Shikimori page address from the MyAnimeList id', () => {
     expect(shikimoriUrl(52991)).toBe('https://shikimori.io/animes/52991')
+  })
+})
+
+describe('429 (rate limit)', () => {
+  it('waits for Retry-After seconds, then sends again', async () => {
+    vi.useFakeTimers()
+    fetchMock.mockResolvedValueOnce(limited('3')).mockResolvedValueOnce(reply({ animes: [raw(1)] }))
+    const p = fetchMedia([1])
+    await vi.advanceTimersByTimeAsync(2999)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+    expect((await p).get(1)?.idMal).toBe(1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('waits 5 seconds when there is no Retry-After, and at most 30 seconds', async () => {
+    vi.useFakeTimers()
+    fetchMock.mockResolvedValueOnce(limited()).mockResolvedValueOnce(limited('120')).mockResolvedValueOnce(reply({ ids: [9] }))
+    const p = fetchSimilar(5)
+    await vi.advanceTimersByTimeAsync(4999)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(29_999)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(await p).toEqual([9])
+  })
+
+  it('gives up after two retries with the rate limit message', async () => {
+    vi.useFakeTimers()
+    fetchMock.mockResolvedValue(limited('1'))
+    const p = expect(fetchMedia([1])).rejects.toThrow('利用制限')
+    await vi.advanceTimersByTimeAsync(10_000)
+    await p
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    // 失敗は覚えない（また頼める）
+    expect(peekMedia(1)).toBeUndefined()
+  })
+
+  it('does not hold the queue while waiting: every attempt is scheduled again, with the same priority', async () => {
+    vi.useFakeTimers()
+    fetchMock.mockResolvedValueOnce(limited('1')).mockResolvedValueOnce(limited('1')).mockResolvedValueOnce(reply({ ids: [9] }))
+    const p = fetchSimilar(5, { background: true })
+    await vi.advanceTimersByTimeAsync(2000)
+    await p
+    expect(scheduleOpts).toEqual([{ background: true }, { background: true }, { background: true }])
+  })
+})
+
+describe('background priority', () => {
+  it('is foreground unless asked, and passes the option through fetchMedia / fetchSimilarMany', async () => {
+    fetchMock.mockImplementation(async (url) => (url.includes('op=animes') ? reply({ animes: [raw(1)] }) : reply({ ids: [7] })))
+    await fetchMedia([1])
+    expect(scheduleOpts).toEqual([{}])
+    scheduleOpts.length = 0
+    await fetchMedia([2], { background: true })
+    await fetchSimilarMany([3, 4], undefined, { background: true })
+    expect(scheduleOpts).toEqual([{ background: true }, { background: true }, { background: true }])
   })
 })
