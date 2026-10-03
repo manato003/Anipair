@@ -126,6 +126,15 @@ describe('useBackfill', () => {
     expect(calls).toEqual([])
   })
 
+  it('"dropped" sets STOP_WATCHING without a review, and undo clears it', async () => {
+    const hook = await setup()
+    act(() => hook.result.current.answer({ kind: 'stop' }))
+    expect(hook.result.current.current?.work.id).toBe('W2')
+    act(() => hook.result.current.undo())
+    await settle(hook)
+    expect(calls).toEqual(['status W1 STOP_WATCHING', 'status W1 NO_STATE'])
+  })
+
   it('"watching" sets WATCHING, and undo clears it', async () => {
     const hook = await setup()
     act(() => hook.result.current.answer({ kind: 'watching' }))

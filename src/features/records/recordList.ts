@@ -16,7 +16,8 @@ export const BUCKETS: readonly { id: Bucket; label: string }[] = [
   { id: 'watched', label: '見た' },
   { id: 'wanna', label: '見たい' },
   { id: 'watching', label: '見てる' },
-  { id: 'other', label: '中断・中止' },
+  // Annict の一時中断と視聴中止をまとめて「視聴中断」（STATUS_LABEL と同じ考え方）
+  { id: 'other', label: '視聴中断' },
 ]
 
 export function bucketOf(state: StatusState): Bucket {
@@ -50,12 +51,28 @@ function time(iso: string | null): number {
   return Number.isNaN(t) ? 0 : t
 }
 
+const SEASON_INDEX: Record<string, number> = { WINTER: 0, SPRING: 1, SUMMER: 2, AUTUMN: 3 }
+
+// 放送時期の並び順の値（大きいほど新しい）。年が分からなければ null。季節が分からなければ、その年の最後に置く
+export function airedRank(e: { seasonYear?: number | null; seasonName?: string | null }): number | null {
+  if (!e.seasonYear) return null
+  return e.seasonYear * 4 + (e.seasonName ? SEASON_INDEX[e.seasonName] ?? 3 : 3)
+}
+
+// 新しい順は放送時期の新しい順（記録した日ではない）。放送時期の分からない作品は最後。同じ時期の中は、記録した日の新しい順。
 // 評価順は とても良い → 良い → 普通 → 良くない → 評価なし。同じ評価の中は新しい順
 export function sortRows(rows: RecordRow[], key: SortKey): RecordRow[] {
   return [...rows].sort((a, b) => {
     if (key === 'rating') {
       const d = ratingRank(a.review?.ratingOverallState) - ratingRank(b.review?.ratingOverallState)
       if (d !== 0) return d
+    }
+    const ra = airedRank(a.entry)
+    const rb = airedRank(b.entry)
+    if (ra !== rb) {
+      if (ra === null) return 1
+      if (rb === null) return -1
+      return rb - ra
     }
     return time(b.entry.stateAt) - time(a.entry.stateAt)
   })
@@ -66,13 +83,18 @@ export function filterRows(rows: RecordRow[], bucket: Bucket, query: string): Re
   return rows.filter((r) => bucketOf(r.entry.state) === bucket && (!q || r.entry.title.normalize('NFKC').toLowerCase().includes(q)))
 }
 
+// 状態を選ぶ選択肢。「視聴中断」は1つだけ（STOP_WATCHING で保存する）
 export const STATE_OPTIONS: readonly { state: StatusState; label: string }[] = [
   { state: 'WATCHED', label: '見た' },
   { state: 'WATCHING', label: '見てる' },
   { state: 'WANNA_WATCH', label: '見たい' },
-  { state: 'ON_HOLD', label: '一時中断' },
-  { state: 'STOP_WATCHING', label: '視聴中止' },
+  { state: 'STOP_WATCHING', label: '視聴中断' },
 ]
+
+// 選択肢の上でどれを選んでいるか。Annict のサイトで付けた一時中断（ON_HOLD）は「視聴中断」を選んでいることにする
+export function optionState(state: StatusState | null): StatusState | null {
+  return state === 'ON_HOLD' ? 'STOP_WATCHING' : state
+}
 
 export function formatDate(iso: string | null): string {
   const t = time(iso)

@@ -120,7 +120,7 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
         syncLater()
         return
       }
-      const state = a.kind === 'wanna' ? 'WANNA_WATCH' : a.kind === 'watching' ? 'WATCHING' : 'WATCHED'
+      const state = a.kind === 'wanna' ? 'WANNA_WATCH' : a.kind === 'watching' ? 'WATCHING' : a.kind === 'stop' ? 'STOP_WATCHING' : 'WATCHED'
       enqueue(`「${card.work.title}」の記録`, async () => {
         await updateStatus(token, card.work.id, state)
         if (a.kind === 'rate') {

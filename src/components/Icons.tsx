@@ -49,25 +49,6 @@ export function EyeIcon() {
   )
 }
 
-// 一時中断
-export function PauseIcon() {
-  return (
-    <Icon>
-      <path d="M9 5.5v13" />
-      <path d="M15 5.5v13" />
-    </Icon>
-  )
-}
-
-// 視聴中止
-export function StopIcon() {
-  return (
-    <Icon>
-      <rect x="6" y="6" width="12" height="12" rx="1.5" />
-    </Icon>
-  )
-}
-
 // 戻る
 export function BackIcon() {
   return (

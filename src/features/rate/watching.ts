@@ -4,8 +4,8 @@ import type { Cover } from '../../lib/storage'
 // 普段の評価（いま見ている作品を、見終わったら評価する）の純粋なロジック
 
 // rate: 見た + 総合評価 / watched: 見終わった（評価しない）/ still: まだ見てる（何も送らず次へ）/
-// hold: 一時中断 / stop: 視聴中止
-export type WatchAnswer = { kind: 'rate'; rating: RatingState } | { kind: 'watched' } | { kind: 'still' } | { kind: 'hold' } | { kind: 'stop' }
+// stop: 視聴中断（Annict には STOP_WATCHING）
+export type WatchAnswer = { kind: 'rate'; rating: RatingState } | { kind: 'watched' } | { kind: 'still' } | { kind: 'stop' }
 
 export interface WatchCard {
   entry: LibraryEntry

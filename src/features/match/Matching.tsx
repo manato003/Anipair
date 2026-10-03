@@ -51,6 +51,7 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
     later: () => m.answer({ kind: 'skip' }),
     watched: () => m.answer({ kind: 'watched' }),
     watching: () => m.answer({ kind: 'watching' }),
+    stop: () => m.answer({ kind: 'stop' }),
     undo: m.undo,
   }
   useShortcuts(sheetOpen ? { detail: toggleSheet } : { ...answers, detail: toggleSheet }, props.active && !filterOpen)
@@ -139,6 +140,7 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
 
         <div className="answers" aria-disabled={!m.current}>
           {seenOpen ? (
+            <>
             <div className="answers__ratings">
               {RATINGS.map((r) => (
                 <button
@@ -152,6 +154,15 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
                 </button>
               ))}
             </div>
+            <div className="answers__unseen">
+              <button type="button" className="unseen" onClick={() => m.answer({ kind: 'watching' })} title="Annict で「見てる」にします">
+                見てる <kbd className="hint">{keyLabel(keys.watching)}</kbd>
+              </button>
+              <button type="button" className="unseen" onClick={() => m.answer({ kind: 'stop' })} title="途中で見るのをやめた作品を「視聴中断」にします">
+                視聴中断 <kbd className="hint">{keyLabel(keys.stop)}</kbd>
+              </button>
+            </div>
+            </>
           ) : (
             <div className="answers__unseen answers__unseen--tall answers__unseen--three">
               <button type="button" className="unseen" disabled={!m.current || !showDeck} onClick={() => m.answer({ kind: 'pass' })}>
@@ -178,10 +189,6 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
                 <button type="button" className="misc" onClick={() => m.answer({ kind: 'watched' })}>
                   <CheckIcon />
                   見たけど覚えていない <kbd className="hint">{keyLabel(keys.watched)}</kbd>
-                </button>
-                <button type="button" className="misc" onClick={() => m.answer({ kind: 'watching' })} title="Annict で「見てる」にします">
-                  <EyeIcon />
-                  見てる <kbd className="hint">{keyLabel(keys.watching)}</kbd>
                 </button>
                 <button type="button" className="misc" onClick={() => setSeenFor(null)}>
                   <BackIcon />

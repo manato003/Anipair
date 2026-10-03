@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Bookmark } from '../../components/Bookmark'
 import { CoverImage } from '../../components/CoverImage'
 import { Empty } from '../../components/Empty'
-import { CheckIcon, InfoIcon, PauseIcon, StopIcon, UndoIcon } from '../../components/Icons'
+import { CheckIcon, InfoIcon, UndoIcon } from '../../components/Icons'
 import { SaveStatus } from '../../components/SaveStatus'
 import { SeasonPicker } from '../../components/SeasonPicker'
 import { UsageGuide } from '../../components/UsageGuide'
@@ -135,12 +135,14 @@ export function Backfill({ token, github, active }: { token: string; github: Git
         wanna: () => b.answer({ kind: 'wanna' }),
         watched: () => b.answer({ kind: 'watched' }),
         ...(canWatching ? { watching: () => b.answer({ kind: 'watching' }) } : {}),
+        stop: () => b.answer({ kind: 'stop' }),
         undo: b.undo,
       }
     : {
         ...ratingKeys,
         watched: () => w.answer({ kind: 'watched' }),
         watching: () => w.answer({ kind: 'still' }),
+        stop: () => w.answer({ kind: 'stop' }),
         undo: w.undo,
       }
   useShortcuts(showGuide ? {} : sheetOpen ? { detail: toggleSheet } : { ...answers, detail: toggleSheet }, active)
@@ -268,7 +270,7 @@ export function Backfill({ token, github, active }: { token: string; github: Git
             ))}
           </div>
           {back ? (
-            <div className={canWatching ? 'answers__unseen answers__unseen--three' : 'answers__unseen'}>
+            <div className={canWatching ? 'answers__unseen answers__unseen--four' : 'answers__unseen answers__unseen--three'}>
               <button type="button" className="unseen" disabled={!hasCurrent} onClick={() => b.answer({ kind: 'skip' })}>
                 見てない <kbd className="hint">{keyLabel(keys.skip)}</kbd>
               </button>
@@ -277,15 +279,21 @@ export function Backfill({ token, github, active }: { token: string; github: Git
                   見てる <kbd className="hint">{keyLabel(keys.watching)}</kbd>
                 </button>
               )}
+              <button type="button" className="unseen" disabled={!hasCurrent} onClick={() => b.answer({ kind: 'stop' })} title="途中で見るのをやめた作品を「視聴中断」にします">
+                視聴中断 <kbd className="hint">{keyLabel(keys.stop)}</kbd>
+              </button>
               <button type="button" className="unseen unseen--wanna" disabled={!hasCurrent} onClick={() => b.answer({ kind: 'wanna' })}>
                 <Bookmark />
                 見たい <kbd className="hint">{keyLabel(keys.wanna)}</kbd>
               </button>
             </div>
           ) : (
-            <div className="answers__unseen">
+            <div className="answers__unseen answers__unseen--three">
               <button type="button" className="unseen" disabled={!hasCurrent} onClick={() => w.answer({ kind: 'still' })}>
                 まだ見てる <kbd className="hint">{keyLabel(keys.watching)}</kbd>
+              </button>
+              <button type="button" className="unseen" disabled={!hasCurrent} onClick={() => w.answer({ kind: 'stop' })} title="途中で見るのをやめた作品を「視聴中断」にします">
+                視聴中断 <kbd className="hint">{keyLabel(keys.stop)}</kbd>
               </button>
               {/* スマホの2列でも1行に収まるよう短くする。評価を付けずに「見た」にするボタン */}
               <button
@@ -300,22 +308,11 @@ export function Backfill({ token, github, active }: { token: string; github: Git
             </div>
           )}
           <div className="answers__misc">
-            {back ? (
+            {back && (
               <button type="button" className="misc" disabled={!hasCurrent} onClick={() => b.answer({ kind: 'watched' })}>
                 <CheckIcon />
                 見たけど覚えていない <kbd className="hint">{keyLabel(keys.watched)}</kbd>
               </button>
-            ) : (
-              <>
-                <button type="button" className="misc" disabled={!hasCurrent} onClick={() => w.answer({ kind: 'hold' })}>
-                  <PauseIcon />
-                  一時中断
-                </button>
-                <button type="button" className="misc" disabled={!hasCurrent} onClick={() => w.answer({ kind: 'stop' })}>
-                  <StopIcon />
-                  視聴中止
-                </button>
-              </>
             )}
             <button type="button" className="misc" disabled={!hasCurrent} onClick={toggleSheet}>
               <InfoIcon />

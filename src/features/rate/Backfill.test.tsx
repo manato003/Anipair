@@ -172,9 +172,9 @@ describe('Backfill detail sheet', () => {
     press('0')
     expect(watchAnswer).toHaveBeenCalledTimes(3)
     expect(answer).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: '一時中断' }))
-    expect(watchAnswer).toHaveBeenLastCalledWith({ kind: 'hold' })
-    fireEvent.click(screen.getByRole('button', { name: '視聴中止' }))
+    // 「途中でやめた」は「視聴中断」の1つだけ（一時中断のボタンは無い）
+    expect(screen.queryByRole('button', { name: /一時中断|視聴中止/ })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /^視聴中断/ }))
     expect(watchAnswer).toHaveBeenLastCalledWith({ kind: 'stop' })
     // 詳細のシートは読むだけで開く
     press('i')

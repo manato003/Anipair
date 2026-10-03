@@ -71,6 +71,11 @@
   grid-template-columns: 1fr 1fr 1.3fr;
 }
 
+/* さかのぼりで、見てる も出せるクール: 見てない・見てる・視聴中止・見たい */
+.answers__unseen--four {
+  grid-template-columns: 1fr 1fr 1fr 1.2fr;
+}
+
 /* スルーは「今は決めない」。点線の枠で、決めていないことを見せる */
 .unseen--later {
   border-style: dashed;

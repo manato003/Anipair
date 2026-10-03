@@ -10,7 +10,7 @@ import type { Cover } from '../../lib/storage'
 import { messageOf } from '../../lib/useWriteQueue'
 import { genreName, malIdOf } from '../match/taste'
 import { RATINGS } from '../rate/queue'
-import { STATE_OPTIONS } from '../records/recordList'
+import { STATE_OPTIONS, optionState } from '../records/recordList'
 import { STATUS_LABEL, mainStaff, withCopyrightMark, safeHttpUrl, workMeta, xUrl } from './detail'
 import { RelatedWorks } from './RelatedWorks'
 
@@ -90,7 +90,7 @@ export function WorkDetail(
 
   function changeState(next: StatusState) {
     if (props.readOnly) return
-    const value = next === state ? 'NO_STATE' : next
+    const value = next === optionState(state) ? 'NO_STATE' : next
     setState(value === 'NO_STATE' ? null : value)
     props.onChange({ state: value === 'NO_STATE' ? null : value })
     props.enqueue(`「${work.title}」の状態`, () => updateStatus(token, work.id, value))
@@ -148,7 +148,7 @@ export function WorkDetail(
             <h3 className="detail__label">状態</h3>
             <div className="state-chips">
               {STATE_OPTIONS.map((o) => (
-                <button key={o.state} type="button" className="chip" aria-selected={state === o.state} onClick={() => changeState(o.state)}>
+                <button key={o.state} type="button" className="chip" aria-selected={optionState(state) === o.state} onClick={() => changeState(o.state)}>
                   {o.label}
                 </button>
               ))}

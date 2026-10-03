@@ -3,7 +3,7 @@ import { loadKeymapRaw, saveKeymapRaw } from './storage'
 
 // PC のキーボード操作の割り当て。評価画面とマッチングで共通
 
-export type KeyAction = 'rateBad' | 'rateAverage' | 'rateGood' | 'rateGreat' | 'skip' | 'wanna' | 'watched' | 'pass' | 'later' | 'undo' | 'detail' | 'watching'
+export type KeyAction = 'rateBad' | 'rateAverage' | 'rateGood' | 'rateGreat' | 'skip' | 'wanna' | 'watched' | 'pass' | 'later' | 'undo' | 'detail' | 'watching' | 'stop'
 
 export type Keymap = Record<KeyAction, string>
 
@@ -21,6 +21,7 @@ export const KEY_ACTIONS: readonly { action: KeyAction; label: string; where: st
   { action: 'detail', label: '詳しく見る', where: '評価・マッチング' },
   // さかのぼりとマッチングでは「見てる」にする。見てる作品の評価では「まだ見てる」（次へ進むだけ）
   { action: 'watching', label: '見てる', where: '評価・マッチング' },
+  { action: 'stop', label: '視聴中断', where: '評価・マッチング' },
 ]
 
 export const DEFAULT_KEYMAP: Keymap = {
@@ -36,6 +37,7 @@ export const DEFAULT_KEYMAP: Keymap = {
   undo: 'z',
   detail: 'i',
   watching: 'e',
+  stop: 'x',
 }
 
 // 割り当てられる名前付きのキー。Enter と Space はフォーカス中のボタンも押してしまうので使わない

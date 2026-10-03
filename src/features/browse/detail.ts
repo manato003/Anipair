@@ -44,12 +44,14 @@ export function workMeta(w: { seasonYear?: number | null; seasonName?: string | 
   return parts.filter(Boolean).join(' ')
 }
 
+// 画面での状態の名前。「途中で見るのをやめた」はアプリ全体で「視聴中断」の1つだけにする（どちらを押すか迷わせないため）。
+// Anipair からは STOP_WATCHING（Annict の「視聴中止」）で保存し、Annict のサイトで付けた ON_HOLD（一時中断）も同じ名前で見せる
 export const STATUS_LABEL: Partial<Record<StatusState, string>> = {
   WATCHED: '見た',
   WATCHING: '見てる',
   WANNA_WATCH: '見たい',
-  ON_HOLD: '一時中断',
-  STOP_WATCHING: '視聴中止',
+  ON_HOLD: '視聴中断',
+  STOP_WATCHING: '視聴中断',
 }
 
 // 権利表記には先頭に ©。Annict の文字に © や (c) がもう入っていれば、そのまま出す

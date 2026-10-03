@@ -6,8 +6,8 @@ import type { Cover } from '../../lib/storage'
 // さかのぼり（過去作の初期登録）の純粋なロジック
 
 // rate: 見た + 総合評価 / watched: 見たけど覚えていない / wanna: 見てないが見たい / watching: 見てる /
-// skip: 見てない（Annict には送らない）
-export type Answer = { kind: 'rate'; rating: RatingState } | { kind: 'watched' } | { kind: 'wanna' } | { kind: 'watching' } | { kind: 'skip' }
+// stop: 途中で見るのをやめた（視聴中断。Annict には STOP_WATCHING） / skip: 見てない（Annict には送らない）
+export type Answer = { kind: 'rate'; rating: RatingState } | { kind: 'watched' } | { kind: 'wanna' } | { kind: 'watching' } | { kind: 'stop' } | { kind: 'skip' }
 
 export interface Card {
   work: AnnictWork

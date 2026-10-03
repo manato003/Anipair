@@ -18,7 +18,6 @@ interface UndoEntry {
 const TARGET: Record<Exclude<WatchAnswer['kind'], 'still'>, StatusState> = {
   rate: 'WATCHED',
   watched: 'WATCHED',
-  hold: 'ON_HOLD',
   stop: 'STOP_WATCHING',
 }
 

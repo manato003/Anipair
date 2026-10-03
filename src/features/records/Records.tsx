@@ -5,10 +5,11 @@ import { SaveStatus } from '../../components/SaveStatus'
 import type { RatingState, StatusState } from '../../lib/annict'
 import { RATING_LABEL } from '../../lib/reviewOps'
 import type { Cover } from '../../lib/storage'
+import { workMeta } from '../browse/detail'
 import { WorkDetail, type WorkSeed } from '../browse/WorkDetail'
 import { malIdOf } from '../match/taste'
 import { RATINGS } from '../rate/queue'
-import { BUCKETS, STATE_OPTIONS, countBuckets, filterRows, formatDate, sortRows, type Bucket, type RecordRow, type SortKey } from './recordList'
+import { BUCKETS, STATE_OPTIONS, countBuckets, filterRows, formatDate, optionState, sortRows, type Bucket, type RecordRow, type SortKey } from './recordList'
 import { TrendsSheet } from './TrendsSheet'
 import { useRecords } from './useRecords'
 import { useTaste, useWannaScores } from './useTaste'
@@ -194,7 +195,13 @@ function RecordItem(props: {
         <button type="button" className="row__open" onClick={props.onOpen} aria-label={`${entry.title}の詳細`}>
           <span className="row__title">{entry.title}</span>
         </button>
-        {!props.editing && <span className="row__date">{formatDate(entry.stateAt)}</span>}
+        {!props.editing && (
+          <span className="row__date">
+            {[workMeta({ seasonYear: entry.seasonYear, seasonName: entry.seasonName }), entry.stateAt ? `${formatDate(entry.stateAt)}に記録` : '']
+              .filter(Boolean)
+              .join(' · ')}
+          </span>
+        )}
         {props.note && <span className="row__reason">{props.note}</span>}
         {props.editing && (
           <div className="row__edit">
@@ -213,7 +220,7 @@ function RecordItem(props: {
               ))}
             </div>
             <div className="row__actions">
-              <select value={entry.state} onChange={(e) => props.onState(e.target.value as StatusState)} aria-label="状態">
+              <select value={optionState(entry.state) ?? entry.state} onChange={(e) => props.onState(e.target.value as StatusState)} aria-label="状態">
                 {STATE_OPTIONS.map((o) => (
                   <option key={o.state} value={o.state}>
                     {o.label}

@@ -113,7 +113,8 @@ describe('actionForKey', () => {
   it('finds the action regardless of letter case, and nothing for unbound keys', () => {
     expect(actionForKey(DEFAULT_KEYMAP, 'W')).toBe('wanna')
     expect(actionForKey(DEFAULT_KEYMAP, '3')).toBe('rateGood')
-    expect(actionForKey(DEFAULT_KEYMAP, 'x')).toBeNull()
+    expect(actionForKey(DEFAULT_KEYMAP, 'x')).toBe('stop')
+    expect(actionForKey(DEFAULT_KEYMAP, 'y')).toBeNull()
     expect(actionForKey(DEFAULT_KEYMAP, 'Enter')).toBeNull()
   })
 })

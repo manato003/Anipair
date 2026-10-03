@@ -113,14 +113,14 @@ describe('useWatching', () => {
     expect(cache.get(1)).toMatchObject({ id: 'N2', ratingOverallState: 'GOOD' })
   })
 
-  it('"finished, no rating", "on hold" and "stopped" only change the status; undo goes back to WATCHING', async () => {
+  it('"finished, no rating" and "dropped" only change the status; undo goes back to WATCHING', async () => {
     const hook = await setup()
     act(() => hook.result.current.answer({ kind: 'watched' }))
-    act(() => hook.result.current.answer({ kind: 'hold' }))
+    act(() => hook.result.current.answer({ kind: 'stop' }))
     act(() => hook.result.current.answer({ kind: 'stop' }))
     expect(hook.result.current.done).toBe(true)
     await settle(hook)
-    expect(calls).toEqual(['status W1 WATCHED', 'status W2 ON_HOLD', 'status W4 STOP_WATCHING'])
+    expect(calls).toEqual(['status W1 WATCHED', 'status W2 STOP_WATCHING', 'status W4 STOP_WATCHING'])
     calls.length = 0
     act(() => hook.result.current.undo())
     act(() => hook.result.current.undo())

@@ -196,6 +196,9 @@ export interface LibraryEntry {
   state: StatusState
   // その状態にした日時
   stateAt: string | null
+  // 放送時期（記録ページの「新しい順」に使う。分からなければ null）
+  seasonYear?: number | null
+  seasonName?: string | null
   // Annict の API の画像（https のものだけ）。表紙に使う
   imageUrl?: string | null
 }
@@ -211,7 +214,15 @@ export async function fetchLibrary(token: string): Promise<LibraryEntry[]> {
           pageInfo: { hasNextPage: boolean; endCursor: string | null }
           nodes: {
             status: { state: StatusState; createdAt: string | null } | null
-            work: { id: string; annictId: number; title: string; malAnimeId: string | null; image: { recommendedImageUrl: string | null; facebookOgImageUrl: string | null } | null }
+            work: {
+              id: string
+              annictId: number
+              title: string
+              malAnimeId: string | null
+              seasonYear: number | null
+              seasonName: string | null
+              image: { recommendedImageUrl: string | null; facebookOgImageUrl: string | null } | null
+            }
           }[]
         }
       }
@@ -219,7 +230,7 @@ export async function fetchLibrary(token: string): Promise<LibraryEntry[]> {
       token,
       `query($after: String) { viewer { libraryEntries(first: 100, after: $after) {
         pageInfo { hasNextPage endCursor }
-        nodes { status { state createdAt } work { id annictId title malAnimeId image { recommendedImageUrl facebookOgImageUrl } } }
+        nodes { status { state createdAt } work { id annictId title malAnimeId seasonYear seasonName image { recommendedImageUrl facebookOgImageUrl } } }
       } } }`,
       { after },
     )
@@ -234,6 +245,8 @@ export async function fetchLibrary(token: string): Promise<LibraryEntry[]> {
         malAnimeId: n.work.malAnimeId,
         state,
         stateAt: n.status?.createdAt ?? null,
+        seasonYear: n.work.seasonYear ?? null,
+        seasonName: n.work.seasonName ?? null,
         imageUrl: annictImageOf(n.work.image),
       })
     }

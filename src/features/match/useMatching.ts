@@ -21,7 +21,7 @@ const FILTERED_POOL_SIZE = 100
 const MAX_CARDS = 30
 
 // wanna: 見たい / pass: パス（3ヶ月出さない）/ skip: スルー（今は決めない。1週間後にまた出す）/
-// rate: 見たことがあって評価する / watched: 見たことがあるが覚えていない / watching: いま見ている
+// rate: 見たことがあって評価する / watched: 見たことがあるが覚えていない / watching: いま見ている / stop: 途中でやめた（視聴中断。Annict には STOP_WATCHING）
 export type MatchAnswer =
   | { kind: 'wanna' }
   | { kind: 'pass' }
@@ -29,6 +29,7 @@ export type MatchAnswer =
   | { kind: 'rate'; rating: RatingState }
   | { kind: 'watched' }
   | { kind: 'watching' }
+  | { kind: 'stop' }
 
 export interface MatchCard {
   media: Media
@@ -181,7 +182,7 @@ export function useMatching(annictToken: string, github: GithubConnection | null
       const title = titleOf(card.media)
       const label =
         a.kind === 'wanna' ? `「${title}」の見たいへの追加` : a.kind === 'watching' ? `「${title}」の見てるへの追加` : `「${title}」の記録`
-      const state = a.kind === 'wanna' ? 'WANNA_WATCH' : a.kind === 'watching' ? 'WATCHING' : 'WATCHED'
+      const state = a.kind === 'wanna' ? 'WANNA_WATCH' : a.kind === 'watching' ? 'WATCHING' : a.kind === 'stop' ? 'STOP_WATCHING' : 'WATCHED'
       enqueue(label, async () => {
         entry.ref ??= await resolveCard(card)
         if (!entry.ref) {
