@@ -124,7 +124,7 @@ describe('Backfill detail sheet', () => {
     expect(screen.getByTestId('sheet')).toBeTruthy()
   })
 
-  it('lets an unrecorded work become 見てる only for this season and the one before (the button stays in place)', () => {
+  it('lets an unrecorded work of any season become 見てる', () => {
     render(<Backfill token="t" github={null} active />)
     fireEvent.click(screen.getByRole('button', { name: /^見てる\s*E$/ }))
     expect(answer).toHaveBeenCalledWith({ kind: 'watching' })
@@ -133,11 +133,12 @@ describe('Backfill detail sheet', () => {
     cleanup()
     answer.mockClear()
 
-    season = previousSeason(previousSeason(seasonOf(new Date())))
+    // 昔のクールでも押せる（配信で昔の作品をいま見ていることもある）
+    season = { year: 2005, name: 'autumn' }
     render(<Backfill token="t" github={null} active />)
-    expect((screen.getByRole('button', { name: /^見てる\s*E$/ }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: /^見てる\s*E$/ }) as HTMLButtonElement).disabled).toBe(false)
     press('e')
-    expect(answer).not.toHaveBeenCalled()
+    expect(answer).toHaveBeenCalledWith({ kind: 'watching' })
   })
 
   it('has the same answers for every card: 覚えてない in the rating row, then 見てない・見てる・視聴中断・見たい', () => {

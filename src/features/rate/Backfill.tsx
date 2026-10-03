@@ -11,7 +11,7 @@ import { keyLabel, useKeymap } from '../../lib/keymap'
 import type { GithubConnection } from '../../lib/github'
 import type { Media } from '../../lib/shikimori'
 import { useShortcuts } from '../../lib/useShortcuts'
-import { previousSeason, sameSeason, seasonLabel, seasonOf } from '../../lib/season'
+import { previousSeason, seasonLabel, seasonOf } from '../../lib/season'
 import { loadOnboardingSeen, saveOnboardingSeen, type Cover } from '../../lib/storage'
 import { workMeta } from '../browse/detail'
 import { WorkDetail, type WorkSeed } from '../browse/WorkDetail'
@@ -137,16 +137,15 @@ export function Backfill({ token, github, active }: { token: string; github: Git
     if (shown) setSheetFor(sheetOpen ? null : shown.key)
   }
 
-  // 未記録の作品を「見てる」にできるのは、いまのクールと前のクールの作品だけ（放送中か、終わったばかりの作品）
+  // 「見てる」は、どのクールの作品でも押せる（配信で昔の作品をいま見ていることもある。クールで押せたり押せなかったりすると迷わせる）
   const thisSeason = seasonOf(new Date())
-  const canWatching = sameSeason(b.season, thisSeason) || sameSeason(b.season, previousSeason(thisSeason))
 
   const hasCurrent = watchReady && shown !== null
   // 答え。見てる作品か未記録の作品かで、送り先の山を選ぶ（ボタンの意味は同じ）
   const reply = {
     rate: (rating: (typeof RATINGS)[number]['rating']) => (inWatching ? answerW({ kind: 'rate', rating }) : answerB({ kind: 'rate', rating })),
     watched: () => (inWatching ? answerW({ kind: 'watched' }) : answerB({ kind: 'watched' })),
-    watching: () => (inWatching ? answerW({ kind: 'still' }) : canWatching ? answerB({ kind: 'watching' }) : undefined),
+    watching: () => (inWatching ? answerW({ kind: 'still' }) : answerB({ kind: 'watching' })),
     stop: () => (inWatching ? answerW({ kind: 'stop' }) : answerB({ kind: 'stop' })),
     skip: () => (inWatching ? undefined : answerB({ kind: 'skip' })),
     wanna: () => (inWatching ? undefined : answerB({ kind: 'wanna' })),
@@ -278,9 +277,9 @@ export function Backfill({ token, github, active }: { token: string; github: Git
             <button
               type="button"
               className="unseen"
-              disabled={!hasCurrent || (!inWatching && !canWatching)}
+              disabled={!hasCurrent}
               onClick={reply.watching}
-              title={inWatching ? 'まだ見ている作品は、そのまま次へ進みます' : '「見てる」にします（いまのクールと前のクールの作品だけ）'}
+              title={inWatching ? 'まだ見ている作品は、そのまま次へ進みます' : '「見てる」にします'}
             >
               見てる <kbd className="hint">{keyLabel(keys.watching)}</kbd>
             </button>
