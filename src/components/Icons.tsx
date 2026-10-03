@@ -30,15 +30,6 @@ export function InfoIcon() {
   )
 }
 
-// 見たけど覚えていない・見終わった
-export function CheckIcon() {
-  return (
-    <Icon>
-      <path d="m4.5 12.5 5 5 10-11" />
-    </Icon>
-  )
-}
-
 // 見たことがある
 export function EyeIcon() {
   return (

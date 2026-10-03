@@ -3,7 +3,7 @@ import type { KeyAction } from '../../lib/keymap'
 import type { Season } from '../../lib/season'
 import type { Cover } from '../../lib/storage'
 
-// さかのぼり（過去作の初期登録）の純粋なロジック
+// 評価の画面の、クールの未記録の作品（さかのぼり）の純粋なロジック
 
 // rate: 見た + 総合評価 / watched: 見たけど覚えていない / wanna: 見てないが見たい / watching: 見てる /
 // stop: 途中で見るのをやめた（視聴中断。Annict には STOP_WATCHING） / skip: 見てない（Annict には送らない）

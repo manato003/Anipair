@@ -21,7 +21,7 @@ const TARGET: Record<Exclude<WatchAnswer['kind'], 'still'>, StatusState> = {
   stop: 'STOP_WATCHING',
 }
 
-// 普段の評価: いま「見てる」の作品を1枚ずつ出して、見終わったものを評価する
+// 評価の画面の山の先頭: いま「見てる」の作品を1枚ずつ出して、見終わったものを評価する
 export function useWatching(token: string) {
   const [cards, setCards] = useState<WatchCard[] | null>(null)
   const [index, setIndex] = useState(0)

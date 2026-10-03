@@ -14,12 +14,12 @@ export const KEY_ACTIONS: readonly { action: KeyAction; label: string; where: st
   { action: 'rateGreat', label: 'とても良い', where: '評価・マッチング' },
   { action: 'skip', label: '見てない', where: '評価' },
   { action: 'wanna', label: '見たい', where: '評価・マッチング' },
-  { action: 'watched', label: '見たけど覚えていない', where: '評価・マッチング' },
+  { action: 'watched', label: '覚えてない（評価なしで見た）', where: '評価・マッチング' },
   { action: 'pass', label: 'パス', where: 'マッチング' },
   { action: 'later', label: 'スルー', where: 'マッチング' },
   { action: 'undo', label: '取り消す', where: '評価・マッチング' },
   { action: 'detail', label: '詳しく見る', where: '評価・マッチング' },
-  // さかのぼりとマッチングでは「見てる」にする。見てる作品の評価では「まだ見てる」（次へ進むだけ）
+  // 未記録の作品は「見てる」にする。見てる作品のカードでは「まだ見てる」（次へ進むだけ）
   { action: 'watching', label: '見てる', where: '評価・マッチング' },
   { action: 'stop', label: '視聴中断', where: '評価・マッチング' },
 ]

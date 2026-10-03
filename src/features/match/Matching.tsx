@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Bookmark } from '../../components/Bookmark'
 import { CoverImage } from '../../components/CoverImage'
 import { Empty } from '../../components/Empty'
-import { BackIcon, CheckIcon, EyeIcon, InfoIcon, UndoIcon } from '../../components/Icons'
+import { BackIcon, EyeIcon, InfoIcon, UndoIcon } from '../../components/Icons'
 import { SaveStatus } from '../../components/SaveStatus'
 import { Sheet } from '../../components/Sheet'
 import { WorkFacts } from '../../components/WorkFacts'
@@ -141,7 +141,12 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
         <div className="answers" aria-disabled={!m.current}>
           {seenOpen ? (
             <>
-            <div className="answers__ratings">
+            {/* 評価の段。左端の「覚えてない」は、見たけれど評価できない作品（評価の画面と同じ並び） */}
+            <div className="answers__ratings answers__ratings--five">
+              <button type="button" className="rating rating--none" onClick={() => m.answer({ kind: 'watched' })} title="見たけれど内容を覚えていない作品を、評価を付けずに「見た」にします">
+                <span className="rating__label">覚えてない</span>
+                <kbd className="hint">{keyLabel(keys.watched)}</kbd>
+              </button>
               {RATINGS.map((r) => (
                 <button
                   key={r.rating}
@@ -186,10 +191,6 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
           <div className="answers__misc">
             {seenOpen ? (
               <>
-                <button type="button" className="misc" onClick={() => m.answer({ kind: 'watched' })}>
-                  <CheckIcon />
-                  見たけど覚えていない <kbd className="hint">{keyLabel(keys.watched)}</kbd>
-                </button>
                 <button type="button" className="misc" onClick={() => setSeenFor(null)}>
                   <BackIcon />
                   戻る

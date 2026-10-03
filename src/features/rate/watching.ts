@@ -1,9 +1,9 @@
 import type { LibraryEntry, RatingState } from '../../lib/annict'
 import type { Cover } from '../../lib/storage'
 
-// 普段の評価（いま見ている作品を、見終わったら評価する）の純粋なロジック
+// 評価の画面の山の先頭に出す「見てる」作品（見終わったら評価する）の純粋なロジック
 
-// rate: 見た + 総合評価 / watched: 見終わった（評価しない）/ still: まだ見てる（何も送らず次へ）/
+// rate: 見た + 総合評価 / watched: 覚えてない（評価しないで見た）/ still: まだ見てる（何も送らず次へ）/
 // stop: 視聴中断（Annict には STOP_WATCHING）
 export type WatchAnswer = { kind: 'rate'; rating: RatingState } | { kind: 'watched' } | { kind: 'still' } | { kind: 'stop' }
 

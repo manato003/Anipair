@@ -74,6 +74,14 @@
   font-weight: 400;
 }
 
+/* 山の先頭の「見てる」作品を数えているときの印 */
+.count__label {
+  margin-right: 6px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
 .rate__stage {
   display: flex;
   align-items: center;
@@ -240,6 +248,32 @@
 .rating--good {
   --tone: var(--r-good);
 }
+/* 評価の段の「覚えてない」（評価を付けずに見た）。段階の色を持たない */
+.rating--none {
+  --tone: var(--muted);
+}
+
+.answers__ratings--five {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+/* 5つ並ぶので、名前を折り返さない（「とても良い」「覚えてない」が2行に割れると読みにくい）。狭い画面では文字を詰める */
+.answers__ratings--five {
+  gap: 5px;
+}
+
+.answers__ratings--five .rating {
+  padding-inline: 0;
+  white-space: nowrap;
+}
+
+@media (max-width: 440px) {
+  .answers__ratings--five .rating {
+    font-size: min(0.8rem, 3.1vw);
+    letter-spacing: -0.03em;
+  }
+}
+
 .rating--great {
   --tone: var(--r-great);
 }

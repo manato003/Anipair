@@ -6,6 +6,8 @@ import { previousSeason, seasonOf, type Season } from '../../lib/season'
 
 const answer = vi.fn()
 const watchAnswer = vi.fn()
+const bUndo = vi.fn()
+const wUndo = vi.fn()
 const refreshIfIdle = vi.fn()
 const goToPrevious = vi.fn()
 const goToNext = vi.fn()
@@ -35,7 +37,7 @@ vi.mock('./useBackfill', () => ({
     failed: [],
     canUndo: false,
     answer,
-    undo: vi.fn(),
+    undo: bUndo,
     reload: vi.fn(),
     retryFailed: vi.fn(),
     dismissFailed: vi.fn(),
@@ -45,11 +47,13 @@ vi.mock('./useBackfill', () => ({
     syncNote: null,
   }),
 }))
+// 見てる作品の山。既定は空（クールの作品だけ）。見てる作品の段のテストだけ入れる
+let watchCards: (typeof watchCard)[] = []
 vi.mock('./useWatching', () => ({
   useWatching: () => ({
-    cards: [watchCard],
+    cards: watchCards,
     index: 0,
-    current: watchCard,
+    current: watchCards[0] ?? null,
     next: null,
     done: false,
     loadError: null,
@@ -57,7 +61,7 @@ vi.mock('./useWatching', () => ({
     failed: [],
     canUndo: false,
     answer: watchAnswer,
-    undo: vi.fn(),
+    undo: wUndo,
     reload: vi.fn(),
     refreshIfIdle,
     retryFailed: vi.fn(),
@@ -80,6 +84,9 @@ afterEach(() => {
   localStorage.clear()
   answer.mockClear()
   watchAnswer.mockClear()
+  bUndo.mockClear()
+  wUndo.mockClear()
+  watchCards = []
   refreshIfIdle.mockClear()
   goToPrevious.mockClear()
   goToNext.mockClear()
@@ -117,7 +124,7 @@ describe('Backfill detail sheet', () => {
     expect(screen.getByTestId('sheet')).toBeTruthy()
   })
 
-  it('shows the 見てる answer only for this season and the one before, and answers with it', () => {
+  it('lets an unrecorded work become 見てる only for this season and the one before (the button stays in place)', () => {
     render(<Backfill token="t" github={null} active />)
     fireEvent.click(screen.getByRole('button', { name: /^見てる\s*E$/ }))
     expect(answer).toHaveBeenCalledWith({ kind: 'watching' })
@@ -128,9 +135,29 @@ describe('Backfill detail sheet', () => {
 
     season = previousSeason(previousSeason(seasonOf(new Date())))
     render(<Backfill token="t" github={null} active />)
-    expect(screen.queryByRole('button', { name: /^見てる\s*E$/ })).toBeNull()
+    expect((screen.getByRole('button', { name: /^見てる\s*E$/ }) as HTMLButtonElement).disabled).toBe(true)
     press('e')
     expect(answer).not.toHaveBeenCalled()
+  })
+
+  it('has the same answers for every card: 覚えてない in the rating row, then 見てない・見てる・視聴中断・見たい', () => {
+    render(<Backfill token="t" github={null} active />)
+    expect(screen.queryByRole('button', { name: /さかのぼり|見てる（/ })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /^覚えてない/ }))
+    expect(answer).toHaveBeenLastCalledWith({ kind: 'watched' })
+    press('f')
+    expect(answer).toHaveBeenLastCalledWith({ kind: 'watched' })
+    press('x')
+    expect(answer).toHaveBeenLastCalledWith({ kind: 'stop' })
+    press('0')
+    expect(answer).toHaveBeenLastCalledWith({ kind: 'skip' })
+    press('w')
+    expect(answer).toHaveBeenLastCalledWith({ kind: 'wanna' })
+    expect(screen.queryByRole('button', { name: /見たけど覚えていない|見終わった|一時中断|視聴中止/ })).toBeNull()
+    // 取り消しは、答えた山の取り消しを呼ぶ
+    press('z')
+    expect(bUndo).toHaveBeenCalledTimes(1)
+    expect(wUndo).not.toHaveBeenCalled()
   })
 
   it('steps between seasons with the stepper, and cannot go past the current one', () => {
@@ -156,11 +183,14 @@ describe('Backfill detail sheet', () => {
     expect(goToPrevious).not.toHaveBeenCalled()
   })
 
-  it('in 見てる mode the same keys answer the watching deck, and the E key means "still watching"', () => {
+  it('shows the works I am watching first; the same keys answer them, E means "still watching", and 見てない・見たい are off', () => {
+    watchCards = [watchCard]
     render(<Backfill token="t" github={null} active />)
-    fireEvent.click(screen.getByRole('button', { name: /^見てる（1）/ }))
-    expect(screen.getByRole('heading', { level: 1, name: '見てる作品' })).toBeTruthy()
+    expect(screen.getByRole('heading', { level: 2, name: '見てる作品' })).toBeTruthy()
+    expect(screen.getByText('見てる', { selector: '.count__label' })).toBeTruthy()
     expect(refreshIfIdle).toHaveBeenCalled()
+    expect((screen.getByRole('button', { name: /^見てない/ }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: /^見たい/ }) as HTMLButtonElement).disabled).toBe(true)
     press('3')
     expect(watchAnswer).toHaveBeenLastCalledWith({ kind: 'rate', rating: 'GOOD' })
     press('e')
@@ -176,6 +206,9 @@ describe('Backfill detail sheet', () => {
     expect(screen.queryByRole('button', { name: /一時中断|視聴中止/ })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /^視聴中断/ }))
     expect(watchAnswer).toHaveBeenLastCalledWith({ kind: 'stop' })
+    press('z')
+    expect(wUndo).toHaveBeenCalledTimes(1)
+    expect(bUndo).not.toHaveBeenCalled()
     // 詳細のシートは読むだけで開く
     press('i')
     expect(screen.getByTestId('sheet').getAttribute('data-readonly')).toBe('true')
