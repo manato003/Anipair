@@ -371,13 +371,21 @@
   cursor: default;
 }
 
+/* 作品の手がかりは広い画面だけ（狭い画面は表紙とボタンに集中させる） */
+.facts {
+  display: none;
+}
+
 /* ── 広い画面（幅 960px 以上） ── */
 @media (min-width: 960px) {
   /* 評価・マッチング: 左に表紙、右に操作。表紙は画面の高さに収まる大きさ（幅の足りないときは幅で抑える） */
   .rate {
-    --cover-h: min(calc(100dvh - var(--topbar) - 56px), 480px, calc((100vw - 580px) * 1.5));
+    /* 表紙の高さ。画面の高さに収まり、横の列（480px と間）を引いた幅にも収まる大きさ。上限は 560px と、
+       拡大（app.css の --zoom）したあとの実際の大きさで 900px。新しい作品の画像は縦 600px しかないことがあり、
+       それ以上に大きくすると引き伸ばしでぼやける（900px で約1.5倍まで。縦 1,000px 弱の画像なら引き伸ばさない） */
+    --cover-h: min(calc(100dvh / var(--zoom) - var(--topbar) - 56px), 560px, calc(900px / var(--zoom)), calc((100vw / var(--zoom) - 600px) * 1.5));
     display: grid;
-    grid-template-columns: calc(var(--cover-h) * 2 / 3) 460px;
+    grid-template-columns: calc(var(--cover-h) * 2 / 3) 480px;
     grid-template-rows: auto auto 1fr auto;
     column-gap: 56px;
     justify-content: center;
@@ -438,6 +446,36 @@
     gap: 8px;
     min-width: 0;
     padding: 28px 0 12px;
+  }
+
+  /* 作品の手がかり（WorkFacts）。題名の下、答えのボタンの上の空いたところに置く */
+  .facts {
+    display: grid;
+    gap: 10px;
+    margin-top: 6px;
+  }
+
+  .facts__line,
+  .facts__note {
+    color: var(--muted);
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+
+  .facts__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    list-style: none;
+  }
+
+  .facts__tags li {
+    padding: 2px 10px;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    color: var(--paper);
+    font-size: 0.78rem;
+    line-height: 1.6;
   }
 
   .card__title {

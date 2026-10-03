@@ -12,6 +12,7 @@ import { genreName, malIdOf } from '../match/taste'
 import { RATINGS } from '../rate/queue'
 import { STATE_OPTIONS } from '../records/recordList'
 import { STATUS_LABEL, mainStaff, withCopyrightMark, safeHttpUrl, workMeta, xUrl } from './detail'
+import { RelatedWorks } from './RelatedWorks'
 
 // シートを開く作品の手がかり。詳細を読み込むまでは、ここにある項目だけで出す（分からない項目は省く）
 export interface WorkSeed {
@@ -210,6 +211,9 @@ export function WorkDetail(
           )}
         </section>
       )}
+
+      {/* 関連作品: Annict のシリーズ。無ければ Shikimori の関連作品（詳細を読み込むまでは出さない） */}
+      <RelatedWorks annictId={work.annictId} series={detail ? (detail.series ?? []) : error ? [] : null} shiki={shiki} />
 
       {/* 広い画面では、キャストとスタッフを左右に並べる */}
       <div className="detail__credits">

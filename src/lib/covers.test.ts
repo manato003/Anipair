@@ -16,6 +16,7 @@ const mediaWithPoster = (id: number): Media => ({
   cover: { url: `https://s.example/${id}.jpg`, thumb: `https://s.example/${id}-m.webp`, landscape: false },
   score: null,
   prequels: [],
+  related: [],
 })
 
 let shikiFails = false

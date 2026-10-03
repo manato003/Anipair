@@ -18,6 +18,7 @@ const media = (idMal: number, genres: string[]): Media => ({
   cover: null,
   score: null,
   prequels: [],
+  related: [],
 })
 
 const details = new Map([

@@ -52,6 +52,7 @@ describe('rankByTaste', () => {
       cover: null,
       score: null,
       prequels: [],
+      related: [],
     }
   }
 

@@ -53,6 +53,8 @@ export interface Media {
   score: number | null
   // 前作（MyAnimeList の ID）
   prequels: number[]
+  // 関連するアニメ（関係の種類と MyAnimeList の ID）。kind は Shikimori の relationKind（prequel・sequel・side_story など）
+  related: { kind: string; malId: number }[]
 }
 
 // 中継が返す、画面が使う項目だけの形（api/shiki.ts の trim と同じ）
@@ -70,6 +72,7 @@ interface RawAnime {
   genres: { n: string; k: string }[]
   studios: string[]
   prequels: number[]
+  related?: { k: string; id: number }[]
 }
 
 const FORMATS: Record<string, string> = {
@@ -109,6 +112,9 @@ export function normalize(raw: RawAnime): Media | null {
     cover: poster ? { url: poster.o, thumb: poster.m, landscape: false } : null,
     score: typeof raw.score === 'number' && raw.score > 0 ? raw.score : null,
     prequels: Array.isArray(raw.prequels) ? raw.prequels : [],
+    related: Array.isArray(raw.related)
+      ? raw.related.flatMap((r) => (r && typeof r.k === 'string' && Number.isInteger(r.id) && r.id > 0 ? [{ kind: r.k, malId: r.id }] : []))
+      : [],
   }
 }
 
@@ -162,7 +168,8 @@ export async function fetchMedia(malIds: readonly number[], opts: FetchOptions =
   const missing = [...new Set(malIds)].filter((id) => Number.isInteger(id) && id > 0 && !mediaCache.has(id)).sort((a, b) => a - b)
   for (let i = 0; i < missing.length; i += BATCH) {
     const chunk = missing.slice(i, i + BATCH)
-    const body = (await call(`op=animes&ids=${chunk.join(',')}`, opts)) as { animes?: RawAnime[] }
+    // v=2: 中継の応答に related が加わった版。CDN に1週間残る前の形の控えを使わないよう、問い合わせの URL を変える
+    const body = (await call(`op=animes&ids=${chunk.join(',')}&v=2`, opts)) as { animes?: RawAnime[] }
     if (!body || !Array.isArray(body.animes)) throw new Error('Shikimori の応答を読めませんでした')
     for (const id of chunk) mediaCache.set(id, null)
     for (const raw of body.animes) {

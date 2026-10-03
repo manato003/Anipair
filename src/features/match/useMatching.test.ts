@@ -29,6 +29,7 @@ function media(idMal: number, extra: Partial<Media> = {}): Media {
     cover: null,
     score: null,
     prequels: [],
+    related: [],
     ...extra,
   }
 }

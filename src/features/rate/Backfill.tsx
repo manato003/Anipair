@@ -6,15 +6,20 @@ import { CheckIcon, InfoIcon, PauseIcon, StopIcon, UndoIcon } from '../../compon
 import { SaveStatus } from '../../components/SaveStatus'
 import { SeasonPicker } from '../../components/SeasonPicker'
 import { UsageGuide } from '../../components/UsageGuide'
+import { WorkFacts } from '../../components/WorkFacts'
 import { keyLabel, useKeymap } from '../../lib/keymap'
 import type { GithubConnection } from '../../lib/github'
+import type { Media } from '../../lib/shikimori'
 import { useShortcuts } from '../../lib/useShortcuts'
 import { previousSeason, sameSeason, seasonLabel, seasonOf } from '../../lib/season'
 import { loadOnboardingSeen, saveOnboardingSeen, type Cover } from '../../lib/storage'
+import { workMeta } from '../browse/detail'
 import { WorkDetail, type WorkSeed } from '../browse/WorkDetail'
+import { malIdOf } from '../match/taste'
 import { formatDate } from '../records/recordList'
 import { OLDEST_SEASON, OLDEST_YEAR, RATINGS } from './queue'
 import { useBackfill } from './useBackfill'
+import { useDeckMedia } from './useDeckMedia'
 import { useWatching } from './useWatching'
 
 type Mode = 'back' | 'watching'
@@ -26,6 +31,8 @@ interface Shown {
   cover: Cover | null
   seed: WorkSeed
   meta: string | null
+  // 広い画面だけに出す作品の手がかり（WorkFacts）。head は先頭に並べる項目、note は添える一言
+  facts: { malId: number | null; head: string[]; note: string | null }
 }
 
 // 評価の画面。「さかのぼり」（過去作の初期登録）と「見てる」（見ている作品を、見終わったら評価する）の2つのモード。
@@ -47,7 +54,20 @@ export function Backfill({ token, github, active }: { token: string; github: Git
   const shown = useMemo<Shown | null>(() => {
     if (back) {
       const c = bCurrent
-      return c && { key: c.work.id, title: c.work.title, cover: c.cover, seed: c.work, meta: null }
+      return (
+        c && {
+          key: c.work.id,
+          title: c.work.title,
+          cover: c.cover,
+          seed: c.work,
+          meta: null,
+          facts: {
+            malId: malIdOf(c.work),
+            head: [seasonLabel(b.season), workMeta({ media: c.work.media })],
+            note: c.work.watchersCount > 0 ? `Annict で ${c.work.watchersCount.toLocaleString()}人が記録` : null,
+          },
+        }
+      )
     }
     if (!wCurrent) return null
     const { entry, cover } = wCurrent
@@ -58,8 +78,19 @@ export function Backfill({ token, github, active }: { token: string; github: Git
       cover,
       seed: { id: entry.workId, annictId: entry.annictId, title: entry.title, malAnimeId: entry.malAnimeId, viewerStatusState: entry.state },
       meta: since ? `${since}から見てる` : null,
+      facts: { malId: malIdOf(entry), head: [], note: null },
     }
-  }, [back, bCurrent, wCurrent])
+  }, [back, bCurrent, wCurrent, b.season])
+
+  // カードの手がかり用に、いま見ているデッキの作品の情報をまとめて取る（表紙の解決で取り込み済みなら問い合わせない）
+  const bCards = b.cards
+  const wCards = w.cards
+  const deckIds = useMemo(() => {
+    const ids = back ? (bCards ?? []).map((c) => malIdOf(c.work)) : (wCards ?? []).map((c) => malIdOf(c.entry))
+    const valid = ids.filter((n): n is number => n !== null)
+    return valid.length > 0 ? valid : null
+  }, [back, bCards, wCards])
+  const deckMedia = useDeckMedia(deckIds)
 
   // 初めて評価の画面を開いたときだけ、使い方のシートを出す。どう閉じても「見た」ことにして、次からは出さない
   const [guideOpen, setGuideOpen] = useState(() => !loadOnboardingSeen())
@@ -194,7 +225,7 @@ export function Backfill({ token, github, active }: { token: string; github: Git
                 </button>
               </Empty>
             ) : (
-              <WorkCard key={shown.key} shown={shown} onOpen={toggleSheet} />
+              <WorkCard key={shown.key} shown={shown} media={shown.facts.malId ? deckMedia.get(shown.facts.malId) ?? null : null} onOpen={toggleSheet} />
             )
           ) : w.loadError ? (
             <Empty title="見てる作品を読み込めませんでした" body={w.loadError}>
@@ -215,7 +246,7 @@ export function Backfill({ token, github, active }: { token: string; github: Git
               </button>
             </Empty>
           ) : (
-            <WorkCard key={shown.key} shown={shown} onOpen={toggleSheet} />
+            <WorkCard key={shown.key} shown={shown} media={shown.facts.malId ? deckMedia.get(shown.facts.malId) ?? null : null} onOpen={toggleSheet} />
           )}
           {/* 次の表紙を先に読み込んでおき、切り替えを待たせない */}
           {(back ? b.next?.cover : w.next?.cover) && <link rel="preload" as="image" href={(back ? b.next?.cover : w.next?.cover)!.url} />}
@@ -305,7 +336,7 @@ export function Backfill({ token, github, active }: { token: string; github: Git
   )
 }
 
-function WorkCard({ shown, onOpen }: { shown: Shown; onOpen: () => void }) {
+function WorkCard({ shown, media, onOpen }: { shown: Shown; media: Media | null; onOpen: () => void }) {
   return (
     <article className="card">
       <button type="button" className="card__cover" onClick={onOpen} aria-label="詳しく見る">
@@ -317,6 +348,7 @@ function WorkCard({ shown, onOpen }: { shown: Shown; onOpen: () => void }) {
       <div className="card__text">
         <h2 className="card__title">{shown.title}</h2>
         {shown.meta && <p className="card__meta">{shown.meta}</p>}
+        <WorkFacts media={media} head={shown.facts.head} note={shown.facts.note} />
       </div>
     </article>
   )

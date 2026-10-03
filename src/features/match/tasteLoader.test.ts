@@ -21,6 +21,7 @@ const media = (idMal: number): Media => ({
   cover: null,
   score: null,
   prequels: [],
+  related: [],
 })
 
 vi.mock('../../lib/annict', async (orig) => ({

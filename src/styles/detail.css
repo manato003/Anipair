@@ -208,6 +208,92 @@ img.cover--contain {
 }
 
 /* ── 広い画面（幅 960px 以上） ── */
+/* 関連作品（RelatedWorks）。題名（2行まで）の下に、位置づけ（「第2期」など）と放送時期。端に自分の記録 */
+.related__series + .related__series {
+  margin-top: 14px;
+}
+
+.related__name {
+  margin-bottom: 6px;
+  color: var(--paper);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.related__count {
+  margin-left: 8px;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.related__list {
+  display: grid;
+  gap: 2px;
+  list-style: none;
+}
+
+.related__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: var(--radius-s);
+}
+
+/* いま開いている作品。差し色の淡い地で、一覧の中のどこにいるかを示す */
+.related__item--current {
+  background: color-mix(in srgb, var(--brand-blue) 14%, transparent);
+}
+
+.related__tag {
+  margin-right: 8px;
+  color: var(--paper);
+  font-weight: 700;
+}
+
+.related__item--current .related__tag {
+  color: var(--brand-blue);
+  font-weight: 700;
+}
+
+.related__body {
+  display: grid;
+  min-width: 0;
+}
+
+.related__title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--paper);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+a.related__title {
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  a.related__title:hover {
+    color: var(--brand-blue);
+    text-decoration: underline;
+  }
+}
+
+.related__meta {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.related__more {
+  margin-top: 6px;
+  font-size: 0.8rem;
+}
+
 @media (min-width: 960px) {
   .detail__head {
     grid-template-columns: 220px 1fr;

@@ -80,6 +80,10 @@ describe('handleShiki animes', () => {
         ],
         studios: ['Madhouse'],
         prequels: [777],
+        related: [
+          { k: 'sequel', id: 59978 },
+          { k: 'prequel', id: 777 },
+        ],
       },
     ])
   })

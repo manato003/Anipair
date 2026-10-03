@@ -388,14 +388,35 @@ export interface WorkDetail extends BrowseWork {
   copyright: string | null
   casts: { character: string; name: string }[]
   staffs: { role: string; name: string }[]
+  // 作品が入っている Annict のシリーズ（利用者が整理したもの。無い作品もある）。作品は放送時期の順
+  series: AnnictSeries[]
+}
+
+export interface SeriesWork {
+  id: string
+  annictId: number
+  title: string
+  seasonYear: number | null
+  seasonName: string | null
+  media: string
+  malAnimeId: string | null
+  viewerStatusState: StatusState | null
+  // シリーズの中での位置づけ（「第2期」「劇場版」など。利用者が書いた短い説明。無いこともある）
+  summary: string | null
+}
+
+export interface AnnictSeries {
+  name: string
+  works: SeriesWork[]
 }
 
 // 作品の詳細。Staff.roleOther はスキーマ上 null にならないはずだが実際は null を返し、
 // 取るとスタッフ一覧ごと失敗する（2026-09-30 に確認）ので取らない
 export async function fetchWorkDetail(token: string, workId: string): Promise<WorkDetail> {
   const data = await gql<{
-    node: Omit<WorkDetail, 'casts' | 'staffs' | 'copyright'> & {
+    node: Omit<WorkDetail, 'casts' | 'staffs' | 'copyright' | 'series'> & {
       image: { copyright: string | null } | null
+      seriesList: { nodes: { name: string; works: { edges: { summary: string | null; item: Omit<SeriesWork, 'summary'> }[] } }[] } | null
       casts: { nodes: { name: string; character: { name: string } }[] }
       staffs: { nodes: { name: string; roleText: string }[] }
     }
@@ -406,12 +427,19 @@ export async function fetchWorkDetail(token: string, workId: string): Promise<Wo
       episodesCount officialSiteUrl wikipediaUrl twitterUsername image { copyright }
       casts(first: 12, orderBy: {field: SORT_NUMBER, direction: ASC}) { nodes { name character { name } } }
       staffs(first: 50, orderBy: {field: SORT_NUMBER, direction: ASC}) { nodes { name roleText } }
+      seriesList(first: 5) { nodes { name works(first: 50, orderBy: {field: SEASON, direction: ASC}) {
+        edges { summary item { id annictId title seasonYear seasonName media malAnimeId viewerStatusState } }
+      } } }
     } } }`,
     { id: workId },
   )
-  const { image, ...n } = data.node
+  const { image, seriesList, ...n } = data.node
   return {
     ...n,
+    series: (seriesList?.nodes ?? []).map((s) => ({
+      name: s.name,
+      works: s.works.edges.map((e) => ({ ...e.item, summary: e.summary?.trim() || null })),
+    })),
     copyright: image?.copyright?.trim() || null,
     casts: n.casts.nodes.map((c) => ({ character: c.character.name, name: c.name })),
     staffs: n.staffs.nodes.map((s) => ({ role: s.roleText, name: s.name })),

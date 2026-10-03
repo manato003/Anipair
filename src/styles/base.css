@@ -394,7 +394,7 @@ kbd {
 .sheet {
   width: 100%;
   max-width: var(--col);
-  max-height: 92dvh;
+  max-height: calc(92dvh / var(--zoom));
   overflow-y: auto;
   padding: 8px 20px calc(24px + env(safe-area-inset-bottom));
   border: 1px solid var(--line);
@@ -457,7 +457,7 @@ kbd {
 
   .sheet {
     max-width: 560px;
-    max-height: 88vh;
+    max-height: calc(88vh / var(--zoom));
     padding: 8px 28px 28px;
     border-bottom: 1px solid var(--line);
     border-radius: 14px;

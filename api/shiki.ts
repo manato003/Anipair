@@ -16,6 +16,7 @@ const REST_URL = 'https://shikimori.io/api/animes'
 const USER_AGENT = 'Anipair (https://anipair.vercel.app/)'
 const MAX_IDS = 50
 const MAX_SIMILAR = 100
+const MAX_RELATED = 30
 const TIMEOUT_MS = 8000
 
 // 作品は変わらないので1週間 CDN に置く。期限が切れても1日は古いものを返しながら裏で取り直す
@@ -99,6 +100,8 @@ function trim(a: RawAnime) {
     genres: (a.genres ?? []).flatMap((g) => (str(g.name) && str(g.kind) ? [{ n: str(g.name), k: str(g.kind) }] : [])),
     studios: (a.studios ?? []).flatMap((s) => (str(s.name) ? [str(s.name)] : [])),
     prequels: (a.related ?? []).flatMap((r) => (r.relationKind === 'prequel' && num(r.anime?.malId) ? [num(r.anime?.malId)] : [])),
+    // 関連するアニメ（関係の種類つき）。作品の詳細の「関連作品」で、Annict にシリーズが無いときの代わりに使う。原作の漫画など、アニメでないものは除く
+    related: (a.related ?? []).flatMap((r) => (str(r.relationKind) && num(r.anime?.malId) ? [{ k: str(r.relationKind), id: num(r.anime?.malId) }] : [])).slice(0, MAX_RELATED),
   }
 }
 

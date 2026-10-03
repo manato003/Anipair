@@ -5,6 +5,7 @@ import { Empty } from '../../components/Empty'
 import { BackIcon, CheckIcon, EyeIcon, InfoIcon, UndoIcon } from '../../components/Icons'
 import { SaveStatus } from '../../components/SaveStatus'
 import { Sheet } from '../../components/Sheet'
+import { WorkFacts } from '../../components/WorkFacts'
 import { keyLabel, rangeLabel, useKeymap } from '../../lib/keymap'
 import type { GithubConnection } from '../../lib/github'
 import { useShortcuts } from '../../lib/useShortcuts'
@@ -257,6 +258,8 @@ function MatchCardView({ card, onOpen }: { card: MatchCard; onOpen: () => void }
       <div className="card__text">
         <h2 className="card__title">{title}</h2>
         {meta && <p className="card__meta">{meta}</p>}
+        {/* 年と形式は上の行にあるので、手がかりは制作会社・点数・ジャンルだけ（広い画面だけ） */}
+        <WorkFacts media={media} head={[]} note={media.score ? `Shikimori ${media.score.toFixed(1)}` : null} />
         {reasons.length > 0 && (
           <ul className="reasons">
             {reasons.map((r) => (

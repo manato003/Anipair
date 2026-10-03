@@ -51,6 +51,7 @@ function media(idMal: number, genres: string[]): Media {
     cover: null,
     score: null,
     prequels: [],
+    related: [],
   }
 }
 // 好みに合う順は 3 > 1 > 2（3 は好きな作品に似ていて Music でもある。2 は苦手な Horror）

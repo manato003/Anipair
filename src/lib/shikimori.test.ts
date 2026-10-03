@@ -38,6 +38,7 @@ const raw = (id: number, extra: Record<string, unknown> = {}) => ({
   ],
   studios: ['Madhouse'],
   prequels: [7],
+  related: [],
   ...extra,
 })
 
@@ -73,6 +74,7 @@ describe('normalize', () => {
       cover: { url: 'https://s.example/5.jpg', thumb: 'https://s.example/5-m.webp', landscape: false },
       score: 8.1,
       prequels: [7],
+      related: [],
     })
   })
 
@@ -114,6 +116,12 @@ describe('normalize', () => {
     expect(normalize(raw(1, { score: null }))?.score).toBeNull()
   })
 
+  it('keeps related anime with their kind, dropping malformed entries, and tolerates a relay reply without them', () => {
+    const related = [{ k: 'sequel', id: 3 }, { k: 'prequel', id: 0 }, { k: 5, id: 4 }, null]
+    expect(normalize(raw(1, { related }) as never)?.related).toEqual([{ kind: 'sequel', malId: 3 }])
+    expect(normalize(raw(1, { related: undefined }))?.related).toEqual([])
+  })
+
   it('rejects an entry without a usable id', () => {
     expect(normalize(raw(0))).toBeNull()
     expect(normalize(raw(-3))).toBeNull()
@@ -124,7 +132,7 @@ describe('fetchMedia', () => {
   it('asks the proxy (not Shikimori directly) with sorted ids, and returns the works found', async () => {
     fetchMock.mockResolvedValue(reply({ animes: [raw(2), raw(9)] }))
     const got = await fetchMedia([9, 2, 2, 404])
-    expect(fetchMock.mock.calls[0][0]).toBe('/api/shiki?op=animes&ids=2,9,404')
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/shiki?op=animes&ids=2,9,404&v=2')
     expect([...got.keys()]).toEqual([9, 2])
     expect(got.get(2)?.title.native).toBe('作品2')
   })
