@@ -3,6 +3,7 @@ import type { GithubConnection } from '../../lib/github'
 import { AboutBlock } from './AboutBlock'
 import { AccountBlock } from './AccountBlock'
 import { BackupBlock } from './BackupBlock'
+import { EffectsBlock } from './EffectsBlock'
 import { GithubBlock } from './GithubBlock'
 import { Keybinds } from './Keybinds'
 import { Welcome } from './Welcome'
@@ -39,6 +40,7 @@ export function Settings(props: {
         <AccountBlock token={props.annictToken} onChange={props.onAnnictTokenChange} />
         <GithubBlock github={props.github} onChange={props.onGithubChange} />
         <BackupBlock annictToken={props.annictToken} github={props.github} />
+        <EffectsBlock />
         {/* このアプリについては大切な説明なので、長いキーバインドの一覧より前に置く（キーバインドは PC だけで使うもの） */}
         <AboutBlock />
         <Keybinds />
@@ -52,6 +54,7 @@ const SECTIONS = [
   { id: 'settings-account', label: 'Annict 連携' },
   { id: 'settings-github', label: 'GitHub 連携' },
   { id: 'settings-backup', label: 'バックアップ' },
+  { id: 'settings-effects', label: '演出' },
   { id: 'settings-about', label: 'このアプリについて' },
   { id: 'settings-keys', label: 'キーバインド' },
 ] as const

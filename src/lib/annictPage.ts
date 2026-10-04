@@ -90,3 +90,34 @@ export async function fetchWorkPage(annictId: number): Promise<WorkPage> {
   cache.set(annictId, result)
   return result
 }
+
+// ── プロフィールページ ──
+// Annict サポーターかどうかは API に無い（GraphQL の User にも REST の /v1/me にも項目が無い。2026-10-04 に確認）が、
+// プロフィールページの名前の横に「サポーター」のバッジ（.u-bg-supporter）が出る。作品ページと同じく access-control-allow-origin: * で読める。
+// ページの別の所には「Annictサポーターになると…」の案内もあるので、名前（h1 の /@ユーザー名 へのリンク）と同じ枠の中だけを見る
+export function parseSupporter(html: string, username: string): boolean {
+  const doc = new DOMParser().parseFromString(withoutStyling(html), 'text/html')
+  const link = [...doc.querySelectorAll('h1 a')].find((a) => a.getAttribute('href') === `/@${username}`)
+  return !!link?.closest('.col')?.querySelector('.u-bg-supporter')
+}
+
+const supporterCache = new Map<string, Promise<boolean>>()
+
+// 自分のプロフィールページを1起動に1回だけ読む（約240KB。実績を開いたときだけ。裏の優先度で並べる）
+export function fetchIsSupporter(username: string): Promise<boolean> {
+  let p = supporterCache.get(username)
+  if (!p) {
+    p = schedule(
+      async () => {
+        const res = await fetch(`https://annict.com/@${encodeURIComponent(username)}`, { credentials: 'omit' })
+        if (!res.ok) throw new Error(`Annict のプロフィールページを読めませんでした（HTTP ${res.status}）`)
+        return parseSupporter(await res.text(), username)
+      },
+      { background: true },
+    )
+    p.catch(() => supporterCache.delete(username))
+    supporterCache.set(username, p)
+  }
+  return p
+}
+

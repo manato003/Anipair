@@ -44,6 +44,11 @@
   gap: 8px;
 }
 
+/* 10件ごとの演出（.milestone）を、下のカードより手前に重ねる（上の .rate > :not(.rate__backdrop) より強く） */
+.rate > .rate__top {
+  z-index: 6;
+}
+
 .rate__head--stepper {
   align-items: center;
 }
@@ -82,6 +87,369 @@
   color: var(--muted);
   font-size: 0.8rem;
   font-weight: 500;
+}
+
+/* ── 進み具合と演出（docs/concept.md「進み具合と称号」） ── */
+
+/* クールの人気作のうち、答えた割合と数。バーは幅ではなく scaleX で伸ばす（組み直しを起こさない） */
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.progress__count {
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.progress__bar {
+  flex: 1;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.progress__fill {
+  height: 100%;
+  background: var(--brand-gradient);
+  transform-origin: left;
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* 演出の火花。中心から --angle の方向へ飛び、小さくなって消える（Backfill の Sparks） */
+.sparks {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.sparks i {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand-pink);
+  box-shadow: 0 0 10px 2px currentColor;
+  color: var(--brand-pink);
+  opacity: 0;
+  animation: spark 0.9s 0.12s cubic-bezier(0.1, 0.7, 0.3, 1) both;
+}
+
+.sparks i:nth-child(3n + 2) {
+  background: var(--brand-lavender);
+  color: var(--brand-lavender);
+}
+
+.sparks i:nth-child(3n) {
+  width: 6px;
+  height: 6px;
+  background: var(--brand-blue);
+  color: var(--brand-blue);
+}
+
+@keyframes spark {
+  0% {
+    opacity: 1;
+    transform: rotate(var(--angle)) translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--angle)) translateY(var(--spark-reach, -64px)) scale(0.2);
+  }
+}
+
+/* 10件ごとの演出。バーのすぐ下に重ね、光の輪が広がってバッジがはじけるように出る。約2.4秒で消える。
+   押せない（下のボタンの邪魔をしない） */
+.milestone {
+  position: absolute;
+  top: calc(100% + 12px);
+  left: 50%;
+  z-index: 5;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  pointer-events: none;
+  animation: milestone-life 2.4s ease both;
+}
+
+/* 背後に広がる光の輪 */
+.milestone::before {
+  position: absolute;
+  top: 26px;
+  left: 50%;
+  z-index: -1;
+  width: 120px;
+  height: 120px;
+  margin: -60px 0 0 -60px;
+  border: 2px solid color-mix(in srgb, var(--brand-lavender) 70%, transparent);
+  border-radius: 50%;
+  box-shadow:
+    0 0 24px color-mix(in srgb, var(--brand-lavender) 50%, transparent),
+    inset 0 0 24px color-mix(in srgb, var(--brand-pink) 40%, transparent);
+  content: '';
+  animation: ring 0.9s 0.05s ease-out both;
+}
+
+.milestone .sparks {
+  --spark-reach: -90px;
+  top: 26px;
+}
+
+/* 縁がブランドのグラデーションのバッジ。出たあとに光の筋が1回走る */
+.milestone__badge {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  overflow: hidden;
+  padding: 6px 20px 8px;
+  border: 1.5px solid transparent;
+  border-radius: 999px;
+  background:
+    linear-gradient(color-mix(in srgb, var(--ink) 92%, transparent), color-mix(in srgb, var(--ink) 92%, transparent)) padding-box,
+    var(--brand-gradient) border-box;
+  box-shadow:
+    0 6px 24px rgba(0, 0, 0, 0.45),
+    0 0 32px color-mix(in srgb, var(--brand-lavender) 45%, transparent);
+  animation: badge-pop 0.5s cubic-bezier(0.2, 1.5, 0.4, 1) both;
+}
+
+.milestone__badge::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.35) 50%, transparent 65%);
+  content: '';
+  transform: translateX(-120%);
+  animation: shine 0.8s 0.45s ease-in-out both;
+}
+
+.milestone__count {
+  background: var(--brand-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-family: var(--font-display);
+  font-size: 1.9rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.milestone__unit {
+  color: var(--paper);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.milestone__next {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 80%, transparent);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  animation: clear-fade 0.4s 0.35s both;
+}
+
+/* 演出のあいだ、バーも光る */
+.progress--glow .progress__bar {
+  animation: bar-glow 1.2s ease-out;
+}
+
+@keyframes milestone-life {
+  0%,
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes ring {
+  0% {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+
+@keyframes badge-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+}
+
+@keyframes shine {
+  to {
+    transform: translateX(120%);
+  }
+}
+
+@keyframes bar-glow {
+  0% {
+    box-shadow: 0 0 0 transparent;
+  }
+  30% {
+    box-shadow: 0 0 14px color-mix(in srgb, var(--brand-lavender) 80%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 transparent;
+  }
+}
+
+/* クールを答え切ったとき。光の筋がゆっくり回り、火花が散って「踏破」の字が押され、光が横切る。ボタンはすぐ押せる。
+   踏破は金（クールの紋章の金と、称号の金にそろえる。演出はテーマカラーに縛らない） */
+.clear {
+  --gold: linear-gradient(135deg, #fff7d4 0%, #f7d264 28%, #a8761a 52%, #ffe9a6 76%, #c4922c 100%);
+  --gold-glow: #f4c44f;
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.clear::before {
+  position: absolute;
+  inset: -60px;
+  z-index: -1;
+  background: radial-gradient(circle, color-mix(in srgb, var(--gold-glow) 38%, transparent), transparent 62%);
+  content: '';
+  animation: clear-burst 1.2s ease-out both;
+}
+
+/* 後ろの光の筋。外側ほど薄く */
+.clear__rays {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: -2;
+  width: 520px;
+  height: 520px;
+  margin: -260px 0 0 -260px;
+  background: repeating-conic-gradient(color-mix(in srgb, var(--gold-glow) 15%, transparent) 0 6deg, transparent 6deg 22deg);
+  -webkit-mask: radial-gradient(circle, #000 15%, transparent 62%);
+  mask: radial-gradient(circle, #000 15%, transparent 62%);
+  pointer-events: none;
+  animation:
+    clear-fade-in 1s 0.2s ease-out both,
+    rays-turn 24s linear infinite;
+}
+
+.clear .sparks {
+  --spark-reach: -130px;
+  top: 42%;
+}
+
+.clear .sparks i {
+  background: #ffe9a6;
+  color: var(--gold-glow);
+  animation-duration: 1.2s;
+  animation-delay: 0.3s;
+}
+
+.clear__season {
+  color: var(--muted);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  animation: clear-fade 0.4s 0.1s both;
+}
+
+.clear__title {
+  background:
+    linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.75) 50%, transparent 60%) 160% 0 / 250% 100% no-repeat,
+    var(--gold);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-family: var(--font-display);
+  font-size: 3.4rem;
+  line-height: 1.15;
+  letter-spacing: 0.14em;
+  filter: drop-shadow(0 0 18px color-mix(in srgb, var(--gold-glow) 55%, transparent));
+  animation:
+    clear-stamp 0.6s 0.15s cubic-bezier(0.2, 1.4, 0.4, 1) both,
+    title-shine 1s 0.9s ease-in-out both;
+}
+
+.clear__body {
+  color: var(--muted);
+  font-size: 0.9rem;
+  animation: clear-fade 0.4s 0.6s both;
+}
+
+.clear .btn {
+  margin-top: 10px;
+  animation: clear-fade 0.4s 0.8s both;
+}
+
+@keyframes clear-burst {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.35;
+    transform: scale(1.15);
+  }
+}
+
+@keyframes clear-stamp {
+  from {
+    opacity: 0;
+    transform: scale(1.8);
+  }
+}
+
+@keyframes clear-fade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes clear-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* 光の帯を、字の右の外から左の外へ動かす（1枚目の背景だけ。2枚目のグラデーションは動かさない） */
+@keyframes title-shine {
+  from {
+    background-position: 160% 0, 0 0;
+  }
+  to {
+    background-position: -60% 0, 0 0;
+  }
+}
+
+@keyframes rays-turn {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .rate__stage {
@@ -670,7 +1038,26 @@
   .card--loading .card__cover {
     animation: none;
   }
-  .rating {
+  .rating,
+  .progress__fill {
     transition: none;
+  }
+  /* 10件ごとの表示は、動かさずに出して消す。踏破は動かさずに出す */
+  .milestone,
+  .milestone__badge,
+  .milestone__next,
+  .progress--glow .progress__bar,
+  .clear::before,
+  .clear__rays,
+  .clear__season,
+  .clear__title,
+  .clear__body,
+  .clear .btn {
+    animation: none;
+  }
+  .sparks,
+  .milestone::before,
+  .milestone__badge::after {
+    display: none;
   }
 }

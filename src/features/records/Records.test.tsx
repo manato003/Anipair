@@ -74,6 +74,8 @@ vi.mock('./useTaste', () => ({
   useWannaScores: () => ({ scores: scoreMap, error: scoreError, retry: vi.fn() }),
 }))
 vi.mock('../browse/WorkDetail', () => ({ WorkDetail: () => null }))
+// 実績の中身は achievements のテストで見る。ここでは切り替えだけ
+vi.mock('../achievements/Achievements', () => ({ Achievements: () => <div data-testid="achievements" /> }))
 
 const { Records } = await import('./Records')
 
@@ -169,3 +171,29 @@ describe('Records: 傾向', () => {
     expect(screen.getByRole('button', { name: 'もう一度' })).toBeTruthy()
   })
 })
+
+describe('Records and achievements switch', () => {
+  it('switches between the records and the achievements, and marks the achievements until they are first opened', () => {
+    render(<Records token="t" active />)
+    const tab = screen.getByRole('tab', { name: /実績/ })
+    expect(screen.getByLabelText('まだ見ていません')).toBeTruthy()
+    expect(screen.getByRole('tab', { name: /記録/ }).getAttribute('aria-selected')).toBe('true')
+    fireEvent.click(tab)
+    expect(tab.getAttribute('aria-selected')).toBe('true')
+    expect(screen.getByTestId('achievements')).toBeTruthy()
+    expect(screen.queryByLabelText('まだ見ていません')).toBeNull()
+    // 実績では、記録の操作（傾向・編集）は出さない
+    expect(screen.queryByRole('button', { name: '傾向' })).toBeNull()
+    fireEvent.click(screen.getByRole('tab', { name: /記録/ }))
+    expect(screen.queryByTestId('achievements')).toBeNull()
+    expect(screen.getByRole('button', { name: '傾向' })).toBeTruthy()
+    cleanup()
+
+    // 覚醒を見たあとは点を付けない
+    localStorage.setItem('animax.titles.v1', JSON.stringify({ equipped: null, seen: [], awakened: true }))
+    render(<Records token="t" active />)
+    expect(screen.queryByLabelText('まだ見ていません')).toBeNull()
+    localStorage.clear()
+  })
+})
+

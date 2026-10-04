@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Bookmark } from '../../components/Bookmark'
 import { CoverImage } from '../../components/CoverImage'
 import { Empty } from '../../components/Empty'
@@ -13,6 +13,7 @@ import type { Media } from '../../lib/shikimori'
 import { useShortcuts } from '../../lib/useShortcuts'
 import { previousSeason, seasonLabel, seasonOf } from '../../lib/season'
 import { loadOnboardingSeen, saveOnboardingSeen, type Cover } from '../../lib/storage'
+import { recordFeat, recordTimeFeats } from '../achievements/achievementStore'
 import { workMeta } from '../browse/detail'
 import { WorkDetail, type WorkSeed } from '../browse/WorkDetail'
 import { malIdOf } from '../match/taste'
@@ -22,6 +23,25 @@ import { useBackfill } from './useBackfill'
 import { useDeckMedia } from './useDeckMedia'
 import { useWatching } from './useWatching'
 import type { WatchAnswer } from './watching'
+
+// その回に答えた数がこの数に届くたびに、短い演出を出す（docs/concept.md「進み具合と称号」）
+const MILESTONE_STEP = 10
+// 演出を出しておく長さ（rate.css の milestone-in と同じ）。操作は止めない。
+// 0.9 秒では読む前に消えて、ご褒美だと分からなかった（2026-10-04 利用者）
+const MILESTONE_MS = 2400
+// 隠し称号「一夜城」: このクールでこの数以上を一度に答えて踏破した
+const ONE_NIGHT_CASTLE = 20
+
+// 演出の火花。中心から count 方向に飛ぶ（rate.css の .sparks）
+function Sparks({ count }: { count: number }) {
+  return (
+    <span className="sparks" aria-hidden>
+      {Array.from({ length: count }, (_, i) => (
+        <i key={i} style={{ '--angle': `${(360 / count) * i + 360 / count / 2}deg` } as CSSProperties} />
+      ))}
+    </span>
+  )
+}
 
 // いま画面に出している1枚
 interface Shown {
@@ -59,24 +79,62 @@ export function Backfill({ token, github, active }: { token: string; github: Git
     history.current.push(m)
     setHistoryLength(history.current.length)
   }
+  // このクールで、この回に答えた数（隠し称号「一夜城」: 一度に20本以上答えて踏破した）
+  const seasonAnswered = useRef(0)
   // クールを移ると、クールの山の取り消しは消える（useBackfill が捨てる）ので、その分の印も外す
   useEffect(() => {
     history.current = history.current.filter((m) => m === 'w')
     setHistoryLength(history.current.length)
+    seasonAnswered.current = 0
   }, [b.season])
+
+  // その回に答えた数（どちらの山でも1件。取り消すと戻る）。10件ごとに短い演出を出す。
+  // 一度祝った節目は、取り消してまた届いても祝わない（同じ演出を何度も見せない）
+  const answered = useRef(0)
+  const celebrated = useRef(0)
+  const [milestone, setMilestone] = useState<number | null>(null)
+  const countAnswer = (delta: 1 | -1) => {
+    answered.current += delta
+    // 隠し称号（丑三つ時・暁・年越し）
+    if (delta === 1) recordTimeFeats()
+    const n = answered.current
+    if (delta === 1 && n % MILESTONE_STEP === 0 && n > celebrated.current) {
+      celebrated.current = n
+      setMilestone(n)
+    }
+  }
+  // 演出の字を先に読んでおく（初めての演出で、字があとから差し替わらないように。日本語の書体は字ごとに後から読む）
+  useEffect(() => {
+    const fonts = typeof document !== 'undefined' ? document.fonts : undefined
+    if (!fonts) return
+    fonts.load('400 1em "Dela Gothic One"', '0123456789件踏破').catch(() => undefined)
+    fonts.load('700 1em "Zen Kaku Gothic New"', '突破人気作本、すべてに答えました。').catch(() => undefined)
+    fonts.load('500 1em "Zen Kaku Gothic New"', '次の目標0123456789件').catch(() => undefined)
+  }, [])
+  useEffect(() => {
+    if (milestone === null) return
+    const timer = window.setTimeout(() => setMilestone(null), MILESTONE_MS)
+    return () => window.clearTimeout(timer)
+  }, [milestone])
+
   const answerB = (a: Answer) => {
     if (!b.current) return
     push('b')
+    countAnswer(1)
+    seasonAnswered.current += 1
     b.answer(a)
   }
   const answerW = (a: WatchAnswer) => {
     if (!w.current) return
     push('w')
+    countAnswer(1)
     w.answer(a)
   }
   const undo = () => {
     const m = history.current.pop()
     setHistoryLength(history.current.length)
+    if (m) countAnswer(-1)
+    if (m === 'b') seasonAnswered.current = Math.max(0, seasonAnswered.current - 1)
     if (m === 'w') w.undo()
     else if (m === 'b') b.undo()
   }
@@ -172,6 +230,12 @@ export function Backfill({ token, github, active }: { token: string; github: Git
   useShortcuts(showGuide ? {} : sheetOpen ? { detail: toggleSheet } : { ...answers, detail: toggleSheet }, active)
 
   const next = inWatching ? (w.next ?? b.current) : b.next
+  // クールの最後の1枚に答えて、そのクールを答え切った（開いた時点で全部記録済みだったクールでは祝わない）
+  const cleared = b.seasonDone && b.index > 0
+  useEffect(() => {
+    if (cleared && seasonAnswered.current >= ONE_NIGHT_CASTLE) recordFeat('oneNightCastle')
+  }, [cleared])
+  const progress = b.progress
 
   return (
     <>
@@ -187,16 +251,38 @@ export function Backfill({ token, github, active }: { token: string; github: Git
                 {w.index + 1}
                 <span className="count__of">/{w.cards.length}</span>
               </span>
-            ) : (
-              b.cards &&
-              !b.seasonDone && (
-                <span className="count">
-                  {b.index + 1}
-                  <span className="count__of">/{b.cards.length}</span>
-                </span>
-              )
-            )}
+            ) : null}
           </header>
+          {/* クールの進み具合。人気作のうち答えた数（Annict で記録済みの分は最初から埋まっている） */}
+          {progress && progress.total > 0 && (
+            <div className={milestone !== null ? 'progress progress--glow' : 'progress'}>
+              <div
+                className="progress__bar"
+                role="progressbar"
+                aria-label={`${seasonLabel(b.season)}の人気作のうち、答えた作品`}
+                aria-valuemin={0}
+                aria-valuemax={progress.total}
+                aria-valuenow={progress.answered}
+              >
+                <div className="progress__fill" style={{ transform: `scaleX(${progress.answered / progress.total})` }} />
+              </div>
+              <span className="progress__count" aria-hidden>
+                {progress.answered}
+                <span className="count__of">/{progress.total}</span>
+              </span>
+            </div>
+          )}
+          {/* 10件ごとの演出。重ねて出すだけで、押せない（下のボタンはそのまま押せる） */}
+          {milestone !== null && !cleared && (
+            <div key={milestone} className="milestone" role="status">
+              <Sparks count={8} />
+              <span className="milestone__badge">
+                <span className="milestone__count">{milestone}</span>
+                <span className="milestone__unit">件突破</span>
+              </span>
+              <span className="milestone__next">次の目標 {milestone + MILESTONE_STEP}件</span>
+            </div>
+          )}
         </div>
 
         <div className="notes">
@@ -241,6 +327,17 @@ export function Backfill({ token, github, active }: { token: string; github: Git
           ) : !b.cards ? (
             <div className="card card--loading" aria-busy>
               <div className="card__cover" />
+            </div>
+          ) : cleared && progress ? (
+            <div className="clear" role="status">
+              <span className="clear__rays" aria-hidden />
+              <Sparks count={12} />
+              <p className="clear__season">{seasonLabel(b.season)}</p>
+              <p className="clear__title">踏破</p>
+              <p className="clear__body">人気作{progress.total}本、すべてに答えました。</p>
+              <button type="button" className="btn btn--primary" onClick={b.goToPrevious}>
+                {seasonLabel(previousSeason(b.season))}へ進む
+              </button>
             </div>
           ) : b.seasonDone || !shown ? (
             <Empty title={`${seasonLabel(b.season)}はここまで`} body="このクールの人気作をすべて見ました。">

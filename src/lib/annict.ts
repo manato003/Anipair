@@ -1,7 +1,7 @@
 import { emitAnnictAuthFailed } from './authEvents'
 import { annictImageOf } from './covers'
 import { delay, parseRetryAfter } from './retry'
-import { createThrottle } from './throttle'
+import { createThrottle, type ScheduleOptions } from './throttle'
 
 // Annict GraphQL API。型は annict/annict の rails/app/graphql/beta/schema.graphql が正
 const ENDPOINT = 'https://api.annict.com/graphql'
@@ -43,7 +43,7 @@ const RATE_LIMIT_MAX_WAIT_MS = 30_000
 
 type GqlOutcome<T> = { data: T } | { retryAfterMs: number }
 
-async function gql<T>(token: string, query: string, variables: Record<string, unknown> = {}): Promise<T> {
+async function gql<T>(token: string, query: string, variables: Record<string, unknown> = {}, opts: ScheduleOptions = {}): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     // 待つあいだは列を握らない（1回ごとに列に並べ直す）。待っている間に、ほかの問い合わせが先に進める
     const outcome = await schedule<GqlOutcome<T>>(async () => {
@@ -70,7 +70,7 @@ async function gql<T>(token: string, query: string, variables: Record<string, un
       if (json.errors?.length) throw new AnnictError(`Annict がエラーを返しました: ${json.errors[0].message}`, 'api')
       if (!json.data) throw new AnnictError('Annict の応答が空でした', 'api')
       return { data: json.data }
-    })
+    }, opts)
     if ('data' in outcome) return outcome.data
     if (attempt >= RATE_LIMIT_RETRIES) {
       throw new AnnictError('Annict の利用制限に達しました。しばらく待ってからもう一度試してください', 'api')
@@ -82,6 +82,48 @@ async function gql<T>(token: string, query: string, variables: Record<string, un
 export async function fetchViewer(token: string): Promise<{ username: string; name: string }> {
   const data = await gql<{ viewer: { username: string; name: string } }>(token, '{ viewer { username name } }')
   return data.viewer
+}
+
+// 自分の Annict での積み重ね（隠し称号の材料。features/achievements）
+export interface ViewerStats {
+  username: string
+  name: string
+  avatarUrl: string | null
+  createdAt: string
+  // エピソードごとの記録の数
+  recordsCount: number
+  watchedCount: number
+  watchingCount: number
+  wannaWatchCount: number
+  onHoldCount: number
+  stopWatchingCount: number
+  followersCount: number
+  followingsCount: number
+}
+
+export async function fetchViewerStats(token: string): Promise<ViewerStats> {
+  const data = await gql<{ viewer: ViewerStats }>(
+    token,
+    '{ viewer { username name avatarUrl createdAt recordsCount watchedCount watchingCount wannaWatchCount onHoldCount stopWatchingCount followersCount followingsCount } }',
+  )
+  return data.viewer
+}
+
+// 1回の問い合わせでまとめて読むクールの数（別名を付けて並べる。16 で 0.3 秒ほど。2026-10-04 実測）
+export const SEASON_TOPS_BATCH = 16
+
+// クールごとの、視聴者の多い順の作品の ID（評価画面のクールの山と同じ並び・同じ数）。進み具合の分母に使う。
+// 裏の仕事として並べる（画面の問い合わせを遅らせない）
+export async function fetchSeasonTops(token: string, seasonSlugs: readonly string[], limit = 30): Promise<Map<string, number[]>> {
+  if (seasonSlugs.length === 0) return new Map()
+  const fields = seasonSlugs
+    .map((_, i) => `s${i}: searchWorks(seasons: [$s${i}], first: $first, orderBy: {field: WATCHERS_COUNT, direction: DESC}) { nodes { annictId } }`)
+    .join(' ')
+  const params = seasonSlugs.map((_, i) => `$s${i}: String!`).join(', ')
+  const variables: Record<string, unknown> = { first: limit }
+  seasonSlugs.forEach((slug, i) => (variables[`s${i}`] = slug))
+  const data = await gql<Record<string, { nodes: { annictId: number }[] }>>(token, `query(${params}, $first: Int) { ${fields} }`, variables, { background: true })
+  return new Map(seasonSlugs.map((slug, i) => [slug, (data[`s${i}`]?.nodes ?? []).map((n) => n.annictId)]))
 }
 
 interface RawWork {

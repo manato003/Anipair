@@ -23,14 +23,19 @@ const watchCard = {
   cover: null,
 }
 
+// クールの山の様子。既定は「30作のうち3作は記録済み、残りの先頭を出している」。答え切ったときのテストだけ変える
+let bIndex = 0
+let seasonDone = false
+let progress = { answered: 3, total: 30 }
 vi.mock('./useBackfill', () => ({
   useBackfill: () => ({
     season,
     cards: [card],
-    index: 0,
-    current: card,
+    index: bIndex,
+    progress,
+    current: seasonDone ? null : card,
     next: null,
-    seasonDone: false,
+    seasonDone,
     finished: false,
     loadError: null,
     pending: 0,
@@ -92,6 +97,10 @@ afterEach(() => {
   goToNext.mockClear()
   jumpTo.mockClear()
   season = seasonOf(new Date())
+  bIndex = 0
+  seasonDone = false
+  progress = { answered: 3, total: 30 }
+  vi.useRealTimers()
 })
 
 const press = (key: string) => act(() => void fireEvent.keyDown(window, { key }))
@@ -261,5 +270,53 @@ describe('Backfill first-run guide', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
     rerender(<Backfill token="t" github={null} active />)
     expect(screen.getByRole('dialog', { name: 'Anipair の使い方' })).toBeTruthy()
+  })
+})
+
+describe('Backfill progress and celebrations', () => {
+  it('shows how many of the popular works of the season are answered, counting what was already recorded', () => {
+    render(<Backfill token="t" github={null} active />)
+    expect(document.querySelector('.progress__count')?.textContent).toBe('3/30')
+    const bar = screen.getByRole('progressbar')
+    expect(bar.getAttribute('aria-valuenow')).toBe('3')
+    expect(bar.getAttribute('aria-valuemax')).toBe('30')
+  })
+
+  it('celebrates every 10 answers without blocking, and not twice for the same milestone after an undo', () => {
+    vi.useFakeTimers()
+    render(<Backfill token="t" github={null} active />)
+    for (let i = 0; i < 9; i++) press('3')
+    expect(screen.queryByRole('status')).toBeNull()
+    press('0')
+    const toast = screen.getByRole('status')
+    expect(toast.textContent).toContain('10件')
+    expect(toast.textContent).toContain('次の目標 20件')
+    // 演出のあいだも答えられる
+    press('3')
+    expect(answer).toHaveBeenCalledTimes(11)
+    act(() => void vi.advanceTimersByTime(2500))
+    expect(screen.queryByRole('status')).toBeNull()
+    // 取り消して10件に戻り、また届いても祝わない
+    press('z')
+    press('z')
+    press('3')
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+
+  it('shows 踏破 when the last card of a season is answered, but not for a season that was already complete when opened', () => {
+    seasonDone = true
+    bIndex = 1
+    progress = { answered: 30, total: 30 }
+    render(<Backfill token="t" github={null} active />)
+    expect(screen.getByText('踏破')).toBeTruthy()
+    expect(screen.getByText('人気作30本、すべてに答えました。')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /へ進む$/ }))
+    expect(goToPrevious).toHaveBeenCalled()
+    cleanup()
+
+    bIndex = 0
+    render(<Backfill token="t" github={null} active />)
+    expect(screen.queryByText('踏破')).toBeNull()
+    expect(screen.getByText(/はここまで$/)).toBeTruthy()
   })
 })

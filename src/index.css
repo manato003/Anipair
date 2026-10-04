@@ -1,13 +1,14 @@
 /* 画面ごとに分けたスタイルを、この順で読み込む。
    同じ強さのルールは後に書いたものが勝つので、順番を入れ替えると見た目が変わることがある（ここを変えるときは注意）。
    base: 変数・リセット・共通の部品 / app: アプリの枠とタブ / rate・match: 評価とマッチング（表紙のカードと答えのボタン） /
-   records: 記録と、ブラウズも使う一覧 / browse / detail: 詳細とガイドのシート / settings。
+   records: 記録と、ブラウズも使う一覧 / achievements: 実績（称号。演出の動きは rate.css の @keyframes を使う） / browse / detail: 詳細とガイドのシート / settings。
    広い画面（幅 960px 以上）の指定は、それぞれのファイルの末尾にある */
 @import './styles/base.css';
 @import './styles/app.css';
 @import './styles/rate.css';
 @import './styles/match.css';
 @import './styles/records.css';
+@import './styles/achievements.css';
 @import './styles/browse.css';
 @import './styles/detail.css';
 @import './styles/settings.css';

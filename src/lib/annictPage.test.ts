@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
-import { parseWorkPage } from './annictPage'
+import { parseSupporter, parseWorkPage } from './annictPage'
 
 const parseSynopsis = (html: string) => parseWorkPage(html).synopsis
 
@@ -137,3 +137,22 @@ describe('parseWorkPage: streaming services', () => {
     expect(both.vods).toHaveLength(1)
   })
 })
+
+describe('parseSupporter', () => {
+  // プロフィールページの見出し（2026-10-04 の annict.com/@shimbaco の形）
+  const header = (user: string, badge: boolean) =>
+    `<div class="row"><div class="col">${badge ? '<div class="badge u-bg-supporter">サポーター</div>' : ''}<h1 class="h2"><a class="text-body" href="/@${user}">名前</a></h1></div></div>`
+  // サポーターでない人のページにもある案内
+  const sidebar = '<div class="small text-muted"><a href="/supporters">Annictサポーター</a>になると広告を非表示にできます。</div>'
+
+  it('finds the supporter badge next to the name', () => {
+    expect(parseSupporter(`<html><body>${header('shimbaco', true)}${sidebar}</body></html>`, 'shimbaco')).toBe(true)
+  })
+
+  it('is not fooled by the supporter guide in the sidebar, or by a badge next to someone else', () => {
+    expect(parseSupporter(`<html><body>${header('me', false)}${sidebar}</body></html>`, 'me')).toBe(false)
+    expect(parseSupporter(`<html><body>${header('me', false)}${header('other', true)}</body></html>`, 'me')).toBe(false)
+    expect(parseSupporter('<html><body></body></html>', 'me')).toBe(false)
+  })
+})
+

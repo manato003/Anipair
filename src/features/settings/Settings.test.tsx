@@ -370,18 +370,18 @@ describe('Settings about block', () => {
 describe('Settings layout (sections, status first, folded explanations)', () => {
   const headings = () => screen.getAllByRole('heading').map((h) => h.textContent)
 
-  it('has the five sections in order, each a card with a short heading', () => {
+  it('has the six sections in order, each a card with a short heading', () => {
     show()
-    expect(headings()).toEqual(['Annict 連携（必須）', 'GitHub 連携（任意）', 'バックアップ', 'このアプリについて', 'キーバインド（PC）'])
-    expect(document.querySelectorAll('.settings__card')).toHaveLength(5)
+    expect(headings()).toEqual(['Annict 連携（必須）', 'GitHub 連携（任意）', 'バックアップ', '演出', 'このアプリについて', 'キーバインド（PC）'])
+    expect(document.querySelectorAll('.settings__card')).toHaveLength(6)
   })
 
   it('has a section index that points at every section (shown on wide screens by CSS)', () => {
     show()
     const nav = screen.getByRole('navigation', { name: '設定の項目' })
-    expect(nav.querySelectorAll('button')).toHaveLength(5)
+    expect(nav.querySelectorAll('button')).toHaveLength(6)
     for (const b of nav.querySelectorAll('button')) expect(b.textContent).toBeTruthy()
-    for (const id of ['settings-account', 'settings-github', 'settings-backup', 'settings-keys', 'settings-about']) expect(document.getElementById(id)).toBeTruthy()
+    for (const id of ['settings-account', 'settings-github', 'settings-backup', 'settings-effects', 'settings-keys', 'settings-about']) expect(document.getElementById(id)).toBeTruthy()
   })
 
   it('has no index on the signed-out first screen', () => {

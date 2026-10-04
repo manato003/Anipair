@@ -1,4 +1,7 @@
 import { useMemo, useState } from 'react'
+import { ListIcon, TrophyIcon } from '../../components/Icons'
+import { Achievements } from '../achievements/Achievements'
+import { loadTitlesState } from '../achievements/achievementStore'
 import { CoverImage } from '../../components/CoverImage'
 import { Empty } from '../../components/Empty'
 import { SaveStatus } from '../../components/SaveStatus'
@@ -17,6 +20,14 @@ import { orderByScore } from './wannaRank'
 
 export function Records({ token, active }: { token: string; active: boolean }) {
   const r = useRecords(token, active)
+  // 記録の一覧か、実績（称号）か
+  const [view, setView] = useState<'records' | 'achievements'>('records')
+  // まだ一度も実績を開いていない（覚醒を見ていない）あいだは、切り替えの「実績」に光る点を付けて気づかせる
+  const [achievementsUnseen, setAchievementsUnseen] = useState(() => !loadTitlesState().awakened)
+  const showView = (next: 'records' | 'achievements') => {
+    setView(next)
+    if (next === 'achievements') setAchievementsUnseen(false)
+  }
   const [bucket, setBucket] = useState<Bucket>('watched')
   const [sort, setSort] = useState<SortKey>('rating')
   const [query, setQuery] = useState('')
@@ -51,111 +62,131 @@ export function Records({ token, active }: { token: string; active: boolean }) {
   const tasteLoading = byTaste && !tasteError && !scores
 
   return (
-    <section className="records">
+    <section className={view === 'achievements' ? 'records records--achievements' : 'records'}>
       <header className="records__head">
-        <h1 className="season">記録</h1>
-        <div className="records__actions">
-          <button type="button" className="btn" onClick={() => setTrendsOpen(true)} disabled={!r.rows}>
-            傾向
+        <h1 className="visually-hidden">{view === 'records' ? '記録' : '実績'}</h1>
+        {/* 記録の一覧と実績（称号）の切り替え。ひと続きの枠で、選んでいる方を塗って、押せば切り替わると分かるようにする */}
+        <div className="viewswitch" role="tablist" aria-label="記録と実績">
+          <button type="button" role="tab" className="viewswitch__tab" aria-selected={view === 'records'} onClick={() => showView('records')}>
+            <ListIcon />
+            記録
           </button>
-          <button type="button" className={editing ? 'btn btn--primary' : 'btn'} onClick={() => setEditing((e) => !e)} disabled={!r.rows}>
-            {editing ? '完了' : '編集'}
+          <button type="button" role="tab" className="viewswitch__tab viewswitch__tab--trophy" aria-selected={view === 'achievements'} onClick={() => showView('achievements')}>
+            <TrophyIcon />
+            実績
+            {achievementsUnseen && <span className="viewswitch__dot" aria-label="まだ見ていません" />}
           </button>
         </div>
+        {view === 'records' && (
+          <div className="records__actions">
+            <button type="button" className="btn" onClick={() => setTrendsOpen(true)} disabled={!r.rows}>
+              傾向
+            </button>
+            <button type="button" className={editing ? 'btn btn--primary' : 'btn'} onClick={() => setEditing((e) => !e)} disabled={!r.rows}>
+              {editing ? '完了' : '編集'}
+            </button>
+          </div>
+        )}
       </header>
 
-      <div className="records__controls">
-        <div className="chips" role="tablist" aria-label="状態">
-          {BUCKETS.map((b) => (
-            <button
-              key={b.id}
-              type="button"
-              role="tab"
-              aria-selected={bucket === b.id}
-              className="chip"
-              onClick={() => setBucket(b.id)}
-            >
-              {b.label}
-              <span className="chip__count">{counts[b.id]}</span>
-            </button>
-          ))}
-        </div>
-        <div className="records__tools">
-          <input
-            className="search"
-            type="search"
-            placeholder="タイトルで絞り込む"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            aria-label="タイトルで絞り込む"
-          />
-          {bucket === 'watched' && (
-            <div className="toggle" role="group" aria-label="並べ替え">
-              <button type="button" aria-pressed={sort === 'rating'} onClick={() => setSort('rating')}>
-                評価順
-              </button>
-              <button type="button" aria-pressed={sort === 'recent'} onClick={() => setSort('recent')}>
-                新しい順
-              </button>
+      {view === 'achievements' ? (
+        <Achievements token={token} rows={r.rows} loadError={r.loadError} onReload={r.reload} active={active} />
+      ) : (
+        <>
+          <div className="records__controls">
+            <div className="chips" role="tablist" aria-label="状態">
+              {BUCKETS.map((b) => (
+                <button
+                  key={b.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={bucket === b.id}
+                  className="chip"
+                  onClick={() => setBucket(b.id)}
+                >
+                  {b.label}
+                  <span className="chip__count">{counts[b.id]}</span>
+                </button>
+              ))}
             </div>
-          )}
-          {bucket === 'wanna' && (
-            <div className="toggle" role="group" aria-label="並べ替え">
-              <button type="button" aria-pressed={wannaSort === 'recent'} onClick={() => setWannaSort('recent')}>
-                新しい順
-              </button>
-              <button type="button" aria-pressed={wannaSort === 'taste'} onClick={() => setWannaSort('taste')}>
-                おすすめ順
-              </button>
-            </div>
-          )}
-        </div>
-        {tasteLoading && <p className="note">好みを調べています</p>}
-        {tasteError && (
-          <p className="note">
-            好みを調べられませんでした（{tasteError}）。新しい順で並べています。
-            <button
-              type="button"
-              className="link"
-              onClick={() => {
-                taste.retry()
-                wanna.retry()
-              }}
-            >
-              もう一度
-            </button>
-          </p>
-        )}
-        <SaveStatus pending={r.pending} failed={r.failed} onRetry={r.retryFailed} onDismiss={r.dismissFailed} />
-      </div>
-
-      <div className="records__list">
-        {r.loadError ? (
-          <Empty title="記録を読み込めませんでした" body={r.loadError}>
-            <button type="button" className="btn" onClick={r.reload}>
-              もう一度読み込む
-            </button>
-          </Empty>
-        ) : !r.rows ? (
-          <p className="records__loading">Annict の記録を読んでいます</p>
-        ) : visible.length === 0 ? (
-          <Empty title={query ? '当てはまる作品がありません' : 'まだありません'} body={query ? '別の言葉で絞り込んでください。' : '評価画面やマッチングで記録すると、ここに並びます。'} />
-        ) : (
-          <ul className={editing ? 'rows rows--edit' : 'rows'}>
-            {visible.map((row) => (
-              <RecordItem
-                key={row.entry.annictId}
-                row={row}
-                note={scores?.get(malIdOf(row.entry) ?? -1)?.reason ?? null}
-                editing={editing}
-                onOpen={() => openRow(row)}
-                onRate={(rating) => r.setRating(row, rating)}
-                onState={(state) => r.setState(row, state)}
+            <div className="records__tools">
+              <input
+                className="search"
+                type="search"
+                placeholder="タイトルで絞り込む"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                aria-label="タイトルで絞り込む"
               />
-            ))}
-          </ul>
-        )}
-      </div>
+              {bucket === 'watched' && (
+                <div className="toggle" role="group" aria-label="並べ替え">
+                  <button type="button" aria-pressed={sort === 'rating'} onClick={() => setSort('rating')}>
+                    評価順
+                  </button>
+                  <button type="button" aria-pressed={sort === 'recent'} onClick={() => setSort('recent')}>
+                    新しい順
+                  </button>
+                </div>
+              )}
+              {bucket === 'wanna' && (
+                <div className="toggle" role="group" aria-label="並べ替え">
+                  <button type="button" aria-pressed={wannaSort === 'recent'} onClick={() => setWannaSort('recent')}>
+                    新しい順
+                  </button>
+                  <button type="button" aria-pressed={wannaSort === 'taste'} onClick={() => setWannaSort('taste')}>
+                    おすすめ順
+                  </button>
+                </div>
+              )}
+            </div>
+            {tasteLoading && <p className="note">好みを調べています</p>}
+            {tasteError && (
+              <p className="note">
+                好みを調べられませんでした（{tasteError}）。新しい順で並べています。
+                <button
+                  type="button"
+                  className="link"
+                  onClick={() => {
+                    taste.retry()
+                    wanna.retry()
+                  }}
+                >
+                  もう一度
+                </button>
+              </p>
+            )}
+            <SaveStatus pending={r.pending} failed={r.failed} onRetry={r.retryFailed} onDismiss={r.dismissFailed} />
+          </div>
+
+          <div className="records__list">
+            {r.loadError ? (
+              <Empty title="記録を読み込めませんでした" body={r.loadError}>
+                <button type="button" className="btn" onClick={r.reload}>
+                  もう一度読み込む
+                </button>
+              </Empty>
+            ) : !r.rows ? (
+              <p className="records__loading">Annict の記録を読んでいます</p>
+            ) : visible.length === 0 ? (
+              <Empty title={query ? '当てはまる作品がありません' : 'まだありません'} body={query ? '別の言葉で絞り込んでください。' : '評価画面やマッチングで記録すると、ここに並びます。'} />
+            ) : (
+              <ul className={editing ? 'rows rows--edit' : 'rows'}>
+                {visible.map((row) => (
+                  <RecordItem
+                    key={row.entry.annictId}
+                    row={row}
+                    note={scores?.get(malIdOf(row.entry) ?? -1)?.reason ?? null}
+                    editing={editing}
+                    onOpen={() => openRow(row)}
+                    onRate={(rating) => r.setRating(row, rating)}
+                    onState={(state) => r.setState(row, state)}
+                  />
+                ))}
+              </ul>
+            )}
+          </div>
+        </>
+      )}
 
       {trendsOpen && <TrendsSheet state={taste.state} onRetry={taste.retry} active={active} onClose={() => setTrendsOpen(false)} />}
 

@@ -1,0 +1,1004 @@
+/* 記録タブの「記録｜実績」の切り替えと、実績（称号・クールの紋章・隠し称号・覚醒） */
+
+/* 称号の名札の装飾の形（SVG を mask 用の data URI にしたもの。左向きに描き、右は反転する）。
+   scripts/title_ornaments.py が出したものなので、形を変えるときはスクリプトを直して出し直す */
+:root {
+  --orn-laurel: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 26'%3E%3Cpath d='M42 21 Q24 19 6 7' fill='none' stroke='%23000' stroke-width='1.3' stroke-linecap='round'/%3E%3Cellipse cx='34' cy='16.6' rx='4.2' ry='1.7' transform='rotate(-30 34 16.6)'/%3E%3Cellipse cx='27.5' cy='14.4' rx='4.2' ry='1.7' transform='rotate(-40 27.5 14.4)'/%3E%3Cellipse cx='21' cy='11.4' rx='4.2' ry='1.7' transform='rotate(-50 21 11.4)'/%3E%3Cellipse cx='15' cy='8' rx='4.2' ry='1.7' transform='rotate(-58 15 8)'/%3E%3Cellipse cx='33' cy='22.2' rx='4.2' ry='1.7' transform='rotate(12 33 22.2)'/%3E%3Cellipse cx='26.5' cy='20.8' rx='4.2' ry='1.7' transform='rotate(2 26.5 20.8)'/%3E%3Cellipse cx='20' cy='18.4' rx='4.2' ry='1.7' transform='rotate(-8 20 18.4)'/%3E%3Cellipse cx='14' cy='14.8' rx='4.2' ry='1.7' transform='rotate(-18 14 14.8)'/%3E%3Cellipse cx='7' cy='5' rx='4.6' ry='1.9' transform='rotate(-48 7 5)'/%3E%3C/svg%3E");
+  --orn-filigree: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 18'%3E%3Cpath d='M3 9 L8 4 L13 9 L8 14 Z'/%3E%3Cpath d='M13 9 C18 9 19 3 24 4 C28 5 27.5 10 24 10 C22 10 21.5 8 23 7.5' fill='none' stroke='%23000' stroke-width='1.4' stroke-linecap='round'/%3E%3Cpath d='M13 9 C18 9 19 15 24 14 C27 13.5 28 11.5 30.5 12' fill='none' stroke='%23000' stroke-width='1.2' stroke-linecap='round'/%3E%3Ccircle cx='30.5' cy='12' r='1.4'/%3E%3C/svg%3E");
+  --orn-thorns: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 18'%3E%3Cpath d='M2 9 L9 5.5 L13 9 L9 12.5 Z'/%3E%3Cpath d='M13 9 C18 8 20 3 26 1 C22 5 21 8 17 9.5 Z'/%3E%3Cpath d='M13 9 C18 10 20 15 26 17 C22 13 21 10 17 8.5 Z'/%3E%3Cpath d='M15 9 L30 9' stroke='%23000' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E");
+  --orn-wing: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 52 30'%3E%3Cpath d='M50 18 C38 15 22 7 2 1 C14 10 28 16 50 22 Z'/%3E%3Cpath d='M50 21 C38 20 22 15 7 11 C19 18 32 22 50 25 Z'/%3E%3Cpath d='M50 24 C40 24 27 22 13 20 C24 25 36 27 50 28 Z'/%3E%3Cpath d='M50 15 C42 12 34 6 26 2 C32 8 40 13 50 18 Z' opacity='0.7'/%3E%3C/svg%3E");
+  --orn-tiara: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 24'%3E%3Cpath d='M5 21 Q30 13 55 21 L55 23.5 Q30 16 5 23.5 Z'/%3E%3Cpath d='M8 19.5 L12 10 L16.5 17 L22 7 L26.5 15 L30 3.5 L33.5 15 L38 7 L43.5 17 L48 10 L52 19.5 Q30 13 8 19.5 Z'/%3E%3Ccircle cx='12' cy='8.6' r='1.7'/%3E%3Ccircle cx='22' cy='5.6' r='1.9'/%3E%3Ccircle cx='30' cy='2.2' r='2.2'/%3E%3Ccircle cx='38' cy='5.6' r='1.9'/%3E%3Ccircle cx='48' cy='8.6' r='1.7'/%3E%3C/svg%3E");
+  --orn-gem-tiara: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 26'%3E%3Cpath d='M5 23 Q30 15 55 23 L55 25.5 Q30 18 5 25.5 Z'/%3E%3Cpath d='M8 21.5 L13 12 L18 19 L24 10 L28 17 L30 15 L32 17 L36 10 L42 19 L47 12 L52 21.5 Q30 15 8 21.5 Z'/%3E%3Cpath d='M30 0.5 L36 7 L30 15 L24 7 Z'/%3E%3Ccircle cx='13' cy='10.6' r='1.6'/%3E%3Ccircle cx='24' cy='8.6' r='1.7'/%3E%3Ccircle cx='36' cy='8.6' r='1.7'/%3E%3Ccircle cx='47' cy='10.6' r='1.6'/%3E%3C/svg%3E");
+  --orn-crown: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 28'%3E%3Cpath d='M9 23 L7 8 L19 16 L30 3 L41 16 L53 8 L51 23 Z'/%3E%3Cpath d='M9 24 H51 V27.5 H9 Z'/%3E%3Ccircle cx='7' cy='6.6' r='2.5'/%3E%3Ccircle cx='30' cy='2.6' r='2.8'/%3E%3Ccircle cx='53' cy='6.6' r='2.5'/%3E%3C/svg%3E");
+  --orn-horns: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 24'%3E%3Cpath d='M25 22 C18 18 12 10 15 1 C17 10 23 14 29 17 Z'/%3E%3Cpath d='M35 22 C42 18 48 10 45 1 C43 10 37 14 31 17 Z'/%3E%3Cpath d='M30 8 L34.5 15 L30 22.5 L25.5 15 Z'/%3E%3C/svg%3E");
+  --orn-flame: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 26'%3E%3Cpath d='M30 1 C34 8 39 11 37.5 17.5 C36.5 22.5 33 25 30 25 C27 25 23.5 22.5 22.5 17.5 C21 11 26 8 30 1 Z'/%3E%3Cpath d='M20.5 23 C17 19.5 17.5 15 20.5 11.5 C20.5 15.5 22.5 18 24 22 Z'/%3E%3Cpath d='M39.5 23 C43 19.5 42.5 15 39.5 11.5 C39.5 15.5 37.5 18 36 22 Z'/%3E%3Cpath d='M16 23.5 H44 V26 H16 Z'/%3E%3C/svg%3E");
+}
+
+/* ── レア度 ──
+   称号まわりは、アプリのテーマカラーに縛られない（2026-10-04 利用者）。色はゲームのレア度とランクに寄せる:
+   銅・銀・金（Valorant・Apex・LoL のランク）、紫晶（原神・鳴潮の星4、Apex のマスター）、紅（Valorant のイモータル・Apex のプレデター）、
+   虹の輝き（Valorant のレディアント）。--metal は金属の照り返し、--tint は光の色、--side と --crest は装飾の形 */
+.rarity--bronze {
+  --metal: linear-gradient(135deg, #ffdcbd 0%, #cf9058 28%, #7a4521 52%, #e0a676 76%, #8c5229 100%);
+  --tint: #d6925a;
+  --side: var(--orn-filigree);
+}
+
+.rarity--silver {
+  --metal: linear-gradient(135deg, #ffffff 0%, #d3dae2 28%, #7d8894 52%, #f1f4f7 76%, #9aa5b1 100%);
+  --tint: #c8d2dc;
+  --side: var(--orn-laurel);
+}
+
+.rarity--gold {
+  --metal: linear-gradient(135deg, #fff7d4 0%, #f7d264 28%, #a8761a 52%, #ffe9a6 76%, #c4922c 100%);
+  --tint: #f4c44f;
+  --side: var(--orn-laurel);
+  --crest: var(--orn-tiara);
+}
+
+.rarity--amethyst {
+  --metal: linear-gradient(135deg, #f8e9ff 0%, #ca97ff 28%, #6a2fb5 52%, #ebcdff 76%, #9152d8 100%);
+  --tint: #bb83ff;
+  --side: var(--orn-laurel);
+  --crest: var(--orn-gem-tiara);
+}
+
+.rarity--crimson {
+  --metal: linear-gradient(135deg, #ffe3e7 0%, #ff6177 28%, #8c0d25 52%, #ffa1ae 76%, #b8142f 100%);
+  --tint: #ff5268;
+  --side: var(--orn-thorns);
+  --crest: var(--orn-horns);
+  --plate-bg: #1a0b12;
+}
+
+/* 虹の輝き: 色が流れ続ける。翼と王冠 */
+.rarity--radiant {
+  --metal: linear-gradient(110deg, #fff7d1 0%, #ffc3dd 16%, #c9b2ff 33%, #9fe6ff 50%, #bdffd8 66%, #fff1b0 83%, #fff7d1 100%);
+  --tint: #fff1b0;
+  --side: var(--orn-wing);
+  --crest: var(--orn-crown);
+}
+
+/* 特別な称号（Annict サポーター）: ローズゴールドに灯火の紋章と月桂樹。照り返しがゆっくり流れる（origin より控えめ。光輪ときらめきは無い） */
+.rarity--patron {
+  --metal: linear-gradient(110deg, #fff0e4 0%, #f6b99a 20%, #b5674a 40%, #ffe1cf 58%, #e89c7c 78%, #fff0e4 100%);
+  --tint: #ffb38f;
+  --side: var(--orn-laurel);
+  --crest: var(--orn-flame);
+  --plate-bg: #160d0c;
+}
+
+/* 特別な称号（Annict を創った人だけ）: 黒曜石の地に白金。王冠と翼、背後で光輪が回る */
+.rarity--origin {
+  --metal: linear-gradient(110deg, #ffffff 0%, #f7e9bd 18%, #a8956a 36%, #ffffff 52%, #efdcaa 70%, #b9a06c 86%, #ffffff 100%);
+  --tint: #fff2c4;
+  --side: var(--orn-wing);
+  --crest: var(--orn-crown);
+  --plate-bg: #050507;
+}
+
+/* ── 称号の名札（TitlePlate） ──
+   上に紋章（金以上）、左右に装飾、中央に金属の縁の札。装飾は SVG を mask に使い、中を金属の照り返しで塗る */
+.plate {
+  --plate-bg: #10121f;
+  --crest-w: 62px;
+  --crest-h: 24px;
+  --side-w: 42px;
+  --side-h: 25px;
+  --name-size: 1rem;
+  position: relative;
+  display: inline-grid;
+  grid-template-areas:
+    'crest crest crest'
+    'left bar right';
+  grid-template-columns: auto minmax(0, auto) auto;
+  align-items: center;
+  justify-items: center;
+  column-gap: 2px;
+  max-width: 100%;
+  /* 装飾の光（装飾そのものに付けると mask で切られるので、名札全体に付ける） */
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--tint) 45%, transparent));
+}
+
+.plate__crest,
+.plate__side {
+  background: var(--metal);
+  -webkit-mask: var(--side) center / contain no-repeat;
+  mask: var(--side) center / contain no-repeat;
+}
+
+.plate__crest {
+  display: none;
+  grid-area: crest;
+  z-index: 1;
+  width: var(--crest-w);
+  height: var(--crest-h);
+  margin-bottom: -6px;
+  -webkit-mask-image: var(--crest);
+  mask-image: var(--crest);
+}
+
+.rarity--gold .plate__crest,
+.rarity--amethyst .plate__crest,
+.rarity--crimson .plate__crest,
+.rarity--radiant .plate__crest,
+.rarity--patron .plate__crest,
+.rarity--origin .plate__crest {
+  display: block;
+}
+
+.plate__side {
+  grid-area: left;
+  width: var(--side-w);
+  height: var(--side-h);
+}
+
+.plate__side--r {
+  grid-area: right;
+  transform: scaleX(-1);
+}
+
+/* 札: 金属の縁、内側にもう1本の細い線、奥からにじむ光 */
+.plate__bar {
+  position: relative;
+  grid-area: bar;
+  max-width: 100%;
+  padding: 7px 16px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background:
+    linear-gradient(var(--plate-bg), var(--plate-bg)) padding-box,
+    var(--metal) border-box;
+  box-shadow:
+    inset 0 0 0 2px var(--plate-bg),
+    inset 0 0 0 3px color-mix(in srgb, var(--tint) 30%, transparent),
+    inset 0 0 18px color-mix(in srgb, var(--tint) 22%, transparent),
+    0 0 18px color-mix(in srgb, var(--tint) 26%, transparent);
+}
+
+/* 札の両端の菱形の鋲 */
+.plate__bar::before,
+.plate__bar::after {
+  position: absolute;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  background: var(--metal);
+  content: '';
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.plate__bar::before {
+  left: -4px;
+}
+
+.plate__bar::after {
+  right: -4px;
+}
+
+.plate__name {
+  display: block;
+  background: var(--metal);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-family: var(--font-display);
+  font-size: var(--name-size);
+  line-height: 1.3;
+  letter-spacing: 0.06em;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* 虹の輝き: 照り返しが流れ、札の上下できらめく */
+.rarity--radiant .plate__crest,
+.rarity--radiant .plate__side,
+.rarity--radiant .plate__name {
+  background-size: 300% 100%;
+  animation: radiant-flow 5s linear infinite;
+}
+
+.plate.rarity--radiant::before,
+.plate.rarity--radiant::after {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: #fffbe6;
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  content: '';
+  filter: drop-shadow(0 0 4px #fff1b0);
+  animation: twinkle 2.4s ease-in-out infinite;
+}
+
+.plate.rarity--radiant::before {
+  top: 30%;
+  left: 18%;
+}
+
+.plate.rarity--radiant::after {
+  right: 16%;
+  bottom: 18%;
+  animation-delay: 1.2s;
+}
+
+/* サポーター: 照り返しがゆっくり流れ、札の光がゆっくり息をする */
+.rarity--patron .plate__crest,
+.rarity--patron .plate__side,
+.rarity--patron .plate__name {
+  background-size: 300% 100%;
+  animation: radiant-flow 12s linear infinite;
+}
+
+.rarity--patron .plate__bar {
+  animation: patron-glow 3.2s ease-in-out infinite;
+}
+
+@keyframes patron-glow {
+  50% {
+    box-shadow:
+      inset 0 0 0 2px var(--plate-bg),
+      inset 0 0 0 3px color-mix(in srgb, var(--tint) 40%, transparent),
+      inset 0 0 20px color-mix(in srgb, var(--tint) 26%, transparent),
+      0 0 26px color-mix(in srgb, var(--tint) 42%, transparent);
+  }
+}
+
+/* 特別な称号: 白金の照り返しがゆっくり流れ、背後で光輪が回り、きらめく */
+.rarity--origin .plate__crest,
+.rarity--origin .plate__side,
+.rarity--origin .plate__name {
+  background-size: 300% 100%;
+  animation: radiant-flow 9s linear infinite;
+}
+
+.rarity--origin .plate__bar {
+  box-shadow:
+    inset 0 0 0 2px var(--plate-bg),
+    inset 0 0 0 3px color-mix(in srgb, var(--tint) 45%, transparent),
+    inset 0 0 22px color-mix(in srgb, var(--tint) 18%, transparent),
+    0 0 28px color-mix(in srgb, var(--tint) 45%, transparent);
+}
+
+/* 名札に沿う細い楕円の輪。輪は回さず、光だけが輪の上を巡る（--halo の角度を動かす） */
+@property --halo {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.plate.rarity--origin::before {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: -1;
+  width: 104%;
+  height: 190%;
+  background: conic-gradient(from var(--halo), transparent 0 10%, rgba(255, 242, 196, 0.9) 18%, transparent 30% 55%, rgba(215, 200, 255, 0.7) 66%, transparent 78%);
+  -webkit-mask: radial-gradient(closest-side, transparent 88%, #000 92%, #000 96%, transparent 100%);
+  mask: radial-gradient(closest-side, transparent 88%, #000 92%, #000 96%, transparent 100%);
+  content: '';
+  translate: -50% -46%;
+  animation: halo-turn 6s linear infinite;
+}
+
+.plate.rarity--origin::after {
+  position: absolute;
+  top: 8%;
+  right: 20%;
+  width: 11px;
+  height: 11px;
+  background: #ffffff;
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  content: '';
+  filter: drop-shadow(0 0 5px #fff2c4);
+  animation: twinkle 3s ease-in-out infinite;
+}
+
+@keyframes halo-turn {
+  to {
+    --halo: 360deg;
+  }
+}
+
+@keyframes radiant-flow {
+  to {
+    background-position: 300% 0;
+  }
+}
+
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.3) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1) rotate(45deg);
+  }
+}
+
+/* 大きさ: 掲げた称号（大）と覚醒の一覧（小） */
+.plate--lg {
+  --crest-w: 86px;
+  --crest-h: 33px;
+  --side-w: 56px;
+  --side-h: 33px;
+  --name-size: 1.3rem;
+}
+
+.plate--lg .plate__bar {
+  padding: 9px 22px;
+}
+
+/* 掲げた称号は、長い名前でも枠からはみ出さないように、入らなければ折り返す。狭い画面では少し小さく */
+.plate--lg .plate__name {
+  white-space: normal;
+  text-wrap: balance;
+}
+
+@media (max-width: 480px) {
+  .plate--lg {
+    --name-size: 1.1rem;
+    --side-w: 42px;
+    --side-h: 26px;
+  }
+
+  .plate--lg .plate__bar {
+    padding: 8px 16px;
+  }
+}
+
+.plate--sm {
+  --crest-w: 48px;
+  --crest-h: 19px;
+  --side-w: 32px;
+  --side-h: 19px;
+  --name-size: 0.88rem;
+}
+
+.plate--sm .plate__bar {
+  padding: 5px 12px;
+}
+
+/* まだ手に入れていない称号: 色を抜いて沈める（目指すレア度は形で分かる） */
+.plate--locked {
+  opacity: 0.5;
+  filter: grayscale(1) brightness(0.8);
+}
+
+.plate--locked::before,
+.plate--locked::after,
+.plate--locked .plate__crest,
+.plate--locked .plate__side,
+.plate--locked .plate__name {
+  animation: none;
+}
+
+/* 記録と実績の切り替え。ひと続きの枠の中で、選んでいる方を塗る（押せば切り替わると分かる形） */
+.viewswitch {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 70%, var(--ink-raised));
+}
+
+.viewswitch__tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.viewswitch__tab .icon {
+  width: 17px;
+  height: 17px;
+}
+
+.viewswitch__tab[aria-selected='true'] {
+  background: var(--ink-raised);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+  color: var(--paper);
+}
+
+/* 実績を選んでいるときは、金の光（称号の色） */
+.viewswitch__tab--trophy[aria-selected='true'] {
+  background: linear-gradient(135deg, #3a2f12, #2a2238);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #f4c44f 55%, transparent);
+  color: #ffe7a0;
+}
+
+/* まだ一度も実績を開いていないときの、光る点 */
+.viewswitch__dot {
+  position: absolute;
+  top: 5px;
+  right: 7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ffcf5a;
+  box-shadow: 0 0 8px #ffcf5a;
+  animation: dot-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes dot-pulse {
+  50% {
+    opacity: 0.4;
+    transform: scale(0.8);
+  }
+}
+
+/* 実績を出しているとき: 見出しと実績の2段 */
+.records--achievements {
+  grid-template-rows: auto 1fr;
+}
+
+.achievements {
+  display: grid;
+  align-content: start;
+  gap: 22px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px 0 24px;
+}
+
+/* ── プロフィール ── */
+
+/* 掲げた称号を大きく見せる。地には、その称号のレア度の光 */
+.profile {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: var(--ink-raised);
+}
+
+.profile[class*='rarity--'] {
+  border-color: color-mix(in srgb, var(--tint) 45%, var(--line));
+  background:
+    radial-gradient(ellipse 90% 90% at 50% 40%, color-mix(in srgb, var(--tint) 18%, transparent), transparent 70%),
+    var(--ink-raised);
+}
+
+.profile__avatar {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.profile__body {
+  display: grid;
+  flex: 1;
+  gap: 4px;
+  min-width: 0;
+}
+
+.profile__name {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.profile__title {
+  display: flex;
+  justify-content: center;
+  padding: 4px 0;
+}
+
+.profile__empty {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.profile__count {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 称号の一覧 ── */
+
+.titles {
+  display: grid;
+  gap: 10px;
+}
+
+.titles__heading {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.titles__count {
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.titles__lead {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.titles__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 10px;
+  padding: 0;
+  list-style: none;
+}
+
+.titles__list > li {
+  display: grid;
+}
+
+/* 隠し称号の伏せ字の枠は多いので、小さく並べる */
+.titles__list--sealed {
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 8px;
+}
+
+/* 1つの称号: 名札を中央に、その下に条件と進み具合 */
+.title {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 8px;
+  width: 100%;
+  padding: 18px 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: var(--ink-raised);
+  color: var(--paper);
+  text-align: center;
+}
+
+.title__condition {
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+/* 手に入れた称号: レア度の光が上からにじむ。押すと掲げる */
+.title--unlocked {
+  border-color: color-mix(in srgb, var(--tint) 40%, var(--line));
+  background:
+    radial-gradient(ellipse 80% 70% at 50% 0%, color-mix(in srgb, var(--tint) 16%, transparent), transparent 70%),
+    var(--ink-raised);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.title--unlocked[aria-pressed='true'] {
+  border-color: var(--tint);
+  box-shadow:
+    0 0 0 1px var(--tint),
+    0 0 22px color-mix(in srgb, var(--tint) 35%, transparent);
+}
+
+.title--unlocked:active {
+  transform: scale(0.98);
+}
+
+.title--locked .title__condition {
+  color: color-mix(in srgb, var(--muted) 80%, transparent);
+}
+
+/* 隠し称号の、まだ解放されていない枠 */
+.title--sealed {
+  place-content: center;
+  min-height: 44px;
+  padding: 8px;
+  border-style: dashed;
+  background: none;
+}
+
+.title--sealed .title__name {
+  color: var(--line-strong);
+  font-weight: 700;
+  letter-spacing: 0.3em;
+}
+
+.title__new {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #ff4d6d;
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.title__equipped {
+  color: var(--tint);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.title__progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 220px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.title__bar {
+  flex: 1;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.title__bar > span {
+  display: block;
+  height: 100%;
+  background: var(--muted);
+  transform-origin: left;
+}
+
+/* ── God モード（試し表示。本番のビルドでは出さない） ── */
+
+.godbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px dashed #ffcf5a;
+  border-radius: var(--radius-m);
+  background: color-mix(in srgb, #3a2f12 70%, var(--ink));
+}
+
+.godbar__text {
+  color: #ffe7a0;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.godbar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.godbar__actions .btn {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+
+.godbutton {
+  justify-self: center;
+  padding: 8px 14px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+/* ── クールの紋章 ── */
+
+.crest {
+  display: grid;
+  gap: 4px;
+}
+
+.crest__row {
+  display: grid;
+  grid-template-columns: 3.2em repeat(4, 1fr);
+  align-items: center;
+  gap: 4px;
+}
+
+.crest__season,
+.crest__year {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.crest__cell {
+  height: 18px;
+  border-radius: 4px;
+  background: var(--ink-raised);
+}
+
+.crest__cell--none {
+  background: none;
+  outline: 1px dashed var(--line);
+  outline-offset: -1px;
+}
+
+.crest__cell--low {
+  background: color-mix(in srgb, var(--brand-blue) 22%, var(--ink-raised));
+}
+
+.crest__cell--mid {
+  background: color-mix(in srgb, var(--brand-blue) 45%, var(--ink-raised));
+}
+
+.crest__cell--high {
+  background: color-mix(in srgb, var(--brand-lavender) 70%, var(--ink-raised));
+}
+
+.crest__cell--full {
+  background: linear-gradient(135deg, #f7d77a, #ffb8d9);
+  box-shadow: 0 0 8px color-mix(in srgb, #f7d77a 45%, transparent);
+}
+
+/* ── 初回: 読み解いているあいだ ── */
+
+.awaken-wait {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 10px;
+  min-height: 60vh;
+  text-align: center;
+}
+
+.awaken-wait__sigil {
+  width: 64px;
+  height: 64px;
+  border: 2px solid color-mix(in srgb, var(--brand-lavender) 60%, transparent);
+  border-top-color: var(--brand-pink);
+  border-radius: 50%;
+  box-shadow: 0 0 24px color-mix(in srgb, var(--brand-lavender) 35%, transparent);
+  animation: sigil-turn 1.4s linear infinite;
+}
+
+.awaken-wait__title {
+  font-weight: 700;
+}
+
+.awaken-wait__note {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes sigil-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── 初回: 覚醒 ── */
+
+.awaken {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: 24px 16px;
+  background: rgba(8, 10, 20, 0.9);
+  animation: clear-fade-in 0.4s ease-out both;
+}
+
+.awaken__rays {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 900px;
+  height: 900px;
+  margin: -450px 0 0 -450px;
+  background: repeating-conic-gradient(color-mix(in srgb, var(--brand-lavender) 14%, transparent) 0 5deg, transparent 5deg 18deg);
+  -webkit-mask: radial-gradient(circle, #000 10%, transparent 60%);
+  mask: radial-gradient(circle, #000 10%, transparent 60%);
+  pointer-events: none;
+  animation:
+    clear-fade-in 1.2s 0.2s ease-out both,
+    rays-turn 40s linear infinite;
+}
+
+.awaken__body {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  max-width: 26rem;
+  max-height: 100%;
+  overflow-y: auto;
+  text-align: center;
+}
+
+.awaken__eyebrow {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  animation: clear-fade 0.5s 0.2s both;
+}
+
+.awaken__title {
+  background: var(--brand-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  font-weight: 400;
+  line-height: 1.35;
+  filter: drop-shadow(0 0 16px color-mix(in srgb, var(--brand-lavender) 50%, transparent));
+  animation: clear-stamp 0.7s 0.35s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+.awaken__count {
+  color: var(--muted);
+  font-size: 0.85rem;
+  animation: clear-fade 0.5s 0.7s both;
+}
+
+.awaken__num {
+  color: var(--paper);
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+}
+
+.awaken__hidden {
+  margin-left: 4px;
+  color: #f7d77a;
+}
+
+.awaken__list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px 10px;
+  margin: 10px 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+/* 名札が1つずつ、光をまとって浮かび上がる（遅れは style で1つずつずらす） */
+.awaken__item {
+  animation: plate-rise 0.6s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+/* 虹の輝きは、ひときわ大きく */
+.awaken__item.rarity--radiant {
+  animation-name: plate-rise-radiant;
+  animation-duration: 0.9s;
+}
+
+.awaken__item--rest {
+  align-self: center;
+  padding: 6px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+@keyframes plate-rise {
+  0% {
+    opacity: 0;
+    filter: brightness(2.4);
+    transform: translateY(12px) scale(0.8);
+  }
+  60% {
+    filter: brightness(1.5);
+  }
+}
+
+@keyframes plate-rise-radiant {
+  0% {
+    opacity: 0;
+    filter: brightness(3) saturate(0);
+    transform: scale(1.8);
+  }
+  45% {
+    opacity: 1;
+    filter: brightness(2.2);
+    transform: scale(0.95);
+  }
+  70% {
+    transform: scale(1.04);
+  }
+}
+
+.awaken__button {
+  margin-top: 6px;
+  animation: clear-fade 0.5s 1s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .awaken,
+  .awaken__rays,
+  .awaken__eyebrow,
+  .awaken__title,
+  .awaken__count,
+  .awaken__item,
+  .awaken__button,
+  .awaken-wait__sigil,
+  .plate::before,
+  .plate::after,
+  .plate__crest,
+  .plate__side,
+  .plate__name,
+  .plate__bar {
+    animation: none;
+  }
+}
+
+/* ── 演出の強さ（設定の「演出」。lib/storage.ts の applyEffectLevel が html に data-effects を付ける） ──
+   控えめ: 火花・光の輪・回る光の筋・光が走るのを出さず、表示だけを残す / なし: 10件ごとの表示を出さず、踏破と覚醒は動かさない */
+:root[data-effects='subtle'] .sparks,
+:root[data-effects='subtle'] .milestone::before,
+:root[data-effects='subtle'] .milestone__badge::after,
+:root[data-effects='subtle'] .clear__rays,
+:root[data-effects='subtle'] .awaken__rays,
+:root[data-effects='off'] .milestone,
+:root[data-effects='off'] .sparks,
+:root[data-effects='off'] .clear__rays,
+:root[data-effects='off'] .awaken__rays {
+  display: none;
+}
+
+:root[data-effects='subtle'] .progress--glow .progress__bar {
+  animation: none;
+}
+
+/* 控えめ: 字は押し出すが、光は走らせない */
+:root[data-effects='subtle'] .clear__title {
+  animation: clear-stamp 0.6s 0.15s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+:root[data-effects='off'] .clear::before,
+:root[data-effects='off'] .clear__season,
+:root[data-effects='off'] .clear__title,
+:root[data-effects='off'] .clear__body,
+:root[data-effects='off'] .clear .btn,
+:root[data-effects='off'] .progress--glow .progress__bar,
+:root[data-effects='off'] .awaken,
+:root[data-effects='off'] .awaken__eyebrow,
+:root[data-effects='off'] .awaken__title,
+:root[data-effects='off'] .awaken__count,
+:root[data-effects='off'] .awaken__item,
+:root[data-effects='off'] .awaken__button,
+:root[data-effects='off'] .plate::before,
+:root[data-effects='off'] .plate::after,
+:root[data-effects='off'] .plate__crest,
+:root[data-effects='off'] .plate__side,
+:root[data-effects='off'] .plate__name,
+:root[data-effects='off'] .plate__bar {
+  animation: none;
+}
+

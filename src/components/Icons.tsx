@@ -49,6 +49,34 @@ export function BackIcon() {
   )
 }
 
+// 記録の一覧（記録タブの「記録｜実績」の切り替え）
+export function ListIcon() {
+  return (
+    <Icon>
+      <path d="M9 6.5h11" />
+      <path d="M9 12h11" />
+      <path d="M9 17.5h11" />
+      <path d="M4.5 6.5h.1" />
+      <path d="M4.5 12h.1" />
+      <path d="M4.5 17.5h.1" />
+    </Icon>
+  )
+}
+
+// 実績（トロフィー）
+export function TrophyIcon() {
+  return (
+    <Icon>
+      <path d="M7.5 4.5h9v5a4.5 4.5 0 0 1-9 0v-5Z" />
+      <path d="M7.5 6.5H4.5a3 3 0 0 0 3 4" />
+      <path d="M16.5 6.5h3a3 3 0 0 1-3 4" />
+      <path d="M12 14v3.5" />
+      <path d="M8.5 20h7" />
+      <path d="M9.5 17.5h5V20h-5z" />
+    </Icon>
+  )
+}
+
 // 下のタブのアイコン。選んでいるタブは塗り、ほかは線だけにして、色のほかに形でも今の画面が分かるようにする。
 // 塗ったときに抜く部分（記録の行・設定の穴）は、タブの帯の地の色（--tabs-bg）で描く
 export type TabIconName = 'rate' | 'match' | 'records' | 'browse' | 'settings'

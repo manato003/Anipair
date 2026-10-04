@@ -346,3 +346,18 @@
     padding-inline: 18px;
   }
 }
+
+/* カードの地は .toggle の選んだ色と同じなので、カードの中では選んだボタンを濃くする（「演出」の強さ） */
+.settings__card .toggle {
+  margin-block: 4px 8px;
+}
+
+.settings__card .toggle button {
+  padding: 8px 16px;
+  font-size: 0.85rem;
+}
+
+.settings__card .toggle button[aria-pressed='true'] {
+  background: var(--line-strong);
+  font-weight: 700;
+}

@@ -26,6 +26,14 @@ const KEYS = {
   onboarding: 'animax.onboarding.v1',
   // スマホで「シートはタップで閉じる」の案内を見たか
   sheetHint: 'animax.sheetHint.v1',
+  // クールごとの人気作の ID の控え（進み具合の分母。だれのものでも同じなので、トークンが変わっても使える）
+  seasonTops: 'animax.seasonTops.v1',
+  // 称号: 装備しているもの・見たもの・初回の「覚醒」を見たか
+  titles: 'animax.titles.v1',
+  // Anipair の中での出来事（深夜の記録・1日でのクールの踏破など。Annict からは計算できないもの）
+  feats: 'animax.feats.v1',
+  // 演出の強さ（ふつう・控えめ・なし）。端末ごと
+  effects: 'animax.effects.v1',
 } as const
 
 export const ALL_KEYS: readonly string[] = Object.values(KEYS)
@@ -172,6 +180,52 @@ export function saveSheetHintSeen(): void {
 }
 
 // キー割り当ての検証は lib/keymap.ts の parseKeymap が行う
+// 称号まわり（形の確認は features/achievements/achievementStore.ts）
+export function loadSeasonTopsRaw(): unknown {
+  return readJson(KEYS.seasonTops)
+}
+
+export function saveSeasonTopsRaw(value: unknown): void {
+  write(KEYS.seasonTops, JSON.stringify(value))
+}
+
+export function loadTitlesRaw(): unknown {
+  return readJson(KEYS.titles)
+}
+
+export function saveTitlesRaw(value: unknown): void {
+  write(KEYS.titles, JSON.stringify(value))
+}
+
+export function loadFeatsRaw(): unknown {
+  return readJson(KEYS.feats)
+}
+
+export function saveFeatsRaw(value: unknown): void {
+  write(KEYS.feats, JSON.stringify(value))
+}
+
+export type EffectLevel = 'full' | 'subtle' | 'off'
+
+export function parseEffectLevel(value: unknown): EffectLevel {
+  return value === 'subtle' || value === 'off' ? value : 'full'
+}
+
+export function loadEffectLevel(): EffectLevel {
+  return parseEffectLevel(readJson(KEYS.effects))
+}
+
+export function saveEffectLevel(level: EffectLevel): void {
+  write(KEYS.effects, JSON.stringify(level))
+}
+
+// ページの一番外の要素に印を付ける（styles/achievements.css の末尾が、これを見て演出を弱める）
+export function applyEffectLevel(level: EffectLevel): void {
+  if (typeof document === 'undefined') return
+  if (level === 'full') delete document.documentElement.dataset.effects
+  else document.documentElement.dataset.effects = level
+}
+
 export function loadKeymapRaw(): unknown {
   return readJson(KEYS.keymap)
 }

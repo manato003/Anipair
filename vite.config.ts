@@ -44,6 +44,8 @@ export default defineConfig({
   plugins: [react(), shikiDevProxy()],
   define: {
     __APP_VERSION__: JSON.stringify(version),
+    // 実績の「God モード」（すべての称号を手に入れた状態で並べる試し表示）を出すか。本番（Vercel の production）のビルドだけ出さない
+    __GOD_MODE__: JSON.stringify(process.env.VERCEL_ENV !== 'production'),
   },
   test: {
     // 既定は node（純粋関数のテストが大半で、DOM の起動は遅い）。

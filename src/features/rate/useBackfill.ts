@@ -8,6 +8,7 @@ import { nextSeason, previousSeason, seasonOf, toSlug, type Season } from '../..
 import { loadBackfillSeason, saveBackfillSeason } from '../../lib/storage'
 import { useCoalescedTask } from '../../lib/useCoalescedTask'
 import { messageOf, useWriteQueue } from '../../lib/useWriteQueue'
+import { rememberSeasonTop } from '../achievements/achievementStore'
 import { activeUnseenIds } from './unseen'
 import { loadLocalUnseen, setUnseen, syncUnseen } from './unseenStore'
 import { OLDEST_YEAR, pickQueue, toCards, type Answer, type Card } from './queue'
@@ -23,6 +24,8 @@ interface UndoEntry {
 export function useBackfill(token: string, github: GithubConnection | null = null) {
   const [season, setSeason] = useState<Season>(() => loadBackfillSeason() ?? seasonOf(new Date()))
   const [cards, setCards] = useState<Card[] | null>(null)
+  // そのクールの人気作の数（記録済みも含む）。進み具合の分母
+  const [total, setTotal] = useState(0)
   const [index, setIndex] = useState(0)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [finished, setFinished] = useState(false)
@@ -54,12 +57,16 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
             if (!cancelled) setSyncNote(`GitHub と同期できませんでした（${messageOf(e)}）。この端末の記録だけで進めます。`)
           }
         }
-        const works = pickQueue(await worksPromise, activeUnseenIds(unseen))
+        const all = await worksPromise
+        // 実績の計算（クールの網羅）のために、このクールの人気作の一覧も控える
+        rememberSeasonTop(toSlug(season), all.map((w) => w.annictId))
+        const works = pickQueue(all, activeUnseenIds(unseen))
         if (cancelled) return
         if (works.length === 0) {
           // 人気作をすべて記録済みのクールは飛ばす
           const prev = previousSeason(season)
           if (!skipEmpty.current) {
+            setTotal(all.length)
             setCards([])
           } else if (prev.year < OLDEST_YEAR) {
             setFinished(true)
@@ -71,6 +78,7 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
         }
         const covers = await fetchCovers(works)
         if (cancelled) return
+        setTotal(all.length)
         setCards(toCards(works, covers))
       } catch (e) {
         if (!cancelled) setLoadError(messageOf(e))
@@ -161,6 +169,8 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
     season,
     cards,
     index,
+    // 進み具合: そのクールの人気作のうち、答えた数（Annict に記録があるか「見てない」にした作品。今回答えた分を含む）
+    progress: cards ? { answered: total - cards.length + index, total } : null,
     current,
     next,
     seasonDone: cards !== null && index >= cards.length,
