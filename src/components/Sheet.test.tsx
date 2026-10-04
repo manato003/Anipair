@@ -117,3 +117,74 @@ describe('Sheet and the phone back button', () => {
     expect(closedA).not.toHaveBeenCalled()
   })
 })
+
+describe('Sheet on touch devices', () => {
+  // 指で触る端末を装う（matchMedia の pointer: coarse）
+  const asTouch = (coarse: boolean) =>
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: coarse && q.includes('coarse'), media: q, addEventListener() {}, removeEventListener() {} }))
+  afterEach(() => vi.unstubAllGlobals())
+
+  function Body() {
+    return (
+      <>
+        <p>あらすじの文</p>
+        <a href="https://example.com/">公式サイト</a>
+        <button type="button">続きを読む</button>
+      </>
+    )
+  }
+
+  it('closes on a tap on plain content, but not on links or buttons', () => {
+    asTouch(true)
+    const onClose = vi.fn()
+    render(
+      <Sheet label="詳細" onClose={onClose}>
+        <Body />
+      </Sheet>,
+    )
+    fireEvent.click(screen.getByRole('link', { name: '公式サイト' }))
+    fireEvent.click(screen.getByRole('button', { name: '続きを読む' }))
+    expect(onClose).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByText('あらすじの文'))
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('hides the small close link (still there for screen readers), and shows the tap hint only until the first close', () => {
+    asTouch(true)
+    localStorage.clear()
+    const onClose = vi.fn()
+    const { unmount } = render(
+      <Sheet label="詳細" onClose={onClose}>
+        <Body />
+      </Sheet>,
+    )
+    expect(screen.getByText('シートのどこかをタップすると閉じます')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '閉じる' }).className).toContain('visually-hidden')
+    fireEvent.click(screen.getByText('あらすじの文'))
+    expect(onClose).toHaveBeenCalledTimes(1)
+    unmount()
+    // 2回目からは案内を出さない
+    render(
+      <Sheet label="詳細" onClose={onClose}>
+        <Body />
+      </Sheet>,
+    )
+    expect(screen.queryByText('シートのどこかをタップすると閉じます')).toBeNull()
+    localStorage.clear()
+  })
+
+  it('with a mouse, tapping content does not close', () => {
+    asTouch(false)
+    const onClose = vi.fn()
+    render(
+      <Sheet label="詳細" onClose={onClose}>
+        <Body />
+      </Sheet>,
+    )
+    fireEvent.click(screen.getByText('あらすじの文'))
+    expect(onClose).not.toHaveBeenCalled()
+    // マウスでは右上の「閉じる」がそのまま見え、案内は出ない
+    expect(screen.getByRole('button', { name: '閉じる' }).className).not.toContain('visually-hidden')
+    expect(screen.queryByText('シートのどこかをタップすると閉じます')).toBeNull()
+  })
+})

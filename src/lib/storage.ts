@@ -24,6 +24,8 @@ const KEYS = {
   reviews: 'animax.reviews.v1',
   // 初めての人への案内（評価画面の「Anipair の使い方」）を見たか。端末ごと
   onboarding: 'animax.onboarding.v1',
+  // スマホで「シートはタップで閉じる」の案内を見たか
+  sheetHint: 'animax.sheetHint.v1',
 } as const
 
 export const ALL_KEYS: readonly string[] = Object.values(KEYS)
@@ -158,6 +160,15 @@ export function loadOnboardingSeen(): boolean {
 
 export function saveOnboardingSeen(seen: boolean): void {
   write(KEYS.onboarding, seen ? JSON.stringify({ v: 1, at: new Date().toISOString() }) : null)
+}
+
+// 「シートはタップで閉じます」の案内を見たか（形は使い方の案内と同じ）
+export function loadSheetHintSeen(): boolean {
+  return parseOnboardingSeen(readJson(KEYS.sheetHint))
+}
+
+export function saveSheetHintSeen(): void {
+  write(KEYS.sheetHint, JSON.stringify({ v: 1, at: new Date().toISOString() }))
 }
 
 // キー割り当ての検証は lib/keymap.ts の parseKeymap が行う

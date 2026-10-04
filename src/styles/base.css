@@ -387,8 +387,8 @@ kbd {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  background: rgba(8, 10, 20, 0.6);
-  backdrop-filter: blur(3px);
+  /* 後ろをぼかす（backdrop-filter）と、シートが動くあいだ毎フレームぼかし直すことになり、スマホで重い（2026-10-03 に実測でカクついた）。暗くするだけにする */
+  background: rgba(8, 10, 20, 0.72);
 }
 
 .sheet {
@@ -402,6 +402,12 @@ kbd {
   border-radius: 14px 14px 0 0;
   background: var(--ink);
   animation: sheet-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
+}
+
+/* 作品の詳細は、中身（あらすじ・キャスト・関連作品）があとから届く。高さを最初から決めておき、届くたびにシートの上端が跳ねないようにする */
+.sheet--large {
+  height: calc(88dvh / var(--zoom));
 }
 
 @keyframes sheet-in {
@@ -409,6 +415,16 @@ kbd {
     transform: translateY(24px);
     opacity: 0;
   }
+}
+
+/* 画面には出さず、読み上げとキーボードには残す */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .sheet__bar {
@@ -420,6 +436,26 @@ kbd {
   margin: 0 -20px;
   padding: 8px 20px;
   background: var(--ink);
+}
+
+/* 指で触る端末: 右上の「閉じる」を見えなくしたので、帯は高さを持たない */
+.sheet__bar--touch {
+  min-height: 0;
+  padding-block: 0;
+}
+
+/* 最初の1回だけの案内 */
+.sheet__bar--hint {
+  justify-content: center;
+}
+
+.sheet__hint {
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand-blue) 18%, var(--ink-raised));
+  color: var(--paper);
+  font-size: 0.8rem;
+  font-weight: 700;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -465,6 +501,7 @@ kbd {
 
   .sheet--large {
     max-width: 880px;
+    height: calc(84vh / var(--zoom));
   }
 
   .sheet__bar {

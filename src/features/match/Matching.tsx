@@ -259,6 +259,7 @@ function MatchCardView({ card, onOpen }: { card: MatchCard; onOpen: () => void }
     <article className="card">
       <button type="button" className="card__cover" onClick={onOpen} aria-label="詳しく見る">
         {media.cover ? <CoverImage cover={media.cover} size="large" fallback={<span className="card__noimage">{title}</span>} /> : <span className="card__noimage">{title}</span>}
+        {/* 押すと詳しく見られる印。PC だけに出す（スマホでは表紙の上の飾りが気になるので出さない。押せば開くのは同じ） */}
         <span className="card__info" aria-hidden>
           <InfoIcon />
         </span>

@@ -320,3 +320,56 @@ a.related__title {
     margin-top: 0;
   }
 }
+
+/* ── 中身は、書体がそろってからまとめて出す（WorkDetail.tsx と lib/useFontsReady.ts） ──
+   日本語の Web フォントは字ごとの小分けのファイルで、届くたびに組み直すと重い。表紙と題名はすぐ出し、残りはそろうまで並べない。
+   そのあいだに、残りに含まれる字の書体のファイルだけを先に読み、そろったら1回で並べて、下から軽く浮かせて出す */
+
+.detail__titles > .detail__late {
+  display: grid;
+  gap: 4px;
+}
+
+.detail:not(.detail--ready) .detail__late {
+  display: none;
+}
+
+.detail--ready .detail__late {
+  animation: detail-fade 0.2s ease;
+}
+
+.detail--ready .detail__body > .detail__late {
+  animation: detail-in 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes detail-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes detail-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* 待つあいだの目印。見出しと2行ぶんの、薄い帯 */
+.detail__loading {
+  height: 64px;
+  margin-top: 22px;
+  background:
+    linear-gradient(var(--ink-raised) 0 0) 0 0 / 30% 14px no-repeat,
+    linear-gradient(var(--ink-raised) 0 0) 0 30px / 100% 12px no-repeat,
+    linear-gradient(var(--ink-raised) 0 0) 0 52px / 80% 12px no-repeat;
+  animation: pulse 1.2s ease-in-out infinite alternate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .detail--ready .detail__late,
+  .detail--ready .detail__body > .detail__late,
+  .detail__loading {
+    animation: none;
+  }
+}

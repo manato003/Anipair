@@ -255,8 +255,33 @@ export function Backfill({ token, github, active }: { token: string; github: Git
           {next?.cover && <link rel="preload" as="image" href={next.cover.url} />}
         </div>
 
-        <div className="answers" aria-disabled={!hasCurrent}>
-          {/* 評価の段。左端の「覚えてない」は、見たけれど評価できない作品（評価を付けずに「見た」にする） */}
+        {/* 答えは押す回数の多いものほど下（親指の近く）に、大きく置く。どれも1回で押せて、位置はどの作品でも変わらない。
+            上: ときどき使う状態（見てる・視聴中断）と補助（取り消す・詳しく。よく押す詳しくを右端に） / 中: 評価 / 下: いちばん多い「見てない」と「見たい」 */}
+        <div className="answers answers--tiered" aria-disabled={!hasCurrent}>
+          <div className="answers__sub">
+            <button
+              type="button"
+              className="sub"
+              disabled={!hasCurrent}
+              onClick={reply.watching}
+              title={inWatching ? 'まだ見ている作品は、そのまま次へ進みます' : '「見てる」にします'}
+            >
+              見てる <kbd className="hint">{keyLabel(keys.watching)}</kbd>
+            </button>
+            <button type="button" className="sub" disabled={!hasCurrent} onClick={reply.stop} title="途中で見るのをやめた作品を「視聴中断」にします">
+              視聴中断 <kbd className="hint">{keyLabel(keys.stop)}</kbd>
+            </button>
+            <span className="answers__gap" aria-hidden />
+            <button type="button" className="misc misc--quiet" disabled={!canUndo} onClick={undo}>
+              <UndoIcon />
+              取り消す <kbd className="hint">{keyLabel(keys.undo)}</kbd>
+            </button>
+            <button type="button" className="misc misc--quiet" disabled={!hasCurrent} onClick={toggleSheet}>
+              <InfoIcon />
+              詳しく <kbd className="hint">{keyLabel(keys.detail)}</kbd>
+            </button>
+          </div>
+          {/* 評価の段。左端の「覚えてない」は、見たけれど評価できない作品（評価を付けずに「見た」にする）。尺度の外なので少し離す */}
           <div className="answers__ratings answers__ratings--five">
             <button type="button" className="rating rating--none" disabled={!hasCurrent} onClick={reply.watched} title="見たけれど内容を覚えていない作品を、評価を付けずに「見た」にします">
               <span className="rating__label">覚えてない</span>
@@ -269,36 +294,14 @@ export function Backfill({ token, github, active }: { token: string; github: Git
               </button>
             ))}
           </div>
-          {/* 評価を付けずに状態だけを記録する段。並びはどの作品でも同じ */}
-          <div className="answers__unseen answers__unseen--four">
-            <button type="button" className="unseen" disabled={!hasCurrent || inWatching} onClick={reply.skip}>
-              見てない <kbd className="hint">{keyLabel(keys.skip)}</kbd>
-            </button>
-            <button
-              type="button"
-              className="unseen"
-              disabled={!hasCurrent}
-              onClick={reply.watching}
-              title={inWatching ? 'まだ見ている作品は、そのまま次へ進みます' : '「見てる」にします'}
-            >
-              見てる <kbd className="hint">{keyLabel(keys.watching)}</kbd>
-            </button>
-            <button type="button" className="unseen" disabled={!hasCurrent} onClick={reply.stop} title="途中で見るのをやめた作品を「視聴中断」にします">
-              視聴中断 <kbd className="hint">{keyLabel(keys.stop)}</kbd>
-            </button>
-            <button type="button" className="unseen unseen--wanna" disabled={!hasCurrent || inWatching} onClick={reply.wanna}>
+          {/* いちばん多い答え。「見てない」を右（右手の親指の近く）に幅広く、中立の色で塗る（良い・悪いの意味を持たせない） */}
+          <div className="answers__main">
+            <button type="button" className="main main--wanna" disabled={!hasCurrent || inWatching} onClick={reply.wanna}>
               <Bookmark />
               見たい <kbd className="hint">{keyLabel(keys.wanna)}</kbd>
             </button>
-          </div>
-          <div className="answers__misc">
-            <button type="button" className="misc" disabled={!hasCurrent} onClick={toggleSheet}>
-              <InfoIcon />
-              詳しく <kbd className="hint">{keyLabel(keys.detail)}</kbd>
-            </button>
-            <button type="button" className="misc" disabled={!canUndo} onClick={undo}>
-              <UndoIcon />
-              取り消す <kbd className="hint">{keyLabel(keys.undo)}</kbd>
+            <button type="button" className="main main--skip" disabled={!hasCurrent || inWatching} onClick={reply.skip}>
+              見てない <kbd className="hint">{keyLabel(keys.skip)}</kbd>
             </button>
           </div>
         </div>
@@ -316,6 +319,7 @@ function WorkCard({ shown, media, onOpen }: { shown: Shown; media: Media | null;
     <article className="card">
       <button type="button" className="card__cover" onClick={onOpen} aria-label="詳しく見る">
         {shown.cover ? <CoverImage cover={shown.cover} size="large" fallback={<span className="card__noimage">{shown.title}</span>} /> : <span className="card__noimage">{shown.title}</span>}
+        {/* 押すと詳しく見られる印。PC だけに出す（スマホでは表紙の上の飾りが気になるので出さない。押せば開くのは同じ） */}
         <span className="card__info" aria-hidden>
           <InfoIcon />
         </span>

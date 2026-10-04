@@ -8,5 +8,15 @@ export function CoverImage(props: { cover: Cover; size: 'large' | 'thumb'; lazy?
   const [failed, setFailed] = useState<string | null>(null)
   if (failed === src) return <>{props.fallback ?? null}</>
   // 横長の画像（公式サイトの OGP 画像）は切らずに枠に収める。縦長のポスターは枠いっぱいに出す
-  return <img className={props.cover.landscape ? 'cover--contain' : undefined} src={src} alt="" loading={props.lazy ? 'lazy' : undefined} onError={() => setFailed(src)} />
+  // decoding="async": 画像の展開を描画の流れから外す（シートが出てくる動きの途中で、大きな表紙の展開に引っかからないように）
+  return (
+    <img
+      className={props.cover.landscape ? 'cover--contain' : undefined}
+      src={src}
+      alt=""
+      decoding="async"
+      loading={props.lazy ? 'lazy' : undefined}
+      onError={() => setFailed(src)}
+    />
+  )
 }

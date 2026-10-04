@@ -35,6 +35,7 @@ vi.mock('../../lib/myReviews', () => ({
 
 const { WorkDetail } = await import('./WorkDetail')
 const { getMyReviews, rememberReview } = await import('../../lib/myReviews')
+const { fetchWorkPage } = await import('../../lib/annictPage')
 
 const work: BrowseWork = {
   id: 'W1',
@@ -145,13 +146,26 @@ describe('WorkDetail', () => {
   it('shows the copyright notice from Annict under the cover, when there is one', async () => {
     copyright = '© 山田鐘人・アベツカサ／小学館／「葬送のフリーレン」製作委員会'
     render(<WorkDetail token="t" work={work} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
-    expect((await screen.findByText(copyright)).className).toBe('detail__copyright')
+    expect((await screen.findByText(copyright)).classList.contains('detail__copyright')).toBe(true)
   })
 
   it('puts © in front of a notice that has none', async () => {
     copyright = '山田鐘人・アベツカサ／小学館'
     render(<WorkDetail token="t" work={work} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
-    expect((await screen.findByText('© 山田鐘人・アベツカサ／小学館')).className).toBe('detail__copyright')
+    expect((await screen.findByText('© 山田鐘人・アベツカサ／小学館')).classList.contains('detail__copyright')).toBe(true)
+  })
+
+  it('keeps everything but the cover and title hidden until the detail, the work page and the genres have all arrived', async () => {
+    let releasePage: (p: { synopsis: null; vods: [] }) => void = () => undefined
+    vi.mocked(fetchWorkPage).mockImplementationOnce(() => new Promise((resolve) => (releasePage = resolve)))
+    render(<WorkDetail readOnly token="t" work={work} cover={null} onClose={() => undefined} />)
+    // 詳細は届いたが、作品ページがまだ
+    await waitFor(() => expect(screen.getByText('2023年秋 TV 12話')).toBeTruthy())
+    expect(document.querySelector('.detail--ready')).toBeNull()
+    expect(document.querySelector('.detail__loading')).not.toBeNull()
+    releasePage({ synopsis: null, vods: [] })
+    await waitFor(() => expect(document.querySelector('.detail--ready')).not.toBeNull())
+    expect(document.querySelector('.detail__loading')).toBeNull()
   })
 
   it('links to Shikimori only when the work has a MyAnimeList id', () => {
