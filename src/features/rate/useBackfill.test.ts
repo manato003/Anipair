@@ -89,6 +89,21 @@ describe('useBackfill', () => {
     expect(calls).toEqual(['status W1 WATCHED', 'review W1 GREAT -> R1'])
   })
 
+  it('drops a work recorded from a related-work sheet out of the cards still to come, keeping the current one', async () => {
+    const hook = await setup()
+    expect(hook.result.current.progress).toEqual({ answered: 0, total: 3 })
+    // 今の1枚（W1）は残す
+    act(() => hook.result.current.dropFromDeck(1, true))
+    expect(hook.result.current.cards?.map((c) => c.work.id)).toEqual(['W1', 'W2', 'W3'])
+    // これから出てくる W3 は外す。答えた数に入る
+    act(() => hook.result.current.dropFromDeck(3, true))
+    expect(hook.result.current.cards?.map((c) => c.work.id)).toEqual(['W1', 'W2'])
+    expect(hook.result.current.progress).toEqual({ answered: 1, total: 3 })
+    // 山に無い作品は何もしない
+    act(() => hook.result.current.dropFromDeck(99, true))
+    expect(hook.result.current.cards).toHaveLength(2)
+  })
+
   it('undoing a rating deletes that review and clears the status', async () => {
     const hook = await setup()
     act(() => hook.result.current.answer({ kind: 'rate', rating: 'GOOD' }))

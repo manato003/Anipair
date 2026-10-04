@@ -162,6 +162,20 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
     })
   }, [token, enqueue, syncLater])
 
+  // 関連作品のシートで記録した作品を、これから出てくる山から外す（もう答えてあるので、二度聞かない）。
+  // keepCurrent なら、いま出している1枚は残す（画面に出ている作品を急に入れ替えない）
+  const dropFromDeck = useCallback(
+    (annictId: number, keepCurrent: boolean) => {
+      setCards((cur) => {
+        if (!cur) return cur
+        const from = keepCurrent ? index + 1 : index
+        const at = cur.findIndex((c, i) => i >= from && c.work.annictId === annictId)
+        return at < 0 ? cur : cur.filter((_, i) => i !== at)
+      })
+    },
+    [index],
+  )
+
   const current = cards && index < cards.length ? cards[index] : null
   const next = cards && index + 1 < cards.length ? cards[index + 1] : null
 
@@ -183,6 +197,9 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
     answer,
     undo,
     reload,
+    // 関連作品のシートの送信もこの列に並べる（失敗は評価画面の帯に出る）
+    enqueue,
+    dropFromDeck,
     retryFailed,
     dismissFailed,
     goToPrevious: () => goToSeason(previousSeason(season)),

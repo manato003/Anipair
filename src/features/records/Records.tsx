@@ -199,6 +199,7 @@ export function Records({ token, active }: { token: string; active: boolean }) {
           active={active}
           enqueue={r.enqueue}
           onChange={(patch) => r.patchRecord(open.seed.annictId, patch)}
+          onRelatedChange={(work, patch) => r.noteRelatedChange(work.annictId, patch)}
           onClose={() => setOpen(null)}
         />
       )}

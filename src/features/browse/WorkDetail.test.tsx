@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BrowseWork, MyReview } from '../../lib/annict'
 
@@ -25,12 +25,16 @@ vi.mock('../../lib/shikimori', async (orig) => ({
   ...(await orig<typeof import('../../lib/shikimori')>()),
   fetchMedia: vi.fn(async (ids: number[]) => new Map(shikiMedia ? ids.map((id) => [id, { idMal: id, ...shikiMedia }]) : [])),
 }))
+// あらすじは Wikipedia から（既定は無し。あらすじのテストだけ入れる）
+let wikiSynopsis: { text: string; blocks: { heading: boolean; text: string }[]; title: string; url: string; licenseUrl: string } | null = null
+vi.mock('../../lib/wikipedia', () => ({ fetchWikiSynopsis: vi.fn(async () => wikiSynopsis) }))
 vi.mock('../../lib/myReviews', () => ({
   getMyReviews: vi.fn(() => reviewsPromise),
   rememberReview: vi.fn(async () => undefined),
 }))
 
 const { WorkDetail } = await import('./WorkDetail')
+const { fetchWorkDetail } = await import('../../lib/annict')
 const { getMyReviews, rememberReview } = await import('../../lib/myReviews')
 
 const work: BrowseWork = {
@@ -70,6 +74,7 @@ function queue() {
 beforeEach(() => {
   calls.length = 0
   shikiMedia = null
+  wikiSynopsis = null
   copyright = null
   vi.mocked(getMyReviews).mockClear()
   vi.mocked(rememberReview).mockClear()
@@ -114,6 +119,36 @@ describe('WorkDetail', () => {
     await waitFor(() => expect(screen.getByText('2023年秋 TV 12話')).toBeTruthy())
     expect(screen.queryByRole('link', { name: '公式サイト' })).toBeNull()
     expect(screen.getByRole('link', { name: 'Annict' }).getAttribute('href')).toBe('https://annict.com/works/1')
+  })
+
+  it('shows the start of the Wikipedia synopsis, and the rest in place only when asked (it may spoil), with its source and license', async () => {
+    wikiSynopsis = {
+      text: '魔王を倒した勇者一行は、王都に凱旋した。…',
+      blocks: [
+        { heading: true, text: '第1部' },
+        { heading: false, text: '魔王を倒した勇者一行は、王都に凱旋した。エルフのフリーレンにとって、その旅は短いものだった。' },
+        { heading: false, text: 'それから50年後、ヒンメルは亡くなる。' },
+      ],
+      title: '葬送のフリーレン',
+      url: 'https://ja.wikipedia.org/wiki/%E8%91%AC%E9%80%81%E3%81%AE%E3%83%95%E3%83%AA%E3%83%BC%E3%83%AC%E3%83%B3#%E3%81%82%E3%82%89%E3%81%99%E3%81%98',
+      licenseUrl: 'https://creativecommons.org/licenses/by-sa/4.0/deed.ja',
+    }
+    render(<WorkDetail readOnly token="t" work={work} cover={null} onClose={() => undefined} />)
+    await waitFor(() => expect(screen.getByText('あらすじ')).toBeTruthy())
+    expect(screen.getByText('魔王を倒した勇者一行は、王都に凱旋した。…')).toBeTruthy()
+    expect(screen.queryByText('それから50年後、ヒンメルは亡くなる。')).toBeNull()
+    expect(screen.getByText('ネタバレを含むことがあります')).toBeTruthy()
+    // Wikipedia へ移らずに、その場で全文を広げる
+    fireEvent.click(screen.getByRole('button', { name: '続きを読む' }))
+    expect(screen.getByRole('heading', { level: 4, name: '第1部' })).toBeTruthy()
+    expect(screen.getByText('それから50年後、ヒンメルは亡くなる。')).toBeTruthy()
+    expect(screen.queryByText('ネタバレを含むことがあります')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '続きを閉じる' }))
+    expect(screen.queryByText('それから50年後、ヒンメルは亡くなる。')).toBeNull()
+    // 出典とライセンス
+    expect(screen.getByRole('link', { name: '葬送のフリーレン' }).getAttribute('href')).toBe(wikiSynopsis.url)
+    expect(screen.getByRole('link', { name: 'CC BY-SA 4.0' }).getAttribute('href')).toBe(wikiSynopsis.licenseUrl)
+    expect(screen.queryByRole('link', { name: /続きは Wikipedia/ })).toBeNull()
   })
 
   it('shows the genres and themes from Shikimori in Japanese', async () => {
@@ -175,6 +210,65 @@ describe('WorkDetail', () => {
     render(<WorkDetail token="t" work={work} cover={{ url: 'https://s.example/p.jpg', thumb: 'https://s.example/p-s.jpg', landscape: false }} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
     expect(document.querySelector('.detail__cover--landscape')).toBeNull()
     expect(document.querySelector('.detail__cover img')?.className).toBe('')
+  })
+
+  it('opens a related work over this sheet in the app (not on Annict); Escape closes only the top sheet', async () => {
+    const seriesWork = (annictId: number, title: string) => ({ id: `W${annictId}`, annictId, title, seasonYear: 2024, seasonName: 'SPRING', media: 'TV', malAnimeId: null, viewerStatusState: null, summary: null })
+    vi.mocked(fetchWorkDetail).mockImplementationOnce(async () => ({
+      ...work,
+      titleKana: null,
+      episodesCount: 12,
+      officialSiteUrl: null,
+      wikipediaUrl: null,
+      twitterUsername: null,
+      copyright: null,
+      casts: [],
+      staffs: [],
+      series: [{ name: 'S', works: [seriesWork(1, '作品'), seriesWork(2, '続編')] }],
+    }))
+    const onClose = vi.fn()
+    render(<WorkDetail token="t" work={work} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={onClose} />)
+    fireEvent.click(await screen.findByRole('button', { name: '続編' }))
+    expect(screen.getByRole('dialog', { name: '続編' })).toBeTruthy()
+    expect(screen.getByRole('dialog', { name: '作品' })).toBeTruthy()
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: '続編' })).toBeNull()
+    expect(screen.getByRole('dialog', { name: '作品' })).toBeTruthy()
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('in a read-only sheet, lets a related work be recorded through the screen’s queue and tells the screen', async () => {
+    const seriesWork = (annictId: number, title: string) => ({ id: `W${annictId}`, annictId, title, seasonYear: 2024, seasonName: 'SPRING', media: 'TV', malAnimeId: String(annictId + 100), viewerStatusState: null, summary: null })
+    vi.mocked(fetchWorkDetail).mockImplementationOnce(async () => ({
+      ...work,
+      titleKana: null,
+      episodesCount: 12,
+      officialSiteUrl: null,
+      wikipediaUrl: null,
+      twitterUsername: null,
+      copyright: null,
+      casts: [],
+      staffs: [],
+      series: [{ name: 'S', works: [seriesWork(1, '作品'), seriesWork(2, '続編')] }],
+    }))
+    const q = queue()
+    const enqueue = vi.fn(q.enqueue)
+    const onRelatedChange = vi.fn()
+    render(<WorkDetail readOnly token="t" work={work} cover={null} relatedEnqueue={enqueue} onRelatedChange={onRelatedChange} onClose={() => undefined} />)
+    // 読むだけのシートに説明の文は出さない（消し忘れのメモに見えた。2026-10-04 利用者）
+    expect(screen.queryByText(/画面の下のボタン/)).toBeNull()
+    fireEvent.click(await screen.findByRole('button', { name: '続編' }))
+    const sheet = screen.getByRole('dialog', { name: '続編' })
+    // 関連作品のシートでは状態を付けられる（説明の1行は出さない）
+    fireEvent.click(within(sheet).getByRole('button', { name: '見たい' }))
+    expect(enqueue).toHaveBeenCalledTimes(1)
+    expect(onRelatedChange).toHaveBeenCalledWith({ annictId: 2, malAnimeId: '102' }, { state: 'WANNA_WATCH' })
+    await q.done()
+    expect(calls).toContain('status W2 WANNA_WATCH')
+    // 閉じると、元のシートの関連作品の印に映っている
+    fireEvent.keyDown(window, { key: 'Escape' })
+    const parent = screen.getByRole('dialog', { name: '作品' })
+    expect(within(parent).getByRole('button', { name: '続編' }).closest('li')?.textContent).toContain('見たい')
   })
 
   it('closes on Escape', () => {

@@ -223,6 +223,17 @@ export function useMatching(annictToken: string, github: GithubConnection | null
     })
   }, [annictToken, enqueue, syncLater])
 
+  // 関連作品のシートで記録した作品を、これから出てくる候補から外す（いま出している候補は残す）
+  const dropCandidate = useCallback(
+    (malId: number) => {
+      setCards((cur) => {
+        const at = cur.findIndex((c, i) => i > index && c.media.idMal === malId)
+        return at < 0 ? cur : cur.filter((_, i) => i !== at)
+      })
+    },
+    [index],
+  )
+
   const current = index < cards.length ? cards[index] : null
   const next = index + 1 < cards.length ? cards[index + 1] : null
 
@@ -244,6 +255,9 @@ export function useMatching(annictToken: string, github: GithubConnection | null
     resolveCard,
     answer,
     undo,
+    // 関連作品のシートの送信もこの列に並べる（失敗はマッチングの帯に出る）
+    enqueue,
+    dropCandidate,
     retryFailed,
     dismissFailed,
   }

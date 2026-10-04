@@ -128,6 +128,7 @@ export function Browse({ token, active = true }: { token: string; active?: boole
           active={active}
           enqueue={q.enqueue}
           onChange={(patch) => b.patchWork(open.annictId, patch)}
+          onRelatedChange={(work, patch) => b.patchWork(work.annictId, patch)}
           onClose={() => setOpen(null)}
         />
       )}

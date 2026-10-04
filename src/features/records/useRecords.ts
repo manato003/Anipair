@@ -145,5 +145,14 @@ export function useRecords(token: string, active = true) {
     [patchRow],
   )
 
-  return { rows, loadError, reload, pending, failed, enqueue, retryFailed, dismissFailed, setRating, setState, patchRecord }
+  // 関連作品のシートで状態や評価を変えたとき。一覧にある作品なら行を合わせ、無い作品（新しく記録した）なら、一覧を空にせず裏で読み直して入れる
+  const noteRelatedChange = useCallback(
+    (annictId: number, patch: { state?: StatusState | null; rating?: RatingState | null }) => {
+      if (rows?.some((r) => r.entry.annictId === annictId)) patchRecord(annictId, patch)
+      else if (patch.state || patch.rating) setReloadTick((t) => t + 1)
+    },
+    [rows, patchRecord],
+  )
+
+  return { rows, loadError, reload, pending, failed, enqueue, retryFailed, dismissFailed, setRating, setState, patchRecord, noteRelatedChange }
 }

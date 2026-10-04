@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
-import { annictSearchUrl, annictWorkUrl, type AnnictSeries } from '../../lib/annict'
+import type { AnnictSeries, StatusState } from '../../lib/annict'
 import { fetchMedia, type Media } from '../../lib/shikimori'
 import { STATUS_LABEL, workMeta } from './detail'
+import type { RelatedTarget } from './RelatedDetail'
 
 // 作品の詳細の「関連作品」。Annict のシリーズ（利用者が整理した、同じシリーズの作品の一覧）を放送時期の順に出す。
 // Annict にシリーズが無い作品だけ、Shikimori の関連作品（関係の種類つき）で代わりに出す。
-// シリーズは広いこともある（「科学アドベンチャー」のように、話のつながらない作品をまとめたもの）が、そのまま見せる
+// シリーズは広いこともある（「科学アドベンチャー」のように、話のつながらない作品をまとめたもの）が、そのまま見せる。
+// 題名を押すと、アプリの中でその作品の詳細を重ねて開く（Annict のサイトへは移らない。docs/concept.md の設計の原則）
 
 // 長いシリーズは最初はこの件数まで（「すべて表示」で広げる）
 const FOLD_AT = 8
@@ -31,7 +33,14 @@ const NOISE_FORMATS = new Set(['PV', 'CM', 'MUSIC'])
 
 const FORMAT_JA: Record<string, string> = { TV: 'TV', MOVIE: '劇場版', OVA: 'OVA', ONA: '配信', TV_SPECIAL: '特番', SPECIAL: '特番', MUSIC: 'MV', PV: 'PV', CM: 'CM' }
 
-export function RelatedWorks(props: { annictId: number; series: AnnictSeries[] | null; shiki: Media | null }) {
+export function RelatedWorks(props: {
+  annictId: number
+  series: AnnictSeries[] | null
+  shiki: Media | null
+  // 関連作品のシートで変えた状態（作品の ID ごと。null は記録から外した）。一覧の印に、すぐ映す
+  states?: ReadonlyMap<number, StatusState | null>
+  onOpen: (target: RelatedTarget) => void
+}) {
   // series が null のあいだは、Annict の詳細を読み込み中（代わりの一覧も出さない。シリーズがあるかどうかがまだ分からない）
   if (props.series === null) return null
   if (props.series.length > 0) {
@@ -39,15 +48,25 @@ export function RelatedWorks(props: { annictId: number; series: AnnictSeries[] |
       <section className="detail__section related">
         <h3 className="detail__label">関連作品</h3>
         {props.series.map((s) => (
-          <SeriesList key={s.name} series={s} current={props.annictId} />
+          <SeriesList key={s.name} series={s} current={props.annictId} states={props.states} onOpen={props.onOpen} />
         ))}
       </section>
     )
   }
-  return <ShikimoriRelated shiki={props.shiki} />
+  return <ShikimoriRelated shiki={props.shiki} onOpen={props.onOpen} />
 }
 
-function SeriesList({ series, current }: { series: AnnictSeries; current: number }) {
+function SeriesList({
+  series,
+  current,
+  states,
+  onOpen,
+}: {
+  series: AnnictSeries
+  current: number
+  states?: ReadonlyMap<number, StatusState | null>
+  onOpen: (target: RelatedTarget) => void
+}) {
   const [open, setOpen] = useState(false)
   const long = series.works.length > FOLD_AT
   // 畳んでいるときも、いま開いている作品は必ず見えるようにする（前後を含めて FOLD_AT 件の窓）
@@ -62,16 +81,17 @@ function SeriesList({ series, current }: { series: AnnictSeries; current: number
       <ol className="related__list">
         {shown.map((w) => {
           const here = w.annictId === current
-          const state = w.viewerStatusState && w.viewerStatusState !== 'NO_STATE' ? STATUS_LABEL[w.viewerStatusState] : null
+          const raw = states?.has(w.annictId) ? states.get(w.annictId) : w.viewerStatusState
+          const state = raw && raw !== 'NO_STATE' ? STATUS_LABEL[raw] : null
           return (
             <li key={w.id} className={here ? 'related__item related__item--current' : 'related__item'} aria-current={here ? 'true' : undefined}>
               <span className="related__body">
                 {here ? (
                   <span className="related__title">{w.title}</span>
                 ) : (
-                  <a className="related__title" href={annictWorkUrl(w.annictId)} target="_blank" rel="noreferrer">
+                  <button type="button" className="related__title related__open" onClick={() => onOpen({ kind: 'annict', work: { ...w, viewerStatusState: raw ?? null } })}>
                     {w.title}
-                  </a>
+                  </button>
                 )}
                 <span className="related__meta">
                   {(here || w.summary) && <span className="related__tag">{here ? 'この作品' : w.summary}</span>}
@@ -93,7 +113,7 @@ function SeriesList({ series, current }: { series: AnnictSeries; current: number
 }
 
 // Annict にシリーズが無いときの代わり。Shikimori の関連作品の題名などを、まとめて1回で引く
-function ShikimoriRelated({ shiki }: { shiki: Media | null }) {
+function ShikimoriRelated({ shiki, onOpen }: { shiki: Media | null; onOpen: (target: RelatedTarget) => void }) {
   const related = shiki?.related ?? []
   const key = related.map((r) => r.malId).join(',')
   const [media, setMedia] = useState<{ key: string; map: Map<number, Media> } | null>(null)
@@ -131,9 +151,9 @@ function ShikimoriRelated({ shiki }: { shiki: Media | null }) {
           return (
             <li key={`${r.kind}-${r.malId}`} className="related__item">
               <span className="related__body">
-                <a className="related__title" href={annictSearchUrl(title)} target="_blank" rel="noreferrer">
+                <button type="button" className="related__title related__open" onClick={() => onOpen({ kind: 'shiki', media: r.media })}>
                   {title}
-                </a>
+                </button>
                 <span className="related__meta">
                   <span className="related__tag">{RELATION_JA[r.kind] ?? '関連'}</span>
                   {meta}
@@ -143,7 +163,7 @@ function ShikimoriRelated({ shiki }: { shiki: Media | null }) {
           )
         })}
       </ol>
-      <p className="detail__hint">Annict にこの作品のシリーズが登録されていないため、Shikimori の関連作品を表示しています。題名を押すと Annict で探せます。</p>
+      <p className="detail__hint">Annict にこの作品のシリーズが登録されていないため、Shikimori の関連作品を表示しています。</p>
     </section>
   )
 }

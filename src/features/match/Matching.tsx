@@ -107,7 +107,7 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
               <button type="button" className="btn btn--primary" onClick={m.run}>
                 提案してもらう
               </button>
-              {!props.github && <p className="note">パス・スルーした作品はこの端末だけに記録します。設定で GitHub とつなぐと PC とスマホで共有できます。</p>}
+              {!props.github && <p className="note">パス・スルーした作品はこの端末だけに記録します。設定で GitHub と連携すると、PC とスマホで共有できます。</p>}
             </Empty>
           ) : m.phase.kind === 'loading' ? (
             <div className="card card--loading" aria-busy>
@@ -242,6 +242,12 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
           card={m.current}
           resolve={m.resolveCard}
           active={props.active}
+          relatedEnqueue={m.enqueue}
+          onRelatedChange={(work, patch) => {
+            // 記録した（状態か評価を付けた）作品は、これから出てくる候補から外す
+            const mal = Number(work.malAnimeId)
+            if ((patch.state || patch.rating) && Number.isInteger(mal) && mal > 0) m.dropCandidate(mal)
+          }}
           onClose={() => setSheetFor(null)}
         />
       )}

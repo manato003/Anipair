@@ -8,10 +8,12 @@ import { fetchMedia, shikimoriUrl, type Media } from '../../lib/shikimori'
 import type { Cover } from '../../lib/storage'
 import { useFontsReady } from '../../lib/useFontsReady'
 import { messageOf } from '../../lib/useWriteQueue'
+import { fetchWikiSynopsis, type WikiSynopsis } from '../../lib/wikipedia'
 import { genreName, malIdOf } from '../match/taste'
 import { RATINGS } from '../rate/queue'
 import { STATE_OPTIONS, optionState } from '../records/recordList'
 import { STATUS_LABEL, mainStaff, withCopyrightMark, safeHttpUrl, workMeta, xUrl } from './detail'
+import { RelatedDetail, type RelatedTarget } from './RelatedDetail'
 import { RelatedWorks } from './RelatedWorks'
 
 // シートを開く作品の手がかり。詳細を読み込むまでは、ここにある項目だけで出す（分からない項目は省く）
@@ -27,13 +29,23 @@ export interface WorkSeed {
   viewerStatusState?: StatusState | null
 }
 
+export type Enqueue = (label: string, task: () => Promise<void>) => void
+export type RecordPatch = { state?: StatusState | null; rating?: RatingState | null }
+// 関連作品のシートで状態や評価を変えたことを、元の画面に知らせる（一覧の表示を合わせる・山から外すため）
+export type RelatedChange = (work: { annictId: number; malAnimeId: string | null }, patch: RecordPatch) => void
+
 type Editable = {
   readOnly?: false
-  enqueue: (label: string, task: () => Promise<void>) => void
-  onChange: (patch: { state?: StatusState | null; rating?: RatingState | null }) => void
+  enqueue: Enqueue
+  onChange: (patch: RecordPatch) => void
 }
-// 読むだけのシート。状態と評価は出さない（評価画面・マッチングでは、答えを下のボタンで付ける）
+// 読むだけのシート。状態と評価は出さない（評価画面・マッチングでは、この作品への答えは下のボタンで付ける。答え方を2つにしない）
 type ReadOnly = { readOnly: true; enqueue?: undefined; onChange?: undefined }
+
+// 関連作品のシートは、元のシートが読むだけでも状態と評価を付けられる（別の作品なので、下の答えのボタンと重ならない）。
+// 送信は元の画面の列に並べる（失敗は元の画面の帯に出る。シートを閉じたあとでも気づける）。
+// relatedEnqueue が無ければ、読むだけのシートなら関連作品も読むだけ、そうでなければ自分の enqueue を使う
+type RelatedOptions = { relatedEnqueue?: Enqueue; onRelatedChange?: RelatedChange }
 
 // 作品の詳細。下から出るシートで、閉じると元の画面に戻る。読むだけでなければ、状態と評価をここから直接変えられる。
 // active が false（隠れたタブに開いたまま残っている）のあいだは Esc に反応しない
@@ -49,13 +61,28 @@ export function WorkDetail(
     cover: Cover | null
     active?: boolean
     onClose: () => void
-  } & (Editable | ReadOnly),
+  } & RelatedOptions &
+    (Editable | ReadOnly),
 ) {
   const { token, work } = props
   const readOnly = props.readOnly === true
   const [detail, setDetail] = useState<Detail | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [shiki, setShiki] = useState<Media | null>(null)
+  // あらすじ（Wikipedia の「あらすじ」の節の冒頭の段落）。読み込み中は undefined、無い・読めないときは null
+  const [wiki, setWiki] = useState<WikiSynopsis | null | undefined>(undefined)
+  // あらすじの全文を広げているか（ネタバレを含むことがあるので、押したときだけ）
+  const [wikiOpen, setWikiOpen] = useState(false)
+  // 関連作品から重ねて開いている作品。開いているあいだ、このシートは Esc と「戻る」に反応しない（上のシートだけが閉じる）
+  const [related, setRelated] = useState<RelatedTarget | null>(null)
+  // 関連作品のシートで変えた状態（関連作品の一覧の印にすぐ映す）
+  const [relatedStates, setRelatedStates] = useState<ReadonlyMap<number, StatusState | null>>(new Map())
+  const relatedEnqueue = props.relatedEnqueue ?? (props.readOnly ? undefined : props.enqueue)
+  const onRelatedChange: RelatedChange = (w, patch) => {
+    if (patch.state !== undefined) setRelatedStates((cur) => new Map(cur).set(w.annictId, patch.state ?? null))
+    props.onRelatedChange?.(w, patch)
+  }
+  const active = (props.active ?? true) && related === null
   const [shikiDone, setShikiDone] = useState(() => !malIdOf(work))
   const [waitedLong, setWaitedLong] = useState(false)
   // Annict は未記録を null ではなく NO_STATE で返す。画面では「記録なし」にそろえる
@@ -97,6 +124,19 @@ export function WorkDetail(
     }
   }, [token, work, readOnly])
 
+  // 詳細（Annict）が届いたら、その Wikipedia の記事からあらすじを読む（記事ごとに1回。lib/wikipedia.ts）
+  useEffect(() => {
+    if (!detail) return
+    let cancelled = false
+    fetchWikiSynopsis(detail.wikipediaUrl).then(
+      (w) => !cancelled && setWiki(w),
+      () => !cancelled && setWiki(null),
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [detail])
+
   function changeState(next: StatusState) {
     if (props.readOnly) return
     const value = next === optionState(state) ? 'NO_STATE' : next
@@ -133,12 +173,13 @@ export function WorkDetail(
   const meta = workMeta(detail ?? work, detail?.episodesCount)
   // 表紙と題名はすぐ出す（評価の画面で出ている字なので組み直しが起きない）。それ以外は、中身と書体がそろってからまとめて出す。
   // そろうまでは並べずに置いておき、そこに含まれる字の書体だけを先に読む（lib/useFontsReady.ts、styles/detail.css の .detail--ready）
-  const settled = waitedLong || ((detail !== null || error !== null) && shikiDone)
+  const settled = waitedLong || (error !== null && shikiDone) || (detail !== null && wiki !== undefined && shikiDone)
   const rootRef = useRef<HTMLDivElement>(null)
   const ready = useFontsReady(settled, rootRef)
 
   return (
-    <Sheet label={work.title} size="large" active={props.active} onClose={props.onClose}>
+    <>
+    <Sheet label={work.title} size="large" active={active} onClose={props.onClose}>
       <div ref={rootRef} className={ready ? 'detail detail--ready' : 'detail'} aria-busy={!ready}>
         <header className="detail__head">
           <div>
@@ -201,8 +242,58 @@ export function WorkDetail(
               </section>
             )}
 
+            {/* あらすじ: Wikipedia の冒頭の段落（ネタバレを避ける）。続きは押したときだけ、その場で広げる。出典とライセンス（CC BY-SA 4.0）を添える */}
+            {wiki && (
+              <section className="detail__section">
+                <h3 className="detail__label">あらすじ</h3>
+                {wikiOpen ? (
+                  <div className="detail__wiki">
+                    {wiki.blocks.map((b, i) =>
+                      b.heading ? (
+                        <h4 key={i} className="detail__wiki-heading">
+                          {b.text}
+                        </h4>
+                      ) : (
+                        <p key={i} className="detail__text">
+                          {b.text}
+                        </p>
+                      ),
+                    )}
+                  </div>
+                ) : (
+                  <p className="detail__text">{wiki.text}</p>
+                )}
+                {(wiki.blocks.length > 1 || wiki.text.endsWith('…')) && (
+                  // 右端に置く（親指の届く側）。注意書きはボタンのすぐ左
+                  <p className="detail__more">
+                    {!wikiOpen && <span className="detail__spoiler">ネタバレを含むことがあります</span>}
+                    <button type="button" className="link" onClick={() => setWikiOpen((v) => !v)} aria-expanded={wikiOpen}>
+                      {wikiOpen ? '続きを閉じる' : '続きを読む'}
+                    </button>
+                  </p>
+                )}
+                <p className="detail__source">
+                  出典: Wikipedia「
+                  <a href={wiki.url} target="_blank" rel="noreferrer">
+                    {wiki.title}
+                  </a>
+                  」（
+                  <a href={wiki.licenseUrl} target="_blank" rel="noreferrer">
+                    CC BY-SA 4.0
+                  </a>
+                  ）
+                </p>
+              </section>
+            )}
+
             {/* 関連作品: Annict のシリーズ。無ければ Shikimori の関連作品（詳細を読み込むまでは出さない） */}
-            <RelatedWorks annictId={work.annictId} series={detail ? (detail.series ?? []) : error ? [] : null} shiki={shiki} />
+            <RelatedWorks
+              annictId={work.annictId}
+              series={detail ? (detail.series ?? []) : error ? [] : null}
+              shiki={shiki}
+              states={relatedStates}
+              onOpen={setRelated}
+            />
 
             {/* 広い画面では、キャストとスタッフを左右に並べる */}
             <div className="detail__credits">
@@ -264,5 +355,12 @@ export function WorkDetail(
         </div>
       </div>
     </Sheet>
+    {related &&
+      (relatedEnqueue ? (
+        <RelatedDetail token={token} target={related} active={props.active ?? true} enqueue={relatedEnqueue} onChange={onRelatedChange} onClose={() => setRelated(null)} />
+      ) : (
+        <RelatedDetail readOnly token={token} target={related} active={props.active ?? true} onClose={() => setRelated(null)} />
+      ))}
+    </>
   )
 }

@@ -138,9 +138,50 @@ img.cover--contain {
   padding: 0;
 }
 
+/* あらすじ（Wikipedia の冒頭の段落） */
+.detail__text {
+  font-size: 0.85rem;
+  line-height: 1.7;
+}
+
 .detail__source {
   color: var(--muted);
   font-size: 0.75rem;
+}
+
+.detail__source a {
+  color: inherit;
+}
+
+/* あらすじの全文（「続きを読む」で広げたとき） */
+.detail__wiki {
+  display: grid;
+  gap: 10px;
+}
+
+.detail__wiki-heading {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+/* 「続きを読む」は右端（親指の届く側）。注意書きはそのすぐ左 */
+.detail__more {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.detail__more .link {
+  padding: 0;
+}
+
+.detail__spoiler {
+  color: var(--muted);
+  font-size: 0.72rem;
 }
 
 .credits {
@@ -332,3 +373,22 @@ a.related__title {
     animation: none;
   }
 }
+
+/* 関連作品の題名: アプリの中で詳細を開くボタン（見た目は今までのリンクと同じ） */
+.related__open {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--paper);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .related__open:hover {
+    color: var(--brand-blue);
+    text-decoration: underline;
+  }
+}
+

@@ -122,6 +122,20 @@ export function useWatching(token: string) {
     })
   }, [token, enqueue])
 
+  // 関連作品のシートで記録した作品を、これから出てくる山から外す（もう答えてあるので、二度聞かない）。
+  // keepCurrent なら、いま出している1枚は残す（画面に出ている作品を急に入れ替えない）
+  const dropFromDeck = useCallback(
+    (annictId: number, keepCurrent: boolean) => {
+      setCards((cur) => {
+        if (!cur) return cur
+        const from = keepCurrent ? index + 1 : index
+        const at = cur.findIndex((c, i) => i >= from && c.entry.annictId === annictId)
+        return at < 0 ? cur : cur.filter((_, i) => i !== at)
+      })
+    },
+    [index],
+  )
+
   const current = cards && index < cards.length ? cards[index] : null
   const next = cards && index + 1 < cards.length ? cards[index + 1] : null
 
@@ -139,6 +153,7 @@ export function useWatching(token: string) {
     undo,
     reload,
     refreshIfIdle,
+    dropFromDeck,
     retryFailed,
     dismissFailed,
   }

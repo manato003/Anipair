@@ -3,7 +3,7 @@ import { CoverImage } from '../../components/CoverImage'
 import { Sheet } from '../../components/Sheet'
 import { annictSearchUrl, type WorkRef } from '../../lib/annict'
 import { messageOf } from '../../lib/useWriteQueue'
-import { WorkDetail } from '../browse/WorkDetail'
+import { WorkDetail, type Enqueue, type RelatedChange } from '../browse/WorkDetail'
 import { titleOf, type MatchCard } from './useMatching'
 
 type Found = { kind: 'loading' } | { kind: 'found'; ref: WorkRef } | { kind: 'missing' } | { kind: 'error'; message: string }
@@ -16,6 +16,9 @@ export function MatchDetail(props: {
   card: MatchCard
   resolve: (card: MatchCard) => Promise<WorkRef | null>
   active: boolean
+  // 関連作品のシートの送信先と、記録したことの知らせ（WorkDetail に渡す）
+  relatedEnqueue: Enqueue
+  onRelatedChange: RelatedChange
   onClose: () => void
 }) {
   const { card, resolve } = props
@@ -32,7 +35,18 @@ export function MatchDetail(props: {
   }, [card, resolve])
 
   if (found.kind === 'found') {
-    return <WorkDetail readOnly token={props.token} work={found.ref} cover={card.media.cover} active={props.active} onClose={props.onClose} />
+    return (
+      <WorkDetail
+        readOnly
+        token={props.token}
+        work={found.ref}
+        cover={card.media.cover}
+        active={props.active}
+        relatedEnqueue={props.relatedEnqueue}
+        onRelatedChange={props.onRelatedChange}
+        onClose={props.onClose}
+      />
+    )
   }
 
   const title = titleOf(card.media)

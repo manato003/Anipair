@@ -406,7 +406,23 @@ export function Backfill({ token, github, active }: { token: string; github: Git
 
       {/* .rate の直下の要素は position を上書きされるので、シートは外に出す */}
       {showGuide && <UsageGuide onClose={closeGuide} />}
-      {sheetOpen && shown && <WorkDetail readOnly token={token} work={shown.seed} cover={shown.cover} active={active} onClose={() => setSheetFor(null)} />}
+      {sheetOpen && shown && (
+        <WorkDetail
+          readOnly
+          token={token}
+          work={shown.seed}
+          cover={shown.cover}
+          active={active}
+          relatedEnqueue={b.enqueue}
+          onRelatedChange={(work, patch) => {
+            // 記録した（状態か評価を付けた）作品は、これから出てくる山から外す。いま出している1枚は残す
+            if (!patch.state && !patch.rating) return
+            b.dropFromDeck(work.annictId, !inWatching)
+            w.dropFromDeck(work.annictId, inWatching)
+          }}
+          onClose={() => setSheetFor(null)}
+        />
+      )}
     </>
   )
 }

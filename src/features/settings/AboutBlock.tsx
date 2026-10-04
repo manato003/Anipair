@@ -42,7 +42,8 @@ export function AboutBlock({ showTagline = true }: { showTagline?: boolean }) {
       <details className="settings__fold">
         <summary>通信先・画像について</summary>
         <ul className="settings__list settings__lead">
-          <li>通信先は Annict と Shikimori（このサイトの中継を経由）です。GitHub と連携した場合は、GitHub にも送信します。</li>
+          <li>通信先は Annict と Shikimori（このサイトの中継を経由）と Wikipedia です。GitHub と連携した場合は、GitHub にも送信します。</li>
+          <li>作品の詳細のあらすじは、Wikipedia の記事の冒頭を、出典とライセンス（CC BY-SA 4.0）を添えて表示しています。</li>
           <li>表紙には、Shikimori のポスターと、Annict の API が返す各作品の公式サイトの画像を表示しています。権利は各権利者に帰属します。</li>
         </ul>
       </details>
