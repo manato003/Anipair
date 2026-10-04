@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchSeasonTops, fetchViewerStats, SEASON_TOPS_BATCH, type ViewerStats } from '../../lib/annict'
-import { fetchIsSupporter } from '../../lib/annictPage'
 import type { RecordRow } from '../records/recordList'
 import { activeUnseenIds } from '../rate/unseen'
 import { loadLocalUnseen } from '../rate/unseenStore'
@@ -36,7 +35,6 @@ export interface Achievements {
 // クールの人気作の一覧は、古いものや無いものだけを裏の優先度で16クールずつ読み、端末に控える
 export function useAchievements(token: string, rows: RecordRow[] | null, active: boolean): Achievements {
   const [stats, setStats] = useState<ViewerStats | null>(null)
-  const [supporter, setSupporter] = useState<boolean | null>(null)
   const [statsDone, setStatsDone] = useState(false)
   const [tops, setTops] = useState<Map<string, SeasonTop>>(() => loadSeasonTops())
   const [scan, setScan] = useState<{ done: number; total: number } | null>(null)
@@ -53,13 +51,9 @@ export function useAchievements(token: string, rows: RecordRow[] | null, active:
     if (!active) return
     let cancelled = false
     statsOf(token).then(
-      async (s) => {
+      (s) => {
         if (cancelled) return
         setStats(s)
-        // サポーターかは、プロフィールページから読む（読めなくても、ほかの称号は出す）
-        const isSupporter = await fetchIsSupporter(s.username).catch(() => null)
-        if (cancelled) return
-        setSupporter(isSupporter)
         setStatsDone(true)
       },
       // 読めなくても、Annict の数値を使わない称号は出す
@@ -114,8 +108,8 @@ export function useAchievements(token: string, rows: RecordRow[] | null, active:
   const titles = useMemo(() => {
     if (!rows || !coverage) return null
     const watchedYears = rows.filter((r) => r.entry.state === 'WATCHED' && r.entry.seasonYear).map((r) => r.entry.seasonYear as number)
-    return evaluateTitles({ stats, supporter, watchedYears, coverage, feats: loadFeats(), now: new Date() })
-  }, [rows, stats, supporter, coverage])
+    return evaluateTitles({ stats, watchedYears, coverage, feats: loadFeats(), now: new Date() })
+  }, [rows, stats, coverage])
 
   return { titles, coverage, stats, scan, ready: titles !== null && statsDone && (scanDone || waitedLong) }
 }

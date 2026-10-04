@@ -9,8 +9,10 @@ const TOKEN_ENDPOINT = '/api/annict-token'
 // 読み込みと書き込み（評価や状態を付けるため）
 const SCOPE = 'read write'
 
-// client_id は公開してよい値。無い環境（ローカルの開発など）では、ログインのボタンを出さない
-export function annictClientId(env: { VITE_ANNICT_CLIENT_ID?: string } = import.meta.env): string | null {
+// client_id は公開してよい値。無い環境（ローカルの開発など）では、ログインのボタンを出さない。
+// import.meta.env は名前で1つずつ読む。丸ごと渡すと、Vite が VITE_ で始まる値を全部配信物に書き込む
+// （Vercel がビルドに渡すコミットメッセージ・作者名・非公開リポジトリの名前まで入っていた。2026-10-04 に気づいて直した）
+export function annictClientId(env: { VITE_ANNICT_CLIENT_ID?: string } = { VITE_ANNICT_CLIENT_ID: import.meta.env.VITE_ANNICT_CLIENT_ID }): string | null {
   const id = env.VITE_ANNICT_CLIENT_ID?.trim()
   return id ? id : null
 }

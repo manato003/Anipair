@@ -39,7 +39,7 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
   const [filterOpen, setFilterOpen] = useState(false)
 
   // PC ではキーボードで答えられる。評価のキーは「見たことがある」を開かなくても効く。割り当ては設定画面で変えられる。
-  // シートを開いているあいだは、詳細のキー以外は効かせない（あらすじを読みながら押した数字で、下のカードに評価が付かないように）
+  // シートを開いているあいだは、詳細のキー以外は効かせない（詳細を読みながら押した数字で、下のカードに評価が付かないように）
   const keys = useKeymap()
   const answers = {
     rateBad: () => m.answer({ kind: 'rate', rating: 'BAD' }),

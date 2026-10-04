@@ -7,7 +7,6 @@ import { createThrottle, type ScheduleOptions } from './throttle'
 const ENDPOINT = 'https://api.annict.com/graphql'
 
 // 同じ IP から1秒4回まで（rails/config/initializers/rack_attack.rb）。余裕を見て約3回に抑える
-// 制限は API とサイトのページを合わせた数なので、ページの読み込み（annictPage.ts）も同じ列に並べる
 export const schedule = createThrottle(300)
 
 export type StatusState = 'WANNA_WATCH' | 'WATCHING' | 'WATCHED' | 'ON_HOLD' | 'STOP_WATCHING' | 'NO_STATE'

@@ -5,7 +5,7 @@ import { saveOnboardingSeen } from '../../lib/storage'
 import { LegalLinks } from './LegalLinks'
 import { Section } from './Section'
 
-// 設定の末尾。何のアプリで、何が外に出て、何が出ないか。要点だけ出して、通信先・画像・あらすじの細かい説明は畳む
+// 設定の末尾。何のアプリで、何が外に出て、何が出ないか。要点だけ出して、通信先・画像の細かい説明は畳む
 // showTagline: ログイン前の最初の画面では、すぐ上にキャッチコピーがあるので出さない
 export function AboutBlock({ showTagline = true }: { showTagline?: boolean }) {
   // 初めての人に出す使い方のシートを、ここからいつでも見直せる
@@ -40,11 +40,10 @@ export function AboutBlock({ showTagline = true }: { showTagline?: boolean }) {
         </li>
       </ul>
       <details className="settings__fold">
-        <summary>通信先・画像・あらすじについて</summary>
+        <summary>通信先・画像について</summary>
         <ul className="settings__list settings__lead">
           <li>通信先は Annict と Shikimori（このサイトの中継を経由）です。GitHub と連携した場合は、GitHub にも送信します。</li>
           <li>表紙には、Annict の画像（各作品の公式サイトの画像）と Shikimori のポスターを表示しています。権利は各権利者に帰属します。</li>
-          <li>作品の詳細に表示するあらすじは Annict の作品ページから取得し、引用元を明記しています。</li>
         </ul>
       </details>
       <p className="settings__lead settings__about-foot">

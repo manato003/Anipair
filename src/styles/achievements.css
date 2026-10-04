@@ -11,7 +11,6 @@
   --orn-gem-tiara: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 26'%3E%3Cpath d='M5 23 Q30 15 55 23 L55 25.5 Q30 18 5 25.5 Z'/%3E%3Cpath d='M8 21.5 L13 12 L18 19 L24 10 L28 17 L30 15 L32 17 L36 10 L42 19 L47 12 L52 21.5 Q30 15 8 21.5 Z'/%3E%3Cpath d='M30 0.5 L36 7 L30 15 L24 7 Z'/%3E%3Ccircle cx='13' cy='10.6' r='1.6'/%3E%3Ccircle cx='24' cy='8.6' r='1.7'/%3E%3Ccircle cx='36' cy='8.6' r='1.7'/%3E%3Ccircle cx='47' cy='10.6' r='1.6'/%3E%3C/svg%3E");
   --orn-crown: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 28'%3E%3Cpath d='M9 23 L7 8 L19 16 L30 3 L41 16 L53 8 L51 23 Z'/%3E%3Cpath d='M9 24 H51 V27.5 H9 Z'/%3E%3Ccircle cx='7' cy='6.6' r='2.5'/%3E%3Ccircle cx='30' cy='2.6' r='2.8'/%3E%3Ccircle cx='53' cy='6.6' r='2.5'/%3E%3C/svg%3E");
   --orn-horns: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 24'%3E%3Cpath d='M25 22 C18 18 12 10 15 1 C17 10 23 14 29 17 Z'/%3E%3Cpath d='M35 22 C42 18 48 10 45 1 C43 10 37 14 31 17 Z'/%3E%3Cpath d='M30 8 L34.5 15 L30 22.5 L25.5 15 Z'/%3E%3C/svg%3E");
-  --orn-flame: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 26'%3E%3Cpath d='M30 1 C34 8 39 11 37.5 17.5 C36.5 22.5 33 25 30 25 C27 25 23.5 22.5 22.5 17.5 C21 11 26 8 30 1 Z'/%3E%3Cpath d='M20.5 23 C17 19.5 17.5 15 20.5 11.5 C20.5 15.5 22.5 18 24 22 Z'/%3E%3Cpath d='M39.5 23 C43 19.5 42.5 15 39.5 11.5 C39.5 15.5 37.5 18 36 22 Z'/%3E%3Cpath d='M16 23.5 H44 V26 H16 Z'/%3E%3C/svg%3E");
 }
 
 /* ── レア度 ──
@@ -58,15 +57,6 @@
   --tint: #fff1b0;
   --side: var(--orn-wing);
   --crest: var(--orn-crown);
-}
-
-/* 特別な称号（Annict サポーター）: ローズゴールドに灯火の紋章と月桂樹。照り返しがゆっくり流れる（origin より控えめ。光輪ときらめきは無い） */
-.rarity--patron {
-  --metal: linear-gradient(110deg, #fff0e4 0%, #f6b99a 20%, #b5674a 40%, #ffe1cf 58%, #e89c7c 78%, #fff0e4 100%);
-  --tint: #ffb38f;
-  --side: var(--orn-laurel);
-  --crest: var(--orn-flame);
-  --plate-bg: #160d0c;
 }
 
 /* 特別な称号（Annict を創った人だけ）: 黒曜石の地に白金。王冠と翼、背後で光輪が回る */
@@ -123,7 +113,6 @@
 .rarity--amethyst .plate__crest,
 .rarity--crimson .plate__crest,
 .rarity--radiant .plate__crest,
-.rarity--patron .plate__crest,
 .rarity--origin .plate__crest {
   display: block;
 }
@@ -220,28 +209,6 @@
   right: 16%;
   bottom: 18%;
   animation-delay: 1.2s;
-}
-
-/* サポーター: 照り返しがゆっくり流れ、札の光がゆっくり息をする */
-.rarity--patron .plate__crest,
-.rarity--patron .plate__side,
-.rarity--patron .plate__name {
-  background-size: 300% 100%;
-  animation: radiant-flow 12s linear infinite;
-}
-
-.rarity--patron .plate__bar {
-  animation: patron-glow 3.2s ease-in-out infinite;
-}
-
-@keyframes patron-glow {
-  50% {
-    box-shadow:
-      inset 0 0 0 2px var(--plate-bg),
-      inset 0 0 0 3px color-mix(in srgb, var(--tint) 40%, transparent),
-      inset 0 0 20px color-mix(in srgb, var(--tint) 26%, transparent),
-      0 0 26px color-mix(in srgb, var(--tint) 42%, transparent);
-  }
 }
 
 /* 特別な称号: 白金の照り返しがゆっくり流れ、背後で光輪が回り、きらめく */

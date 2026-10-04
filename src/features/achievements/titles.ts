@@ -25,8 +25,6 @@ export interface Feats {
 
 export interface Facts {
   stats: ViewerStats | null
-  // Annict サポーターか（プロフィールページのバッジ。読めなければ null）
-  supporter?: boolean | null
   // 見た作品（WATCHED）の放送年
   watchedYears: readonly number[]
   // クールごとの答えた数（slug ごと）。読めたクールだけ
@@ -39,8 +37,8 @@ export type TitleGroup = 'season' | 'year' | 'decade' | 'hidden' | 'special'
 
 // レア度。名札の色と装飾が変わる（styles/achievements.css の .plate--*）。並びは低い順。
 // 色はゲームのレア度とランクの決まりに寄せた（原神・鳴潮の星の色、Valorant・Apex・LoL のランクの色）
-// patron と origin は特別な称号専用（patron: Annict サポーター、origin: Annict を創った人だけ。origin がいちばん上）
-export const RARITIES = ['bronze', 'silver', 'gold', 'amethyst', 'crimson', 'radiant', 'patron', 'origin'] as const
+// origin は特別な称号（Annict を創った人だけ）専用
+export const RARITIES = ['bronze', 'silver', 'gold', 'amethyst', 'crimson', 'radiant', 'origin'] as const
 export type Rarity = (typeof RARITIES)[number]
 
 export interface Title {
@@ -137,8 +135,8 @@ export const HIDDEN_COUNT = HIDDEN.length
 // Annict を創った shimbaco さんへの敬意として（2026-10-04 利用者）。ユーザー名は Annict の API が返すログイン中の本人のもの
 const SPECIAL: readonly { id: string; name: string; condition: string; rarity: Rarity; test: (f: Facts) => boolean }[] = [
   { id: 'special-creator', name: '記録の世界を創りし者', condition: 'Annict を創った人だけが持つ称号', rarity: 'origin', test: (f) => f.stats?.username === 'shimbaco' },
-  // Annict サポーター（2026-10-04 利用者の発案）。Annict の編集者は、外から見分ける方法が無いので入れていない
-  { id: 'special-supporter', name: '灯火を護りし者', condition: 'Annict サポーターとして Annict を支えている', rarity: 'patron', test: (f) => f.supporter === true },
+  // Annict サポーターの称号も考えたが、サポーターかは API に無い（プロフィールページにしか出ない）ので入れない。
+  // Annict は API で取れるものだけを使う（docs/concept.md の設計の原則）。編集者も外から見分ける方法が無い
 ]
 
 function yearsBetween(from: Date, to: Date): number {

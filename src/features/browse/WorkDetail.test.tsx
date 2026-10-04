@@ -18,16 +18,13 @@ vi.mock('../../lib/annict', async (orig) => ({
   }),
   deleteReview: vi.fn(async (_t: string, id: string) => void calls.push(`delete ${id}`)),
 }))
-let synopsis: { text: string; source: string | null } | null = null
-let vods: { name: string; url: string }[] = []
 let copyright: string | null = null
-// Shikimori はジャンルとテーマ（と Shikimori へのリンク）だけに使う。あらすじは取らない
+// Shikimori はジャンルとテーマ（と Shikimori へのリンク）だけに使う
 let shikiMedia: { genres: string[]; themes: string[] } | null = null
 vi.mock('../../lib/shikimori', async (orig) => ({
   ...(await orig<typeof import('../../lib/shikimori')>()),
   fetchMedia: vi.fn(async (ids: number[]) => new Map(shikiMedia ? ids.map((id) => [id, { idMal: id, ...shikiMedia }]) : [])),
 }))
-vi.mock('../../lib/annictPage', () => ({ fetchWorkPage: vi.fn(async () => ({ synopsis, vods })) }))
 vi.mock('../../lib/myReviews', () => ({
   getMyReviews: vi.fn(() => reviewsPromise),
   rememberReview: vi.fn(async () => undefined),
@@ -35,7 +32,6 @@ vi.mock('../../lib/myReviews', () => ({
 
 const { WorkDetail } = await import('./WorkDetail')
 const { getMyReviews, rememberReview } = await import('../../lib/myReviews')
-const { fetchWorkPage } = await import('../../lib/annictPage')
 
 const work: BrowseWork = {
   id: 'W1',
@@ -73,9 +69,7 @@ function queue() {
 
 beforeEach(() => {
   calls.length = 0
-  synopsis = null
   shikiMedia = null
-  vods = []
   copyright = null
   vi.mocked(getMyReviews).mockClear()
   vi.mocked(rememberReview).mockClear()
@@ -122,25 +116,20 @@ describe('WorkDetail', () => {
     expect(screen.getByRole('link', { name: 'Annict' }).getAttribute('href')).toBe('https://annict.com/works/1')
   })
 
-  it("shows Annict's Japanese synopsis with its source, and the genres and themes from Shikimori in Japanese", async () => {
-    // 改行を含む文字列は、エスケープを使わずテンプレートリテラルに本物の改行で書く（ツール経由でエスケープが化けるため）
-    const text = `勇者ヒンメルたちと共に、
-魔王を打ち倒し。`
-    synopsis = { text, source: 'https://frieren-anime.jp/story/' }
+  it('shows the genres and themes from Shikimori in Japanese', async () => {
     shikiMedia = { genres: ['Fantasy'], themes: ['Award Winning'] }
     render(<WorkDetail token="t" work={{ ...work, malAnimeId: '52991' }} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
-    await waitFor(() => expect(screen.getByText('あらすじ')).toBeTruthy())
-    expect(document.querySelector('.detail__text')?.textContent).toBe(text)
-    expect(screen.getByRole('link', { name: '引用元' }).getAttribute('href')).toBe('https://frieren-anime.jp/story/')
     expect(await screen.findByText('ファンタジー・受賞作')).toBeTruthy()
   })
 
-  it('shows no synopsis at all when Annict has none (no English fallback)', async () => {
-    shikiMedia = { genres: [], themes: [] }
-    render(<WorkDetail token="t" work={{ ...work, malAnimeId: '52991' }} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
+  it('reads nothing outside the Annict API: no synopsis and no streaming services (they are only on Annict\u2019s web pages)', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    render(<WorkDetail readOnly token="t" work={work} cover={null} onClose={() => undefined} />)
     await waitFor(() => expect(screen.getByText('2023年秋 TV 12話')).toBeTruthy())
     expect(screen.queryByText('あらすじ')).toBeNull()
-    expect(document.querySelector('.detail__text')).toBeNull()
+    expect(screen.queryByText('配信')).toBeNull()
+    expect(fetchSpy.mock.calls.some(([url]) => String(url).startsWith('https://annict.com/'))).toBe(false)
+    fetchSpy.mockRestore()
   })
 
   it('shows the copyright notice from Annict under the cover, when there is one', async () => {
@@ -155,15 +144,16 @@ describe('WorkDetail', () => {
     expect((await screen.findByText('© 山田鐘人・アベツカサ／小学館')).classList.contains('detail__copyright')).toBe(true)
   })
 
-  it('keeps everything but the cover and title hidden until the detail, the work page and the genres have all arrived', async () => {
-    let releasePage: (p: { synopsis: null; vods: [] }) => void = () => undefined
-    vi.mocked(fetchWorkPage).mockImplementationOnce(() => new Promise((resolve) => (releasePage = resolve)))
-    render(<WorkDetail readOnly token="t" work={work} cover={null} onClose={() => undefined} />)
-    // 詳細は届いたが、作品ページがまだ
+  it('keeps everything but the cover and title hidden until the detail and the genres have both arrived', async () => {
+    let releaseShiki: (m: Map<number, unknown>) => void = () => undefined
+    const { fetchMedia } = await import('../../lib/shikimori')
+    vi.mocked(fetchMedia).mockImplementationOnce(() => new Promise((resolve) => (releaseShiki = resolve as (m: Map<number, unknown>) => void)))
+    render(<WorkDetail readOnly token="t" work={{ ...work, malAnimeId: '52991' }} cover={null} onClose={() => undefined} />)
+    // 詳細は届いたが、ジャンルがまだ
     await waitFor(() => expect(screen.getByText('2023年秋 TV 12話')).toBeTruthy())
     expect(document.querySelector('.detail--ready')).toBeNull()
     expect(document.querySelector('.detail__loading')).not.toBeNull()
-    releasePage({ synopsis: null, vods: [] })
+    releaseShiki(new Map())
     await waitFor(() => expect(document.querySelector('.detail--ready')).not.toBeNull())
     expect(document.querySelector('.detail__loading')).toBeNull()
   })
@@ -219,22 +209,6 @@ describe('WorkDetail', () => {
     render(<WorkDetail readOnly token="t" work={seed} cover={null} onClose={() => undefined} />)
     expect(screen.getByText('手がかりだけ')).toBeTruthy()
     expect(document.querySelectorAll('.detail__meta')).toHaveLength(0)
-  })
-
-  it('lists streaming services as links, in read-only sheets too, and omits the section when there are none', async () => {
-    vods = [
-      { name: 'Netflix', url: 'https://www.netflix.com/title/1' },
-      { name: 'ABEMAビデオ', url: 'https://abema.tv/video/title/1' },
-    ]
-    const { unmount } = render(<WorkDetail readOnly token="t" work={work} cover={null} onClose={() => undefined} />)
-    await waitFor(() => expect(screen.getByRole('link', { name: 'Netflix' }).getAttribute('href')).toBe('https://www.netflix.com/title/1'))
-    expect(screen.getByText('配信')).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'ABEMAビデオ' })).toBeTruthy()
-    unmount()
-    vods = []
-    render(<WorkDetail readOnly token="t" work={work} cover={null} onClose={() => undefined} />)
-    await waitFor(() => expect(screen.getByText('2023年秋 TV 12話')).toBeTruthy())
-    expect(screen.queryByText('配信')).toBeNull()
   })
 
   it('ignores Escape while inactive (a sheet left open in a hidden tab)', () => {

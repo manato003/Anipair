@@ -357,7 +357,8 @@ describe('Settings about block', () => {
     expect(text).toContain('Shikimori のポスターを表示しています。権利は各権利者に帰属します')
     expect(text).toContain('作品データの一部（ジャンル・似た作品・一部の表紙）は Shikimori から取得しています')
     expect((screen.getByRole('link', { name: 'Shikimori' }) as HTMLAnchorElement).href).toBe('https://shikimori.io/')
-    expect(text).toContain('引用元を明記しています')
+    // Annict は API で取れるものだけを使う（作品ページからあらすじを読まない）
+    expect(text).not.toMatch(/あらすじ|作品ページ/)
   })
 
   it('links to the source code and shows the version', () => {

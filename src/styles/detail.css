@@ -133,31 +133,8 @@ img.cover--contain {
   font-weight: 500;
 }
 
-.detail__text {
-  font-size: 0.85rem;
-  line-height: 1.7;
-  white-space: pre-line;
-}
-
-.detail__text--clamped {
-  display: -webkit-box;
-  -webkit-line-clamp: 5;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
 .detail__section > .link {
   justify-self: start;
-  padding: 0;
-}
-
-.detail__row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-}
-
-.detail__row .link {
   padding: 0;
 }
 
@@ -180,24 +157,6 @@ img.cover--contain {
 
 .credits__row dt {
   color: var(--muted);
-}
-
-/* 配信サービス。押すとそのサービスの作品ページが開く */
-.vods {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.chip--link {
-  text-decoration: none;
-}
-
-@media (hover: hover) {
-  .chip--link:hover {
-    border-color: var(--paper);
-    color: var(--paper);
-  }
 }
 
 .detail__links {

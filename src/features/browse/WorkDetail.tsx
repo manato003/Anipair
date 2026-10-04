@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { CoverImage } from '../../components/CoverImage'
 import { Sheet } from '../../components/Sheet'
-import { fetchWorkPage, type WorkPage } from '../../lib/annictPage'
 import { annictWorkUrl, fetchWorkDetail, updateStatus, type RatingState, type StatusState, type WorkDetail as Detail } from '../../lib/annict'
 import { getMyReviews, rememberReview } from '../../lib/myReviews'
 import { changeRating } from '../../lib/reviewOps'
@@ -40,7 +39,7 @@ type ReadOnly = { readOnly: true; enqueue?: undefined; onChange?: undefined }
 // active が false（隠れたタブに開いたまま残っている）のあいだは Esc に反応しない
 // シートが出てくる動きの長さ（base.css の sheet-in と同じ）。読み込みはこのあとに始める
 const OPEN_ANIMATION_MS = 240
-// 中身（詳細・作品ページ・ジャンル）がそろうのを待つ上限。過ぎたら、届いたものだけで出す
+// 中身（詳細・ジャンル）がそろうのを待つ上限。過ぎたら、届いたものだけで出す
 const CONTENT_WAIT_MS = 2500
 
 export function WorkDetail(
@@ -56,13 +55,9 @@ export function WorkDetail(
   const readOnly = props.readOnly === true
   const [detail, setDetail] = useState<Detail | null>(null)
   const [error, setError] = useState<string | null>(null)
-  // 作品ページの内容（あらすじと配信サービス）。読み込み中は undefined、読めなかったときは null。
-  // あらすじは Annict の日本語のもの。無ければ出さない。Shikimori はジャンルとテーマ（Annict に無い）にだけ使う
-  const [page, setPage] = useState<WorkPage | null | undefined>(undefined)
   const [shiki, setShiki] = useState<Media | null>(null)
   const [shikiDone, setShikiDone] = useState(() => !malIdOf(work))
   const [waitedLong, setWaitedLong] = useState(false)
-  const [expanded, setExpanded] = useState(false)
   // Annict は未記録を null ではなく NO_STATE で返す。画面では「記録なし」にそろえる
   const [state, setState] = useState<StatusState | null>(work.viewerStatusState && work.viewerStatusState !== 'NO_STATE' ? work.viewerStatusState : null)
   const [rating, setRating] = useState<RatingState | null>(null)
@@ -74,9 +69,6 @@ export function WorkDetail(
       fetchWorkDetail(token, work.id)
         .then((d) => !cancelled && setDetail(d))
         .catch((e) => !cancelled && setError(messageOf(e)))
-      fetchWorkPage(work.annictId)
-        .then((p) => !cancelled && setPage(p))
-        .catch(() => !cancelled && setPage(null))
       const mal = malIdOf(work)
       if (mal) {
         fetchMedia([mal])
@@ -136,14 +128,12 @@ export function WorkDetail(
   const genres = [...(shiki?.genres ?? []), ...(shiki?.themes ?? [])].map(genreName)
   const mal = malIdOf(work)
   const staff = mainStaff(detail?.staffs ?? [])
-  const synopsis = page?.synopsis
-  const vods = page?.vods ?? []
   // 詳細を読み込むまでは、手元の項目だけで出す
   const watchers = detail?.watchersCount ?? work.watchersCount
   const meta = workMeta(detail ?? work, detail?.episodesCount)
   // 表紙と題名はすぐ出す（評価の画面で出ている字なので組み直しが起きない）。それ以外は、中身と書体がそろってからまとめて出す。
   // そろうまでは並べずに置いておき、そこに含まれる字の書体だけを先に読む（lib/useFontsReady.ts、styles/detail.css の .detail--ready）
-  const settled = waitedLong || ((detail !== null || error !== null) && page !== undefined && shikiDone)
+  const settled = waitedLong || ((detail !== null || error !== null) && shikiDone)
   const rootRef = useRef<HTMLDivElement>(null)
   const ready = useFontsReady(settled, rootRef)
 
@@ -203,40 +193,11 @@ export function WorkDetail(
               </>
             )}
 
-            {vods.length > 0 && (
-              <section className="detail__section">
-                <h3 className="detail__label">配信</h3>
-                <div className="vods">
-                  {vods.map((v) => (
-                    <a key={v.url} className="chip chip--link" href={v.url} target="_blank" rel="noreferrer">
-                      {v.name}
-                    </a>
-                  ))}
-                </div>
-              </section>
-            )}
-
             {error && <p className="settings__error">{error}</p>}
 
-            {(genres.length > 0 || synopsis) && (
+            {genres.length > 0 && (
               <section className="detail__section">
-                {genres.length > 0 && <p className="detail__genres">{genres.join('・')}</p>}
-                {synopsis && (
-                  <>
-                    <h3 className="detail__label">あらすじ</h3>
-                    <p className={expanded ? 'detail__text' : 'detail__text detail__text--clamped'}>{synopsis.text}</p>
-                    <div className="detail__row">
-                      <button type="button" className="link" onClick={() => setExpanded((v) => !v)}>
-                        {expanded ? '閉じる' : '続きを読む'}
-                      </button>
-                      {synopsis.source && (
-                        <a className="detail__source" href={synopsis.source} target="_blank" rel="noreferrer">
-                          引用元
-                        </a>
-                      )}
-                    </div>
-                  </>
-                )}
+                <p className="detail__genres">{genres.join('・')}</p>
               </section>
             )}
 

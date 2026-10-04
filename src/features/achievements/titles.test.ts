@@ -149,12 +149,6 @@ describe('special titles', () => {
     expect(byId(facts({ stats: stats({ username: 'someone' }) })).get('special-creator')?.unlocked).toBe(false)
     expect(byId(facts({ stats: null })).get('special-creator')?.unlocked).toBe(false)
   })
-
-  it('gives the supporter title only when the profile shows the supporter badge', () => {
-    expect(byId(facts({ supporter: true })).get('special-supporter')).toMatchObject({ unlocked: true, group: 'special', rarity: 'patron' })
-    expect(byId(facts({ supporter: false })).get('special-supporter')?.unlocked).toBe(false)
-    expect(byId(facts({ supporter: null })).get('special-supporter')?.unlocked).toBe(false)
-  })
 })
 
 describe('rarity', () => {
