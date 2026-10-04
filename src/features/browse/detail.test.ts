@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { nextSeason, previousSeason, type Season } from '../../lib/season'
-import { mainStaff, safeHttpUrl, workMeta, xUrl } from './detail'
+import { mainStaff, withCopyrightMark, safeHttpUrl, workMeta, xUrl } from './detail'
 
 describe('mainStaff', () => {
   it('drops "その他", groups repeated roles in order and dedupes names', () => {
@@ -68,3 +68,12 @@ it('nextSeason is the inverse of previousSeason', () => {
   expect(s).toEqual({ year: 2027, name: 'spring' })
 })
 
+describe('withCopyrightMark', () => {
+  it('adds © when the text has none, and leaves one that has it', () => {
+    expect(withCopyrightMark('山田鐘人・アベツカサ／小学館')).toBe('© 山田鐘人・アベツカサ／小学館')
+    expect(withCopyrightMark('©山田鐘人')).toBe('©山田鐘人')
+    expect(withCopyrightMark('(C) Studio')).toBe('(C) Studio')
+    expect(withCopyrightMark('  ')).toBeNull()
+    expect(withCopyrightMark(null)).toBeNull()
+  })
+})

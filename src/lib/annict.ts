@@ -1,4 +1,5 @@
 import { emitAnnictAuthFailed } from './authEvents'
+import { annictImageOf } from './covers'
 import { delay, parseRetryAfter } from './retry'
 import { createThrottle, type ScheduleOptions } from './throttle'
 
@@ -29,6 +30,8 @@ export interface AnnictWork {
   malAnimeId: string | null
   watchersCount: number
   viewerStatusState: StatusState | null
+  // Annict の API の画像（公式サイトの横長の画像）。https のものだけ。表紙の決め方は lib/covers.ts
+  imageUrl: string | null
 }
 
 // 429（回数の制限）で自動で待って送り直す回数。Annict は rack-attack で IP ごとに数えている。
@@ -130,6 +133,7 @@ interface RawWork {
   malAnimeId: string | null
   watchersCount: number
   viewerStatusState: StatusState | null
+  image: { recommendedImageUrl: string | null; facebookOgImageUrl: string | null } | null
 }
 
 // そのクールの作品を、視聴者の多い順に取る
@@ -140,6 +144,7 @@ export async function fetchSeasonWorks(token: string, seasonSlug: string, limit 
       searchWorks(seasons: $seasons, first: $first, orderBy: {field: WATCHERS_COUNT, direction: DESC}) {
         nodes {
           id annictId title media malAnimeId watchersCount viewerStatusState
+          image { recommendedImageUrl facebookOgImageUrl }
         }
       }
     }`,
@@ -153,6 +158,7 @@ export async function fetchSeasonWorks(token: string, seasonSlug: string, limit 
     malAnimeId: w.malAnimeId,
     watchersCount: w.watchersCount,
     viewerStatusState: w.viewerStatusState,
+    imageUrl: annictImageOf(w.image),
   }))
 }
 
@@ -234,6 +240,8 @@ export interface LibraryEntry {
   // 放送時期（記録ページの「新しい順」に使う。分からなければ null）
   seasonYear?: number | null
   seasonName?: string | null
+  // Annict の API の画像（https のものだけ）。表紙に使う
+  imageUrl?: string | null
 }
 
 // 自分のライブラリ。状態が消えている（未設定に戻した）項目は含めない
@@ -254,6 +262,7 @@ export async function fetchLibrary(token: string): Promise<LibraryEntry[]> {
               malAnimeId: string | null
               seasonYear: number | null
               seasonName: string | null
+              image: { recommendedImageUrl: string | null; facebookOgImageUrl: string | null } | null
             }
           }[]
         }
@@ -262,7 +271,7 @@ export async function fetchLibrary(token: string): Promise<LibraryEntry[]> {
       token,
       `query($after: String) { viewer { libraryEntries(first: 100, after: $after) {
         pageInfo { hasNextPage endCursor }
-        nodes { status { state createdAt } work { id annictId title malAnimeId seasonYear seasonName } }
+        nodes { status { state createdAt } work { id annictId title malAnimeId seasonYear seasonName image { recommendedImageUrl facebookOgImageUrl } } }
       } } }`,
       { after },
     )
@@ -279,6 +288,7 @@ export async function fetchLibrary(token: string): Promise<LibraryEntry[]> {
         stateAt: n.status?.createdAt ?? null,
         seasonYear: n.work.seasonYear ?? null,
         seasonName: n.work.seasonName ?? null,
+        imageUrl: annictImageOf(n.work.image),
       })
     }
     if (!conn.pageInfo.hasNextPage) return out
@@ -381,6 +391,8 @@ export interface BrowseWork {
   malAnimeId: string | null
   watchersCount: number
   viewerStatusState: StatusState | null
+  // Annict の API の画像（https のものだけ）
+  imageUrl?: string | null
   // Annict の満足度（0〜100。計算されていない作品は null。最近の作品はほとんど null）
   satisfactionRate?: number | null
 }
@@ -403,20 +415,21 @@ export async function browseWorks(
   const data = await gql<{
     searchWorks: {
       pageInfo: { hasNextPage: boolean; endCursor: string | null }
-      nodes: BrowseWork[]
+      nodes: (Omit<BrowseWork, 'imageUrl'> & { image: { recommendedImageUrl: string | null; facebookOgImageUrl: string | null } | null })[]
     }
   }>(
     token,
     `query($titles: [String!], $seasons: [String!], $after: String, $first: Int, $order: WorkOrderField!) {
       searchWorks(titles: $titles, seasons: $seasons, first: $first, after: $after, orderBy: {field: $order, direction: DESC}) {
         pageInfo { hasNextPage endCursor }
-        nodes { id annictId title media seasonYear seasonName malAnimeId watchersCount viewerStatusState satisfactionRate }
+        nodes { id annictId title media seasonYear seasonName malAnimeId watchersCount viewerStatusState satisfactionRate image { recommendedImageUrl facebookOgImageUrl } }
       }
     }`,
     { titles: 'titles' in filter ? filter.titles : null, seasons: 'seasons' in filter ? filter.seasons : null, after, first, order },
   )
   const conn = data.searchWorks
-  return { works: conn.nodes, endCursor: conn.pageInfo.endCursor, hasNext: conn.pageInfo.hasNextPage }
+  const works = conn.nodes.map(({ image, ...w }) => ({ ...w, imageUrl: annictImageOf(image) }))
+  return { works, endCursor: conn.pageInfo.endCursor, hasNext: conn.pageInfo.hasNextPage }
 }
 
 export interface WorkDetail extends BrowseWork {
@@ -425,6 +438,8 @@ export interface WorkDetail extends BrowseWork {
   officialSiteUrl: string | null
   wikipediaUrl: string | null
   twitterUsername: string | null
+  // 作品の権利表記（Annict の画像の著作権。例: ©山田鐘人・アベツカサ／小学館／「葬送のフリーレン」製作委員会）
+  copyright: string | null
   casts: { character: string; name: string }[]
   staffs: { role: string; name: string }[]
   // 作品が入っている Annict のシリーズ（利用者が整理したもの。無い作品もある）。作品は放送時期の順
@@ -453,7 +468,8 @@ export interface AnnictSeries {
 // 取るとスタッフ一覧ごと失敗する（2026-09-30 に確認）ので取らない
 export async function fetchWorkDetail(token: string, workId: string): Promise<WorkDetail> {
   const data = await gql<{
-    node: Omit<WorkDetail, 'casts' | 'staffs' | 'series'> & {
+    node: Omit<WorkDetail, 'casts' | 'staffs' | 'copyright' | 'series'> & {
+      image: { copyright: string | null } | null
       seriesList: { nodes: { name: string; works: { edges: { summary: string | null; item: Omit<SeriesWork, 'summary'> }[] } }[] } | null
       casts: { nodes: { name: string; character: { name: string } }[] }
       staffs: { nodes: { name: string; roleText: string }[] }
@@ -462,7 +478,7 @@ export async function fetchWorkDetail(token: string, workId: string): Promise<Wo
     token,
     `query($id: ID!) { node(id: $id) { ... on Work {
       id annictId title titleKana media seasonYear seasonName malAnimeId watchersCount viewerStatusState
-      episodesCount officialSiteUrl wikipediaUrl twitterUsername
+      episodesCount officialSiteUrl wikipediaUrl twitterUsername image { copyright }
       casts(first: 12, orderBy: {field: SORT_NUMBER, direction: ASC}) { nodes { name character { name } } }
       staffs(first: 50, orderBy: {field: SORT_NUMBER, direction: ASC}) { nodes { name roleText } }
       seriesList(first: 5) { nodes { name works(first: 50, orderBy: {field: SEASON, direction: ASC}) {
@@ -471,13 +487,14 @@ export async function fetchWorkDetail(token: string, workId: string): Promise<Wo
     } } }`,
     { id: workId },
   )
-  const { seriesList, ...n } = data.node
+  const { image, seriesList, ...n } = data.node
   return {
     ...n,
     series: (seriesList?.nodes ?? []).map((s) => ({
       name: s.name,
       works: s.works.edges.map((e) => ({ ...e.item, summary: e.summary?.trim() || null })),
     })),
+    copyright: image?.copyright?.trim() || null,
     casts: n.casts.nodes.map((c) => ({ character: c.character.name, name: c.name })),
     staffs: n.staffs.nodes.map((s) => ({ role: s.roleText, name: s.name })),
   }

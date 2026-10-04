@@ -2,26 +2,49 @@ import { fetchMedia } from './shikimori'
 import { clearLegacyCovers, loadPosters, savePosters, type Cover } from './storage'
 
 // 表紙の出どころを、ここ1か所で決める。どの画面も fetchCovers に作品を渡すだけで、出どころは知らない。
-// 表紙は Shikimori のポスター（縦長。端末に控える）だけ。見つからない作品は表紙なしで出す。
-// Annict の作品画像は使わない: Annict の開発者が「作品画像は API で公開していない」と言っている（Discord）ので、
-// API の Work.image（公式サイトの OGP 画像の URL と権利表記）も問い合わせない（2026-10-04。docs/concept.md の設計の原則）
+// 順番に試して、見つかった作品は次に回さない（RESOLVERS の先頭が優先）:
+//   1. Shikimori のポスター（縦長。端末に控える）
+//   2. Annict の API の画像（作品の公式サイトの OGP 画像。横長なので切らずに出す）
+// Annict 自身の縦長の画像は、Annict の開発者が権利の理由で API に出していないので、使わない（ページからも取らない）
 
 // 表紙を決めたい作品。Annict の作品なら、どの画面のデータにも入っている項目だけ
 export interface CoverSource {
   annictId: number
   malAnimeId: string | null
+  // Annict の API の画像（https のものだけを渡す。annictImageOf で取り出す）
+  imageUrl?: string | null
+}
+
+// Annict の Work.image から、使える画像の URL を取り出す。https のものだけ（recommendedImageUrl を先に見る）
+export function annictImageOf(image: { recommendedImageUrl?: string | null; facebookOgImageUrl?: string | null } | null | undefined): string | null {
+  for (const url of [image?.recommendedImageUrl, image?.facebookOgImageUrl]) {
+    if (typeof url === 'string' && url.startsWith('https://')) return url
+  }
+  return null
 }
 
 type Resolver = (works: CoverSource[]) => Promise<Map<number, Cover>>
 
-// 通信の要らない部分: 端末に控えたポスター。一覧を先に出すときに、この分だけ先に使える
+function ogCover(url: string): Cover {
+  return { url, thumb: url, landscape: true }
+}
+
+// 通信の要らない部分: 端末に控えたポスター → Annict の画像。一覧を先に出すときに、この分だけ先に使える
 export function quickCovers(works: readonly CoverSource[]): Map<number, Cover> {
   const posters = loadPosters()
   const out = new Map<number, Cover>()
   for (const w of works) {
     const p = posters.get(Number(w.malAnimeId))
     if (p) out.set(w.annictId, { url: p.o, thumb: p.m, landscape: false })
+    else if (w.imageUrl) out.set(w.annictId, ogCover(w.imageUrl))
   }
+  return out
+}
+
+// Annict の API の画像（公式サイトの OGP 画像）
+const annictOgImage: Resolver = async (works) => {
+  const out = new Map<number, Cover>()
+  for (const w of works) if (w.imageUrl) out.set(w.annictId, ogCover(w.imageUrl))
   return out
 }
 
@@ -58,7 +81,7 @@ const shikimoriPoster: Resolver = async (works) => {
   return out
 }
 
-const RESOLVERS: readonly Resolver[] = [shikimoriPoster]
+const RESOLVERS: readonly Resolver[] = [shikimoriPoster, annictOgImage]
 
 // 作品ごとの表紙（Annict の作品 ID → 表紙）。見つからなかった作品は入らない
 export async function fetchCovers(works: readonly CoverSource[]): Promise<Map<number, Cover>> {

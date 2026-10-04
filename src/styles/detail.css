@@ -40,6 +40,13 @@ img.cover--contain {
   object-fit: contain;
 }
 
+.detail__copyright {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.4;
+}
+
 .detail__titles {
   display: grid;
   gap: 4px;

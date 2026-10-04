@@ -11,7 +11,7 @@ import { messageOf } from '../../lib/useWriteQueue'
 import { genreName, malIdOf } from '../match/taste'
 import { RATINGS } from '../rate/queue'
 import { STATE_OPTIONS, optionState } from '../records/recordList'
-import { STATUS_LABEL, mainStaff, safeHttpUrl, workMeta, xUrl } from './detail'
+import { STATUS_LABEL, mainStaff, withCopyrightMark, safeHttpUrl, workMeta, xUrl } from './detail'
 import { RelatedWorks } from './RelatedWorks'
 
 // シートを開く作品の手がかり。詳細を読み込むまでは、ここにある項目だけで出す（分からない項目は省く）
@@ -145,6 +145,7 @@ export function WorkDetail(
             <div className={props.cover?.landscape ? 'detail__cover detail__cover--landscape' : 'detail__cover'}>
               {props.cover && <CoverImage cover={props.cover} size="large" />}
             </div>
+            {withCopyrightMark(detail?.copyright) && <p className="detail__copyright detail__late">{withCopyrightMark(detail?.copyright)}</p>}
           </div>
           <div className="detail__titles">
             <h2 className="detail__title">{work.title}</h2>
