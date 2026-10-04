@@ -12,7 +12,6 @@ function work(annictId: number, state: StatusState | null, extra: Partial<Annict
     malAnimeId: String(annictId + 1000),
     watchersCount: 100,
     viewerStatusState: state,
-    imageUrl: null,
     ...extra,
   }
 }

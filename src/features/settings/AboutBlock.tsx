@@ -32,7 +32,7 @@ export function AboutBlock({ showTagline = true }: { showTagline?: boolean }) {
         <li>運営サーバーはなく、利用者の情報は保存しません。サーバーで動くのは、ログインの受け渡しと Shikimori への中継の2つの処理だけです。</li>
         <li>トークンは、この端末の中にだけ保存されます。</li>
         <li>
-          作品データの一部（ジャンル・似た作品・一部の表紙）は{' '}
+          作品データの一部（ジャンル・似た作品・表紙）は{' '}
           <a href="https://shikimori.io/" target="_blank" rel="noreferrer">
             Shikimori
           </a>{' '}
@@ -43,7 +43,7 @@ export function AboutBlock({ showTagline = true }: { showTagline?: boolean }) {
         <summary>通信先・画像について</summary>
         <ul className="settings__list settings__lead">
           <li>通信先は Annict と Shikimori（このサイトの中継を経由）です。GitHub と連携した場合は、GitHub にも送信します。</li>
-          <li>表紙には、Annict の画像（各作品の公式サイトの画像）と Shikimori のポスターを表示しています。権利は各権利者に帰属します。</li>
+          <li>表紙には Shikimori のポスターを表示しています。権利は各権利者に帰属します。Annict の作品画像は使っていません。</li>
         </ul>
       </details>
       <p className="settings__lead settings__about-foot">

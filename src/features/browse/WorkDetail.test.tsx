@@ -10,7 +10,7 @@ let reviewsPromise: Promise<Map<number, MyReview>> = Promise.resolve(new Map())
 
 vi.mock('../../lib/annict', async (orig) => ({
   ...(await orig<typeof import('../../lib/annict')>()),
-  fetchWorkDetail: vi.fn(async () => ({ ...work, titleKana: null, episodesCount: 12, officialSiteUrl: 'javascript:alert(1)', wikipediaUrl: null, twitterUsername: null, copyright, casts: [], staffs: [] })),
+  fetchWorkDetail: vi.fn(async () => ({ ...work, titleKana: null, episodesCount: 12, officialSiteUrl: 'javascript:alert(1)', wikipediaUrl: null, twitterUsername: null, casts: [], staffs: [] })),
   updateStatus: vi.fn(async (_t: string, id: string, s: string) => void calls.push(`status ${id} ${s}`)),
   createReview: vi.fn(async (_t: string, id: string, r: string) => {
     calls.push(`create ${id} ${r}`)
@@ -18,7 +18,6 @@ vi.mock('../../lib/annict', async (orig) => ({
   }),
   deleteReview: vi.fn(async (_t: string, id: string) => void calls.push(`delete ${id}`)),
 }))
-let copyright: string | null = null
 // Shikimori はジャンルとテーマ（と Shikimori へのリンク）だけに使う
 let shikiMedia: { genres: string[]; themes: string[] } | null = null
 vi.mock('../../lib/shikimori', async (orig) => ({
@@ -70,7 +69,6 @@ function queue() {
 beforeEach(() => {
   calls.length = 0
   shikiMedia = null
-  copyright = null
   vi.mocked(getMyReviews).mockClear()
   vi.mocked(rememberReview).mockClear()
   reviewsPromise = new Promise((resolve) => (releaseReviews = resolve))
@@ -132,16 +130,10 @@ describe('WorkDetail', () => {
     fetchSpy.mockRestore()
   })
 
-  it('shows the copyright notice from Annict under the cover, when there is one', async () => {
-    copyright = '© 山田鐘人・アベツカサ／小学館／「葬送のフリーレン」製作委員会'
+  it('shows no image copyright from Annict (Annict\u2019s work images and their notices are not used)', async () => {
     render(<WorkDetail token="t" work={work} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
-    expect((await screen.findByText(copyright)).classList.contains('detail__copyright')).toBe(true)
-  })
-
-  it('puts © in front of a notice that has none', async () => {
-    copyright = '山田鐘人・アベツカサ／小学館'
-    render(<WorkDetail token="t" work={work} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
-    expect((await screen.findByText('© 山田鐘人・アベツカサ／小学館')).classList.contains('detail__copyright')).toBe(true)
+    await waitFor(() => expect(screen.getByText('2023年秋 TV 12話')).toBeTruthy())
+    expect(document.querySelector('.detail__copyright')).toBeNull()
   })
 
   it('keeps everything but the cover and title hidden until the detail and the genres have both arrived', async () => {

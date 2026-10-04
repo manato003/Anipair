@@ -355,7 +355,7 @@ describe('Settings about block', () => {
     expect(text).toContain('通信先は Annict と Shikimori（このサイトの中継を経由）です。GitHub と連携した場合は、GitHub にも送信します')
     expect(text).toContain('トークンは、この端末の中にだけ保存されます')
     expect(text).toContain('Shikimori のポスターを表示しています。権利は各権利者に帰属します')
-    expect(text).toContain('作品データの一部（ジャンル・似た作品・一部の表紙）は Shikimori から取得しています')
+    expect(text).toContain('作品データの一部（ジャンル・似た作品・表紙）は Shikimori から取得しています')
     expect((screen.getByRole('link', { name: 'Shikimori' }) as HTMLAnchorElement).href).toBe('https://shikimori.io/')
     // Annict は API で取れるものだけを使う（作品ページからあらすじを読まない）
     expect(text).not.toMatch(/あらすじ|作品ページ/)
