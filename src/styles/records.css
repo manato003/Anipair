@@ -20,6 +20,11 @@
   gap: 8px;
 }
 
+.records__buttons {
+  display: flex;
+  gap: 8px;
+}
+
 .records__head .btn {
   padding: 6px 16px;
   font-size: 0.85rem;

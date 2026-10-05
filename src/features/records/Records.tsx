@@ -4,6 +4,7 @@ import { Achievements } from '../achievements/Achievements'
 import { loadTitlesState } from '../achievements/achievementStore'
 import { CoverImage } from '../../components/CoverImage'
 import { Empty } from '../../components/Empty'
+import { HelpButton } from '../../components/Help'
 import { SaveStatus } from '../../components/SaveStatus'
 import type { RatingState, StatusState } from '../../lib/annict'
 import { RATING_LABEL } from '../../lib/reviewOps'
@@ -77,16 +78,19 @@ export function Records({ token, active }: { token: string; active: boolean }) {
             {achievementsUnseen && <span className="viewswitch__dot" aria-label="まだ見ていません" />}
           </button>
         </div>
-        {view === 'records' && (
-          <div className="records__actions">
-            <button type="button" className="btn" onClick={() => setTrendsOpen(true)} disabled={!r.rows}>
-              傾向
-            </button>
-            <button type="button" className={editing ? 'btn btn--primary' : 'btn'} onClick={() => setEditing((e) => !e)} disabled={!r.rows}>
-              {editing ? '完了' : '編集'}
-            </button>
-          </div>
-        )}
+        <div className="records__actions">
+          {view === 'records' && (
+            <div className="records__buttons">
+              <button type="button" className="btn" onClick={() => setTrendsOpen(true)} disabled={!r.rows}>
+                傾向
+              </button>
+              <button type="button" className={editing ? 'btn btn--primary' : 'btn'} onClick={() => setEditing((e) => !e)} disabled={!r.rows}>
+                {editing ? '完了' : '編集'}
+              </button>
+            </div>
+          )}
+          <HelpButton topic="records" active={active} />
+        </div>
       </header>
 
       {view === 'achievements' ? (

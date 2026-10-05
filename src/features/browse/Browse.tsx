@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { CoverImage } from '../../components/CoverImage'
 import { Empty } from '../../components/Empty'
+import { HelpButton } from '../../components/Help'
 import { SaveStatus } from '../../components/SaveStatus'
 import { SeasonPicker } from '../../components/SeasonPicker'
 import type { BrowseWork } from '../../lib/annict'
@@ -26,6 +27,7 @@ export function Browse({ token, active = true }: { token: string; active?: boole
     <section className="records">
       <header className="records__head">
         <h1 className="season">ブラウズ</h1>
+        <HelpButton topic="browse" active={active} />
       </header>
 
       <div className="records__controls">
@@ -57,7 +59,10 @@ export function Browse({ token, active = true }: { token: string; active?: boole
             </button>
           ))}
         </div>
-        {b.sort === 'score' && <p className="note">Annict の満足度の高い順です。満足度の無い作品は Shikimori の点数（10点満点）で並べ、点数の無い作品は最後に並びます。</p>}
+        {/* いまの並べ方が何の順かを、いつも1行で出す（人気順と評価順の違いが分かるように） */}
+        {b.sort === 'popular' && <p className="note">Annict でこの作品を記録した人の多い順です。</p>}
+        {b.sort === 'newest' && <p className="note">放送の新しい順です。</p>}
+        {b.sort === 'score' && <p className="note">評判の高い順です。Annict の満足度、無ければ Shikimori の点数（10点満点）で並べ、点数の無い作品は最後に並びます。</p>}
         {b.sort === 'taste' && b.works && (
           <p className="note">{b.tasteNote ?? 'あなたの評価から、好みに合いそうな順に並べています。情報の無い作品は最後に並びます。'}</p>
         )}

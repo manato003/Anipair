@@ -149,7 +149,7 @@ describe('Sheet on touch devices', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
-  it('hides the small close link (still there for screen readers), and shows the tap hint only until the first close', () => {
+  it('hides the small close link (still there for screen readers), shows the tap hint prominently until the first close, then quietly', () => {
     asTouch(true)
     localStorage.clear()
     const onClose = vi.fn()
@@ -163,13 +163,14 @@ describe('Sheet on touch devices', () => {
     fireEvent.click(screen.getByText('あらすじの文'))
     expect(onClose).toHaveBeenCalledTimes(1)
     unmount()
-    // 2回目からは案内を出さない
+    // 2回目からは、控えめな1行で出し続ける
     render(
       <Sheet label="詳細" onClose={onClose}>
         <Body />
       </Sheet>,
     )
     expect(screen.queryByText('シートのどこかをタップすると閉じます')).toBeNull()
+    expect(screen.getByText('タップで閉じます').className).toContain('sheet__hint--quiet')
     localStorage.clear()
   })
 
@@ -186,5 +187,6 @@ describe('Sheet on touch devices', () => {
     // マウスでは右上の「閉じる」がそのまま見え、案内は出ない
     expect(screen.getByRole('button', { name: '閉じる' }).className).not.toContain('visually-hidden')
     expect(screen.queryByText('シートのどこかをタップすると閉じます')).toBeNull()
+    expect(screen.queryByText('タップで閉じます')).toBeNull()
   })
 })

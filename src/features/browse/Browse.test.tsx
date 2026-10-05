@@ -82,6 +82,16 @@ describe('Browse sort options', () => {
     expect(setSort).toHaveBeenCalledWith('taste')
   })
 
+  it('always says in one line what the current order is (so 人気順 and 評価順 can be told apart)', () => {
+    const { unmount } = render(<Browse token="t" />)
+    expect(screen.getByText('Annict でこの作品を記録した人の多い順です。')).toBeTruthy()
+    unmount()
+    state = { ...base(), sort: 'score' }
+    render(<Browse token="t" />)
+    expect(screen.getByText(/^評判の高い順です。Annict の満足度、無ければ Shikimori の点数/)).toBeTruthy()
+    expect(screen.queryByText('Annict でこの作品を記録した人の多い順です。')).toBeNull()
+  })
+
   it('offers 新しい順 but not 好み順 while searching by title', () => {
     state = { ...base(), searching: true }
     render(<Browse token="t" />)

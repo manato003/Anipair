@@ -12,6 +12,14 @@
   overflow-y: auto;
 }
 
+/* 設定の上の段。右端に「?」（使い方）だけを置く */
+.settings__head {
+  display: flex;
+  justify-content: flex-end;
+  /* ほかの画面の「?」と高さをそろえる（設定は上の余白が広い） */
+  margin: -16px 0 4px;
+}
+
 /* 設定のまとまり（カード）。見出し → 1行の説明 → いまの状態 → 操作の順 */
 .settings__card {
   padding: 18px 16px;

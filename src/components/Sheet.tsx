@@ -10,7 +10,7 @@ import { loadSheetHintSeen, saveSheetHintSeen } from '../lib/storage'
 // 指で触る端末では、シートの中の、ボタンやリンクなど押せるもの以外の場所をタップしても閉じる
 // （文字を選んでいるときは閉じない。マウスでは、文字を選ぶ邪魔になるので閉じない）。
 // その代わり、右上の小さな「閉じる」は見えなくする（読み上げとキーボードのためにボタン自体は残す）。
-// 最初の1回だけ「タップで閉じます」と案内を出し、一度閉じたら出さない
+// 閉じ方の案内は、最初の1回だけ目立つ形で出し、一度閉じたあとは上に控えめな1行で出し続ける（いつ開いても閉じ方が分かるように）
 
 // シートの中でタップしても閉じない、押せるもの
 const INTERACTIVE = 'a, button, input, select, textarea, label, summary, [role="button"], [contenteditable="true"]'
@@ -23,6 +23,7 @@ export function Sheet(props: { label: string; active?: boolean; size?: 'large'; 
   const active = props.active ?? true
   const closeRef = useRef<HTMLButtonElement>(null)
   const [touch] = useState(isCoarsePointer)
+  // 初めての案内か（閉じたら「見た」にする）。2回目からは控えめな案内（quiet）
   const [hint] = useState(() => isCoarsePointer() && !loadSheetHintSeen())
   const close = () => {
     if (hint) saveSheetHintSeen()
@@ -72,8 +73,8 @@ export function Sheet(props: { label: string; active?: boolean; size?: 'large'; 
   return (
     <div className="sheet-backdrop" onClick={close}>
       <article className={props.size === 'large' ? 'sheet sheet--large' : 'sheet'} role="dialog" aria-modal="true" aria-label={props.label} onClick={(e) => onSheetClick(e)}>
-        <div className={touch ? (hint ? 'sheet__bar sheet__bar--hint' : 'sheet__bar sheet__bar--touch') : 'sheet__bar'}>
-          {hint && <p className="sheet__hint">シートのどこかをタップすると閉じます</p>}
+        <div className={touch ? 'sheet__bar sheet__bar--hint' : 'sheet__bar'}>
+          {touch && (hint ? <p className="sheet__hint">シートのどこかをタップすると閉じます</p> : <p className="sheet__hint sheet__hint--quiet">タップで閉じます</p>)}
           <button ref={closeRef} type="button" className={touch ? 'link visually-hidden' : 'link'} onClick={close}>
             閉じる
           </button>

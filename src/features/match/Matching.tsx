@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Bookmark } from '../../components/Bookmark'
 import { CoverImage } from '../../components/CoverImage'
 import { Empty } from '../../components/Empty'
+import { HelpButton } from '../../components/Help'
 import { BackIcon, EyeIcon, InfoIcon, UndoIcon } from '../../components/Icons'
 import { SaveStatus } from '../../components/SaveStatus'
 import { Sheet } from '../../components/Sheet'
@@ -37,6 +38,8 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
 
   // 絞り込みのシート。開いているあいだは、下のカードにキーが効かないようにする
   const [filterOpen, setFilterOpen] = useState(false)
+  // 右上の「?」の使い方を開いているあいだは、答えのキーを止める
+  const [helpOpen, setHelpOpen] = useState(false)
 
   // PC ではキーボードで答えられる。評価のキーは「見たことがある」を開かなくても効く。割り当ては設定画面で変えられる。
   // シートを開いているあいだは、詳細のキー以外は効かせない（詳細を読みながら押した数字で、下のカードに評価が付かないように）
@@ -54,7 +57,7 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
     stop: () => m.answer({ kind: 'stop' }),
     undo: m.undo,
   }
-  useShortcuts(sheetOpen ? { detail: toggleSheet } : { ...answers, detail: toggleSheet }, props.active && !filterOpen)
+  useShortcuts(sheetOpen ? { detail: toggleSheet } : { ...answers, detail: toggleSheet }, props.active && !filterOpen && !helpOpen)
 
   const showDeck = m.phase.kind === 'ready'
 
@@ -75,15 +78,16 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
               </span>
             )}
             {showDeck && (
-              <button type="button" className="link" onClick={() => setFilterOpen(true)}>
-                条件
-              </button>
+              <span className="rate__links">
+                <button type="button" className="link" onClick={() => setFilterOpen(true)}>
+                  条件
+                </button>
+                <button type="button" className="link" onClick={m.run}>
+                  提案し直す
+                </button>
+              </span>
             )}
-            {showDeck && (
-              <button type="button" className="link" onClick={m.run}>
-                提案し直す
-              </button>
-            )}
+            <HelpButton topic="match" active={props.active} onOpenChange={setHelpOpen} />
           </div>
         </header>
 

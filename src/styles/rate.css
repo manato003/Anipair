@@ -70,6 +70,13 @@
   gap: 14px;
 }
 
+/* マッチングの「条件」「提案し直す」（使い方の案内で、2つまとめて示す） */
+.rate__links {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+
 .count {
   font-size: 1rem;
   font-weight: 700;

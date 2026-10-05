@@ -438,13 +438,7 @@ kbd {
   background: var(--ink);
 }
 
-/* 指で触る端末: 右上の「閉じる」を見えなくしたので、帯は高さを持たない */
-.sheet__bar--touch {
-  min-height: 0;
-  padding-block: 0;
-}
-
-/* 最初の1回だけの案内 */
+/* 指で触る端末: 右上の「閉じる」は見えなくし、帯には閉じ方の案内を出す */
 .sheet__bar--hint {
   justify-content: center;
 }
@@ -456,6 +450,253 @@ kbd {
   color: var(--paper);
   font-size: 0.8rem;
   font-weight: 700;
+}
+
+/* 各画面の見出しの右端の「?」（使い方）。補助ボタンと同じ枠で、丸く小さく */
+.helpbtn {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  margin-left: auto;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink-raised) 80%, transparent);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.helpbtn .icon {
+  width: 19px;
+  height: 19px;
+}
+
+@media (hover: hover) {
+  .helpbtn:hover {
+    border-color: var(--brand-lavender);
+    color: var(--paper);
+  }
+}
+
+/* 画面の上で示す使い方（Tour）。幕は切り抜きの影で作る（切り抜いた所だけ明るく、押しても下のボタンには届かない） */
+.tour {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  cursor: pointer;
+}
+
+.tour__spot {
+  position: fixed;
+  border-radius: 14px;
+  box-shadow:
+    0 0 0 2px var(--brand-lavender),
+    0 0 18px 4px color-mix(in srgb, var(--brand-lavender) 45%, transparent),
+    0 0 0 200vmax rgb(8 10 22 / 0.72);
+  pointer-events: none;
+  transition:
+    top 0.28s ease,
+    left 0.28s ease,
+    width 0.28s ease,
+    height 0.28s ease;
+}
+
+.tour__bubble {
+  position: fixed;
+  padding: 14px 16px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-m);
+  background: var(--ink-raised);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.45);
+  cursor: default;
+  animation: tour-in 0.22s ease;
+}
+
+/* 吹き出しの矢印。示すボタンの真ん中（--arrow）を指す */
+.tour__bubble::before {
+  content: '';
+  position: absolute;
+  left: calc(var(--arrow) - 8px);
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--line-strong);
+  background: var(--ink-raised);
+  transform: rotate(45deg);
+}
+
+.tour__bubble--below::before {
+  top: -9px;
+  border-right: 0;
+  border-bottom: 0;
+}
+
+.tour__bubble--above::before {
+  bottom: -9px;
+  border-top: 0;
+  border-left: 0;
+}
+
+/* 左右に出すときは、矢印を縦の位置（--arrow）に置く */
+.tour__bubble--right::before,
+.tour__bubble--left::before {
+  top: calc(var(--arrow) - 8px);
+  left: auto;
+}
+
+.tour__bubble--right::before {
+  left: -9px;
+  border-top: 0;
+  border-right: 0;
+}
+
+.tour__bubble--left::before {
+  right: -9px;
+  border-bottom: 0;
+  border-left: 0;
+}
+
+/* 示すものに重ねて出すとき（画面いっぱいのカードなど）は、矢印を出さない */
+.tour__bubble--over::before {
+  content: none;
+}
+
+@keyframes tour-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.tour__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.tour__count {
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.tour__tap {
+  margin-left: 10px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 400;
+}
+
+.tour__title {
+  margin-top: 6px;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.tour__body {
+  margin-top: 4px;
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+
+.tour__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.tour__nav {
+  display: flex;
+  gap: 8px;
+}
+
+.tour__nav .btn {
+  padding: 8px 18px;
+  font-size: 0.9rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tour__spot {
+    transition: none;
+  }
+
+  .tour__bubble {
+    animation: none;
+  }
+}
+
+[data-effects='none'] .tour__spot {
+  transition: none;
+}
+
+[data-effects='none'] .tour__bubble {
+  animation: none;
+}
+
+/* 使い方のシートの中 */
+.help__section {
+  margin-top: 20px;
+}
+
+.help__heading {
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.help__list {
+  display: grid;
+  gap: 12px;
+}
+
+.help__item dt {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.help__item dd {
+  color: color-mix(in srgb, var(--paper) 85%, var(--muted));
+  font-size: 0.88rem;
+  line-height: 1.7;
+}
+
+.help__more {
+  border-top: 1px solid var(--line);
+}
+
+.help__more:last-child {
+  border-bottom: 1px solid var(--line);
+}
+
+.help__more summary {
+  padding: 12px 0;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.help__more .help__list {
+  padding-bottom: 14px;
+}
+
+.help__thanks {
+  margin-top: 24px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.7;
+  text-align: center;
+}
+
+/* 2回目からの案内。読まなくても邪魔にならないよう、地の色に近い小さな文字だけにする */
+.sheet__hint--quiet {
+  padding: 0;
+  background: none;
+  color: color-mix(in srgb, var(--muted) 70%, transparent);
+  font-size: 0.7rem;
+  font-weight: 400;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,3 +1,4 @@
+import { HelpButton } from '../../components/Help'
 import { annictClientId } from '../../lib/annictLogin'
 import type { GithubConnection } from '../../lib/github'
 import { AboutBlock } from './AboutBlock'
@@ -37,6 +38,9 @@ export function Settings(props: {
     <section className="settings settings--nav">
       <SectionNav />
       <div className="settings__main">
+        <header className="settings__head">
+          <HelpButton topic="settings" />
+        </header>
         <AccountBlock token={props.annictToken} onChange={props.onAnnictTokenChange} />
         <GithubBlock github={props.github} onChange={props.onGithubChange} />
         <BackupBlock annictToken={props.annictToken} github={props.github} />

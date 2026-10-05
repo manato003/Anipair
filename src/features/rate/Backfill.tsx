@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Bookmark } from '../../components/Bookmark'
 import { CoverImage } from '../../components/CoverImage'
 import { Empty } from '../../components/Empty'
+import { HelpButton } from '../../components/Help'
 import { InfoIcon, UndoIcon } from '../../components/Icons'
 import { SaveStatus } from '../../components/SaveStatus'
 import { SeasonPicker } from '../../components/SeasonPicker'
@@ -183,6 +184,8 @@ export function Backfill({ token, github, active }: { token: string; github: Git
   // 初めて評価の画面を開いたときだけ、使い方のシートを出す。どう閉じても「見た」ことにして、次からは出さない
   const [guideOpen, setGuideOpen] = useState(() => !loadOnboardingSeen())
   const showGuide = guideOpen && active
+  // 右上の「?」の使い方を開いているあいだは、答えのキーを止める
+  const [helpOpen, setHelpOpen] = useState(false)
   const closeGuide = () => {
     saveOnboardingSeen(true)
     setGuideOpen(false)
@@ -227,7 +230,7 @@ export function Backfill({ token, github, active }: { token: string; github: Git
         undo,
       }
     : { undo }
-  useShortcuts(showGuide ? {} : sheetOpen ? { detail: toggleSheet } : { ...answers, detail: toggleSheet }, active)
+  useShortcuts(showGuide || helpOpen ? {} : sheetOpen ? { detail: toggleSheet } : { ...answers, detail: toggleSheet }, active)
 
   const next = inWatching ? (w.next ?? b.current) : b.next
   // クールの最後の1枚に答えて、そのクールを答え切った（開いた時点で全部記録済みだったクールでは祝わない）
@@ -252,6 +255,7 @@ export function Backfill({ token, github, active }: { token: string; github: Git
                 <span className="count__of">/{w.cards.length}</span>
               </span>
             ) : null}
+            <HelpButton topic="rate" active={active} onOpenChange={setHelpOpen} />
           </header>
           {/* クールの進み具合。人気作のうち答えた数（Annict で記録済みの分は最初から埋まっている） */}
           {progress && progress.total > 0 && (

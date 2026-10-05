@@ -30,6 +30,17 @@ export function InfoIcon() {
   )
 }
 
+// 使い方（各画面の右上の「?」）
+export function HelpIcon() {
+  return (
+    <Icon>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.6 9.3a2.5 2.5 0 0 1 4.85.85c0 1.65-2.45 2.15-2.45 3.7" />
+      <path d="M12 17v.1" />
+    </Icon>
+  )
+}
+
 // 見たことがある
 export function EyeIcon() {
   return (
