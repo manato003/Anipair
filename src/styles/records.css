@@ -41,6 +41,122 @@
   gap: 8px;
 }
 
+/* 絞り込みのボタン。条件をかけているあいだは枠を明るくし、条件の数を添える */
+.records__filterbtn {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+}
+
+.records__filterbtn[aria-pressed='true'] {
+  border-color: var(--brand-lavender);
+  color: var(--paper);
+}
+
+/* 並べ替えの向き（↓ 降順・↑ 昇順）。押している並べ替えにだけ出す */
+.sortdir {
+  margin-left: 4px;
+  font-weight: 700;
+}
+
+.records__sortnote {
+  margin: 0;
+}
+
+/* かけている絞り込みの条件。押すとその条件を外す */
+.activefilters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.activefilter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 10px;
+  border: 1px solid var(--brand-lavender);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand-lavender) 14%, transparent);
+  color: var(--paper);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+/* 絞り込みのシート */
+.filtersheet__group {
+  margin-top: 18px;
+}
+
+/* 段のすぐ下に添える説明 */
+.filtersheet__lead {
+  margin-top: 8px;
+}
+
+/* ほかの段と線で分けるまとまり（ブラウズの期間） */
+.filtersheet__block {
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.filtersheet__block + .filtersheet__lead {
+  margin-top: 14px;
+}
+
+.filtersheet__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filtersheet__years {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* マッチングの条件の選択欄（match.css の .filter select）と同じ見た目 */
+.filtersheet__years select {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--ink-raised);
+  font-family: inherit;
+  color: inherit;
+}
+
+.filtersheet__more {
+  margin-top: 10px;
+}
+
+/* 下に貼りつく「すべて解除」と「N件を表示」 */
+.filtersheet__foot {
+  --sheet-bottom: calc(24px + env(safe-area-inset-bottom));
+  position: sticky;
+  bottom: calc(var(--sheet-bottom) * -1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 24px -20px calc(var(--sheet-bottom) * -1);
+  padding: 12px 20px var(--sheet-bottom);
+  border-top: 1px solid var(--line);
+  background: var(--ink);
+}
+
+@media (min-width: 960px) {
+  .filtersheet__foot {
+    --sheet-bottom: 28px;
+    margin-inline: -28px;
+    padding-inline: 28px;
+  }
+}
+
 .records__controls .save {
   margin: 0;
 }
@@ -137,41 +253,494 @@
   opacity: 0.85;
 }
 
-/* 評価の分布の棒 */
-.bars {
+/* ── 傾向のシート（TrendsSheet・Charts） ── */
+
+/* カード（1つの見出しと図）。カードのあいだは線で区切る */
+.trend {
+  display: grid;
+  gap: 10px;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.trend__title {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.trend__title:not(:first-child) {
+  margin-top: 10px;
+}
+
+/* 図の読み方の一文 */
+.trend__headline {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.trend__fig {
+  margin-left: 4px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
+.trend__hero {
+  background: var(--brand-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-family: var(--font-display);
+  font-size: 2.2rem;
+  line-height: 1.2;
+}
+
+.trend__note {
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+
+.trend__sub {
+  display: grid;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.trend__ring {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  align-items: center;
+  gap: 14px;
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+/* まとめの大きな数（KPI の並び） */
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.kpi {
+  display: grid;
+  gap: 2px;
+  padding: 10px 6px;
+  border-radius: var(--radius-m);
+  background: var(--ink-raised);
+  text-align: center;
+}
+
+.kpi__value {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.kpi__label {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+/* 評価の分布の横棒（評価の色は意味を持つので、評価のボタンと同じ色） */
+.dist {
   display: grid;
   gap: 6px;
   list-style: none;
 }
 
-.bars__row {
+.dist__row {
   display: grid;
-  grid-template-columns: 9.5em 1fr 2.5em;
+  grid-template-columns: 5.5em 1fr 2.5em;
   align-items: center;
   gap: 8px;
   font-size: 0.8rem;
 }
 
-.bars__label {
+.dist__label {
   color: var(--muted);
 }
 
-.bars__track {
-  height: 10px;
+.dist__track {
+  height: 12px;
+}
+
+.dist__fill {
+  display: block;
+  height: 100%;
+  border-radius: 0 4px 4px 0;
+}
+
+.dist__count {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* SVG の図。線や目盛りは控えめ、データだけが目立つ */
+.chart {
+  display: block;
+  width: 100%;
+  overflow: visible;
+}
+
+.chart--radar {
+  max-width: 340px;
+  margin: 0 auto;
+}
+
+/* 広いシート（PC）で、縦棒が高くなりすぎないように */
+.chart--columns {
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.chart__grid {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.chart__area {
+  fill: color-mix(in srgb, var(--brand-lavender) 14%, transparent);
+  stroke: var(--brand-lavender);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.chart__dot {
+  fill: var(--brand-lavender);
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+
+.chart__axis {
+  font-size: 11px;
+}
+
+.chart__axis-name {
+  fill: var(--paper);
+  font-weight: 700;
+}
+
+.chart__axis-sub {
+  fill: var(--muted);
+  font-size: 10px;
+}
+
+.chart__bar {
+  fill: var(--line-strong);
+}
+
+.chart__bar--em {
+  fill: var(--brand-lavender);
+}
+
+.chart__hit {
+  fill: transparent;
+}
+
+.chart__tick {
+  fill: var(--muted);
+  font-size: 9px;
+}
+
+/* 順位の横棒（よく見る声優など） */
+.rankbars {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+}
+
+.rankbars__item {
+  display: grid;
+  grid-template-columns: minmax(0, 8em) 1fr auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.8rem;
+}
+
+.rankbars__name {
   overflow: hidden;
-  border-radius: 5px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rankbars__track {
+  height: 10px;
+}
+
+.rankbars__fill {
+  display: block;
+  height: 100%;
+  border-radius: 0 4px 4px 0;
+  background: var(--brand-blue);
+}
+
+.rankbars__value {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.rankbars__note {
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+/* 中央から左右に伸びる横棒（声優との相性）。棒は中央の線から伸ばす */
+.diverging {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+}
+
+/* 1段目に名前・棒・値、2段目に本数と例（例は長いので横いっぱいに） */
+.diverging__item {
+  display: grid;
+  grid-template-columns: minmax(0, 9em) 1fr 3em;
+  grid-template-areas: 'name track value' 'sub sub sub';
+  align-items: center;
+  gap: 2px 10px;
+  font-size: 0.8rem;
+}
+
+.diverging__label {
+  display: contents;
+}
+
+.diverging__name {
+  grid-area: name;
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diverging__sub {
+  grid-area: sub;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diverging__track {
+  grid-area: track;
+  position: relative;
+  height: 10px;
+}
+
+.diverging__center {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  left: 50%;
+  width: 1px;
+  background: var(--line-strong);
+}
+
+.diverging__fill {
+  position: absolute;
+  top: 0;
+  height: 100%;
+}
+
+.diverging__fill--plus {
+  left: 50%;
+  border-radius: 0 4px 4px 0;
+}
+
+.diverging__fill--minus {
+  right: 50%;
+  border-radius: 4px 0 0 4px;
+}
+
+.diverging__value {
+  grid-area: value;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 構成比の積み上げ横棒と凡例 */
+.stack {
+  display: grid;
+  gap: 8px;
+}
+
+.stack__bar {
+  display: flex;
+  gap: 2px;
+  overflow: hidden;
+  height: 14px;
+  border-radius: 4px;
+}
+
+.stack__part {
+  flex-basis: 0;
+  min-width: 2px;
+}
+
+.stack__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  list-style: none;
+  font-size: 0.75rem;
+}
+
+.stack__legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stack__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.stack__value {
+  color: var(--muted);
+}
+
+/* 季節の4マス */
+.seasons {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.seasons__cell {
+  display: grid;
+  gap: 2px;
+  padding: 8px 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  text-align: center;
+}
+
+.seasons__value {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+}
+
+.seasons__label {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+/* 完走率のリング */
+.ring__track {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 8;
+}
+
+.ring__fill {
+  fill: none;
+  stroke: var(--brand-lavender);
+  stroke-width: 8;
+  stroke-linecap: round;
+}
+
+.ring__value {
+  fill: var(--paper);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+/* 甘口・辛口のメーター（真ん中が世間と同じ） */
+.balance__track {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.balance__center {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  left: 50%;
+  width: 2px;
+  background: var(--muted);
+}
+
+.balance__dot {
+  position: absolute;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--brand-lavender);
+  transform: translate(-50%, -50%);
+}
+
+.balance__labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+/* 世間との比較の作品 */
+.contrast {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+}
+
+.contrast__item {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  grid-template-areas: 'cover title' 'cover scores';
+  column-gap: 10px;
+  align-items: center;
+}
+
+.contrast__cover {
+  grid-area: cover;
+  overflow: hidden;
+  width: 34px;
+  height: 48px;
+  border-radius: 4px;
   background: var(--ink-raised);
 }
 
-.bars__fill {
-  display: block;
+.contrast__cover img {
+  width: 100%;
   height: 100%;
-  border-radius: 5px;
+  object-fit: cover;
 }
 
-.bars__count {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
+.contrast__title {
+  grid-area: title;
+  overflow: hidden;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contrast__scores {
+  grid-area: scores;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.contrast__scores strong {
+  color: var(--paper);
 }
 
 .row__date {
@@ -183,6 +752,206 @@
   display: grid;
   gap: 8px;
   margin-top: 6px;
+}
+
+/* 「話ごとに記録」の開閉（見た・見てるの行）。普段は縮めておく */
+.eptoggle__button {
+  justify-self: start;
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.eptoggle__button[aria-expanded='true'] {
+  border-color: var(--brand-lavender);
+  color: var(--paper);
+}
+
+.eptoggle__chevron {
+  transition: transform 0.2s ease;
+}
+
+.eptoggle__button[aria-expanded='true'] .eptoggle__chevron {
+  transform: rotate(180deg);
+}
+
+/* 開いた記録欄は、行の下に表紙の列も含めた横幅いっぱいで出す（狭いと評価のボタンの文字が折れる） */
+.row__episodes {
+  grid-column: 1 / -1;
+}
+
+/* 話ごとの記録欄（EpisodeRecorder）。進み具合と、高さを固定した3段の記録の箱 */
+.ep {
+  display: grid;
+  gap: 8px;
+}
+
+.ep__progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ep__bar {
+  flex: 1;
+  overflow: hidden;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.ep__fill {
+  display: block;
+  height: 100%;
+  background: var(--brand-gradient);
+  transform-origin: left;
+}
+
+.ep__count {
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-decoration: underline dotted color-mix(in srgb, var(--paper) 40%, transparent);
+  text-underline-offset: 3px;
+}
+
+/* 3段の高さはいつも同じ（評価を押して次の話に切り替わっても、ボタンの位置が動かない） */
+.ep__box {
+  display: grid;
+  grid-template-rows: 34px 36px 22px;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: color-mix(in srgb, var(--ink-raised) 60%, transparent);
+}
+
+.ep__head {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 30px;
+  align-items: center;
+  gap: 6px;
+}
+
+.ep__step {
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  background: none;
+  color: var(--paper);
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+.ep__step:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* 選んでいる話は1行に収める（長い題名で段の高さが変わらないように） */
+.ep__current {
+  overflow: hidden;
+  font-size: 0.85rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ep__title {
+  margin-left: 6px;
+  color: var(--muted);
+}
+
+.ep__tracked {
+  margin-left: 6px;
+  color: var(--r-good);
+  font-size: 0.72rem;
+}
+
+.ep__placeholder {
+  height: 36px;
+}
+
+.ep__last {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.ep__note {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.ep__more {
+  width: 100%;
+  margin-top: 12px;
+}
+
+/* 話の一覧（EpisodeSheet）。押すと記録欄でその話を選ぶ */
+.eplist {
+  display: grid;
+  margin-top: 12px;
+  list-style: none;
+}
+
+.eplist__item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: baseline;
+  width: 100%;
+  padding: 12px 6px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* 記録欄でいま選んでいる話 */
+.eplist__item[aria-current='true'] {
+  border-radius: var(--radius-m);
+  background: color-mix(in srgb, var(--brand-lavender) 12%, transparent);
+}
+
+.eplist__label {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.eplist__title {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eplist__done {
+  color: var(--r-good);
+  font-size: 0.8rem;
 }
 
 .mini-ratings {
@@ -324,6 +1093,35 @@
     position: absolute;
     inset: 0;
     border-radius: var(--radius-m);
+  }
+
+  /* 話ごとの記録は、タイル全体に広げた題名のボタンより手前に出す（押したら記録する。詳細は開かない） */
+  .rows:not(.rows--edit) .eptoggle__button,
+  .rows:not(.rows--edit) .row__episodes {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* 話ごとの記録を開いたタイルは、行を横いっぱいに広げて、記録欄を表紙の横（題名の下）に出す */
+  .rows:not(.rows--edit) .row--expanded {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 170px minmax(0, 520px);
+    grid-template-areas: 'thumb body' 'thumb episodes';
+    align-items: start;
+    gap: 12px 20px;
+  }
+
+  .rows:not(.rows--edit) .row--expanded > .row__thumb {
+    grid-area: thumb;
+  }
+
+  .rows:not(.rows--edit) .row--expanded > .row__body {
+    grid-area: body;
+  }
+
+  .rows:not(.rows--edit) .row--expanded > .row__episodes {
+    grid-area: episodes;
   }
 
   .rows:not(.rows--edit) .row__open:focus-visible {

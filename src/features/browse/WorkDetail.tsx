@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { CoverImage } from '../../components/CoverImage'
 import { Sheet } from '../../components/Sheet'
-import { annictWorkUrl, fetchWorkDetail, updateStatus, type RatingState, type StatusState, type WorkDetail as Detail } from '../../lib/annict'
+import { annictWorkUrl, fetchWorkDetail, updateStatus, type Credit, type RatingState, type StatusState, type WorkDetail as Detail } from '../../lib/annict'
 import { getMyReviews, rememberReview } from '../../lib/myReviews'
 import { changeRating } from '../../lib/reviewOps'
 import { fetchMedia, shikimoriUrl, type Media } from '../../lib/shikimori'
@@ -12,7 +12,8 @@ import { fetchWikiSynopsis, type WikiSynopsis } from '../../lib/wikipedia'
 import { genreName, malIdOf } from '../match/taste'
 import { RATINGS } from '../rate/queue'
 import { STATE_OPTIONS, optionState } from '../records/recordList'
-import { STATUS_LABEL, mainStaff, withCopyrightMark, safeHttpUrl, workMeta, xUrl } from './detail'
+import { CreditWorks, type CreditTarget } from './CreditWorks'
+import { STATUS_LABEL, mainStaff, studioFor, withCopyrightMark, safeHttpUrl, workMeta, xUrl } from './detail'
 import { RelatedDetail, type RelatedTarget } from './RelatedDetail'
 import { RelatedWorks } from './RelatedWorks'
 
@@ -82,7 +83,9 @@ export function WorkDetail(
     if (patch.state !== undefined) setRelatedStates((cur) => new Map(cur).set(w.annictId, patch.state ?? null))
     props.onRelatedChange?.(w, patch)
   }
-  const active = (props.active ?? true) && related === null
+  // キャスト・スタッフ・制作会社から重ねて開いている参加作品の一覧
+  const [credit, setCredit] = useState<CreditTarget | null>(null)
+  const active = (props.active ?? true) && related === null && credit === null
   const [shikiDone, setShikiDone] = useState(() => !malIdOf(work))
   const [waitedLong, setWaitedLong] = useState(false)
   // Annict は未記録を null ではなく NO_STATE で返す。画面では「記録なし」にそろえる
@@ -167,7 +170,14 @@ export function WorkDetail(
   const x = xUrl(detail?.twitterUsername)
   const genres = [...(shiki?.genres ?? []), ...(shiki?.themes ?? [])].map(genreName)
   const mal = malIdOf(work)
-  const staff = mainStaff(detail?.staffs ?? [])
+  // 制作会社（団体で、役職が「〜制作」のもの。製作委員会などの「製作」は含めない）は、スタッフとは別に一番上に出す
+  const isStudio = (st: { role: string; ref: Credit | null }) => st.ref?.kind === 'org' && st.role.includes('制作') && !st.role.includes('製作')
+  const studios = (detail?.staffs ?? []).filter(isStudio).filter((st, i, all) => all.findIndex((x) => x.name === st.name) === i)
+  const staff = mainStaff((detail?.staffs ?? []).filter((st) => !isStudio(st)))
+  // スタッフの表記から、Annict の人物・団体を引く（同じ役職にまとめた名前を、1人ずつ押せるようにする）
+  const staffRefs = new Map((detail?.staffs ?? []).flatMap((st) => (st.ref ? [[`${st.role}\u0000${st.name}`, st.ref] as const] : [])))
+  const openCredit = (c: Credit, role: string) =>
+    setCredit({ credit: c, studio: c.kind === 'org' ? studioFor(c, role, shiki?.studioRefs ?? []) : null })
   // 詳細を読み込むまでは、手元の項目だけで出す
   const watchers = detail?.watchersCount ?? work.watchersCount
   const meta = workMeta(detail ?? work, detail?.episodesCount)
@@ -295,16 +305,16 @@ export function WorkDetail(
               onOpen={setRelated}
             />
 
-            {/* 広い画面では、キャストとスタッフを左右に並べる */}
+            {/* 上から 制作会社 → スタッフ → 声優。名前を押すと、その会社・人の参加作品の一覧 */}
             <div className="detail__credits">
-              {detail && detail.casts.length > 0 && (
+              {studios.length > 0 && (
                 <section className="detail__section">
-                  <h3 className="detail__label">キャスト</h3>
+                  <h3 className="detail__label">制作会社</h3>
                   <dl className="credits">
-                    {detail.casts.map((c) => (
-                      <div key={`${c.character}-${c.name}`} className="credits__row">
-                        <dt>{c.character}</dt>
-                        <dd>{c.name}</dd>
+                    {studios.map((st) => (
+                      <div key={st.name} className="credits__row">
+                        <dt>{st.role}</dt>
+                        <dd>{st.ref ? <CreditName name={st.name} onOpen={() => st.ref && openCredit(st.ref, st.role)} /> : st.name}</dd>
                       </div>
                     ))}
                   </dl>
@@ -318,7 +328,31 @@ export function WorkDetail(
                     {staff.map((s) => (
                       <div key={s.role} className="credits__row">
                         <dt>{s.role}</dt>
-                        <dd>{s.names.join('、')}</dd>
+                        <dd>
+                          {s.names.map((n, i) => {
+                            const ref = staffRefs.get(`${s.role}\u0000${n}`)
+                            return (
+                              <span key={n}>
+                                {i > 0 && '、'}
+                                {ref ? <CreditName name={n} onOpen={() => openCredit(ref, s.role)} /> : n}
+                              </span>
+                            )
+                          })}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                </section>
+              )}
+
+              {detail && detail.casts.length > 0 && (
+                <section className="detail__section">
+                  <h3 className="detail__label">声優</h3>
+                  <dl className="credits">
+                    {detail.casts.map((c) => (
+                      <div key={`${c.character}-${c.name}`} className="credits__row">
+                        <dt>{c.character}</dt>
+                        <dd>{c.person ? <CreditName name={c.name} onOpen={() => c.person && openCredit(c.person, '')} /> : c.name}</dd>
                       </div>
                     ))}
                   </dl>
@@ -361,6 +395,21 @@ export function WorkDetail(
       ) : (
         <RelatedDetail readOnly token={token} target={related} active={props.active ?? true} onClose={() => setRelated(null)} />
       ))}
+    {credit &&
+      (relatedEnqueue ? (
+        <CreditWorks token={token} target={credit} active={props.active ?? true} enqueue={relatedEnqueue} onChange={onRelatedChange} onClose={() => setCredit(null)} />
+      ) : (
+        <CreditWorks readOnly token={token} target={credit} active={props.active ?? true} onClose={() => setCredit(null)} />
+      ))}
     </>
+  )
+}
+
+// キャスト・スタッフの名前。押すと、その人・制作会社の参加作品の一覧を重ねて開く
+function CreditName(props: { name: string; onOpen: () => void }) {
+  return (
+    <button type="button" className="credit__link" onClick={props.onOpen}>
+      {props.name}
+    </button>
   )
 }

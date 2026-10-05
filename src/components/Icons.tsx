@@ -41,6 +41,15 @@ export function HelpIcon() {
   )
 }
 
+// 絞り込み（漏斗）
+export function FilterIcon() {
+  return (
+    <Icon>
+      <path d="M4 5h16l-6.2 7.4V19l-3.6-1.8v-4.8z" />
+    </Icon>
+  )
+}
+
 // 見たことがある
 export function EyeIcon() {
   return (

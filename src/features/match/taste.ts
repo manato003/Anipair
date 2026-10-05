@@ -225,6 +225,7 @@ export const GENRE_JA: Record<string, string> = {
   Survival: 'サバイバル',
   'Team Sports': 'チームスポーツ',
   'Time Travel': 'タイムトラベル',
+  'Urban Fantasy': '現代ファンタジー',
   Vampire: '吸血鬼',
   Villainess: '悪役令嬢',
   'Video Game': 'ゲーム',

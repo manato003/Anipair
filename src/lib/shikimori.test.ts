@@ -12,7 +12,7 @@ vi.mock('./throttle', () => ({
     },
 }))
 
-const { fetchMedia, fetchRelated, fetchSimilar, fetchSimilarMany, normalize, peekMedia, resetShikimoriMemory, shikimoriUrl, workData } = await import('./shikimori')
+const { fetchMedia, fetchPersonWorks, fetchRelated, fetchSimilar, fetchSimilarMany, fetchStudioWorks, findPerson, normalize, peekMedia, personKey, resetShikimoriMemory, shikimoriUrl, workData } = await import('./shikimori')
 
 const fetchMock = vi.fn<(url: string) => Promise<Response>>()
 
@@ -71,6 +71,8 @@ describe('normalize', () => {
       themes: ['Iyashikei'],
       demographics: ['Seinen'],
       studios: ['Madhouse'],
+      popularity: 0,
+      studioRefs: [],
       cover: { url: 'https://s.example/5.jpg', thumb: 'https://s.example/5-m.webp', landscape: false },
       score: 8.1,
       prequels: [7],
@@ -132,7 +134,7 @@ describe('fetchMedia', () => {
   it('asks the proxy (not Shikimori directly) with sorted ids, and returns the works found', async () => {
     fetchMock.mockResolvedValue(reply({ animes: [raw(2), raw(9)] }))
     const got = await fetchMedia([9, 2, 2, 404])
-    expect(fetchMock.mock.calls[0][0]).toBe('/api/shiki?op=animes&ids=2,9,404&v=2')
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/shiki?op=animes&ids=2,9,404&v=4')
     expect([...got.keys()]).toEqual([9, 2])
     expect(got.get(2)?.title.native).toBe('作品2')
   })
@@ -303,3 +305,64 @@ describe('background priority', () => {
     expect(scheduleOpts).toEqual([{ background: true }, { background: true }, { background: true }])
   })
 })
+
+describe('people and studios', () => {
+  it('personKey ignores spaces, middle dots and full-width forms', () => {
+    expect(personKey('上坂 すみれ')).toBe(personKey('上坂すみれ'))
+    expect(personKey('ＡＢＣ・ＤＥＦ')).toBe('abcdef')
+  })
+
+  it('findPerson picks the person whose Japanese name matches, not just the first result', async () => {
+    fetchMock.mockResolvedValueOnce(
+      reply({
+        people: [
+          { id: 1, name: 'Akira Sumire', japanese: 'すみれ 晶' },
+          { id: 14441, name: 'Sumire Uesaka', japanese: '上坂 すみれ' },
+        ],
+      }),
+    )
+    expect(await findPerson('上坂すみれ')).toEqual({ id: 14441, name: 'Sumire Uesaka', japanese: '上坂 すみれ' })
+    expect(fetchMock.mock.calls[0][0]).toBe(`/api/shiki?op=people&q=${encodeURIComponent('上坂すみれ')}`)
+  })
+
+  it('findPerson returns null when no Japanese name matches', async () => {
+    fetchMock.mockResolvedValueOnce(reply({ people: [{ id: 1, name: 'Someone', japanese: '別の 人' }, { id: 2, name: 'No Japanese', japanese: null }] }))
+    expect(await findPerson('上坂すみれ')).toBeNull()
+  })
+
+  it('fetchPersonWorks returns the ids and rejects a malformed answer', async () => {
+    fetchMock.mockResolvedValueOnce(
+      reply({
+        cast: [10, 11],
+        staff: [
+          { id: 20, r: ['Исполнение гл. муз. темы', 'Режиссёр'] },
+          { id: 21, r: ['Неизвестная роль'] },
+          { id: 22, r: [] },
+        ],
+      }),
+    )
+    // 役割は日本語に。知らない役割と、役割の無いものは「スタッフ」
+    expect(await fetchPersonWorks(14441)).toEqual({
+      cast: [10, 11],
+      staff: [
+        { id: 20, roles: ['主題歌', '監督'] },
+        { id: 21, roles: ['スタッフ'] },
+        { id: 22, roles: ['スタッフ'] },
+      ],
+    })
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/shiki?op=person&id=14441&v=2')
+    fetchMock.mockResolvedValueOnce(reply({ cast: 'x' }))
+    await expect(fetchPersonWorks(14441)).rejects.toThrow('Shikimori の応答を読めませんでした')
+  })
+
+  it('fetchStudioWorks reads pages until a short one and keeps the works for later (no refetch)', async () => {
+    const full = Array.from({ length: 50 }, (_, i) => raw(1000 + i, { st: [{ i: 11, n: 'Madhouse' }] }))
+    fetchMock.mockResolvedValueOnce(reply({ animes: full })).mockResolvedValueOnce(reply({ animes: [raw(5)] }))
+    const works = await fetchStudioWorks(11)
+    expect(works).toHaveLength(51)
+    expect(works[0].studioRefs).toEqual([{ id: 11, name: 'Madhouse' }])
+    expect(fetchMock.mock.calls.map((c) => c[0])).toEqual(['/api/shiki?op=studio&id=11&page=1&v=4', '/api/shiki?op=studio&id=11&page=2&v=4'])
+    expect(peekMedia(5)?.idMal).toBe(5)
+  })
+})
+

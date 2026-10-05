@@ -2,44 +2,56 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchCovers, quickCovers } from '../../lib/covers'
 import { browseWorks, type BrowseOrder, type BrowseWork, type RatingState } from '../../lib/annict'
 import { getMyReviews } from '../../lib/myReviews'
-import { seasonOf, toSlug, type Season } from '../../lib/season'
+import { nextSeason, seasonOf, toSlug, type Season } from '../../lib/season'
 import { fetchMedia } from '../../lib/shikimori'
 import type { Cover } from '../../lib/storage'
 import { messageOf } from '../../lib/useWriteQueue'
 import { malIdOf } from '../match/taste'
 import { forgetTaste, loadTaste } from '../match/tasteLoader'
-import { rankByTaste, scoreOf, sortByScore, type BrowseScore, type BrowseSort } from './browseSort'
+import { OLDEST_YEAR } from '../rate/queue'
+import { NO_PERIOD, periodActive, periodSlugs, type BrowsePeriod } from './browseFilter'
+import { rankByTaste, scoreOf, sortByScore, sortFor, type BrowseMode, type BrowseScore, type BrowseSort } from './browseSort'
 
 const DEBOUNCE_MS = 400
 // 評価順は全件の点数が要るので、まとめて読む。上限はクール1つぶん（200作品前後）が収まる数
 const MAX_FOR_SCORE = 300
 
-// 好み順の手がかりが無いときの注意（好きな作品が1件も無い）
+// おすすめ順の手がかりが無いときの注意（好きな作品が1件も無い）
 export const NO_LIKES_NOTE = '好みの手がかりがまだありません。評価画面で、好きな作品を評価すると使えます。'
 
-function filterOf(query: string, season: Season) {
-  return query ? { titles: [query] } : { seasons: [toSlug(season)] }
+// 上限まで集めたときの注意（期間が広いと、クールより作品が多い）
+export const CAPPED_NOTE = `作品が多いので、人気の上位${MAX_FOR_SCORE}作品を並べています。期間をしぼると、ほかの作品も並びます。`
+
+// Annict に頼む条件。期間があればそのクールをまとめて、無ければ上のクール1つ（タイトル検索のときは期間だけ。期間が無ければ全期間）
+function filterOf(query: string, season: Season, period: BrowsePeriod): { titles?: string[]; seasons?: string[] } {
+  const latestYear = nextSeason(seasonOf(new Date())).year
+  const seasons = periodActive(period) ? periodSlugs(period, OLDEST_YEAR, latestYear) : query ? undefined : [toSlug(season)]
+  return { ...(query ? { titles: [query] } : {}), ...(seasons ? { seasons } : {}) }
 }
 
-// クールの作品を、50件ずつ上限（MAX_FOR_SCORE）まで集める（評価順と好み順が、全件を手元で並べるために使う）。
-// 途中で取り消されたら null
-async function collectAll(token: string, filter: ReturnType<typeof filterOf>, isCancelled: () => boolean): Promise<BrowseWork[] | null> {
+// 作品を、50件ずつ上限（MAX_FOR_SCORE）まで集める（評価順とおすすめ順が、全件を手元で並べるために使う）。
+// capped: 上限で打ち切った（まだ続きがある）。途中で取り消されたら null
+async function collectAll(token: string, filter: ReturnType<typeof filterOf>, isCancelled: () => boolean): Promise<{ works: BrowseWork[]; capped: boolean } | null> {
   const all: BrowseWork[] = []
   let after: string | null = null
   for (;;) {
     const page = await browseWorks(token, filter, { after, first: 50 })
     if (isCancelled()) return null
     all.push(...page.works)
-    if (!page.hasNext || all.length >= MAX_FOR_SCORE) break
+    if (!page.hasNext) return { works: all, capped: false }
+    if (all.length >= MAX_FOR_SCORE) return { works: all, capped: true }
     after = page.endCursor
   }
-  return all
 }
 
 // active: 画面が表示されているか（隠れているだけで残っているタブは、評価のバッジを読み直さない）
 export function useBrowse(token: string, active = true) {
   const [season, setSeasonState] = useState<Season>(() => seasonOf(new Date()))
   const [query, setQuery] = useState('')
+  // 絞り込みの期間（放送年と季節）。あれば上のクールの代わりに、その期間の作品を読む
+  const [period, setPeriodState] = useState<BrowsePeriod>(NO_PERIOD)
+  // 作品を読み直すかどうかは、期間の中身で比べる（同じ期間を選び直しても読み直さない）
+  const periodKey = JSON.stringify(period)
   // 実際に検索している語。入力のたびには検索せず、打ち終わってから変える
   const [searched, setSearched] = useState('')
   const searchedRef = useRef('')
@@ -54,11 +66,13 @@ export function useBrowse(token: string, active = true) {
   // 評価順で並べたときの、作品（Annict の ID）ごとの点数と出どころ
   const [scores, setScores] = useState<Map<number, BrowseScore>>(new Map())
   const [progress, setProgress] = useState<string | null>(null)
-  // 好み順で並べたときの、作品（Annict の ID）ごとの理由と、並べられなかったときの注意（好みの手がかりが無い・好みを読めない）
+  // おすすめ順で並べたときの、作品（Annict の ID）ごとの理由と、並べられなかったときの注意（好みの手がかりが無い・好みを読めない）
   const [reasons, setReasons] = useState<Map<number, string>>(new Map())
   const [tasteNote, setTasteNote] = useState<string | null>(null)
-  // 新しい順はタイトル検索のときだけ、好み順はクール一覧のときだけ（クール一覧はすべて同じ時期。好み順はクールの全作品を並べる）
-  const effectiveSort: BrowseSort = (sort === 'newest' && !searched) || (sort === 'taste' && searched) ? 'popular' : sort
+  // 評価順・おすすめ順で、上限まで集めて打ち切った
+  const [capped, setCapped] = useState(false)
+  const mode: BrowseMode = searched ? 'search' : periodActive(period) ? 'period' : 'cour'
+  const effectiveSort = sortFor(sort, mode)
   const order: BrowseOrder = effectiveSort === 'newest' ? 'SEASON' : 'WATCHERS_COUNT'
 
   useEffect(() => {
@@ -84,11 +98,13 @@ export function useBrowse(token: string, active = true) {
     let cancelled = false
     ;(async () => {
       try {
-        const filter = filterOf(searched, season)
+        const filter = filterOf(searched, season, JSON.parse(periodKey) as BrowsePeriod)
+        setCapped(false)
         if (effectiveSort === 'score') {
           setProgress('作品を集めています')
-          const all = await collectAll(token, filter, () => cancelled)
-          if (!all) return
+          const collected = await collectAll(token, filter, () => cancelled)
+          if (!collected) return
+          const all = collected.works
           // Annict の満足度が無い作品だけ、Shikimori の点数を取る
           const lacking = all.filter((w) => !(typeof w.satisfactionRate === 'number' && w.satisfactionRate > 0)).map(malIdOf).filter((n): n is number => n !== null)
           setProgress(`Shikimori の点数を集めています（${all.length}作品）`)
@@ -101,6 +117,7 @@ export function useBrowse(token: string, active = true) {
             if (sc) got.set(w.annictId, sc)
           }
           setScores((cur) => new Map([...cur, ...got]))
+          setCapped(collected.capped)
           setWorks(sortByScore(all, shikimori))
           setCursor({ endCursor: null, hasNext: false })
           setProgress(null)
@@ -110,8 +127,9 @@ export function useBrowse(token: string, active = true) {
           // 好みは見たいのおすすめ順と共通（起動中は使い回す）。好みを調べられなくても、一覧は人気順で見せる
           setTasteNote(null)
           setProgress('作品を集めています')
-          const all = await collectAll(token, filter, () => cancelled)
-          if (!all) return
+          const collected = await collectAll(token, filter, () => cancelled)
+          if (!collected) return
+          const all = collected.works
           let ordered = all
           let why = new Map<number, string>()
           let note: string | null = null
@@ -138,6 +156,7 @@ export function useBrowse(token: string, active = true) {
           }
           setReasons(why)
           setTasteNote(note)
+          setCapped(collected.capped)
           setWorks(ordered)
           setCursor({ endCursor: null, hasNext: false })
           setProgress(null)
@@ -159,9 +178,9 @@ export function useBrowse(token: string, active = true) {
     return () => {
       cancelled = true
     }
-  }, [token, searched, season, reloadTick, effectiveSort, order, addCovers])
+  }, [token, searched, season, periodKey, reloadTick, effectiveSort, order, addCovers])
 
-  // 隠れていたタブが再び表示されたときは、好みの控えを捨てる（そのあいだに評価が増えているかもしれない。次に好み順にしたときに読み直す）
+  // 隠れていたタブが再び表示されたときは、好みの控えを捨てる（そのあいだに評価が増えているかもしれない。次におすすめ順にしたときに読み直す）
   const wasHidden = useRef(false)
   useEffect(() => {
     if (!active) {
@@ -195,6 +214,17 @@ export function useBrowse(token: string, active = true) {
     setSeasonState(s)
   }, [])
 
+  // 中身が同じなら何もしない（読み直しも起きないので、一覧を空にすると戻らない）
+  const setPeriod = useCallback(
+    (p: BrowsePeriod) => {
+      if (JSON.stringify(p) === periodKey) return
+      setWorks(null)
+      setError(null)
+      setPeriodState(p)
+    },
+    [periodKey],
+  )
+
   const setSort = useCallback((s: BrowseSort) => {
     setWorks(null)
     setError(null)
@@ -211,7 +241,7 @@ export function useBrowse(token: string, active = true) {
     if (!cursor.hasNext || loadingMore) return
     setLoadingMore(true)
     try {
-      const page = await browseWorks(token, filterOf(searched, season), { after: cursor.endCursor, order })
+      const page = await browseWorks(token, filterOf(searched, season, period), { after: cursor.endCursor, order })
       setWorks((cur) => [...(cur ?? []), ...page.works.filter((w) => !cur?.some((c) => c.id === w.id))])
       setCursor({ endCursor: page.endCursor, hasNext: page.hasNext })
       await addCovers(page.works)
@@ -220,7 +250,7 @@ export function useBrowse(token: string, active = true) {
     } finally {
       setLoadingMore(false)
     }
-  }, [token, searched, season, order, cursor, loadingMore, addCovers])
+  }, [token, searched, season, period, order, cursor, loadingMore, addCovers])
 
   // 詳細画面で状態や評価を変えたら、一覧の表示も合わせる
   const patchWork = useCallback((annictId: number, patch: { state?: BrowseWork['viewerStatusState']; rating?: RatingState | null }) => {
@@ -244,6 +274,10 @@ export function useBrowse(token: string, active = true) {
     query,
     setQuery,
     searching: searched !== '',
+    period,
+    setPeriod,
+    mode,
+    capped,
     sort: effectiveSort,
     setSort,
     scores,

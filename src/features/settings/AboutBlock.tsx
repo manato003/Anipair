@@ -32,7 +32,7 @@ export function AboutBlock({ showTagline = true }: { showTagline?: boolean }) {
         <li>運営サーバーはなく、利用者の情報は保存しません。サーバーで動くのは、ログインの受け渡しと Shikimori への中継の2つの処理だけです。</li>
         <li>トークンは、この端末の中にだけ保存されます。</li>
         <li>
-          作品データの一部（ジャンル・似た作品・一部の表紙）は{' '}
+          作品データの一部（ジャンル・似た作品・一部の表紙・声優やスタッフの参加作品）は{' '}
           <a href="https://shikimori.io/" target="_blank" rel="noreferrer">
             Shikimori
           </a>{' '}

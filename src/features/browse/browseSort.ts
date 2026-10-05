@@ -5,18 +5,31 @@ import type { Taste } from '../match/tasteLoader'
 import { orderByScore, scoreWanna } from '../records/wannaRank'
 
 // ブラウズの並べ替え。人気順と新しい順は Annict が並べる。評価順は、Annict の満足度があればそれ、無ければ Shikimori の点数で、手元で並べる。
-// 好み順は、見たいのおすすめ順と同じ式（wannaRank.ts）で、クールの作品を手元で並べる
+// おすすめ順（id は taste）は、記録の見たいのおすすめ順と同じ式（wannaRank.ts）で、クールの作品を手元で並べる
 export type BrowseSort = 'popular' | 'score' | 'taste' | 'newest'
 
-// searchOnly: タイトル検索のときだけ出す。seasonOnly: クール一覧のときだけ出す
-export const SORTS: readonly { id: BrowseSort; label: string; searchOnly: boolean; seasonOnly: boolean }[] = [
-  { id: 'popular', label: '人気順', searchOnly: false, seasonOnly: false },
-  { id: 'score', label: '評価順', searchOnly: false, seasonOnly: false },
-  { id: 'taste', label: '好み順', searchOnly: false, seasonOnly: true },
-  { id: 'newest', label: '新しい順', searchOnly: true, seasonOnly: false },
+// 何を見ているか: 1つのクール（上のクール選び）・期間（絞り込みの放送年と季節）・タイトル検索
+export type BrowseMode = 'cour' | 'period' | 'search'
+
+// modes: その並べ方を出す場合。新しい順は1つのクールでは意味が無い（すべて同じ時期）。
+// おすすめ順はクールか期間の作品を集めて並べるもので、タイトル検索では出さない
+export const SORTS: readonly {
+  id: BrowseSort
+  label: string
+  modes: readonly BrowseMode[]
+}[] = [
+  { id: 'popular', label: '人気順', modes: ['cour', 'period', 'search'] },
+  { id: 'score', label: '評価順', modes: ['cour', 'period', 'search'] },
+  { id: 'taste', label: 'おすすめ順', modes: ['cour', 'period'] },
+  { id: 'newest', label: '新しい順', modes: ['period', 'search'] },
 ]
 
-// 好み順に使う好みの部分（Taste のうち、点数に要るものだけ）
+// いまの場合で使えない並べ方は、人気順にする
+export function sortFor(sort: BrowseSort, mode: BrowseMode): BrowseSort {
+  return SORTS.find((o) => o.id === sort)?.modes.includes(mode) ? sort : 'popular'
+}
+
+// おすすめ順に使う好みの部分（Taste のうち、点数に要るものだけ）
 export type TasteForRanking = Pick<Taste, 'similarSeeds' | 'similar' | 'profile'>
 
 export interface TasteRanking {

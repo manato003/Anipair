@@ -46,8 +46,9 @@ export interface Media {
   genres: string[]
   themes: string[]
   demographics: string[]
-  // 制作会社
+  // 制作会社（名前と、Shikimori の ID。ID は制作会社の作品の一覧を開くのに使う）
   studios: string[]
+  studioRefs?: { id: number; name: string }[]
   cover: Cover | null
   // Shikimori の点数（10点満点）。点数の無い作品は null
   score: number | null
@@ -55,6 +56,8 @@ export interface Media {
   prequels: number[]
   // 関連するアニメ（関係の種類と MyAnimeList の ID）。kind は Shikimori の relationKind（prequel・sequel・side_story など）
   related: { kind: string; malId: number }[]
+  // 人気（Shikimori でリストに入れている人の数）。参加作品の一覧の人気順に使う。分からなければ 0
+  popularity?: number
 }
 
 // 中継が返す、画面が使う項目だけの形（api/shiki.ts の trim と同じ）
@@ -71,6 +74,8 @@ interface RawAnime {
   poster: { o: string; m: string } | null
   genres: { n: string; k: string }[]
   studios: string[]
+  st?: { i: number; n: string }[]
+  pop?: number
   prequels: number[]
   related?: { k: string; id: number }[]
 }
@@ -109,6 +114,8 @@ export function normalize(raw: RawAnime): Media | null {
     themes: names('theme'),
     demographics: names('demographic'),
     studios: Array.isArray(raw.studios) ? raw.studios : [],
+    popularity: typeof raw.pop === 'number' && raw.pop > 0 ? raw.pop : 0,
+    studioRefs: Array.isArray(raw.st) ? raw.st.flatMap((x) => (x && Number.isInteger(x.i) && x.i > 0 && typeof x.n === 'string' ? [{ id: x.i, name: x.n }] : [])) : [],
     cover: poster ? { url: poster.o, thumb: poster.m, landscape: false } : null,
     score: typeof raw.score === 'number' && raw.score > 0 ? raw.score : null,
     prequels: Array.isArray(raw.prequels) ? raw.prequels : [],
@@ -168,8 +175,8 @@ export async function fetchMedia(malIds: readonly number[], opts: FetchOptions =
   const missing = [...new Set(malIds)].filter((id) => Number.isInteger(id) && id > 0 && !mediaCache.has(id)).sort((a, b) => a - b)
   for (let i = 0; i < missing.length; i += BATCH) {
     const chunk = missing.slice(i, i + BATCH)
-    // v=2: 中継の応答に related が加わった版。CDN に1週間残る前の形の控えを使わないよう、問い合わせの URL を変える
-    const body = (await call(`op=animes&ids=${chunk.join(',')}&v=2`, opts)) as { animes?: RawAnime[] }
+    // v=4: 中継の応答に人気（pop）が加わった版。CDN に1週間残る前の形の控えを使わないよう、問い合わせの URL を変える
+    const body = (await call(`op=animes&ids=${chunk.join(',')}&v=4`, opts)) as { animes?: RawAnime[] }
     if (!body || !Array.isArray(body.animes)) throw new Error('Shikimori の応答を読めませんでした')
     for (const id of chunk) mediaCache.set(id, null)
     for (const raw of body.animes) {
@@ -181,6 +188,107 @@ export async function fetchMedia(malIds: readonly number[], opts: FetchOptions =
   for (const id of malIds) {
     const m = mediaCache.get(id)
     if (m) out.set(id, m)
+  }
+  return out
+}
+
+// 名前の照合に使う形（全角・半角をそろえ、空白と中黒・イコールを除く）。Annict の「上坂すみれ」と Shikimori の「上坂 すみれ」を同じにする
+export function personKey(name: string): string {
+  return name.normalize('NFKC').replace(/[\s・=＝]/g, '').toLowerCase()
+}
+
+export interface ShikimoriPerson {
+  id: number
+  name: string | null
+  japanese: string | null
+}
+
+// 名前（日本語）で人物を探し、日本語名が一致する人を返す。見つからなければ null。
+// 同じ名前の人が複数いるときは、Shikimori の検索の先頭に近い人（よく知られた人）
+export async function findPerson(name: string, opts: FetchOptions = {}): Promise<ShikimoriPerson | null> {
+  const key = personKey(name)
+  if (!key) return null
+  const body = (await call(`op=people&q=${encodeURIComponent(name.trim())}`, opts)) as { people?: unknown }
+  if (!body || !Array.isArray(body.people)) throw new Error('Shikimori の応答を読めませんでした')
+  for (const raw of body.people as ShikimoriPerson[]) {
+    if (raw && Number.isInteger(raw.id) && typeof raw.japanese === 'string' && personKey(raw.japanese) === key) return raw
+  }
+  return null
+}
+
+// Shikimori のスタッフの役割（ロシア語）を日本語に。よく出るものだけ。知らないものは null（画面では「スタッフ」）
+const ROLE_JA: Record<string, string> = {
+  'Исполнение гл. муз. темы': '主題歌',
+  'Исполнение муз. темы': '主題歌',
+  'Музыкальное сопровождение': '挿入歌',
+  'Композитор гл. муз. темы': '主題歌の作曲',
+  'Лирика гл. муз. темы': '主題歌の作詞',
+  'Аранжировка гл. муз. темы': '主題歌の編曲',
+  Музыка: '音楽',
+  Режиссёр: '監督',
+  'Главный режиссёр': '総監督',
+  'Режиссёр эпизодов': '演出',
+  'Автор оригинала': '原作',
+  Автор: '原作',
+  Сюжет: 'ストーリー',
+  Сценарий: '脚本',
+  'Компоновка серий': 'シリーズ構成',
+  Раскадровка: '絵コンテ',
+  'Дизайн персонажей': 'キャラクターデザイン',
+  'Оригинал. дизайн персонажей': 'キャラクター原案',
+  'Режиссёр анимации': '作画監督',
+  'Главный режиссёр анимации': '総作画監督',
+  'Помощник режиссёра анимации': '作画監督補佐',
+  'Ключевая анимация': '原画',
+  'Второстепен. анимация': '第二原画',
+  'Фоновая рисовка': '背景',
+  'Арт-директор': '美術監督',
+  'Дизайн макетов': 'レイアウト',
+  Вёрстка: 'レイアウト',
+  Монтаж: '編集',
+  Звукорежиссёр: '音響監督',
+  'Звуковые эффекты': '効果',
+  Планирование: '企画',
+  Продюсер: 'プロデューサー',
+  'Исполнительн. продюсер': '製作総指揮',
+  'Продюсер планирования': '企画プロデューサー',
+  'Директор по производству': '制作',
+}
+
+export function roleJa(role: string): string | null {
+  return ROLE_JA[role] ?? null
+}
+
+// 人物の参加作品（MyAnimeList の ID）。cast は声の出演、staff はスタッフとしての作品と役割（日本語。知らない役割は「スタッフ」）
+export async function fetchPersonWorks(id: number, opts: FetchOptions = {}): Promise<{ cast: number[]; staff: { id: number; roles: string[] }[] }> {
+  // v=2: スタッフに役割が加わった版
+  const body = (await call(`op=person&id=${id}&v=2`, opts)) as { cast?: unknown; staff?: unknown }
+  const cast = Array.isArray(body?.cast) ? body.cast.filter((n): n is number => Number.isInteger(n) && n > 0) : null
+  const staffRaw = Array.isArray(body?.staff) ? (body.staff as { id?: unknown; r?: unknown }[]) : null
+  if (!cast || !staffRaw) throw new Error('Shikimori の応答を読めませんでした')
+  const staff = staffRaw.flatMap((x) => {
+    if (!x || !Number.isInteger(x.id) || (x.id as number) <= 0) return []
+    const roles = [...new Set((Array.isArray(x.r) ? x.r : []).filter((r): r is string => typeof r === 'string').map((r) => roleJa(r) ?? 'スタッフ'))]
+    return [{ id: x.id as number, roles: roles.length > 0 ? roles : ['スタッフ'] }]
+  })
+  return { cast, staff }
+}
+
+const STUDIO_PAGES = 4
+
+// 制作会社の作品（新しい順。50件ずつ、最大4ページ）。作品の情報は控えにも入れる（一覧から詳細を開くときに読み直さない）
+export async function fetchStudioWorks(id: number, opts: FetchOptions = {}): Promise<Media[]> {
+  const out: Media[] = []
+  for (let page = 1; page <= STUDIO_PAGES; page++) {
+    const body = (await call(`op=studio&id=${id}&page=${page}&v=4`, opts)) as { animes?: RawAnime[] }
+    if (!body || !Array.isArray(body.animes)) throw new Error('Shikimori の応答を読めませんでした')
+    for (const raw of body.animes) {
+      const m = normalize(raw)
+      if (!m) continue
+      mediaCache.set(m.idMal, m)
+      out.push(m)
+    }
+    if (body.animes.length < BATCH) break
   }
   return out
 }

@@ -60,6 +60,29 @@ describe('useBrowse sorting', () => {
     expect(calls).toEqual([{ filter: { seasons: [expect.any(String)] }, after: null, first: 30, order: 'WATCHERS_COUNT' }])
   })
 
+  it('period: reads every cour of the period instead of one, offers 新しい順, and goes back to the cour', async () => {
+    const hook = await setup()
+    calls.length = 0
+    act(() => hook.result.current.setPeriod({ yearFrom: 2018, yearTo: 2019, seasons: ['SPRING'] }))
+    await waitFor(() => expect(hook.result.current.works).not.toBeNull())
+    expect(hook.result.current.mode).toBe('period')
+    expect(calls.at(-1)?.filter).toEqual({ seasons: ['2018-spring', '2019-spring'] })
+    act(() => hook.result.current.setSort('newest'))
+    await waitFor(() => expect(calls.at(-1)?.order).toBe('SEASON'))
+    expect(hook.result.current.sort).toBe('newest')
+    act(() => hook.result.current.setPeriod({ yearFrom: null, yearTo: null, seasons: [] }))
+    await waitFor(() => expect(hook.result.current.mode).toBe('cour'))
+    expect(hook.result.current.sort).toBe('popular')
+  })
+
+  it('setting the same period again keeps the list (no reload)', async () => {
+    const hook = await setup()
+    calls.length = 0
+    act(() => hook.result.current.setPeriod({ yearFrom: null, yearTo: null, seasons: [] }))
+    expect(hook.result.current.works).not.toBeNull()
+    expect(calls).toEqual([])
+  })
+
   it('score: collects every page first, then orders by Annict satisfaction, else the Shikimori score, with unscored last', async () => {
     const hook = await setup()
     calls.length = 0
@@ -86,6 +109,9 @@ describe('useBrowse sorting', () => {
     await waitFor(() => expect(calls.at(-1)?.filter).toEqual({ titles: ['フリーレン'] }))
     expect(hook.result.current.sort).toBe('newest')
     expect(calls.at(-1)?.order).toBe('SEASON')
+    // タイトルと期間は両方に当てはまるものを探す
+    act(() => hook.result.current.setPeriod({ yearFrom: 2023, yearTo: 2023, seasons: ['AUTUMN'] }))
+    await waitFor(() => expect(calls.at(-1)?.filter).toEqual({ titles: ['フリーレン'], seasons: ['2023-autumn'] }))
     vi.useRealTimers()
   })
 })

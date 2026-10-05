@@ -7,6 +7,19 @@
   margin-top: -4px;
 }
 
+/* 期間で絞っているときに、クール選びの代わりに出す1行 */
+.browse__period {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  font-size: 0.9rem;
+}
+
 /* 一覧の行全体を押せるボタンにする。見た目は記録ページの行と同じ */
 .row--button {
   display: block;

@@ -7,16 +7,25 @@
 // 受け付けるのは決まった問い合わせだけ（GET のみ。任意の URL は中継しない）。
 //   ?op=animes&ids=1,2,3   作品の情報（MyAnimeList の ID。Shikimori の ID と同じ。50件まで）
 //   ?op=similar&id=N       似た作品の MyAnimeList ID（似ている順）
+//   ?op=people&q=名前       人物を名前で探す（日本語名つき。作品の詳細のキャスト・スタッフから、その人の参加作品を出すため）
+//   ?op=person&id=N        人物の参加作品（声の出演の MyAnimeList の ID と、スタッフとしての ID と役割。役割は Shikimori のロシア語のまま）
+//   ?op=studio&id=N&page=P 制作会社の作品（新しい順に50件ずつ。作品の情報と同じ形）
 // 何も保存せず、何もログに出さない（利用者に結びつく情報はそもそも受け取らない）。
 //
 // 注意: api/ の中のファイルはすべて関数として配備される。自己完結にして、テストは tests/ に置く（annict-token.ts と同じ）
 
 const GRAPHQL_URL = 'https://shikimori.io/api/graphql'
 const REST_URL = 'https://shikimori.io/api/animes'
+const PEOPLE_URL = 'https://shikimori.io/api/people'
 const USER_AGENT = 'Anipair (https://anipair.vercel.app/)'
 const MAX_IDS = 50
 const MAX_SIMILAR = 100
 const MAX_RELATED = 30
+const MAX_PEOPLE = 8
+// 1人の参加作品は、出演・スタッフそれぞれこれまで（多い人でも数百）
+const MAX_PERSON_WORKS = 400
+// 制作会社の作品は、50件ずつ4ページ（200件）まで
+const MAX_STUDIO_PAGE = 4
 const TIMEOUT_MS = 8000
 
 // 作品は変わらないので1週間 CDN に置く。期限が切れても1日は古いものを返しながら裏で取り直す
@@ -25,14 +34,18 @@ const CACHE_OK = 'public, s-maxage=604800, stale-while-revalidate=86400'
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>
 
 // 固定の問い合わせ（利用者の入力は variables の ids だけ。数字のコンマ区切りに検証してから入れる）
-const ANIMES_QUERY = `query($ids: String!) { animes(ids: $ids, limit: ${MAX_IDS}) {
-  malId name japanese english kind rating status score
+const ANIME_FIELDS = `malId name japanese english kind rating status score
   airedOn { year }
   poster { originalUrl mainUrl }
   genres { name kind }
-  studios { name }
+  studios { id name }
   related { relationKind anime { malId } }
-} }`
+  statusesStats { status count }`
+const ANIMES_QUERY = `query($ids: String!) { animes(ids: $ids, limit: ${MAX_IDS}) { ${ANIME_FIELDS} } }`
+// 制作会社の作品。新しい順（aired_on は放送日の新しい順）
+const STUDIO_QUERY = `query($studio: String!, $page: PositiveInt!) { animes(studio: $studio, limit: ${MAX_IDS}, page: $page, order: aired_on) { ${ANIME_FIELDS} } }`
+// 人物を名前で探す（日本語名で照合するので japanese を返す）
+const PEOPLE_QUERY = `query($search: String!) { people(search: $search, limit: ${MAX_PEOPLE}) { id name japanese } }`
 
 function respond(status: number, body: unknown, cache: string): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': cache } })
@@ -53,6 +66,13 @@ function parseIds(raw: string | null): number[] | null {
 
 function parseId(raw: string | null): number | null {
   return raw && /^[1-9][0-9]{0,8}$/.test(raw) ? Number(raw) : null
+}
+
+// 人物の名前（1〜60字。制御文字は受け付けない）
+function parseName(raw: string | null): string | null {
+  const name = raw?.trim() ?? ''
+  // eslint-disable-next-line no-control-regex
+  return name.length >= 1 && name.length <= 60 && !/[\u0000-\u001f\u007f]/.test(name) ? name : null
 }
 
 const num = (v: unknown): number | null => {
@@ -76,8 +96,9 @@ interface RawAnime {
   airedOn?: { year?: unknown } | null
   poster?: { originalUrl?: unknown; mainUrl?: unknown } | null
   genres?: { name?: unknown; kind?: unknown }[] | null
-  studios?: { name?: unknown }[] | null
+  studios?: { id?: unknown; name?: unknown }[] | null
   related?: { relationKind?: unknown; anime?: { malId?: unknown } | null }[] | null
+  statusesStats?: { status?: unknown; count?: unknown }[] | null
 }
 
 // 画面が使う項目だけにして返す（Shikimori の応答をそのまま渡さない）。
@@ -99,9 +120,13 @@ function trim(a: RawAnime) {
     poster: httpsUrl(a.poster?.originalUrl) && httpsUrl(a.poster?.mainUrl) ? { o: httpsUrl(a.poster?.originalUrl), m: httpsUrl(a.poster?.mainUrl) } : null,
     genres: (a.genres ?? []).flatMap((g) => (str(g.name) && str(g.kind) ? [{ n: str(g.name), k: str(g.kind) }] : [])),
     studios: (a.studios ?? []).flatMap((s) => (str(s.name) ? [str(s.name)] : [])),
+    // 制作会社の ID と名前（制作会社の作品の一覧を開くため）
+    st: (a.studios ?? []).flatMap((s) => (num(s.id) && str(s.name) ? [{ i: num(s.id), n: str(s.name) }] : [])),
     prequels: (a.related ?? []).flatMap((r) => (r.relationKind === 'prequel' && num(r.anime?.malId) ? [num(r.anime?.malId)] : [])),
     // 関連するアニメ（関係の種類つき）。作品の詳細の「関連作品」で、Annict にシリーズが無いときの代わりに使う。原作の漫画など、アニメでないものは除く
     related: (a.related ?? []).flatMap((r) => (str(r.relationKind) && num(r.anime?.malId) ? [{ k: str(r.relationKind), id: num(r.anime?.malId) }] : [])).slice(0, MAX_RELATED),
+    // 人気（Shikimori でこの作品をリストに入れている人の数。見た・見てる・見たいなどの合計）。参加作品の一覧の「人気順」に使う
+    pop: (a.statusesStats ?? []).reduce((sum, x) => sum + (num(x?.count) ?? 0), 0),
   }
 }
 
@@ -121,6 +146,35 @@ export async function handleShiki(request: Request, fetchFn: FetchLike = fetch):
         body: JSON.stringify({ query: ANIMES_QUERY, variables: { ids: ids.join(',') } }),
         signal: AbortSignal.timeout(TIMEOUT_MS),
       })
+    } else if (op === 'studio') {
+      const id = parseId(q.get('id'))
+      const page = parseId(q.get('page') ?? '1')
+      if (!id || !page || page > MAX_STUDIO_PAGE) return fail(400, 'bad_request')
+      upstream = await fetchFn(GRAPHQL_URL, {
+        method: 'POST',
+        headers: { 'User-Agent': USER_AGENT, 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ query: STUDIO_QUERY, variables: { studio: String(id), page } }),
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      })
+    } else if (op === 'people') {
+      const name = parseName(q.get('q'))
+      if (!name) return fail(400, 'bad_request')
+      upstream = await fetchFn(GRAPHQL_URL, {
+        method: 'POST',
+        headers: { 'User-Agent': USER_AGENT, 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ query: PEOPLE_QUERY, variables: { search: name } }),
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      })
+    } else if (op === 'person') {
+      const id = parseId(q.get('id'))
+      if (!id) return fail(400, 'bad_request')
+      upstream = await fetchFn(`${PEOPLE_URL}/${id}`, {
+        method: 'GET',
+        headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      })
+      // 居ない人。参加作品が無いだけなので、空として返して控えさせる
+      if (upstream.status === 404) return respond(200, { cast: [], staff: [] }, CACHE_OK)
     } else if (op === 'similar') {
       const id = parseId(q.get('id'))
       if (!id) return fail(400, 'bad_request')
@@ -148,10 +202,35 @@ export async function handleShiki(request: Request, fetchFn: FetchLike = fetch):
     return fail(502, 'upstream_error')
   }
 
-  if (op === 'animes') {
+  if (op === 'animes' || op === 'studio') {
     const list = (data as { data?: { animes?: RawAnime[] } } | null)?.data?.animes
     if (!Array.isArray(list)) return fail(502, 'upstream_error')
     return respond(200, { animes: list.flatMap((a) => trim(a) ?? []) }, CACHE_OK)
+  }
+  if (op === 'people') {
+    const list = (data as { data?: { people?: { id?: unknown; name?: unknown; japanese?: unknown }[] } } | null)?.data?.people
+    if (!Array.isArray(list)) return fail(502, 'upstream_error')
+    return respond(200, { people: list.flatMap((x) => (num(x?.id) ? [{ id: num(x.id), name: str(x.name), japanese: str(x.japanese) }] : [])) }, CACHE_OK)
+  }
+  if (op === 'person') {
+    // 声の出演は roles（キャラクターごとの作品）、スタッフは works（作品と役割。主題歌の歌唱なども入る）。アニメの ID を重ねずに返す。
+    // 役割は Shikimori のロシア語のまま返し、画面の側で日本語にする（知らない役割は「スタッフ」）
+    const d = data as { roles?: { animes?: { id?: unknown }[] }[]; works?: { anime?: { id?: unknown } | null; role?: unknown }[] } | null
+    if (!d || typeof d !== 'object') return fail(502, 'upstream_error')
+    const cast = [
+      ...new Set((Array.isArray(d.roles) ? d.roles : []).flatMap((r) => (Array.isArray(r?.animes) ? r.animes.flatMap((a) => (num(a?.id) && (num(a?.id) as number) > 0 ? [num(a?.id) as number] : [])) : []))),
+    ].slice(0, MAX_PERSON_WORKS)
+    const staffRoles = new Map<number, string[]>()
+    for (const w of Array.isArray(d.works) ? d.works : []) {
+      const id = num(w?.anime?.id)
+      const role = str(w?.role)
+      if (!id || id <= 0) continue
+      const list = staffRoles.get(id) ?? []
+      if (role && role.length <= 60 && !list.includes(role) && list.length < 6) list.push(role)
+      staffRoles.set(id, list)
+    }
+    const staff = [...staffRoles].slice(0, MAX_PERSON_WORKS).map(([id, r]) => ({ id, r }))
+    return respond(200, { cast, staff }, CACHE_OK)
   }
   if (!Array.isArray(data)) return fail(502, 'upstream_error')
   const ids = data.flatMap((a: { id?: unknown }) => (num(a?.id) ? [num(a.id)] : [])).slice(0, MAX_SIMILAR)

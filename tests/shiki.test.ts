@@ -29,12 +29,16 @@ const RAW = {
     { name: 'Award Winning', kind: 'theme' },
     { name: 'Shounen', kind: 'demographic' },
   ],
-  studios: [{ name: 'Madhouse' }],
+  studios: [{ id: '11', name: 'Madhouse' }],
   related: [
     { relationKind: 'sequel', anime: { malId: '59978' } },
     { relationKind: 'prequel', anime: { malId: '777' } },
     { relationKind: 'prequel', anime: null },
     { relationKind: 'adaptation', anime: null },
+  ],
+  statusesStats: [
+    { status: 'completed', count: 100 },
+    { status: 'planned', count: 20 },
   ],
   // 返さない項目
   russian: 'secret-extra',
@@ -79,11 +83,14 @@ describe('handleShiki animes', () => {
           { n: 'Shounen', k: 'demographic' },
         ],
         studios: ['Madhouse'],
+        st: [{ i: 11, n: 'Madhouse' }],
         prequels: [777],
         related: [
           { k: 'sequel', id: 59978 },
           { k: 'prequel', id: 777 },
         ],
+        // リストに入れている人の数の合計
+        pop: 120,
       },
     ])
   })
@@ -240,3 +247,76 @@ describe('handleShiki in general', () => {
     }
   })
 })
+
+describe('handleShiki people (find a person by name)', () => {
+  it('asks GraphQL with the name only as a variable and returns id, name and Japanese name', async () => {
+    const fetchFn = upstream(200, { data: { people: [{ id: '14441', name: 'Sumire Uesaka', japanese: '上坂 すみれ', extra: 'x' }, { id: null }] } })
+    const res = await handleShiki(req(`?op=people&q=${encodeURIComponent('上坂すみれ')}`), fetchFn)
+    const body = JSON.parse(String(fetchFn.mock.calls[0][1].body))
+    expect(body.variables).toEqual({ search: '上坂すみれ' })
+    expect(body.query).toContain('people(search: $search, limit: 8)')
+    expect(body.query).not.toContain('上坂')
+    expect(res.status).toBe(200)
+    expect(await json(res)).toEqual({ people: [{ id: 14441, name: 'Sumire Uesaka', japanese: '上坂 すみれ' }] })
+  })
+
+  it('rejects an empty, too long or control-character name without asking Shikimori', async () => {
+    const fetchFn = upstream(200, {})
+    for (const q of ['', '%20%20', encodeURIComponent('あ'.repeat(61)), '%00x']) {
+      expect((await handleShiki(req(`?op=people&q=${q}`), fetchFn)).status).toBe(400)
+    }
+    expect(fetchFn).not.toHaveBeenCalled()
+  })
+})
+
+describe('handleShiki person (the works of a person)', () => {
+  it('asks the REST endpoint and returns de-duplicated anime ids for voice roles and staff work', async () => {
+    const fetchFn = upstream(200, {
+      id: 14441,
+      roles: [{ characters: [{ id: 1 }], animes: [{ id: 10 }, { id: 11 }] }, { animes: [{ id: 10 }, { id: 'x' }] }],
+      works: [{ anime: { id: 20 }, role: 'Исполнение' }, { anime: null, manga: { id: 5 } }, { anime: { id: 20 }, role: 'Музыка' }, { anime: { id: 21 } }],
+      website: 'secret-extra',
+    })
+    const res = await handleShiki(req('?op=person&id=14441'), fetchFn)
+    expect(fetchFn.mock.calls[0][0]).toBe('https://shikimori.io/api/people/14441')
+    expect(res.headers.get('Cache-Control')).toContain('s-maxage=604800')
+    // スタッフは作品ごとに役割（ロシア語のまま）をまとめる
+    expect(await json(res)).toEqual({
+      cast: [10, 11],
+      staff: [
+        { id: 20, r: ['Исполнение', 'Музыка'] },
+        { id: 21, r: [] },
+      ],
+    })
+  })
+
+  it('answers empty lists (cached) for a person Shikimori does not know, and rejects a bad id', async () => {
+    const res = await handleShiki(req('?op=person&id=999999'), upstream(404, {}))
+    expect(res.status).toBe(200)
+    expect(await json(res)).toEqual({ cast: [], staff: [] })
+    expect((await handleShiki(req('?op=person&id=abc'), upstream(200, {}))).status).toBe(400)
+  })
+})
+
+describe('handleShiki studio (the works of a studio)', () => {
+  it('asks GraphQL for one page, newest first, and returns the same trimmed shape as animes with studio ids', async () => {
+    const fetchFn = upstream(200, { data: { animes: [{ ...RAW, studios: [{ id: '11', name: 'Madhouse' }] }] } })
+    const res = await handleShiki(req('?op=studio&id=11&page=2'), fetchFn)
+    const body = JSON.parse(String(fetchFn.mock.calls[0][1].body))
+    expect(body.variables).toEqual({ studio: '11', page: 2 })
+    expect(body.query).toContain('order: aired_on')
+    const out = (await json(res)) as { animes: { id: number; studios: string[]; st: { i: number; n: string }[] }[] }
+    expect(out.animes[0].id).toBe(52991)
+    expect(out.animes[0].studios).toEqual(['Madhouse'])
+    expect(out.animes[0].st).toEqual([{ i: 11, n: 'Madhouse' }])
+  })
+
+  it('reads page 1 by default and refuses pages past the limit', async () => {
+    const fetchFn = upstream(200, { data: { animes: [] } })
+    await handleShiki(req('?op=studio&id=11'), fetchFn)
+    expect(JSON.parse(String(fetchFn.mock.calls[0][1].body)).variables.page).toBe(1)
+    expect((await handleShiki(req('?op=studio&id=11&page=5'), fetchFn)).status).toBe(400)
+    expect((await handleShiki(req('?op=studio&page=1'), fetchFn)).status).toBe(400)
+  })
+})
+

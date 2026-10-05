@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { nextSeason, previousSeason, type Season } from '../../lib/season'
-import { mainStaff, withCopyrightMark, safeHttpUrl, workMeta, xUrl } from './detail'
+import { mainStaff, studioFor, withCopyrightMark, safeHttpUrl, workMeta, xUrl } from './detail'
 
 describe('mainStaff', () => {
   it('drops "その他", groups repeated roles in order and dedupes names', () => {
@@ -77,3 +77,24 @@ describe('withCopyrightMark', () => {
     expect(withCopyrightMark(null)).toBeNull()
   })
 })
+
+describe('studioFor', () => {
+  const refs = [
+    { id: 2, name: 'Kyoto Animation' },
+    { id: 11, name: 'Madhouse' },
+  ]
+
+  it('matches the English name, ignoring case, spaces and punctuation', () => {
+    expect(studioFor({ nameEn: 'KYOTO ANIMATION' }, 'アニメーション制作', refs)).toEqual({ id: 2, name: 'Kyoto Animation' })
+    expect(studioFor({ nameEn: 'MADHOUSE Inc.' }, '制作', refs)).toEqual({ id: 11, name: 'Madhouse' })
+  })
+
+  it('falls back to the only studio for a production role, but never for 製作 (committees)', () => {
+    const one = [{ id: 2, name: 'Kyoto Animation' }]
+    expect(studioFor({ nameEn: null }, 'アニメーション制作', one)).toEqual(one[0])
+    expect(studioFor({ nameEn: null }, '製作', one)).toBeNull()
+    expect(studioFor({ nameEn: null }, 'アニメーション制作', refs)).toBeNull()
+    expect(studioFor({ nameEn: 'Someone Else' }, '音響制作', [])).toBeNull()
+  })
+})
+

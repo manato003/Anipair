@@ -17,6 +17,25 @@ export function mainStaff(staffs: { role: string; name: string }[], limit = 10):
   return out
 }
 
+// Annict の団体（制作会社）を、作品の Shikimori の制作会社に結びつける（制作会社の作品の一覧を開くため）。
+// 英語名が一致（英数字だけで比べる。片方がもう片方を含むのも可）すればそれ。合わなくても、役職が「〜制作」（製作ではない）で
+// 作品の制作会社が1社だけなら、その会社とみなす（製作委員会などを取り違えないよう「製作」では推定しない）
+export function studioFor(
+  org: { nameEn?: string | null },
+  role: string,
+  refs: readonly { id: number; name: string }[],
+): { id: number; name: string } | null {
+  const key = (s: string) => s.normalize('NFKC').toLowerCase().replace(/[^a-z0-9]/g, '')
+  const en = org.nameEn ? key(org.nameEn) : ''
+  if (en) {
+    const exact = refs.find((r) => key(r.name) === en)
+    if (exact) return exact
+    const loose = refs.find((r) => key(r.name).length >= 4 && (en.includes(key(r.name)) || key(r.name).includes(en)))
+    if (loose) return loose
+  }
+  return refs.length === 1 && role.includes('制作') && !role.includes('製作') ? refs[0] : null
+}
+
 // 外部サイトから来た URL は http(s) のものだけ使う（javascript: などを弾く）
 export function safeHttpUrl(url: string | null | undefined): string | null {
   if (!url) return null

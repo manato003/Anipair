@@ -93,7 +93,7 @@ async function setup(active = true) {
   return hook
 }
 
-describe('useBrowse 好み順', () => {
+describe('useBrowse おすすめ順', () => {
   it('collects every page, then orders like the wanna list with a reason per work, and has no 「もっと見る」', async () => {
     const hook = await setup()
     calls.length = 0
@@ -175,7 +175,7 @@ describe('useBrowse 好み順', () => {
     }
   })
 
-  it('drops the cached taste when the tab is shown again, so the next 好み順 reads the new ratings', async () => {
+  it('drops the cached taste when the tab is shown again, so the next おすすめ順 reads the new ratings', async () => {
     const hook = await setup()
     expect(forgetTaste).not.toHaveBeenCalled()
     hook.rerender({ active: false })

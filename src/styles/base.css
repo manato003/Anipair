@@ -217,7 +217,8 @@ kbd {
   cursor: pointer;
 }
 
-.chip[aria-selected='true'] {
+.chip[aria-selected='true'],
+.chip[aria-pressed='true'] {
   border-color: var(--paper);
   background: var(--paper);
   color: var(--ink);

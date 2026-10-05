@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { LibraryEntry } from '../../lib/annict'
 import type { Taste } from '../match/tasteLoader'
@@ -74,7 +74,18 @@ vi.mock('./useTaste', () => ({
   useWannaScores: () => ({ scores: scoreMap, error: scoreError, retry: vi.fn() }),
 }))
 vi.mock('../browse/WorkDetail', () => ({ WorkDetail: () => null }))
+// 絞り込みのシートで読む作品の情報（ネットワークに出さない）
+vi.mock('./useMediaInfo', () => ({ useMediaInfo: () => ({ info: new Map(), error: null }) }))
+// 見てるの話の一覧（ネットワークに出さない）
+vi.mock('./useEpisodes', () => ({
+  useEpisodes: () => ({ byWork: new Map(), errors: new Map(), undoable: new Set(), record: vi.fn(), undo: vi.fn(), retry: vi.fn() }),
+}))
 // 実績の中身は achievements のテストで見る。ここでは切り替えだけ
+// 傾向のシートが裏で読む作品の情報と声優・監督（ネットワークに出さない）
+const fetchMediaMock = vi.fn(async () => new Map())
+const fetchCreditsMock = vi.fn(async () => new Map())
+vi.mock('../../lib/shikimori', async (orig) => ({ ...(await orig<typeof import('../../lib/shikimori')>()), fetchMedia: () => fetchMediaMock() }))
+vi.mock('../../lib/annict', async (orig) => ({ ...(await orig<typeof import('../../lib/annict')>()), fetchCredits: () => fetchCreditsMock() }))
 vi.mock('../achievements/Achievements', () => ({ Achievements: () => <div data-testid="achievements" /> }))
 
 const { Records } = await import('./Records')
@@ -91,22 +102,35 @@ const titles = () => [...document.querySelectorAll('.row__title')].map((e) => e.
 const openWanna = () => fireEvent.click(screen.getByRole('tab', { name: /見たい/ }))
 
 describe('Records: 見たい sort', () => {
-  it('starts in newest-first order and asks for no taste until おすすめ順 is chosen', () => {
+  it('starts in newest-recorded order and asks for no taste until おすすめ順 is chosen', () => {
     render(<Records token="t" active />)
     openWanna()
     expect(titles()).toEqual(['作品1', '作品2', '作品3'])
     expect(enabledLog.every((e) => !e)).toBe(true)
-    expect(screen.getByRole('button', { name: '新しい順' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: /^記録順/ }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByText('Annict に記録した日の新しい順です。')).toBeTruthy()
+  })
+
+  it('pressing the chosen order again turns it around, and says so', () => {
+    render(<Records token="t" active />)
+    openWanna()
+    fireEvent.click(screen.getByRole('button', { name: /^記録順/ }))
+    expect(titles()).toEqual(['作品3', '作品2', '作品1'])
+    expect(screen.getByText('Annict に記録した日の古い順です。')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /^記録順/ }).textContent).toContain('↑')
+    // ほかの並べ替えを選ぶと、降順から始まる
+    fireEvent.click(screen.getByRole('button', { name: /^放送日順/ }))
+    expect(screen.getByRole('button', { name: /^放送日順/ }).textContent).toContain('↓')
   })
 
   it('おすすめ順 orders by score, keeps every work, puts unscored ones last, and shows the first reason', () => {
     render(<Records token="t" active />)
     openWanna()
-    fireEvent.click(screen.getByRole('button', { name: 'おすすめ順' }))
+    fireEvent.click(screen.getByRole('button', { name: /^おすすめ順/ }))
     expect(titles()).toEqual(['作品2', '作品1', '作品3'])
     expect(screen.getByText('好きなジャンル: 音楽')).toBeTruthy()
-    // 新しい順に戻せる
-    fireEvent.click(screen.getByRole('button', { name: '新しい順' }))
+    // 記録順に戻せる
+    fireEvent.click(screen.getByRole('button', { name: /^記録順/ }))
     expect(titles()).toEqual(['作品1', '作品2', '作品3'])
   })
 
@@ -115,7 +139,7 @@ describe('Records: 見たい sort', () => {
     scoreMap = null
     render(<Records token="t" active />)
     openWanna()
-    fireEvent.click(screen.getByRole('button', { name: 'おすすめ順' }))
+    fireEvent.click(screen.getByRole('button', { name: /^おすすめ順/ }))
     expect(screen.getByText('好みを調べています')).toBeTruthy()
     expect(titles()).toEqual(['作品1', '作品2', '作品3'])
   })
@@ -125,7 +149,7 @@ describe('Records: 見たい sort', () => {
     scoreMap = null
     render(<Records token="t" active />)
     openWanna()
-    fireEvent.click(screen.getByRole('button', { name: 'おすすめ順' }))
+    fireEvent.click(screen.getByRole('button', { name: /^おすすめ順/ }))
     expect(screen.getByText(/好みを調べられませんでした（offline）/)).toBeTruthy()
     expect(screen.getByRole('button', { name: 'もう一度' })).toBeTruthy()
     expect(titles()).toEqual(['作品1', '作品2', '作品3'])
@@ -133,42 +157,39 @@ describe('Records: 見たい sort', () => {
 
   it('does not offer the toggle outside the 見たい list', () => {
     render(<Records token="t" active />)
-    expect(screen.queryByRole('button', { name: 'おすすめ順' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^おすすめ順/ })).toBeNull()
+  })
+})
+
+describe('Records: 絞り込み', () => {
+  it('filters by rating from the sheet, shows the condition above the list, and clears it', () => {
+    render(<Records token="t" active />)
+    openWanna()
+    fireEvent.click(screen.getByRole('button', { name: /^絞り込み/ }))
+    const sheet = screen.getByRole('dialog', { name: '絞り込み' })
+    fireEvent.click(within(sheet).getByRole('button', { name: '評価なし' }))
+    expect(within(sheet).getByRole('button', { name: '評価なし' }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(within(sheet).getByRole('button', { name: /件を表示$/ }))
+    expect(screen.queryByRole('dialog', { name: '絞り込み' })).toBeNull()
+    expect(screen.getByRole('button', { name: /^絞り込み/ }).textContent).toContain('1')
+    expect(screen.getByRole('button', { name: '評価: 評価なし の条件を外す' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '評価: 評価なし の条件を外す' }))
+    expect(screen.queryByRole('button', { name: '評価: 評価なし の条件を外す' })).toBeNull()
   })
 })
 
 describe('Records: 傾向', () => {
-  it('opens a read-only sheet with the rating distribution and the liked and disliked features', () => {
-    scoreMap = null
+  it('opens the trends sheet with the summary and the charts, reading work data in the background, and closes', async () => {
     render(<Records token="t" active />)
     fireEvent.click(screen.getByRole('button', { name: '傾向' }))
     const sheet = screen.getByRole('dialog', { name: '好みの傾向' })
-    expect(within(sheet).getByText('評価 1 件から計算しています。')).toBeTruthy()
-    expect(within(sheet).getByText('見た（評価なし）')).toBeTruthy()
-    expect(within(sheet).getByText('ファンタジー')).toBeTruthy()
-    expect(within(sheet).getByText('異世界')).toBeTruthy()
-    expect(within(sheet).getByText('Bones')).toBeTruthy()
-    expect(within(sheet).getByText('苦手なジャンル')).toBeTruthy()
-    expect(within(sheet).getByText('ホラー')).toBeTruthy()
-    // 好きな作品が10件に満たないときの注意
-    expect(within(sheet).getByText(/好きな作品の記録がまだ1件/)).toBeTruthy()
+    expect(within(sheet).getByText('あなたのアニメの傾向')).toBeTruthy()
+    expect(within(sheet).getByText('見たい')).toBeTruthy()
+    expect(within(sheet).getByText('評価の分布')).toBeTruthy()
+    await waitFor(() => expect(fetchMediaMock).toHaveBeenCalled())
+    expect(fetchCreditsMock).toHaveBeenCalled()
     fireEvent.click(within(sheet).getAllByRole('button', { name: '閉じる' })[0])
     expect(screen.queryByRole('dialog')).toBeNull()
-  })
-
-  it('leaves out the disliked section when nothing is disliked', () => {
-    tasteState = { status: 'ready', taste: { ...taste, profile: new Map([['g:Fantasy', 0.9]]) } }
-    render(<Records token="t" active />)
-    fireEvent.click(screen.getByRole('button', { name: '傾向' }))
-    expect(screen.queryByText('苦手なジャンル')).toBeNull()
-  })
-
-  it('shows loading, and the error with a retry', () => {
-    tasteState = { status: 'error', message: 'offline' }
-    render(<Records token="t" active />)
-    fireEvent.click(screen.getByRole('button', { name: '傾向' }))
-    expect(screen.getByText('offline')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'もう一度' })).toBeTruthy()
   })
 })
 

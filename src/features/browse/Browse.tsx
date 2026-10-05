@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { CoverImage } from '../../components/CoverImage'
 import { Empty } from '../../components/Empty'
 import { HelpButton } from '../../components/Help'
+import { FilterIcon } from '../../components/Icons'
 import { SaveStatus } from '../../components/SaveStatus'
 import { SeasonPicker } from '../../components/SeasonPicker'
 import type { BrowseWork } from '../../lib/annict'
@@ -9,10 +10,15 @@ import { RATING_LABEL } from '../../lib/reviewOps'
 import { nextSeason, sameSeason, seasonLabel, seasonOf } from '../../lib/season'
 import { useWriteQueue } from '../../lib/useWriteQueue'
 
+import { genreName } from '../match/taste'
 import { OLDEST_SEASON } from '../rate/queue'
+import { MEDIA_KINDS } from '../records/recordList'
+import { useMediaInfo } from '../records/useMediaInfo'
+import { BrowseFilterSheet } from './BrowseFilterSheet'
+import { EMPTY_BROWSE_FILTER, MINE_CHOICES, NO_PERIOD, applyBrowseFilter, browseFilterCount, periodActive, periodLabel, type BrowseFilter, type BrowsePeriod } from './browseFilter'
 import { SORTS } from './browseSort'
 import { STATUS_LABEL, workMeta } from './detail'
-import { useBrowse } from './useBrowse'
+import { CAPPED_NOTE, useBrowse } from './useBrowse'
 import { WorkDetail } from './WorkDetail'
 
 export function Browse({ token, active = true }: { token: string; active?: boolean }) {
@@ -22,6 +28,18 @@ export function Browse({ token, active = true }: { token: string; active?: boole
   // 来期の作品までは見られる
   const latest = nextSeason(seasonOf(new Date()))
   const coverOf = (w: BrowseWork) => b.covers.get(w.annictId) ?? null
+  // 絞り込み。期間（放送年と季節）は useBrowse が読む作品を決め、ほかは読み込んだ作品の中で絞る。
+  // ジャンル・制作会社は、シートを開いたときかその条件をかけているときだけ Shikimori から読む
+  const [filter, setFilter] = useState<BrowseFilter>(EMPTY_BROWSE_FILTER)
+  const [filterOpen, setFilterOpen] = useState(false)
+  const media = useMediaInfo(b.works, filterOpen || filter.genres.length > 0 || filter.studios.length > 0)
+  const filterCount = browseFilterCount(filter, b.period)
+  const hasPeriod = periodActive(b.period)
+  const works = useMemo(() => (b.works ? applyBrowseFilter(b.works, filter, media.info) : null), [b.works, filter, media.info])
+  const clearAll = () => {
+    setFilter(EMPTY_BROWSE_FILTER)
+    b.setPeriod(NO_PERIOD)
+  }
 
   return (
     <section className="records">
@@ -31,15 +49,33 @@ export function Browse({ token, active = true }: { token: string; active?: boole
       </header>
 
       <div className="records__controls">
-        <input
-          className="search"
-          type="search"
-          placeholder="タイトルで探す"
-          value={b.query}
-          onChange={(e) => b.setQuery(e.target.value)}
-          aria-label="タイトルで探す"
-        />
-        {!b.searching && (
+        <div className="records__tools">
+          <input
+            className="search"
+            type="search"
+            placeholder="タイトルで探す"
+            value={b.query}
+            onChange={(e) => b.setQuery(e.target.value)}
+            aria-label="タイトルで探す"
+          />
+          <button type="button" className="btn records__filterbtn" aria-pressed={filterCount > 0} onClick={() => setFilterOpen(true)}>
+            <FilterIcon />
+            絞り込み
+            {filterCount > 0 && <span className="chip__count">{filterCount}</span>}
+          </button>
+        </div>
+        {/* 期間で絞っているときは、クールの代わりに期間を出す（クール選びに戻れる） */}
+        {!b.searching && hasPeriod && (
+          <div className="browse__period">
+            <span>
+              <strong>{periodLabel(b.period)}</strong>の作品
+            </span>
+            <button type="button" className="link" onClick={() => b.setPeriod(NO_PERIOD)}>
+              1つのクールで選ぶ
+            </button>
+          </div>
+        )}
+        {!b.searching && !hasPeriod && (
           <>
             <SeasonPicker value={b.season} min={OLDEST_SEASON} max={latest} onChange={b.setSeason} />
             {/* 来期の作品は放送前から Annict にあるので、いまのクールからすぐ移れるようにする */}
@@ -53,7 +89,7 @@ export function Browse({ token, active = true }: { token: string; active?: boole
           </>
         )}
         <div className="toggle toggle--full" role="group" aria-label="並べ替え">
-          {SORTS.filter((o) => (b.searching ? !o.seasonOnly : !o.searchOnly)).map((o) => (
+          {SORTS.filter((o) => o.modes.includes(b.mode)).map((o) => (
             <button key={o.id} type="button" aria-pressed={b.sort === o.id} onClick={() => b.setSort(o.id)}>
               {o.label}
             </button>
@@ -66,6 +102,17 @@ export function Browse({ token, active = true }: { token: string; active?: boole
         {b.sort === 'taste' && b.works && (
           <p className="note">{b.tasteNote ?? 'あなたの評価から、好みに合いそうな順に並べています。情報の無い作品は最後に並びます。'}</p>
         )}
+        {b.capped && b.works && <p className="note">{CAPPED_NOTE}</p>}
+        {/* 期間は、クール一覧ではクールの代わりの行に出ているので、条件の並びには検索のときだけ出す */}
+        {filterCount - (hasPeriod && !b.searching ? 1 : 0) > 0 && (
+          <BrowseActiveFilters
+            filter={filter}
+            period={b.searching ? b.period : NO_PERIOD}
+            onChange={setFilter}
+            onPeriodChange={b.setPeriod}
+            onClearAll={hasPeriod && !b.searching ? () => setFilter(EMPTY_BROWSE_FILTER) : clearAll}
+          />
+        )}
         <SaveStatus pending={q.pending} failed={q.failed} onRetry={q.retryFailed} />
       </div>
 
@@ -77,13 +124,35 @@ export function Browse({ token, active = true }: { token: string; active?: boole
             </button>
           </Empty>
         ) : !b.works ? (
-          <p className="records__loading">{b.progress ?? (b.searching ? '探しています' : `${seasonLabel(b.season)}の作品を読んでいます`)}</p>
+          <p className="records__loading">{b.progress ?? (b.searching ? '探しています' : `${hasPeriod ? periodLabel(b.period) : seasonLabel(b.season)}の作品を読んでいます`)}</p>
         ) : b.works.length === 0 ? (
-          <Empty title="見つかりませんでした" body={b.searching ? '別の言葉で探してください。一部だけでも探せます。' : 'このクールの作品は Annict にまだありません。'} />
+          <Empty
+            title="見つかりませんでした"
+            body={
+              hasPeriod
+                ? b.searching
+                  ? '別の言葉で探すか、放送年と季節の条件をゆるめてください。'
+                  : 'この期間の作品は Annict にありません。放送年と季節の条件をゆるめてください。'
+                : b.searching
+                  ? '別の言葉で探してください。一部だけでも探せます。'
+                  : 'このクールの作品は Annict にまだありません。'
+            }
+          />
+        ) : works && works.length === 0 ? (
+          <Empty title="当てはまる作品がありません" body={b.hasMore ? '絞り込みの条件をゆるめるか、「もっと見る」で作品を増やしてください。' : '絞り込みの条件をゆるめてください。'}>
+            <button type="button" className="btn" onClick={() => setFilter(EMPTY_BROWSE_FILTER)}>
+              絞り込みを解除する
+            </button>
+            {b.hasMore && (
+              <button type="button" className="btn" onClick={b.loadMore} disabled={b.loadingMore}>
+                {b.loadingMore ? '読んでいます' : 'もっと見る'}
+              </button>
+            )}
+          </Empty>
         ) : (
           <>
             <ul className="rows">
-              {b.works.map((w) => {
+              {(works ?? []).map((w) => {
                 const rating = b.ratings.get(w.annictId)
                 const state = w.viewerStatusState && w.viewerStatusState !== 'NO_STATE' ? w.viewerStatusState : null
                 const cover = coverOf(w)
@@ -124,6 +193,23 @@ export function Browse({ token, active = true }: { token: string; active?: boole
         )}
       </div>
 
+      {filterOpen && (
+        <BrowseFilterSheet
+          works={b.works}
+          searching={b.searching}
+          filter={filter}
+          period={b.period}
+          info={media.info}
+          infoError={media.error}
+          resultCount={works?.length ?? 0}
+          hasMore={b.hasMore}
+          active={active}
+          onChange={setFilter}
+          onPeriodChange={b.setPeriod}
+          onClose={() => setFilterOpen(false)}
+        />
+      )}
+
       {open && (
         <WorkDetail
           key={open.id}
@@ -138,5 +224,38 @@ export function Browse({ token, active = true }: { token: string; active?: boole
         />
       )}
     </section>
+  )
+}
+
+// かけている絞り込みの条件。1つずつ外せる（記録の絞り込みと同じ見た目）
+function BrowseActiveFilters(props: {
+  filter: BrowseFilter
+  period: BrowsePeriod
+  onChange: (next: BrowseFilter) => void
+  onPeriodChange: (next: BrowsePeriod) => void
+  onClearAll: () => void
+}) {
+  const { filter: f, onChange } = props
+  const items: { label: string; clear: () => void }[] = []
+  if (periodActive(props.period))
+    items.push({ label: `期間: ${periodLabel(props.period)}`, clear: () => props.onPeriodChange(NO_PERIOD) })
+  if (f.mine.length > 0)
+    items.push({ label: `自分の記録: ${MINE_CHOICES.filter((x) => f.mine.includes(x.id)).map((x) => x.label).join('・')}`, clear: () => onChange({ ...f, mine: [] }) })
+  if (f.media.length > 0)
+    items.push({ label: `形式: ${MEDIA_KINDS.filter((x) => f.media.includes(x.id)).map((x) => x.label).join('・')}`, clear: () => onChange({ ...f, media: [] }) })
+  if (f.genres.length > 0) items.push({ label: `ジャンル: ${f.genres.map(genreName).join('・')}`, clear: () => onChange({ ...f, genres: [] }) })
+  if (f.studios.length > 0) items.push({ label: `制作会社: ${f.studios.join('・')}`, clear: () => onChange({ ...f, studios: [] }) })
+  return (
+    <div className="activefilters">
+      {items.map((it) => (
+        <button key={it.label} type="button" className="activefilter" onClick={it.clear} aria-label={`${it.label} の条件を外す`}>
+          {it.label}
+          <span aria-hidden>×</span>
+        </button>
+      ))}
+      <button type="button" className="link" onClick={props.onClearAll}>
+        すべて解除
+      </button>
+    </div>
   )
 }
