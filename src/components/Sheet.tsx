@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import { registerSheet } from '../lib/sheetHistory'
 import { loadSheetHintSeen, saveSheetHintSeen } from '../lib/storage'
+import { useModalFocus } from '../lib/useModalFocus'
 
 // 下から出るシートの枠。背景を押すか閉じるボタン、Esc（active のときだけ）で閉じる。
 // active が false のときは、隠れたタブに開いたまま残っているシートが Esc と「戻る」に反応しない
@@ -33,6 +34,10 @@ export function Sheet(props: { label: string; active?: boolean; size?: 'large'; 
   useEffect(() => {
     onClose.current = props.onClose
   })
+
+  // Tab をシートの中で回し、閉じたら開く前の場所にフォーカスを戻す（開く前の場所を、下で閉じるボタンに移す前に覚える）
+  const sheetRef = useRef<HTMLElement>(null)
+  useModalFocus(sheetRef, active)
 
   // 開いたときだけ閉じるボタンにフォーカスを置く
   useEffect(() => {
@@ -72,7 +77,7 @@ export function Sheet(props: { label: string; active?: boolean; size?: 'large'; 
 
   return (
     <div className="sheet-backdrop" onClick={close}>
-      <article className={props.size === 'large' ? 'sheet sheet--large' : 'sheet'} role="dialog" aria-modal="true" aria-label={props.label} onClick={(e) => onSheetClick(e)}>
+      <article ref={sheetRef} className={props.size === 'large' ? 'sheet sheet--large' : 'sheet'} role="dialog" aria-modal="true" aria-label={props.label} onClick={(e) => onSheetClick(e)}>
         <div className={touch ? 'sheet__bar sheet__bar--hint' : 'sheet__bar'}>
           {touch && (hint ? <p className="sheet__hint">シートのどこかをタップすると閉じます</p> : <p className="sheet__hint sheet__hint--quiet">タップで閉じます</p>)}
           <button ref={closeRef} type="button" className={touch ? 'link visually-hidden' : 'link'} onClick={close}>

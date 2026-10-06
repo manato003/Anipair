@@ -115,9 +115,31 @@ function write(key: string, value: string | null): void {
   try {
     if (value === null) localStorage.removeItem(key)
     else localStorage.setItem(key, value)
-  } catch {
-    // 保存できない環境（プライベートブラウズ等）では、その回の操作だけ有効にする
+  } catch (e) {
+    // 端末の保存容量があふれたら、作り直せる控えを捨てて、もう一度だけ書く（送れなかった記録の控えなど、失いたくないものを守る。
+    // 2026-10-07 の点検: 容量を超えると黙って捨てていて、閉じても送り直せるはずの控えが残らないことがあった）
+    if (value === null || !isQuotaError(e)) return
+    for (const k of REBUILDABLE) {
+      if (k === key) continue
+      try {
+        localStorage.removeItem(k)
+      } catch {
+        // 消せなければ次へ
+      }
+    }
+    try {
+      localStorage.setItem(key, value)
+    } catch {
+      // それでも入らなければ、その回の操作だけ有効にする（保存できない環境・プライベートブラウズなど）
+    }
   }
+}
+
+// 端末の保存容量があふれたときに捨ててよい控え（どれも、Annict・Shikimori から読み直せば作り直せる）
+const REBUILDABLE: readonly string[] = [KEYS.covers, KEYS.similar, KEYS.library, KEYS.seasonWorks, KEYS.seasonTops, KEYS.reviews]
+
+function isQuotaError(e: unknown): boolean {
+  return e instanceof DOMException && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || e.code === 22)
 }
 
 function readJson(key: string): unknown {
@@ -615,8 +637,13 @@ export function loadPosters(): Map<number, Poster> {
   return parsePosters(readJson(KEYS.covers))
 }
 
+// 表紙の控えは、多くても POSTERS_MAX 件（端末の保存容量を分け合うため）。数字の鍵の JSON は入れた順を残さないので、
+// 新しい作品ほど大きい Annict の ID の大きいものから残す
+export const POSTERS_MAX = 4000
+
 export function savePosters(posters: Map<number, Poster>): void {
-  write(KEYS.covers, JSON.stringify(Object.fromEntries(posters)))
+  const kept = posters.size <= POSTERS_MAX ? [...posters] : [...posters].sort((a, b) => b[0] - a[0]).slice(0, POSTERS_MAX)
+  write(KEYS.covers, JSON.stringify(Object.fromEntries(kept)))
 }
 
 // 前の版は表紙を animax.covers.v1 に控えていた。使わないので消す（いつ呼んでも害は無い）

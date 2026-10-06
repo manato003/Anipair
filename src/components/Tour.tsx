@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { registerSheet } from '../lib/sheetHistory'
+import { useModalFocus } from '../lib/useModalFocus'
 import type { PresentStep } from './tourSteps'
 
 // 画面の上で示す使い方。画面を暗くし、説明するボタンだけを明るく切り抜いて、矢印つきの吹き出しで1つずつ示す。
@@ -23,6 +24,9 @@ export function Tour(props: { label: string; steps: readonly PresentStep[]; onCl
   const [bubbleH, setBubbleH] = useState(0)
   const bubbleRef = useRef<HTMLDivElement>(null)
   const nextRef = useRef<HTMLButtonElement>(null)
+  // Tab を案内の中で回し、閉じたら開く前の場所に戻す（開く前の場所を、次へのボタンに移す前に覚える）
+  const rootRef = useRef<HTMLDivElement>(null)
+  useModalFocus(rootRef)
   const onClose = useRef(props.onClose)
   useEffect(() => {
     onClose.current = props.onClose
@@ -108,7 +112,7 @@ export function Tour(props: { label: string; steps: readonly PresentStep[]; onCl
   const stop = (e: MouseEvent) => e.stopPropagation()
 
   return createPortal(
-    <div className="tour" role="dialog" aria-modal="true" aria-label={props.label} onClick={next}>
+    <div ref={rootRef} className="tour" role="dialog" aria-modal="true" aria-label={props.label} onClick={next}>
       {rect && <div className="tour__spot" style={rect} aria-hidden />}
       {bubble && (
         <div

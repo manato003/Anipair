@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useModalFocus } from '../../lib/useModalFocus'
 import { TitlePlate } from './TitlePlate'
 import { byRarity, type Title } from './titles'
 
@@ -9,6 +10,9 @@ const SHOW_MAX = 12
 
 export function Awakening({ titles, onClose }: { titles: Title[]; onClose: () => void }) {
   const buttonRef = useRef<HTMLButtonElement>(null)
+  // Tab を演出の中で回し、閉じたら開く前の場所に戻す（開く前の場所を、ボタンに移す前に覚える）
+  const rootRef = useRef<HTMLDivElement>(null)
+  useModalFocus(rootRef)
   useEffect(() => {
     buttonRef.current?.focus()
   }, [])
@@ -18,7 +22,7 @@ export function Awakening({ titles, onClose }: { titles: Title[]; onClose: () =>
   const hiddenCount = titles.filter((t) => t.group === 'hidden').length
 
   return (
-    <div className="awaken" role="dialog" aria-modal="true" aria-labelledby="awaken-title">
+    <div ref={rootRef} className="awaken" role="dialog" aria-modal="true" aria-labelledby="awaken-title">
       <span className="awaken__rays" aria-hidden />
       <div className="awaken__body">
         {titles.length > 0 ? (

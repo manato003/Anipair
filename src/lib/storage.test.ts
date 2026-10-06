@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   ALL_KEYS,
+  saveWriteJournalRaw,
+  POSTERS_MAX,
   clearAll,
   forgetAccount,
   freezeStorage,
@@ -491,5 +493,45 @@ describe('round 3 of the security check', () => {
     settleUnclaimed(true)
     expect(localStorage.getItem('animax.passes')).toBe('{"x":1}')
     expect(localStorage.getItem('animax.writeJournal.v1')).toBeNull()
+  })
+})
+
+// 2026-10-07 の点検: 端末の保存容量があふれると、送れなかった記録の控えが黙って保存されなかった
+describe('when the device storage is full', () => {
+  beforeEach(() => localStorage.clear())
+  afterEach(() => vi.restoreAllMocks())
+
+  // 中身の合計が limit 文字を超える書き込みを、ブラウザと同じ QuotaExceededError で断る
+  function limitStorage(limit: number) {
+    const original = Storage.prototype.setItem
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key: string, value: string) {
+      let used = 0
+      for (let i = 0; i < this.length; i++) {
+        const k = this.key(i)!
+        if (k !== key) used += k.length + (this.getItem(k) ?? '').length
+      }
+      if (used + key.length + value.length > limit) throw new DOMException('full', 'QuotaExceededError')
+      original.call(this, key, value)
+    })
+  }
+
+  it('drops the rebuildable caches once and keeps the unsent writes, leaving personal records alone', () => {
+    localStorage.setItem('animax.covers.v2', 'x'.repeat(5000))
+    localStorage.setItem('animax.library.v1', 'y'.repeat(3000))
+    localStorage.setItem('animax.passes', '{"keep":1}')
+    limitStorage(9000)
+    saveWriteJournalRaw({ v: 1, entries: [{ key: 'status:W1', big: 'z'.repeat(2000) }] })
+    expect(localStorage.getItem('animax.writeJournal.v1')).toContain('status:W1')
+    expect(localStorage.getItem('animax.covers.v2')).toBeNull()
+    expect(localStorage.getItem('animax.library.v1')).toBeNull()
+    expect(localStorage.getItem('animax.passes')).toBe('{"keep":1}')
+  })
+
+  it('keeps at most POSTERS_MAX covers, the newest works (largest Annict IDs) first', () => {
+    const posters = new Map(Array.from({ length: POSTERS_MAX + 10 }, (_, i) => [i + 1, { o: 'https://a/o', m: 'https://a/m' }] as const))
+    savePosters(new Map(posters))
+    const saved = Object.keys(JSON.parse(localStorage.getItem('animax.covers.v2')!)).map(Number)
+    expect(saved).toHaveLength(POSTERS_MAX)
+    expect(Math.min(...saved)).toBe(11)
   })
 })
