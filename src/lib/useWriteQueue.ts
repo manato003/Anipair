@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnnictError } from './annict'
+import { journalDone, journalPut, type JournalTicket, type WriteIntent } from './writeJournal'
 
 export interface FailedWrite {
   label: string
@@ -7,6 +8,9 @@ export interface FailedWrite {
   // 自動で直せないときに、利用者が手で直せる場所（Annict の検索ページなど）
   link?: { href: string; text: string }
   task: () => Promise<void>
+  intents?: readonly WriteIntent[]
+  // 端末の控え（lib/writeJournal.ts）の札。送らないことにしたら控えからも消す
+  ticket?: JournalTicket
 }
 
 // 利用者に見せる形の失敗。link を付けると、失敗の表示に手で直すためのリンクが出る
@@ -34,7 +38,8 @@ export function hasPendingWrites(): boolean {
 }
 
 // 画面は送信の完了を待たずに次へ進む。残り件数と失敗は、その画面で頼んだ分だけを持つ。
-// 失敗したものは一覧に残し、まとめて送り直せる
+// 失敗したものは一覧に残し、まとめて送り直せる。
+// intents（最終的にどうしたいか）を渡すと、送り終えるまで端末の控えにも残す（閉じても、次に開いたときに送り直せる。lib/writeJournal.ts）
 export function useWriteQueue() {
   const [pending, setPending] = useState(0)
   const [failed, setFailed] = useState<FailedWrite[]>([])
@@ -46,15 +51,17 @@ export function useWriteQueue() {
     setFailed(next)
   }, [])
 
-  const enqueue = useCallback((label: string, task: () => Promise<void>) => {
+  const enqueue = useCallback((label: string, task: () => Promise<void>, intents?: readonly WriteIntent[]) => {
     setPending((p) => p + 1)
     pendingAll++
+    const ticket = intents ? journalPut(label, intents) : []
     chain = chain.then(async () => {
       try {
         await task()
+        journalDone(ticket)
       } catch (e) {
         const link = e instanceof WriteError ? e.link : undefined
-        updateFailed([...failedRef.current, { label, message: messageOf(e), link, task }])
+        updateFailed([...failedRef.current, { label, message: messageOf(e), link, task, intents, ticket }])
       } finally {
         pendingAll--
         setPending((p) => p - 1)
@@ -65,10 +72,14 @@ export function useWriteQueue() {
   const retryFailed = useCallback(() => {
     const list = failedRef.current
     updateFailed([])
-    for (const f of list) enqueue(f.label, f.task)
+    for (const f of list) enqueue(f.label, f.task, f.intents)
   }, [enqueue, updateFailed])
 
-  const dismissFailed = useCallback(() => updateFailed([]), [updateFailed])
+  // 失敗したものを送らないことにした。端末の控えからも消す（次に開いたときに聞かない）
+  const dismissFailed = useCallback(() => {
+    for (const f of failedRef.current) journalDone(f.ticket ?? [])
+    updateFailed([])
+  }, [updateFailed])
 
   // 送信が残っているうちにタブを閉じようとしたら止める
   useEffect(() => {

@@ -12,6 +12,8 @@ import { useWriteQueue } from '../../lib/useWriteQueue'
 
 import { genreName } from '../match/taste'
 import { OLDEST_SEASON } from '../rate/queue'
+import { activeUnseenIds } from '../rate/unseen'
+import { loadLocalUnseen } from '../rate/unseenStore'
 import { MEDIA_KINDS } from '../records/recordList'
 import { useMediaInfo } from '../records/useMediaInfo'
 import { BrowseFilterSheet } from './BrowseFilterSheet'
@@ -20,6 +22,7 @@ import { SORTS } from './browseSort'
 import { STATUS_LABEL, workMeta } from './detail'
 import { CAPPED_NOTE, useBrowse } from './useBrowse'
 import { WorkDetail } from './WorkDetail'
+import { Loading, Spinner } from '../../components/Loading'
 
 export function Browse({ token, active = true }: { token: string; active?: boolean }) {
   const b = useBrowse(token, active)
@@ -35,7 +38,9 @@ export function Browse({ token, active = true }: { token: string; active?: boole
   const media = useMediaInfo(b.works, filterOpen || filter.genres.length > 0 || filter.studios.length > 0)
   const filterCount = browseFilterCount(filter, b.period)
   const hasPeriod = periodActive(b.period)
-  const works = useMemo(() => (b.works ? applyBrowseFilter(b.works, filter, media.info) : null), [b.works, filter, media.info])
+  // 評価の画面で「見てない」にした作品。この画面を開くたびに端末の控えを読み直す（評価の画面で押した分を映す）
+  const unseen = useMemo(() => (active ? activeUnseenIds(loadLocalUnseen()) : new Set<number>()), [active])
+  const works = useMemo(() => (b.works ? applyBrowseFilter(b.works, filter, media.info, unseen) : null), [b.works, filter, media.info, unseen])
   const clearAll = () => {
     setFilter(EMPTY_BROWSE_FILTER)
     b.setPeriod(NO_PERIOD)
@@ -124,7 +129,7 @@ export function Browse({ token, active = true }: { token: string; active?: boole
             </button>
           </Empty>
         ) : !b.works ? (
-          <p className="records__loading">{b.progress ?? (b.searching ? '探しています' : `${hasPeriod ? periodLabel(b.period) : seasonLabel(b.season)}の作品を読んでいます`)}</p>
+          <Loading block label={b.progress ?? (b.searching ? '検索中' : `${hasPeriod ? periodLabel(b.period) : seasonLabel(b.season)}の作品を読み込み中`)} />
         ) : b.works.length === 0 ? (
           <Empty
             title="見つかりませんでした"
@@ -145,7 +150,14 @@ export function Browse({ token, active = true }: { token: string; active?: boole
             </button>
             {b.hasMore && (
               <button type="button" className="btn" onClick={b.loadMore} disabled={b.loadingMore}>
-                {b.loadingMore ? '読んでいます' : 'もっと見る'}
+                {b.loadingMore ? (
+                  <>
+                    <Spinner />
+                    読み込み中
+                  </>
+                ) : (
+                  'もっと見る'
+                )}
               </button>
             )}
           </Empty>
@@ -174,6 +186,8 @@ export function Browse({ token, active = true }: { token: string; active?: boole
                         <span className={`badge badge--${rating.toLowerCase()}`}>{RATING_LABEL[rating]}</span>
                       ) : state ? (
                         <span className="badge badge--state">{STATUS_LABEL[state]}</span>
+                      ) : unseen.has(w.annictId) ? (
+                        <span className="badge badge--unseen">見てない</span>
                       ) : (
                         <span />
                       )}
@@ -185,7 +199,14 @@ export function Browse({ token, active = true }: { token: string; active?: boole
             {b.hasMore && (
               <div className="more">
                 <button type="button" className="btn" onClick={b.loadMore} disabled={b.loadingMore}>
-                  {b.loadingMore ? '読んでいます' : 'もっと見る'}
+                  {b.loadingMore ? (
+                  <>
+                    <Spinner />
+                    読み込み中
+                  </>
+                ) : (
+                  'もっと見る'
+                )}
                 </button>
               </div>
             )}
@@ -200,6 +221,7 @@ export function Browse({ token, active = true }: { token: string; active?: boole
           filter={filter}
           period={b.period}
           info={media.info}
+          unseen={unseen}
           infoError={media.error}
           resultCount={works?.length ?? 0}
           hasMore={b.hasMore}

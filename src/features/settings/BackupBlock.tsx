@@ -5,6 +5,7 @@ import { loadBackupStatus, runBackup, type BackupResult, type BackupStatus } fro
 import { exportBackupFile, type ExportResult } from '../backup/exportFile'
 import { describeCounts } from '../backup/snapshot'
 import { Section, StatusChip } from './Section'
+import { Spinner } from '../../components/Loading'
 
 // 2026/10/1 21:04（端末の時刻で）
 function formatTime(iso: string): string {
@@ -66,11 +67,25 @@ export function BackupBlock(props: { annictToken: string; github: GithubConnecti
       {props.github && status.error && <p className="settings__error">前回のバックアップに失敗しました: {status.error}</p>}
       <div className="settings__actions">
         <button type="button" className="btn" disabled={exporting} onClick={exportNow}>
-          {exporting ? '書き出しています…' : 'ファイルに書き出す'}
+          {exporting ? (
+            <>
+              <Spinner />
+              書き出しています…
+            </>
+          ) : (
+            'ファイルに書き出す'
+          )}
         </button>
         {props.github && (
           <button type="button" className="btn" disabled={running} onClick={backupNow}>
-            {running ? 'バックアップしています…' : '今すぐバックアップ'}
+            {running ? (
+            <>
+              <Spinner />
+              バックアップしています…
+            </>
+          ) : (
+            '今すぐバックアップ'
+          )}
           </button>
         )}
       </div>

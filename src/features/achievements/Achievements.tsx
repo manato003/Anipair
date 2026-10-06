@@ -5,8 +5,11 @@ import type { RecordRow } from '../records/recordList'
 import { loadTitlesState, saveTitlesState, type TitlesState } from './achievementStore'
 import { Awakening } from './Awakening'
 import { TitlePlate } from './TitlePlate'
-import { HIDDEN_COUNT, type Coverage, type Title } from './titles'
+import { HIDDEN_COUNT, RARITIES, type Coverage, type Title } from './titles'
+import { profileShare, type ShareCard } from '../share/shareCard'
+import { ShareSheet } from '../share/ShareSheet'
 import { useAchievements } from './useAchievements'
+import { Elapsed } from '../../components/Loading'
 
 // 記録タブの「実績」。称号の一覧・クールの紋章・隠し称号。方針は docs/concept.md「進み具合と称号」。
 // 初めて開いたときは、材料（記録・Annict の数値・クールの一覧）がそろうのを待って、解放された称号を「覚醒」でまとめて見せる
@@ -19,6 +22,8 @@ export function Achievements(props: { token: string; rows: RecordRow[] | null; l
   const [god, setGod] = useState(false)
   const [godEquipped, setGodEquipped] = useState<string | null>(null)
   const [godAwaken, setGodAwaken] = useState(false)
+  // 共有する画像の中身（押したときに決める）
+  const [shareCard, setShareCard] = useState<ShareCard | null>(null)
 
   const unlocked = useMemo(() => (a.titles ?? []).filter((t) => t.unlocked), [a.titles])
   const update = (next: TitlesState) => {
@@ -37,6 +42,16 @@ export function Achievements(props: { token: string; rows: RecordRow[] | null; l
     saveTitlesState({ ...current, seen: [...new Set([...current.seen, ...ids])] })
   }, [a.ready, state.awakened, unlockedKey])
 
+  // 掲げている称号の名前とレア度を控えに書く（傾向の共有の画像で使う。掲げたのが前の版で、名前が無いときも埋める）
+  const equippedNow = unlocked.find((t) => t.id === state.equipped) ?? null
+  useEffect(() => {
+    if (!equippedNow) return
+    const current = loadTitlesState()
+    if (current.equipped !== equippedNow.id || (current.equippedName === equippedNow.name && current.equippedRarity === equippedNow.rarity)) return
+    const next = { ...current, equippedName: equippedNow.name, equippedRarity: equippedNow.rarity }
+    saveTitlesState(next)
+  }, [equippedNow])
+
   if (props.loadError) {
     return (
       <Empty title="記録を読み込めませんでした" body={props.loadError}>
@@ -53,7 +68,10 @@ export function Achievements(props: { token: string; rows: RecordRow[] | null; l
       <div className="awaken-wait" aria-busy>
         <span className="awaken-wait__sigil" aria-hidden />
         <p className="awaken-wait__title">Annict での歩みを読み解いています</p>
-        <p className="awaken-wait__note">{a.scan ? `クールの記録を照らし合わせています（${a.scan.done} / ${a.scan.total}）` : 'あなたの記録を集めています'}</p>
+        <p className="awaken-wait__note">
+          {a.scan ? `クールの記録を照らし合わせています（${a.scan.done} / ${a.scan.total}）` : 'あなたの記録を整理しています'}
+          <Elapsed />
+        </p>
       </div>
     )
   }
@@ -63,7 +81,8 @@ export function Achievements(props: { token: string; rows: RecordRow[] | null; l
   const equipped = titles.find((t) => t.id === equippedId && t.unlocked) ?? null
   const toggleEquip = (t: Title) => {
     if (god) setGodEquipped((cur) => (cur === t.id ? null : t.id))
-    else update({ ...state, equipped: state.equipped === t.id ? null : t.id })
+    else if (state.equipped === t.id) update({ ...state, equipped: null, equippedName: null, equippedRarity: null })
+    else update({ ...state, equipped: t.id, equippedName: t.name, equippedRarity: t.rarity })
   }
   const isNew = (t: Title) => !god && t.unlocked && state.awakened && !seenAtOpen.has(t.id)
   const hidden = titles.filter((t) => t.group === 'hidden')
@@ -107,6 +126,26 @@ export function Achievements(props: { token: string; rows: RecordRow[] | null; l
               隠し称号 {hiddenUnlocked.length} / {HIDDEN_COUNT}
             </span>
           </p>
+          {!god && unlocked.length > 0 && (
+            <button
+              type="button"
+              className="link profile__share"
+              onClick={() =>
+                setShareCard(
+                  profileShare({
+                    title: equipped ? { name: equipped.name, rarity: equipped.rarity } : null,
+                    unlocked: visibleCount.filter((t) => t.unlocked).length,
+                    total: visibleCount.length,
+                    hiddenUnlocked: hiddenUnlocked.length,
+                    hiddenTotal: HIDDEN_COUNT,
+                    best: [...unlocked].sort((x, y) => RARITIES.indexOf(y.rarity) - RARITIES.indexOf(x.rarity)),
+                  }),
+                )
+              }
+            >
+              称号を画像で共有
+            </button>
+          )}
         </div>
       </section>
 
@@ -116,8 +155,11 @@ export function Achievements(props: { token: string; rows: RecordRow[] | null; l
         </p>
       )}
 
+      {shareCard && <ShareSheet card={shareCard} filename="anipair-titles.png" active={props.active} onClose={() => setShareCard(null)} />}
+
       <TitleSection heading="特別な称号" titles={special} equipped={equippedId} isNew={isNew} onEquip={toggleEquip} />
       <TitleSection heading="踏破の称号" titles={titles.filter((t) => t.group === 'season')} equipped={equippedId} isNew={isNew} onEquip={toggleEquip} />
+      <TitleSection heading="見た作品の称号" titles={titles.filter((t) => t.group === 'watched')} equipped={equippedId} isNew={isNew} onEquip={toggleEquip} />
       <TitleSection heading="年と年代の称号" titles={titles.filter((t) => t.group === 'year' || t.group === 'decade')} equipped={equippedId} isNew={isNew} onEquip={toggleEquip} />
 
       {a.coverage && <SeasonCrest coverage={a.coverage} />}

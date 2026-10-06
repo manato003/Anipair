@@ -66,12 +66,13 @@ describe('App login-expired banner', () => {
     expect(banner()).toBeNull()
   })
 
-  it('goes away when the token changes, and a late failure of the old token does not bring it back', () => {
+  it('goes away when the token changes, and a late failure of the old token does not bring it back', async () => {
     render(<App />)
     act(() => emitAnnictAuthFailed('tok-1'))
     expect(banner()).not.toBeNull()
     fireEvent.click(screen.getByRole('button', { name: '設定' }))
-    fireEvent.click(screen.getByRole('button', { name: '別のトークンにする' }))
+    // 設定の画面は別のファイルから読む（読み終えるのを待つ）
+    fireEvent.click(await screen.findByRole('button', { name: '別のトークンにする' }))
     expect(banner()).toBeNull()
     act(() => emitAnnictAuthFailed('tok-1'))
     expect(banner()).toBeNull()

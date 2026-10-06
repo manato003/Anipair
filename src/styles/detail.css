@@ -460,6 +460,24 @@ a.related__title {
   }
 }
 
+/* 待つあいだの文言（少し経ってから出る） */
+.detail__wait {
+  margin-top: 14px;
+}
+
+/* 中身を出したあとも届いていない部分の読み込み中。長い文言はロゴの横で折り返す（ロゴの下に回さない）。
+   長くかかったときの一言（.loading__slow）は、これまでどおり次の行に出る */
+.detail__pending {
+  align-items: flex-start;
+  margin-top: 6px;
+}
+
+.detail__pending .loading__label {
+  flex: 1 1 0;
+  min-width: 0;
+  padding-top: 2px;
+}
+
 /* 待つあいだの目印。見出しと2行ぶんの、薄い帯 */
 .detail__loading {
   height: 64px;
@@ -497,3 +515,78 @@ a.related__title {
   }
 }
 
+/* 項目別の評価と感想（ReviewEditor）。普段は「書く」のリンクだけ */
+.review__open {
+  margin-top: 12px;
+  font-size: 0.85rem;
+}
+
+.review {
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+}
+
+.review .review__open {
+  margin-top: 0;
+  justify-self: start;
+}
+
+.review__draft {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+/* 項目は、狭い画面では名前の下にボタン、広い画面では1行に。ボタンは総合（上）より小さくして、補足だと分かるように */
+.review__axis {
+  display: grid;
+  gap: 4px;
+}
+
+@media (min-width: 560px) {
+  .review__axis {
+    grid-template-columns: 7em minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+  }
+}
+
+.review .mini-rating {
+  min-height: 30px;
+  font-size: 0.7rem;
+}
+
+.review__axis-name {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.review__body {
+  display: grid;
+  gap: 6px;
+}
+
+.review__body textarea {
+  width: 100%;
+  min-height: 7em;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: var(--ink-raised);
+  color: var(--paper);
+  font: inherit;
+  font-size: 0.9rem;
+  line-height: 1.7;
+  resize: vertical;
+}
+
+.review__foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}

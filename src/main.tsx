@@ -8,6 +8,29 @@ import { applyEffectLevel, loadEffectLevel } from './lib/storage'
 // 設定の「演出」の強さを、描く前に反映する
 applyEffectLevel(loadEffectLevel())
 
+// 後から読む画面の JS が読めなかったら（開いたままのタブが、デプロイで消えた古いファイルを読みに行った）、ページを読み直して新しい版にする。
+// 読み直しても失敗するとき（通信が切れているなど）に繰り返さないよう、1分に1回まで
+window.addEventListener('vite:preloadError', (event) => {
+  let last = 0
+  try {
+    last = Number(sessionStorage.getItem('animax.reloadedForChunk')) || 0
+  } catch {
+    // 保存できない環境では、読み直しを1回に限れないので、そのままエラーにする
+    return
+  }
+  if (Date.now() - last < 60_000) return
+  event.preventDefault()
+  try {
+    sessionStorage.setItem('animax.reloadedForChunk', String(Date.now()))
+  } catch {
+    return
+  }
+  window.location.reload()
+})
+
+// 書体の CSS を当てる（index.html では先読みだけにして、最初の描画を止めないようにしている）
+for (const link of document.querySelectorAll<HTMLLinkElement>('link[rel="preload"][as="style"]')) link.rel = 'stylesheet'
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>

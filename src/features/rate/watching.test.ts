@@ -37,3 +37,13 @@ describe('covers', () => {
     expect(toWatchCards(entries, new Map([[1, cover]])).map((c) => c.cover)).toEqual([cover, null])
   })
 })
+
+describe('mergeWatchDeck', () => {
+  it('keeps answered cards and the shown one, and takes the rest from the fresh deck', async () => {
+    const { mergeWatchDeck } = await import('./useWatching')
+    const card = (n: number) => toWatchCards([{ workId: `W${n}`, annictId: n, title: `作品${n}`, malAnimeId: null, state: 'WATCHING', stateAt: null }], new Map())[0]
+    const cur = [card(1), card(2), card(3)]
+    expect(mergeWatchDeck(cur, 1, [card(2), card(4)]).map((c) => c.entry.workId)).toEqual(['W1', 'W2', 'W4'])
+    expect(mergeWatchDeck([], 0, [card(5)]).map((c) => c.entry.workId)).toEqual(['W5'])
+  })
+})

@@ -12,10 +12,11 @@ export interface RecordRow {
 
 export type Bucket = 'watched' | 'wanna' | 'watching' | 'other'
 
+// 並びは最初に開く「見てる」から
 export const BUCKETS: readonly { id: Bucket; label: string }[] = [
+  { id: 'watching', label: '見てる' },
   { id: 'watched', label: '見た' },
   { id: 'wanna', label: '見たい' },
-  { id: 'watching', label: '見てる' },
   // Annict の一時中断と視聴中止をまとめて「視聴中断」（STATUS_LABEL と同じ考え方）
   { id: 'other', label: '視聴中断' },
 ]

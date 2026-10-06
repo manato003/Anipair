@@ -78,6 +78,65 @@
   background: var(--muted);
 }
 
+/* Annict の API の調子: 色の点・URL・一言・詳しい数字。狭い画面では数字とボタンが次の行に回る。
+   点の色は状態を表す専用の色（評価の4段階の色とは分ける）。色だけでなく一言でも分かる */
+.health {
+  --health: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin-top: 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  font-size: 0.85rem;
+}
+
+.health--ok {
+  --health: #5fd38d;
+}
+
+.health--slow {
+  --health: #f2b84b;
+}
+
+.health--down {
+  --health: #ff6b6b;
+}
+
+.health__dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--health);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--health) 25%, transparent);
+}
+
+.health__url {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+}
+
+.health__label {
+  font-weight: 700;
+}
+
+.health__detail {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.health__check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-size: 0.8rem;
+}
+
 /* 操作のボタンは横に並べる（狭い画面では折り返して幅いっぱいに） */
 .settings__actions {
   display: flex;

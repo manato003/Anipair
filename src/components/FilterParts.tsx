@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Loading, Spinner } from './Loading'
 
 // 絞り込みのシート（記録・ブラウズ）で共通の部品。項目の中は「どれか」に当てはまるもの
 
@@ -73,9 +74,7 @@ export function InfoNote(props: { title: string; loading: boolean; error: string
       {props.error ? (
         <p className="note">作品の情報を読めませんでした（{props.error}）</p>
       ) : (
-        <p className="note" aria-busy>
-          作品の情報を読んでいます
-        </p>
+        <Loading label="作品の情報を読み込み中" />
       )}
     </section>
   )
@@ -89,7 +88,14 @@ export function FilterFoot(props: { resultCount: number | null; onClear: () => v
         すべて解除
       </button>
       <button type="button" className="btn btn--primary" onClick={props.onClose}>
-        {props.resultCount === null ? '読んでいます（閉じて待てます）' : `${props.resultCount}件を表示`}
+        {props.resultCount === null ? (
+          <>
+            <Spinner />
+            読み込み中（閉じて待てます）
+          </>
+        ) : (
+          `${props.resultCount}件を表示`
+        )}
       </button>
     </div>
   )

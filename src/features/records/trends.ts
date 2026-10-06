@@ -379,6 +379,119 @@ export function castAffinity(
   return { liked, unliked, n: compared.length }
 }
 
+export interface AxisWeight {
+  key: 'ratingAnimationState' | 'ratingCharacterState' | 'ratingStoryState' | 'ratingMusicState'
+  // その項目を付けた作品の数と、平均（1〜4）
+  n: number
+  average: number
+  // 総合評価との連動（相関係数 -1〜1）。作品が min 本未満か、どちらかが全部同じ評価なら null
+  link: number | null
+}
+
+const AXIS_ORDER = ['ratingAnimationState', 'ratingCharacterState', 'ratingStoryState', 'ratingMusicState'] as const
+
+function correlation(xs: readonly number[], ys: readonly number[]): number | null {
+  const mx = mean(xs)
+  const my = mean(ys)
+  if (mx === null || my === null) return null
+  let sxy = 0
+  let sxx = 0
+  let syy = 0
+  xs.forEach((x, i) => {
+    sxy += (x - mx) * (ys[i] - my)
+    sxx += (x - mx) ** 2
+    syy += (ys[i] - my) ** 2
+  })
+  return sxx > 0 && syy > 0 ? sxy / Math.sqrt(sxx * syy) : null
+}
+
+// 重視する観点: 項目別の評価（映像・キャラクター・ストーリー・音楽）が、総合評価とどれだけ連動しているか。
+// 連動が強い項目ほど、その人の総合評価を左右している（＝重視している）と読む。総合評価と項目の両方がある感想だけを使う。
+// top: 連動がいちばん強い項目（0.3 以上のときだけ）
+export function axisWeights(rows: readonly RecordRow[], min = 5): { axes: AxisWeight[]; top: AxisWeight | null } {
+  const axes = AXIS_ORDER.map((key) => {
+    const pairs = rows.flatMap((r) => {
+      const o = r.review?.ratingOverallState
+      const a = r.review?.[key]
+      return o && a ? [[RATING_POINT[a], RATING_POINT[o]] as const] : []
+    })
+    const link = pairs.length >= min ? correlation(pairs.map((p) => p[0]), pairs.map((p) => p[1])) : null
+    return { key, n: pairs.length, average: mean(pairs.map((p) => p[0])) ?? 0, link }
+  }).filter((a) => a.n > 0)
+  const ranked = axes.filter((a) => a.link !== null).sort((a, b) => b.link! - a.link!)
+  return { axes, top: ranked[0] && ranked[0].link! >= 0.3 ? ranked[0] : null }
+}
+
+export interface YearReview {
+  year: number
+  watched: number
+  rated: number
+  // 評価した作品の平均（1〜4）
+  average: number | null
+  // 1月〜12月の本数
+  months: number[]
+  // いちばん多く見た月（1〜12）。同じなら早い月。1本も無ければ null
+  busiest: { month: number; count: number } | null
+  // いちばん良かった作品（とても良い → 良い、同じ評価の中は見た日の新しい順）
+  best: RecordRow[]
+  genres: { name: string; count: number }[]
+  casts: { name: string; count: number }[]
+}
+
+const yearOf = (iso: string | null): number | null => {
+  const t = iso ? new Date(iso) : null
+  return t && !Number.isNaN(t.getTime()) ? t.getFullYear() : null
+}
+
+// ふり返りのできる年（見たにした日がある年。新しい順）
+export function reviewYears(rows: readonly RecordRow[]): number[] {
+  return [...new Set(watched(rows).map((r) => yearOf(r.entry.stateAt)).filter((y): y is number => y !== null))].sort((a, b) => b - a)
+}
+
+// 年間のふり返り。その年に Annict で「見た」にした作品で数える（まとめて記録した作品は、記録した日の年に入る）
+export function yearReview(rows: readonly RecordRow[], year: number, media: ReadonlyMap<number, Media>, credits: ReadonlyMap<string, WorkCredits> | null, max = 3): YearReview {
+  const inYear = watched(rows).filter((r) => yearOf(r.entry.stateAt) === year)
+  const months = Array.from({ length: 12 }, () => 0)
+  for (const r of inYear) months[new Date(r.entry.stateAt!).getMonth()]++
+  const top = Math.max(...months)
+  const points = inYear.flatMap((r) => (ratingOf(r) ? [RATING_POINT[ratingOf(r)!]] : []))
+  const best = inYear
+    .filter((r) => {
+      const rt = ratingOf(r)
+      return rt === 'GREAT' || rt === 'GOOD'
+    })
+    .sort((a, b) => RATING_POINT[ratingOf(b)!] - RATING_POINT[ratingOf(a)!] || Date.parse(b.entry.stateAt!) - Date.parse(a.entry.stateAt!))
+    .slice(0, 5)
+  const count = (names: string[][]) => {
+    const acc = new Map<string, number>()
+    for (const list of names) for (const n of new Set(list)) acc.set(n, (acc.get(n) ?? 0) + 1)
+    return [...acc]
+      .filter(([, c]) => c >= 2)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, max)
+      .map(([name, c]) => ({ name, count: c }))
+  }
+  const genres = count(
+    inYear.map((r) => {
+      const mal = malOf(r)
+      const m = mal ? media.get(mal) : undefined
+      return m ? [...m.genres, ...m.themes] : []
+    }),
+  )
+  const casts = credits ? count(inYear.map((r) => (credits.get(r.entry.workId)?.casts ?? []).map((c) => c.name))) : []
+  return {
+    year,
+    watched: inYear.length,
+    rated: points.length,
+    average: mean(points),
+    months,
+    busiest: top > 0 ? { month: months.indexOf(top) + 1, count: top } : null,
+    best,
+    genres,
+    casts,
+  }
+}
+
 // 記録のペース: 直近 months か月の、月ごとに「見た」にした本数（古い月から）
 export function monthlyPace(rows: readonly RecordRow[], now: Date, months = 12): { label: string; count: number }[] {
   const out: { key: string; label: string; count: number }[] = []

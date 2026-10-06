@@ -9,6 +9,13 @@ export function episodeLabel(e: Pick<Episode, 'number' | 'numberText' | 'title'>
   return e.title?.trim() || '話'
 }
 
+// 「次は 第5話「題名」」（見てる作品の行と、評価の画面の見てるカード）
+export function nextLabel(e: Pick<Episode, 'number' | 'numberText' | 'title'>): string {
+  const label = episodeLabel(e)
+  const title = e.title?.trim()
+  return title && title !== label ? `次は ${label}「${title}」` : `次は ${label}`
+}
+
 // 進み具合（記録した話の数と、全部の話の数）
 export function episodeProgress(episodes: readonly Episode[]): { tracked: number; total: number } {
   return { tracked: episodes.filter((e) => e.viewerDidTrack).length, total: episodes.length }

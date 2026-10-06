@@ -37,6 +37,14 @@ describe('browseFilter', () => {
     expect(ids(applyBrowseFilter(works, { ...EMPTY_BROWSE_FILTER, studios: ['ufotable'] }, info))).toEqual([1, 2])
   })
 
+  it('separates works marked "not watched" on the rate screen from the unrecorded ones (only while they have no record)', () => {
+    // 作品5と作品2を「見てない」にしている。作品2はあとで記録したので、記録の方
+    const unseen = new Set([5, 2])
+    expect(ids(applyBrowseFilter(works, { ...EMPTY_BROWSE_FILTER, mine: ['unseen'] }, null, unseen))).toEqual([5])
+    expect(ids(applyBrowseFilter(works, { ...EMPTY_BROWSE_FILTER, mine: ['none'] }, null, unseen))).toEqual([1])
+    expect(browseFilterChoices(works, null, unseen).mine).toMatchObject({ none: 1, unseen: 1, watched: 1 })
+  })
+
   it('counts the period as one condition', () => {
     expect(browseFilterCount(EMPTY_BROWSE_FILTER, NO_PERIOD)).toBe(0)
     expect(browseFilterCount({ ...EMPTY_BROWSE_FILTER, mine: ['none'] }, { yearFrom: 2018, yearTo: 2020, seasons: ['SPRING'] })).toBe(2)
@@ -44,7 +52,7 @@ describe('browseFilter', () => {
 
   it('counts the choices in the loaded works', () => {
     const c = browseFilterChoices(works, info)
-    expect(c.mine).toEqual({ none: 2, watched: 1, watching: 0, wanna: 1, stopped: 1 })
+    expect(c.mine).toEqual({ none: 2, unseen: 0, watched: 1, watching: 0, wanna: 1, stopped: 1 })
     expect(c.studios).toEqual([{ name: 'ufotable', count: 2 }])
   })
 })

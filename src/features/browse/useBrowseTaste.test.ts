@@ -121,12 +121,12 @@ describe('useBrowse おすすめ順', () => {
     loadTaste.mockImplementation(
       (_token: string, onStep?: (s: string) => void) =>
         new Promise((resolve) => {
-          onStep?.('似た作品を調べています（3/32）')
+          onStep?.('似た作品を検索中（3/32）')
           release = () => resolve(likedTaste)
         }),
     )
     act(() => hook.result.current.setSort('taste'))
-    await waitFor(() => expect(hook.result.current.progress).toBe('似た作品を調べています（3/32）'))
+    await waitFor(() => expect(hook.result.current.progress).toBe('似た作品を検索中（3/32）'))
     expect(hook.result.current.works).toBeNull()
     await act(async () => release())
     await waitFor(() => expect(hook.result.current.works?.length).toBe(3))

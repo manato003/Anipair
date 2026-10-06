@@ -25,7 +25,7 @@ export function titleVariants(title: Media['title']): string[] {
   return out
 }
 
-export async function resolveAnnictWork(token: string, media: Media): Promise<WorkRef | null> {
+export async function resolveAnnictWork(token: string, media: Pick<Media, 'idMal' | 'title'>): Promise<WorkRef | null> {
   const mal = String(media.idMal)
   for (const v of titleVariants(media.title)) {
     const hit = (await searchWorksByTitle(token, v)).find((w) => w.malAnimeId === mal)

@@ -1,24 +1,33 @@
+import { recordAnnictHealth } from './annictHealth'
 import { emitAnnictAuthFailed } from './authEvents'
 import { annictImageOf } from './covers'
 import { delay, parseRetryAfter } from './retry'
 import { createThrottle, type ScheduleOptions } from './throttle'
+import { patchStoredStatus, saveStoredLibrary, saveStoredSeasonWorks } from './offlineCache'
 
 // Annict GraphQL API。型は annict/annict の rails/app/graphql/beta/schema.graphql が正
 const ENDPOINT = 'https://api.annict.com/graphql'
 
 // 同じ IP から1秒4回まで（rails/config/initializers/rack_attack.rb）。余裕を見て約3回に抑える
-export const schedule = createThrottle(300)
+// 開始の間隔 300ms（1秒あたり約3.3回）。Annict は IP ごとに1秒4回までに制限している（rack-attack の
+// limit: 4, period: 1.second。annict/annict の rails/config/initializers/rack_attack.rb、2026-10-05 確認）。
+// 読み込みは3件まで重ねてよい（答えの遅い1件が、ほかの画面の読み込みを全部止めないように。間隔は開始どうしなので頻度は変わらない）
+export const schedule = createThrottle(300, undefined, undefined, 3)
 
 export type StatusState = 'WANNA_WATCH' | 'WATCHING' | 'WATCHED' | 'ON_HOLD' | 'STOP_WATCHING' | 'NO_STATE'
 export type RatingState = 'BAD' | 'AVERAGE' | 'GOOD' | 'GREAT'
 
-export type AnnictErrorKind = 'auth' | 'network' | 'api'
+// notFound: 指定したもの（nodes(ids) の ID）が無い。Annict は null ではなく HTTP 404 を返す（2026-10-05 に消えた感想の ID で確認）
+export type AnnictErrorKind = 'auth' | 'network' | 'api' | 'timeout' | 'notFound'
 
 export class AnnictError extends Error {
   readonly kind: AnnictErrorKind
-  constructor(message: string, kind: AnnictErrorKind) {
+  // HTTP のステータス（応答があったときだけ）。5xx の書き込みは「届いたか分からない」の判断に使う（lib/uncertainWrites.ts）
+  readonly status?: number
+  constructor(message: string, kind: AnnictErrorKind, status?: number) {
     super(message)
     this.kind = kind
+    this.status = status
   }
 }
 
@@ -39,42 +48,76 @@ export interface AnnictWork {
 const RATE_LIMIT_RETRIES = 2
 const RATE_LIMIT_DEFAULT_WAIT_MS = 2_000
 const RATE_LIMIT_MAX_WAIT_MS = 30_000
+// 読み込みの答えを待つ上限。過ぎたら諦めて知らせる（自動では送り直さない。混んでいる Annict に上乗せしないため）。
+// 本当に止まった問い合わせだけを切る長さにする（Annict の手前の Cloudflare は 100 秒で切る）。
+// 初めは 20 秒にしていたが、Annict が重い日にはライブラリの1ページに 24.6 秒かかり、遅くても出ていたものが出なくなった（2026-10-06、Issue #1）。
+// 書き込みには付けない（途中で切ると、反映されたか分からなくなる）
+const READ_TIMEOUT_MS = 90_000
+const isMutation = (query: string) => /^\s*mutation\b/.test(query)
 
 type GqlOutcome<T> = { data: T } | { retryAfterMs: number }
 
 async function gql<T>(token: string, query: string, variables: Record<string, unknown> = {}, opts: ScheduleOptions = {}): Promise<T> {
+  // 書き込みはほかの問い合わせと重ねない（頼んだ順に反映し、あとの読み込みが書き込みの前の内容を返さないように）
+  const write = isMutation(query)
   for (let attempt = 0; ; attempt++) {
     // 待つあいだは列を握らない（1回ごとに列に並べ直す）。待っている間に、ほかの問い合わせが先に進める
     const outcome = await schedule<GqlOutcome<T>>(async () => {
-      let res: Response
+      // 読み込みの上限は、答えの中身を読み終えるまで（途中で止まった場合も切る）
+      const abort = write ? null : new AbortController()
+      const timer = abort ? setTimeout(() => abort.abort(), READ_TIMEOUT_MS) : null
       try {
-        res = await fetch(ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ query, variables }),
-        })
-      } catch {
-        throw new AnnictError('Annict に接続できませんでした。通信を確認してください', 'network')
+        return await send(abort?.signal)
+      } catch (e) {
+        if (abort?.signal.aborted) throw new AnnictError('Annict の応答がありません。混み合っているようです。少し待ってからもう一度試してください', 'timeout')
+        throw e
+      } finally {
+        if (timer) clearTimeout(timer)
       }
-      if (res.status === 401) {
-        // 画面全体に知らせる（帯を出す）。呼び出し元には、今までどおり例外で返す
-        emitAnnictAuthFailed(token)
-        throw new AnnictError('Annict のトークンが使えません。設定で入れ直してください', 'auth')
-      }
-      if (res.status === 429) {
-        return { retryAfterMs: parseRetryAfter(res.headers.get('Retry-After'), RATE_LIMIT_DEFAULT_WAIT_MS, RATE_LIMIT_MAX_WAIT_MS) }
-      }
-      if (!res.ok) throw new AnnictError(`Annict がエラーを返しました（HTTP ${res.status}）`, 'api')
-      const json = (await res.json()) as { data?: T; errors?: { message: string }[] }
-      if (json.errors?.length) throw new AnnictError(`Annict がエラーを返しました: ${json.errors[0].message}`, 'api')
-      if (!json.data) throw new AnnictError('Annict の応答が空でした', 'api')
-      return { data: json.data }
-    }, opts)
+    }, { ...opts, exclusive: write })
     if ('data' in outcome) return outcome.data
     if (attempt >= RATE_LIMIT_RETRIES) {
       throw new AnnictError('Annict の利用制限に達しました。しばらく待ってからもう一度試してください', 'api')
     }
     await delay(outcome.retryAfterMs)
+  }
+
+  async function send(signal: AbortSignal | undefined): Promise<GqlOutcome<T>> {
+    // Annict の調子（設定の画面に出す。lib/annictHealth.ts）。応答の頭が届くまでの時間と、サーバー側の失敗だけを数える
+    const start = Date.now()
+    let res: Response
+    try {
+      res = await fetch(ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ query, variables }),
+        signal,
+      })
+    } catch (e) {
+      recordAnnictHealth({ at: Date.now(), ms: Date.now() - start, ok: false, failure: signal?.aborted ? 'timeout' : 'network' })
+      if (signal?.aborted) throw e
+      throw new AnnictError('Annict に接続できませんでした。通信を確認してください', 'network')
+    }
+    // 429（回数の制限）はこちらの送りすぎなので数えない。401・404 なども、サーバーは答えているので「答えた」に入れる
+    if (res.status !== 429) {
+      const failed = res.status >= 500
+      recordAnnictHealth({ at: Date.now(), ms: Date.now() - start, ok: !failed, ...(failed ? { failure: 'server' as const, status: res.status } : {}) })
+    }
+    if (res.status === 401) {
+      // 画面全体に知らせる（帯を出す）。呼び出し元には、今までどおり例外で返す
+      emitAnnictAuthFailed(token)
+      throw new AnnictError('Annict のトークンが使えません。設定で入れ直してください', 'auth')
+    }
+    if (res.status === 429) {
+      return { retryAfterMs: parseRetryAfter(res.headers.get('Retry-After'), RATE_LIMIT_DEFAULT_WAIT_MS, RATE_LIMIT_MAX_WAIT_MS) }
+    }
+    if (res.status === 404) throw new AnnictError('Annict に見つかりませんでした（HTTP 404）', 'notFound')
+    if (res.status >= 500) throw new AnnictError(`Annict のサーバーが混み合っているか、止まっているようです（HTTP ${res.status}）。しばらく待ってからもう一度試してください`, 'api', res.status)
+    if (!res.ok) throw new AnnictError(`Annict がエラーを返しました（HTTP ${res.status}）`, 'api', res.status)
+    const json = (await res.json()) as { data?: T; errors?: { message: string }[] }
+    if (json.errors?.length) throw new AnnictError(`Annict がエラーを返しました: ${json.errors[0].message}`, 'api')
+    if (!json.data) throw new AnnictError('Annict の応答が空でした', 'api')
+    return { data: json.data }
   }
 }
 
@@ -137,7 +180,25 @@ interface RawWork {
 }
 
 // そのクールの作品を、視聴者の多い順に取る
-export async function fetchSeasonWorks(token: string, seasonSlug: string, limit = 30): Promise<AnnictWork[]> {
+// 同じものを続けて読み直さないための、短い時間の控え（メモリの中だけ）。Annict への問い合わせを増やさないため（2026-10-06）。
+// 中身には自分の状態（viewerStatusState）が混ざるので、状態を書いたら直す・捨てる（updateStatus）。トークンごとに分ける
+const SEASON_TTL_MS = 5 * 60_000
+const DETAIL_TTL_MS = 10 * 60_000
+const DETAIL_KEEP = 100
+const seasonCache = new Map<string, { at: number; works: AnnictWork[] }>()
+const detailCache = new Map<string, { at: number; value: Promise<WorkDetail> }>()
+
+// fresh: 控えを使わずに読む（利用者が「もう一度読み込む」を押したとき）
+export async function fetchSeasonWorks(token: string, seasonSlug: string, limit = 30, opts: { fresh?: boolean } = {}): Promise<AnnictWork[]> {
+  const key = `${token}\u0000${seasonSlug}\u0000${limit}`
+  const hit = seasonCache.get(key)
+  if (!opts.fresh && hit && Date.now() - hit.at < SEASON_TTL_MS) return hit.works.map((w) => ({ ...w }))
+  const works = await readSeasonWorks(token, seasonSlug, limit)
+  seasonCache.set(key, { at: Date.now(), works: works.map((w) => ({ ...w })) })
+  return works
+}
+
+async function readSeasonWorks(token: string, seasonSlug: string, limit: number): Promise<AnnictWork[]> {
   const data = await gql<{ searchWorks: { nodes: RawWork[] } }>(
     token,
     `query($seasons: [String!], $first: Int) {
@@ -150,7 +211,7 @@ export async function fetchSeasonWorks(token: string, seasonSlug: string, limit 
     }`,
     { seasons: [seasonSlug], first: limit },
   )
-  return data.searchWorks.nodes.map((w) => ({
+  const works = data.searchWorks.nodes.map((w) => ({
     id: w.id,
     annictId: w.annictId,
     title: w.title,
@@ -160,9 +221,13 @@ export async function fetchSeasonWorks(token: string, seasonSlug: string, limit 
     viewerStatusState: w.viewerStatusState,
     imageUrl: annictImageOf(w.image),
   }))
+  // 次の起動ですぐ出せるように、端末にもとっておく（lib/offlineCache.ts）
+  saveStoredSeasonWorks(seasonSlug, works)
+  return works
 }
 
 export async function updateStatus(token: string, workId: string, state: StatusState): Promise<void> {
+  forgetLibrary()
   await gql(
     token,
     `mutation($workId: ID!, $state: StatusState!) {
@@ -170,6 +235,21 @@ export async function updateStatus(token: string, workId: string, state: StatusS
     }`,
     { workId, state },
   )
+  // 書く前に始まっていた読み込みが、書く前の中身で使い回しを作り直していることがあるので、書いたあとにも捨てる
+  forgetLibrary()
+  // 端末にとっておいた内容も直す（次の起動で、答えた作品がまた出てこないように）
+  patchStoredStatus(workId, state)
+  // 短い時間の控えも合わせる: クールの作品は状態を直し、作品の詳細（関連作品の状態の印を含む）は捨てる
+  for (const entry of seasonCache.values()) {
+    entry.works = entry.works.map((w) => (w.id === workId ? { ...w, viewerStatusState: state } : w))
+  }
+  detailCache.clear()
+}
+
+// テスト用: 短い時間の控えを捨てる
+export function forgetShortCaches(): void {
+  seasonCache.clear()
+  detailCache.clear()
 }
 
 // 作品の声優と監督（傾向の「よく見る声優・監督」に使う）。人物は Annict の ID と正式な名前
@@ -282,20 +362,34 @@ export async function fetchEpisodes(token: string, workIds: readonly string[]): 
   return out
 }
 
-// 話を記録する（4段階の評価つき。感想の文は付けない）。戻り値は記録の ID（すぐ後の取り消しに使う）
-export async function createRecord(token: string, episodeId: string, rating: RatingState | null): Promise<string> {
+// 話を記録する（4段階の評価つき。感想は書いた人だけ）。戻り値は記録の ID（すぐ後の取り消しと、あとから付ける感想に使う）
+export async function createRecord(token: string, episodeId: string, rating: RatingState | null, comment?: string): Promise<string> {
   const data = await gql<{ createRecord: { record: { id: string } } }>(
     token,
-    `mutation($episodeId: ID!, $ratingState: RatingState) {
-      createRecord(input: {episodeId: $episodeId, ratingState: $ratingState}) { record { id } }
+    `mutation($episodeId: ID!, $ratingState: RatingState, $comment: String) {
+      createRecord(input: {episodeId: $episodeId, ratingState: $ratingState, comment: $comment}) { record { id } }
     }`,
-    { episodeId, ratingState: rating },
+    { episodeId, ratingState: rating, comment: comment ?? null },
   )
+  // ライブラリの「次の話」が変わる
+  forgetLibrary()
   return data.createRecord.record.id
+}
+
+// 話の記録の感想を付ける・直す（UpdateRecordInput。評価も一緒に送る。送らないと消えるかもしれないため）
+export async function updateRecord(token: string, recordId: string, comment: string, rating: RatingState | null): Promise<void> {
+  await gql(
+    token,
+    `mutation($recordId: ID!, $comment: String, $ratingState: RatingState) {
+      updateRecord(input: {recordId: $recordId, comment: $comment, ratingState: $ratingState}) { record { id } }
+    }`,
+    { recordId, comment, ratingState: rating },
+  )
 }
 
 export async function deleteRecord(token: string, recordId: string): Promise<void> {
   await gql(token, `mutation($recordId: ID!) { deleteRecord(input: {recordId: $recordId}) { clientMutationId } }`, { recordId })
+  forgetLibrary()
 }
 
 // 評価は「総合」だけを、本文なしの感想として送る（本文が空でも通ることは 2026-09-29 に確認済み）。
@@ -309,6 +403,36 @@ export async function createReview(token: string, workId: string, rating: Rating
     { workId, rating, body },
   )
   return data.createReview.review.id
+}
+
+// 項目つきで感想を作る（どの項目も任意。本文は空でもよい）。作った感想の ID を返す
+export async function createReviewWith(token: string, workId: string, axes: ReviewAxes, body: string): Promise<string> {
+  const data = await gql<{ createReview: { review: { id: string } } }>(
+    token,
+    `mutation($workId: ID!, $body: String!, $o: RatingState, $s: RatingState, $a: RatingState, $m: RatingState, $c: RatingState) {
+      createReview(input: {workId: $workId, body: $body, ratingOverallState: $o, ratingStoryState: $s,
+        ratingAnimationState: $a, ratingMusicState: $m, ratingCharacterState: $c}) { review { id } }
+    }`,
+    { workId, body, o: axes.ratingOverallState, s: axes.ratingStoryState, a: axes.ratingAnimationState, m: axes.ratingMusicState, c: axes.ratingCharacterState },
+  )
+  return data.createReview.review.id
+}
+
+// 感想を1件、Annict から読み直す（書き込みの直前に、控えが古くないか確かめるため）。消されていれば null（Annict は 404 を返す）
+export async function fetchReview(token: string, reviewId: string): Promise<MyReview | null> {
+  try {
+    const data = await gql<{ nodes: (MyReview | null)[] }>(
+      token,
+      `query($ids: [ID!]!) { nodes(ids: $ids) { ... on Review { id body createdAt
+        ratingOverallState ratingStoryState ratingAnimationState ratingMusicState ratingCharacterState } } }`,
+      { ids: [reviewId] },
+    )
+    const r = data.nodes[0]
+    return r && r.id ? r : null
+  } catch (e) {
+    if (e instanceof AnnictError && e.kind === 'notFound') return null
+    throw e
+  }
 }
 
 export interface ReviewAxes {
@@ -372,6 +496,10 @@ export interface LibraryEntry {
   watchersCount?: number
   // Annict の API の画像（https のものだけ）。表紙に使う
   imageUrl?: string | null
+  // 次に見る話（Annict の LibraryEntry.nextEpisode。見てる作品の「次は 第5話」に使う。話の情報が無い・見終えた作品は null）
+  nextEpisode?: { number: number | null; numberText: string | null; title: string | null } | null
+  // 全話数（Annict の Work.episodesCount。分からなければ null。評価の画面の見てるカードの「全12話」）
+  episodesCount?: number | null
 }
 
 // 最後に読んだ自分のライブラリ（起動中だけ）。参加作品の一覧に、自分の記録の印を付けるのに使う（そのためだけに読み直さない）
@@ -381,8 +509,37 @@ export function peekLibrary(): readonly LibraryEntry[] | null {
   return lastLibrary
 }
 
-// 自分のライブラリ。状態が消えている（未設定に戻した）項目は含めない
-export async function fetchLibrary(token: string): Promise<LibraryEntry[]> {
+// 読んだライブラリを使い回す時間。評価の画面・マッチングの好み・記録の画面が、起動して続けて読むので、1回にまとめる
+// （2026-10-05 に数えると、起動から記録の画面までに全件を3回読んでいた）。状態を変えた・話を記録したら捨てる
+const LIBRARY_TTL_MS = 60_000
+let libraryCache: { token: string; at: number; value: LibraryEntry[] } | null = null
+let libraryFlight: { token: string; promise: Promise<LibraryEntry[]> } | null = null
+
+// 使い回しを捨てる（次の読み込みは Annict から読む）
+export function forgetLibrary(): void {
+  libraryCache = null
+}
+
+// 自分のライブラリ。状態が消えている（未設定に戻した）項目は含めない。
+// 同時に頼まれたら1回にまとめ、読んでから1分は使い回す。fresh なら必ず読み直す（バックアップなど）
+export function fetchLibrary(token: string, opts: { fresh?: boolean } = {}): Promise<LibraryEntry[]> {
+  if (!opts.fresh && libraryCache?.token === token && Date.now() - libraryCache.at < LIBRARY_TTL_MS) return Promise.resolve([...libraryCache.value])
+  if (libraryFlight?.token === token) return libraryFlight.promise.then((v) => [...v])
+  const promise = readLibrary(token)
+    .then((value) => {
+      libraryCache = { token, at: Date.now(), value }
+      // 次の起動ですぐ出せるように、端末にもとっておく（lib/offlineCache.ts）
+      saveStoredLibrary(value)
+      return value
+    })
+    .finally(() => {
+      if (libraryFlight?.promise === promise) libraryFlight = null
+    })
+  libraryFlight = { token, promise }
+  return promise.then((v) => [...v])
+}
+
+async function readLibrary(token: string): Promise<LibraryEntry[]> {
   const out: LibraryEntry[] = []
   let after: string | null = null
   for (;;) {
@@ -392,6 +549,7 @@ export async function fetchLibrary(token: string): Promise<LibraryEntry[]> {
           pageInfo: { hasNextPage: boolean; endCursor: string | null }
           nodes: {
             status: { state: StatusState; createdAt: string | null } | null
+            nextEpisode: { number: number | null; numberText: string | null; title: string | null } | null
             work: {
               id: string
               annictId: number
@@ -401,6 +559,7 @@ export async function fetchLibrary(token: string): Promise<LibraryEntry[]> {
               seasonName: string | null
               media: string | null
               watchersCount: number
+              episodesCount: number | null
               image: { recommendedImageUrl: string | null; facebookOgImageUrl: string | null } | null
             }
           }[]
@@ -410,7 +569,7 @@ export async function fetchLibrary(token: string): Promise<LibraryEntry[]> {
       token,
       `query($after: String) { viewer { libraryEntries(first: 100, after: $after) {
         pageInfo { hasNextPage endCursor }
-        nodes { status { state createdAt } work { id annictId title malAnimeId seasonYear seasonName media watchersCount image { recommendedImageUrl facebookOgImageUrl } } }
+        nodes { status { state createdAt } nextEpisode { number numberText title } work { id annictId title malAnimeId seasonYear seasonName media watchersCount episodesCount image { recommendedImageUrl facebookOgImageUrl } } }
       } } }`,
       { after },
     )
@@ -430,6 +589,8 @@ export async function fetchLibrary(token: string): Promise<LibraryEntry[]> {
         media: n.work.media ?? null,
         watchersCount: n.work.watchersCount,
         imageUrl: annictImageOf(n.work.image),
+        nextEpisode: n.nextEpisode ?? null,
+        episodesCount: n.work.episodesCount ?? null,
       })
     }
     if (!conn.pageInfo.hasNextPage) {
@@ -523,6 +684,82 @@ export async function scanMyReviews(token: string, opts: { stopBefore?: string |
     after = conn.pageInfo.endCursor
   }
   return { reviews: latest, newest }
+}
+
+// 自分の最近の感想と話の記録（since より新しいもの。新しい順）。「届いたか分からない」書き込みが、実は届いていたかを確かめる（lib/uncertainWrites.ts）。
+// 新しい順に読み、since より古い項目に来たら止めるので、ふつうは1ページで済む
+export interface RecentReview {
+  workId: string
+  review: MyReview
+}
+export interface RecentRecord {
+  id: string
+  episodeId: string
+  createdAt: string
+}
+export async function fetchRecentActivity(token: string, since: number): Promise<{ reviews: RecentReview[]; records: RecentRecord[] }> {
+  const reviews: RecentReview[] = []
+  const records: RecentRecord[] = []
+  let after: string | null = null
+  for (;;) {
+    const data: {
+      viewer: {
+        activities: {
+          pageInfo: { hasNextPage: boolean; endCursor: string | null }
+          edges: {
+            item:
+              | ({ __typename: 'Review'; work: { id: string } | null } & MyReview)
+              | { __typename: 'Record'; id: string; createdAt: string; episode: { id: string } | null }
+              | { __typename: string; createdAt?: string }
+              | null
+          }[]
+        }
+      }
+    } = await gql(
+      token,
+      `query($after: String) { viewer { activities(first: 30, after: $after, orderBy: {field: CREATED_AT, direction: DESC}) {
+        pageInfo { hasNextPage endCursor }
+        edges { item { __typename
+          ... on Review { id body createdAt work { id }
+            ratingOverallState ratingStoryState ratingAnimationState ratingMusicState ratingCharacterState }
+          ... on Record { id createdAt episode { id } }
+          ... on Status { createdAt }
+          ... on MultipleRecord { createdAt }
+        } }
+      } } }`,
+      { after },
+    )
+    const conn = data.viewer.activities
+    let reachedOld = false
+    for (const { item } of conn.edges) {
+      if (!item || !('createdAt' in item) || !item.createdAt) continue
+      if (Date.parse(item.createdAt) < since) {
+        reachedOld = true
+        break
+      }
+      if (item.__typename === 'Review' && 'work' in item && item.work && 'body' in item) {
+        const r = item as { work: { id: string } } & MyReview
+        reviews.push({
+          workId: r.work.id,
+          review: {
+            id: r.id,
+            body: r.body ?? '',
+            createdAt: r.createdAt,
+            ratingOverallState: r.ratingOverallState ?? null,
+            ratingStoryState: r.ratingStoryState ?? null,
+            ratingAnimationState: r.ratingAnimationState ?? null,
+            ratingMusicState: r.ratingMusicState ?? null,
+            ratingCharacterState: r.ratingCharacterState ?? null,
+          },
+        })
+      } else if (item.__typename === 'Record' && 'episode' in item && item.episode && 'id' in item) {
+        records.push({ id: item.id, episodeId: item.episode.id, createdAt: item.createdAt })
+      }
+    }
+    if (reachedOld || !conn.pageInfo.hasNextPage) break
+    after = conn.pageInfo.endCursor
+  }
+  return { reviews, records }
 }
 
 export interface BrowseWork {
@@ -633,7 +870,23 @@ export function annictCreditUrl(c: Credit): string {
 
 // 作品の詳細。Staff.roleOther はスキーマ上 null にならないはずだが実際は null を返し、
 // 取るとスタッフ一覧ごと失敗する（2026-09-30 に確認）ので取らない
-export async function fetchWorkDetail(token: string, workId: string): Promise<WorkDetail> {
+// 同じ作品の詳細を、10分のあいだは読み直さない（閉じてまた開いたとき）。失敗したものは控えない
+export function fetchWorkDetail(token: string, workId: string): Promise<WorkDetail> {
+  const key = `${token}\u0000${workId}`
+  const hit = detailCache.get(key)
+  if (hit && Date.now() - hit.at < DETAIL_TTL_MS) return hit.value
+  const value = readWorkDetail(token, workId)
+  detailCache.delete(key)
+  detailCache.set(key, { at: Date.now(), value })
+  // 古いものから捨てて、控えの数を抑える
+  while (detailCache.size > DETAIL_KEEP) detailCache.delete(detailCache.keys().next().value as string)
+  value.catch(() => {
+    if (detailCache.get(key)?.value === value) detailCache.delete(key)
+  })
+  return value
+}
+
+async function readWorkDetail(token: string, workId: string): Promise<WorkDetail> {
   const data = await gql<{
     node: Omit<WorkDetail, 'casts' | 'staffs' | 'copyright' | 'series'> & {
       image: { copyright: string | null } | null

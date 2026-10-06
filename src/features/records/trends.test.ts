@@ -3,6 +3,7 @@ import type { LibraryEntry, MyReview, RatingState, StatusState, WorkCredits } fr
 import type { Media } from '../../lib/shikimori'
 import type { RecordRow } from './recordList'
 import {
+  axisWeights,
   byYear,
   castAffinity,
   contrasts,
@@ -14,9 +15,11 @@ import {
   monthlyPace,
   ratingCounts,
   seasonCounts,
+  reviewYears,
   summarize,
   titleHead,
   topPeople,
+  yearReview,
 } from './trends'
 
 function row(id: number, state: StatusState, rating: RatingState | null, extra: Partial<LibraryEntry> = {}): RecordRow {
@@ -237,5 +240,66 @@ describe('titleHead', () => {
     expect(titleHead('グノーシア')).toBe(titleHead('グノーシア 第2クール'))
     expect(titleHead('劇場版 PSYCHO-PASS サイコパス')).toBe(titleHead('PSYCHO-PASS サイコパス 2'))
     expect(titleHead('僕のヒーローアカデミア')).not.toBe(titleHead('僕の心のヤバイやつ'))
+  })
+})
+
+describe('axisWeights', () => {
+  // ストーリーは総合と同じ動き、音楽はいつも とても良い（総合と連動しない）
+  const overall: RatingState[] = ['GREAT', 'GOOD', 'AVERAGE', 'BAD', 'GREAT', 'GOOD']
+  const rows = overall.map((o, i) => {
+    const r = row(i + 1, 'WATCHED', o)
+    return { ...r, review: { ...r.review!, ratingStoryState: o, ratingMusicState: 'GREAT' as const } }
+  })
+
+  it('finds the axis that moves with the overall rating', () => {
+    const w = axisWeights(rows)
+    expect(w.top?.key).toBe('ratingStoryState')
+    expect(w.top?.link).toBeCloseTo(1)
+    const music = w.axes.find((a) => a.key === 'ratingMusicState')!
+    expect(music).toMatchObject({ n: 6, average: 4, link: null })
+    // 付けていない項目は出さない
+    expect(w.axes.map((a) => a.key)).toEqual(['ratingStoryState', 'ratingMusicState'])
+  })
+
+  it('needs five works with the axis', () => {
+    expect(axisWeights(rows.slice(0, 4)).top).toBeNull()
+  })
+})
+
+describe('yearReview', () => {
+  const at = (iso: string) => ({ stateAt: iso })
+  const rows = [
+    row(1, 'WATCHED', 'GOOD', at('2025-03-10T10:00:00Z')),
+    row(2, 'WATCHED', 'GREAT', at('2025-03-20T10:00:00Z')),
+    row(3, 'WATCHED', 'AVERAGE', at('2025-07-01T10:00:00Z')),
+    row(4, 'WATCHED', 'GREAT', at('2025-08-01T10:00:00Z')),
+    row(5, 'WATCHED', null, at('2024-12-01T10:00:00Z')),
+    row(6, 'WANNA_WATCH', 'GREAT', at('2025-05-01T10:00:00Z')),
+  ]
+  const m = new Map([
+    [1, media(1, { genres: ['Drama'] })],
+    [2, media(2, { genres: ['Drama', 'Sci-Fi'] })],
+    [3, media(3, { genres: ['Sci-Fi'] })],
+  ])
+  const credits = new Map<string, WorkCredits>([
+    ['W1', { casts: [{ annictId: 1, name: '声優A' }], directors: [] }],
+    ['W2', { casts: [{ annictId: 1, name: '声優A' }], directors: [] }],
+  ])
+
+  it('lists the years that have watched works, newest first', () => {
+    expect(reviewYears(rows)).toEqual([2025, 2024])
+  })
+
+  it('counts the year by the day the works were marked watched', () => {
+    const y = yearReview(rows, 2025, m, credits)
+    expect(y).toMatchObject({ year: 2025, watched: 4, rated: 4, average: 3.25, busiest: { month: 3, count: 2 } })
+    expect(y.months).toEqual([0, 0, 2, 0, 0, 0, 1, 1, 0, 0, 0, 0])
+    // とても良い（新しい順）→ 良い
+    expect(y.best.map((r) => r.entry.annictId)).toEqual([4, 2, 1])
+    expect(y.genres).toEqual([
+      { name: 'Drama', count: 2 },
+      { name: 'Sci-Fi', count: 2 },
+    ])
+    expect(y.casts).toEqual([{ name: '声優A', count: 2 }])
   })
 })

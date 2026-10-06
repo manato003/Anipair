@@ -1,6 +1,5 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { FilterIcon, ListIcon, TrophyIcon } from '../../components/Icons'
-import { Achievements } from '../achievements/Achievements'
 import { loadTitlesState } from '../achievements/achievementStore'
 import { CoverImage } from '../../components/CoverImage'
 import { Empty } from '../../components/Empty'
@@ -35,17 +34,42 @@ import {
   type SortChoice,
   type SortKey,
 } from './recordList'
-import { EpisodeRecorder } from './EpisodeRecords'
 import { RecordFilterSheet } from './RecordFilterSheet'
 import { useEpisodes } from './useEpisodes'
 import { useMediaInfo } from './useMediaInfo'
-import { TrendsSheet } from './TrendsSheet'
 import { useRecords } from './useRecords'
 import { useTaste, useWannaScores } from './useTaste'
 import { orderByScore } from './wannaRank'
+import { Loading } from '../../components/Loading'
+import { nextEpisode, nextLabel } from './episodes'
+import type { GithubConnection } from '../../lib/github'
+import { useCoalescedTask } from '../../lib/useCoalescedTask'
+import { noteOf, priorityFirst } from './wannaNotes'
+import { loadLocalWannaNotes, setWannaNote, syncWannaNotes } from './wannaNoteStore'
+import { WannaNoteSheet } from './WannaNoteSheet'
+import { StaleNote } from '../../components/StaleNote'
 
-export function Records({ token, active }: { token: string; active: boolean }) {
+// 傾向（図と共有の画像）と実績は、開いたときに別のファイルから読む（記録の一覧を早く出す）
+const TrendsSheet = lazy(() => import('./TrendsSheet').then((m) => ({ default: m.TrendsSheet })))
+const Achievements = lazy(() => import('../achievements/Achievements').then((m) => ({ default: m.Achievements })))
+
+export function Records({ token, github = null, active }: { token: string; github?: GithubConnection | null; active: boolean }) {
   const r = useRecords(token, active)
+  // 見たいの「優先して見る」とメモ（端末の控え。GitHub と連携していれば、開いたときと変えたあとに同期する）
+  const [notes, setNotes] = useState(() => loadLocalWannaNotes())
+  const [noteFor, setNoteFor] = useState<RecordRow | null>(null)
+  const syncNotes = useMemo(() => (github ? async () => setNotes(await syncWannaNotes(github)) : null), [github])
+  const syncNotesLater = useCoalescedTask(r.enqueue, '見たいの印とメモの GitHub への保存', syncNotes)
+  const syncedWith = useRef<GithubConnection | null>(null)
+  useEffect(() => {
+    if (!active || !github || syncedWith.current === github) return
+    syncedWith.current = github
+    syncNotesLater()
+  }, [active, github, syncNotesLater])
+  const saveNote = (row: RecordRow, value: { priority: boolean; memo: string }) => {
+    setNotes(setWannaNote(row.entry.annictId, value))
+    syncNotesLater()
+  }
   // 記録の一覧か、実績（称号）か
   const [view, setView] = useState<'records' | 'achievements'>('records')
   // まだ一度も実績を開いていない（覚醒を見ていない）あいだは、切り替えの「実績」に光る点を付けて気づかせる
@@ -54,7 +78,8 @@ export function Records({ token, active }: { token: string; active: boolean }) {
     setView(next)
     if (next === 'achievements') setAchievementsUnseen(false)
   }
-  const [bucket, setBucket] = useState<Bucket>('watched')
+  // 選んだ状態（選ぶまでは null: 「見てる」があれば見てる、無ければ「見た」。記録ページの用事でいちばん多いのは、今期見ている作品の話ごとの記録なので）
+  const [pickedBucket, setBucket] = useState<Bucket | null>(null)
   // 並べ替えは状態ごとに持つ（見たは評価順、ほかは記録順から）。押している並べ替えをもう一度押すと、昇順と降順が入れ替わる。
   // 見たいのおすすめ順は好みを調べてから並べる（重いので、選んだときだけ）
   const [sortBy, setSortBy] = useState<Record<Bucket, SortChoice>>({
@@ -63,9 +88,6 @@ export function Records({ token, active }: { token: string; active: boolean }) {
     watching: { key: 'recorded', dir: 'desc' },
     other: { key: 'recorded', dir: 'desc' },
   })
-  const sort = sortBy[bucket]
-  const chooseSort = (key: SortKey) =>
-    setSortBy((cur) => ({ ...cur, [bucket]: cur[bucket].key === key ? { key, dir: cur[bucket].dir === 'desc' ? 'asc' : 'desc' } : { key, dir: 'desc' } }))
   const [query, setQuery] = useState('')
   const [editing, setEditing] = useState(false)
   // 絞り込み（どの状態にも効く）。ジャンル・制作会社は、シートを開いたときかその条件をかけているときだけ Shikimori から読む
@@ -73,28 +95,25 @@ export function Records({ token, active }: { token: string; active: boolean }) {
   const [filterOpen, setFilterOpen] = useState(false)
   const entries = useMemo(() => (r.rows ? r.rows.map((row) => row.entry) : null), [r.rows])
   const media = useMediaInfo(entries, filterOpen || filter.genres.length > 0 || filter.studios.length > 0)
-  // 「見てる」の作品の話の一覧（見てるの一覧を開いたときだけ読む）。話ごとの記録は、記録ページの書き込みの列で送る
-  // 「話ごとに記録」を開いている作品（Annict の作品の ID）。普段は行を縮めて一覧を見やすく、開いた作品の話の一覧だけを読む
-  const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set())
-  const toggleExpanded = (annictId: number) =>
-    setExpanded((cur) => {
-      const next = new Set(cur)
-      if (next.has(annictId)) next.delete(annictId)
-      else next.add(annictId)
-      return next
-    })
-  const expandedIds = useMemo(() => (r.rows ?? []).filter((row) => expanded.has(row.entry.annictId)).map((row) => row.entry.workId), [r.rows, expanded])
-  const eps = useEpisodes(token, expandedIds, r.enqueue)
   const [trendsOpen, setTrendsOpen] = useState(false)
   // 詳細のシートを開いている記録。開いた時点の手がかりを持つので、一覧の読み直しやシートでの変更で消えても、シートは閉じない
   // （手がかりの参照が変わるとシートが読み直すので、毎回作り直さない）
   const [open, setOpen] = useState<{ seed: WorkSeed; cover: Cover | null } | null>(null)
+  // 話ごとの記録はシートで付ける。話の一覧は、シートで開いた「見た」「見てる」の作品の分だけ読み、閉じても控えておく
+  // （一覧の「次は 第5話」を、シートで記録した話に合わせるため。送信は記録ページの書き込みの列）
+  const openState = open ? r.rows?.find((row) => row.entry.annictId === open.seed.annictId)?.entry.state : undefined
+  const episodeIds = useMemo(() => (open && (openState === 'WATCHING' || openState === 'WATCHED') ? [open.seed.id] : []), [open, openState])
+  const eps = useEpisodes(token, episodeIds, r.enqueue)
   const openRow = ({ entry, cover }: RecordRow) =>
     setOpen({ seed: { id: entry.workId, annictId: entry.annictId, title: entry.title, malAnimeId: entry.malAnimeId, viewerStatusState: entry.state }, cover })
 
   // 絞り込んだあとの記録（状態ごとの件数も、これで数える）
   const filtered = useMemo(() => applyFilter(r.rows ?? [], filter, media.info), [r.rows, filter, media.info])
   const counts = useMemo(() => countBuckets(filtered), [filtered])
+  const bucket: Bucket = pickedBucket ?? (!r.rows || counts.watching > 0 ? 'watching' : 'watched')
+  const sort = sortBy[bucket]
+  const chooseSort = (key: SortKey) =>
+    setSortBy((cur) => ({ ...cur, [bucket]: cur[bucket].key === key ? { key, dir: cur[bucket].dir === 'desc' ? 'asc' : 'desc' } : { key, dir: 'desc' } }))
   const byTaste = bucket === 'wanna' && sort.key === 'taste'
   const taste = useTaste(token, byTaste, active)
   const wannaKey = useMemo(
@@ -107,15 +126,27 @@ export function Records({ token, active }: { token: string; active: boolean }) {
   const wanna = useWannaScores(byTaste && taste.state.status === 'ready' ? taste.state.taste : null, wannaKey)
   const scores = byTaste ? wanna.scores : null
   const visible = useMemo(() => {
-    const rows = sortRows(filterRows(filtered, bucket, query), sort.key, sort.dir)
+    const sorted = sortRows(filterRows(filtered, bucket, query), sort.key, sort.dir)
+    // 見たいは「優先して見る」の作品を先に（それぞれの中は選んだ並べ方のまま）
+    const rows = bucket === 'wanna' ? priorityFirst(sorted, (row) => noteOf(notes, row.entry.annictId)?.priority === true) : sorted
     if (!scores) return rows
     // おすすめ順: 点数のある作品を点数の順に（昇順なら逆に）、点数の無い作品は最後
     const ranked = orderByScore(rows, (row) => malIdOf(row.entry), scores)
-    if (sort.dir === 'desc') return ranked
+    const isPriority = (row: RecordRow) => noteOf(notes, row.entry.annictId)?.priority === true
+    if (sort.dir === 'desc') return priorityFirst(ranked, isPriority)
     const scored = ranked.filter((row) => scores.has(malIdOf(row.entry) ?? -1))
-    return [...scored.reverse(), ...ranked.filter((row) => !scores.has(malIdOf(row.entry) ?? -1))]
-  }, [filtered, bucket, query, sort, scores])
+    return priorityFirst([...scored.reverse(), ...ranked.filter((row) => !scores.has(malIdOf(row.entry) ?? -1))], isPriority)
+  }, [filtered, bucket, query, sort, scores, notes])
   const filterCount = activeFilterCount(filter)
+  // 見てる作品の次の話。話の一覧を読み込んだ作品はその値（この画面で記録した直後も合う）、まだならライブラリの次の話
+  const watchNext = (row: RecordRow): string | null => {
+    const data = eps.byWork.get(row.entry.workId)
+    if (data && !data.noEpisodes && data.episodes.length > 0) {
+      const n = nextEpisode(data.episodes)
+      return n ? nextLabel(n) : '最後の話まで記録しました'
+    }
+    return row.entry.nextEpisode ? nextLabel(row.entry.nextEpisode) : null
+  }
   // おすすめ順の読み込みの状況（読み込み中・失敗）
   const tasteError = byTaste ? (taste.state.status === 'error' ? taste.state.message : wanna.error) : null
   const tasteLoading = byTaste && !tasteError && !scores
@@ -152,7 +183,9 @@ export function Records({ token, active }: { token: string; active: boolean }) {
       </header>
 
       {view === 'achievements' ? (
-        <Achievements token={token} rows={r.rows} loadError={r.loadError} onReload={r.reload} active={active} />
+        <Suspense fallback={<Loading block label="実績を読み込み中" />}>
+          <Achievements token={token} rows={r.rows} loadError={r.loadError} onReload={r.reload} active={active} />
+        </Suspense>
       ) : (
         <>
           <div className="records__controls">
@@ -208,9 +241,12 @@ export function Records({ token, active }: { token: string; active: boolean }) {
                 )
               })}
             </div>
-            <p className="note records__sortnote">{sortNote(sort)}</p>
+            <p className="note records__sortnote">
+              {sortNote(sort)}
+              {bucket === 'wanna' && visible.some((row) => noteOf(notes, row.entry.annictId)?.priority) ? '★優先の作品を先に並べています。' : ''}
+            </p>
             {filterCount > 0 && <ActiveFilters filter={filter} onChange={setFilter} />}
-            {tasteLoading && <p className="note">好みを調べています</p>}
+            {tasteLoading && <Loading label="好みを分析しています" />}
             {tasteError && (
               <p className="note">
                 好みを調べられませんでした（{tasteError}）。新しい順で並べています。
@@ -227,6 +263,7 @@ export function Records({ token, active }: { token: string; active: boolean }) {
               </p>
             )}
             <SaveStatus pending={r.pending} failed={r.failed} onRetry={r.retryFailed} onDismiss={r.dismissFailed} />
+            <StaleNote at={active ? r.staleAt : null} error={r.refreshError} onRetry={r.retryRefresh} />
           </div>
 
           <div className="records__list">
@@ -237,7 +274,7 @@ export function Records({ token, active }: { token: string; active: boolean }) {
                 </button>
               </Empty>
             ) : !r.rows ? (
-              <p className="records__loading">Annict の記録を読んでいます</p>
+              <Loading block label="Annict の記録を読み込み中" />
             ) : visible.length === 0 ? (
               query || filterCount > 0 ? (
                 <Empty title="当てはまる作品がありません" body={filterCount > 0 ? '絞り込みの条件をゆるめてください。' : '別の言葉で絞り込んでください。'}>
@@ -261,27 +298,13 @@ export function Records({ token, active }: { token: string; active: boolean }) {
                     onOpen={() => openRow(row)}
                     onRate={(rating) => r.setRating(row, rating)}
                     onState={(state) => r.setState(row, state)}
-                    episodeToggle={
-                      (row.entry.state === 'WATCHING' || row.entry.state === 'WATCHED') && !editing ? (
-                        <EpisodeToggle open={expanded.has(row.entry.annictId)} onToggle={() => toggleExpanded(row.entry.annictId)} />
-                      ) : null
-                    }
-                    episodes={
-                      (row.entry.state === 'WATCHING' || row.entry.state === 'WATCHED') && !editing && expanded.has(row.entry.annictId) ? (
-                          <EpisodeRecorder
-                            data={eps.byWork.get(row.entry.workId)}
-                            error={eps.errors.get(row.entry.workId) ?? null}
-                            watching={row.entry.state === 'WATCHING'}
-                            undoable={eps.undoable}
-                            onRecord={(ep, rating) => eps.record(row.entry.title, row.entry.workId, ep, rating)}
-                            onUndo={(ep) => eps.undo(row.entry.title, row.entry.workId, ep)}
-                            onFinish={(rating) => (rating ? r.setRating(row, rating) : r.setState(row, 'WATCHED'))}
-                            onRetry={eps.retry}
-                            active={active}
-                          />
-                      ) : null
-                    }
-                    expanded={expanded.has(row.entry.annictId)}
+                    next={row.entry.state === 'WATCHING' ? watchNext(row) : null}
+                    wanna={row.entry.state === 'WANNA_WATCH' ? (noteOf(notes, row.entry.annictId) ?? { priority: false, memo: '' }) : null}
+                    onWannaPriority={() => {
+                      const cur = noteOf(notes, row.entry.annictId)
+                      saveNote(row, { priority: !cur?.priority, memo: cur?.memo ?? '' })
+                    }}
+                    onWannaMemo={() => setNoteFor(row)}
                   />
                 ))}
               </ul>
@@ -303,7 +326,23 @@ export function Records({ token, active }: { token: string; active: boolean }) {
         />
       )}
 
-      {trendsOpen && r.rows && <TrendsSheet token={token} rows={r.rows} active={active} onClose={() => setTrendsOpen(false)} />}
+      {noteFor && (
+        <WannaNoteSheet
+          title={noteFor.entry.title}
+          priority={noteOf(notes, noteFor.entry.annictId)?.priority ?? false}
+          memo={noteOf(notes, noteFor.entry.annictId)?.memo ?? ''}
+          github={github !== null}
+          active={active}
+          onSave={(value) => saveNote(noteFor, value)}
+          onClose={() => setNoteFor(null)}
+        />
+      )}
+
+      {trendsOpen && r.rows && (
+        <Suspense fallback={null}>
+          <TrendsSheet token={token} rows={r.rows} active={active} onClose={() => setTrendsOpen(false)} />
+        </Suspense>
+      )}
 
       {open && (
         <WorkDetail
@@ -313,6 +352,7 @@ export function Records({ token, active }: { token: string; active: boolean }) {
           cover={open.cover}
           active={active}
           enqueue={r.enqueue}
+          episodes={eps}
           onChange={(patch) => r.patchRecord(open.seed.annictId, patch)}
           onRelatedChange={(work, patch) => r.noteRelatedChange(work.annictId, patch)}
           onClose={() => setOpen(null)}
@@ -353,18 +393,6 @@ function ActiveFilters({ filter: f, onChange }: { filter: RecordFilter; onChange
   )
 }
 
-// 「話ごとに記録」の開閉。普段は縮めておき（一覧を見やすく）、開いたときだけ行の下に記録欄を出す
-function EpisodeToggle(props: { open: boolean; onToggle: () => void }) {
-  return (
-    <button type="button" className="eptoggle__button" aria-expanded={props.open} onClick={props.onToggle}>
-      話ごとに記録
-      <span className="eptoggle__chevron" aria-hidden>
-        ▾
-      </span>
-    </button>
-  )
-}
-
 function RecordItem(props: {
   row: RecordRow
   // 一覧に添える一言（おすすめ順の理由）
@@ -373,16 +401,17 @@ function RecordItem(props: {
   onOpen: () => void
   onRate: (rating: RatingState | null) => void
   onState: (state: StatusState) => void
-  // 見た・見てるの作品の「話ごとに記録」の開閉ボタンと、開いたときの記録欄（行の下に横幅いっぱいで出す）
-  episodeToggle?: ReactNode
-  episodes?: ReactNode
-  // 話ごとの記録を開いているか（PC のタイルでは、その行を横いっぱいに広げる）
-  expanded?: boolean
+  // 見てる作品の「次は 第5話「題名」」（行を開かなくても見えるように）
+  next?: string | null
+  // 見たいの作品の「優先して見る」とメモ（見たい以外は null）
+  wanna?: { priority: boolean; memo: string } | null
+  onWannaPriority?: () => void
+  onWannaMemo?: () => void
 }) {
   const { entry, review, cover } = props.row
   const rating = review?.ratingOverallState ?? null
   return (
-    <li className={props.expanded ? 'row row--expanded' : 'row'}>
+    <li className="row">
       <button type="button" className="row__thumb" onClick={props.onOpen} tabIndex={-1} aria-hidden>
         {cover && <CoverImage cover={cover} size="thumb" lazy />}
       </button>
@@ -398,7 +427,17 @@ function RecordItem(props: {
           </span>
         )}
         {props.note && <span className="row__reason">{props.note}</span>}
-        {props.episodeToggle}
+        {props.next && !props.editing && <span className="row__next">{props.next}</span>}
+        {props.wanna && !props.editing && (
+          <span className="row__wanna">
+            <button type="button" className="row__star" aria-pressed={props.wanna.priority} onClick={props.onWannaPriority} title="優先して見る">
+              {props.wanna.priority ? '★ 優先' : '☆ 優先'}
+            </button>
+            <button type="button" className="link row__memo" onClick={props.onWannaMemo}>
+              {props.wanna.memo ? props.wanna.memo : 'メモ'}
+            </button>
+          </span>
+        )}
         {props.editing && (
           <div className="row__edit">
             <div className="mini-ratings" role="group" aria-label="評価">
@@ -437,7 +476,6 @@ function RecordItem(props: {
         )}
       </div>
       {!props.editing && rating && <span className={`badge badge--${rating.toLowerCase()}`}>{RATING_LABEL[rating]}</span>}
-      {props.episodes && <div className="row__episodes">{props.episodes}</div>}
     </li>
   )
 }

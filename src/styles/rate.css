@@ -49,6 +49,11 @@
   z-index: 6;
 }
 
+/* 浮かぶ札（保存中・前回の内容。base.css の .notes > .save-toast）を、下のカードより手前に出す（10件ごとの演出よりは後ろ） */
+.rate > .notes {
+  z-index: 5;
+}
+
 .rate__head--stepper {
   align-items: center;
 }
@@ -524,10 +529,10 @@
   animation: none;
 }
 
+/* 枠は明滅させない（中の動くロゴが暗く沈むため。動きはロゴが出す。components/Loading.tsx） */
 .card--loading .card__cover {
   height: 100%;
   box-shadow: none;
-  animation: pulse 1.2s ease-in-out infinite alternate;
 }
 
 @keyframes pulse {
@@ -963,7 +968,6 @@
 
   .card--loading .card__cover {
     height: var(--cover-h);
-    animation: pulse 1.2s ease-in-out infinite alternate;
   }
 
   .card__text {

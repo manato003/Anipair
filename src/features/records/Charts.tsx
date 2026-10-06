@@ -95,8 +95,9 @@ export function Columns(props: { bars: readonly { label: string; value: number; 
   )
 }
 
-// 順位の横棒（よく見る声優など）。名前・本数・平均評価は文字で、棒は本数の長さ
-export function RankBars(props: { items: readonly { key: string; name: string; count: number; note: string | null }[] }) {
+// 順位の横棒（よく見る声優など）。名前・本数・平均評価は文字で、棒は本数の長さ。
+// 本数でないもの（重視する観点の連動）は valueText で値の文字を、unit で単位を変える
+export function RankBars(props: { items: readonly { key: string; name: string; count: number; note: string | null; unit?: string; valueText?: string }[] }) {
   const max = Math.max(1, ...props.items.map((i) => i.count))
   return (
     <ol className="rankbars">
@@ -107,7 +108,8 @@ export function RankBars(props: { items: readonly { key: string; name: string; c
             <span className="rankbars__fill" style={{ width: `${(it.count / max) * 100}%` }} />
           </span>
           <span className="rankbars__value">
-            {it.count}本{it.note && <span className="rankbars__note">{it.note}</span>}
+            {it.valueText ?? `${it.count}${it.unit ?? '本'}`}
+            {it.note && <span className="rankbars__note">{it.note}</span>}
           </span>
         </li>
       ))}

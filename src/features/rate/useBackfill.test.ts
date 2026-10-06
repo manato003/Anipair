@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { AnnictWork } from '../../lib/annict'
+import type { AnnictWork, MyReview, ReviewAxes } from '../../lib/annict'
 import type { GithubConnection } from '../../lib/github'
 import { previousSeason, seasonOf, toSlug } from '../../lib/season'
 import { LEGACY_AT, type Unseen } from './unseen'
@@ -14,6 +14,8 @@ let reviewSeq = 0
 let syncGate: Promise<void> | null = null
 let syncResult: Unseen | Error | null = null
 let emptySlugs = new Set<string>()
+// 共有の感想の控えにすでにある感想（別の端末で評価した作品）
+let existingReviews = new Map<number, MyReview>()
 
 const works: AnnictWork[] = [1, 2, 3].map((n) => ({
   id: `W${n}`,
@@ -30,18 +32,25 @@ vi.mock('../../lib/annict', async (orig) => ({
   ...(await orig<typeof import('../../lib/annict')>()),
   fetchSeasonWorks: vi.fn(async (_t: string, slug: string) => (emptySlugs.has(slug) ? [] : works)),
   updateStatus: vi.fn(async (_t: string, id: string, state: string) => void calls.push(`status ${id} ${state}`)),
-  createReview: vi.fn(async (_t: string, id: string, rating: string) => {
+  deleteReview: vi.fn(async (_t: string, rid: string) => void calls.push(`delete ${rid}`)),
+  // 評価はすべて共有の手順（lib/reviewOps.ts の changeRating）を通る。送る直前に控えの感想を読み直す
+  fetchReview: vi.fn(async (_t: string, id: string) => [...existingReviews.values()].find((r) => r.id === id) ?? null),
+  createReviewWith: vi.fn(async (_t: string, id: string, axes: ReviewAxes) => {
     const rid = `R${++reviewSeq}`
-    calls.push(`review ${id} ${rating} -> ${rid}`)
+    calls.push(`review ${id} ${axes.ratingOverallState} -> ${rid}`)
     return rid
   }),
-  deleteReview: vi.fn(async (_t: string, rid: string) => void calls.push(`delete ${rid}`)),
 }))
 
 vi.mock('../../lib/covers', async (orig) => ({ ...(await orig<typeof import('../../lib/covers')>()), fetchCovers: vi.fn(async () => new Map()) }))
+// 共有の感想の控えの代わり。作った・付け直した感想を覚え、取り消しで消す
 vi.mock('../../lib/myReviews', () => ({
-  rememberReview: vi.fn(async (_t: string, id: number, r: { id: string; ratingOverallState: string } | null) => {
+  getMyReviews: vi.fn(async () => existingReviews),
+  peekMyReview: vi.fn((_t: string, id: number) => existingReviews.get(id) ?? null),
+  rememberReview: vi.fn(async (_t: string, id: number, r: MyReview | null) => {
     remembered.push(r ? `${id} ${r.id} ${r.ratingOverallState}` : `${id} null`)
+    if (r) existingReviews.set(id, r)
+    else existingReviews.delete(id)
   }),
 }))
 // 同期の相手（GitHub）は偽物。同期が呼ばれたことと、返す内容を操作できるようにする
@@ -71,6 +80,8 @@ async function settle(hook: Awaited<ReturnType<typeof setup>>) {
 }
 
 beforeEach(() => {
+  existingReviews = new Map()
+  localStorage.clear()
   calls.length = 0
   remembered.length = 0
   reviewSeq = 0
@@ -111,6 +122,17 @@ describe('useBackfill', () => {
     expect(hook.result.current.current?.work.id).toBe('W1')
     await settle(hook)
     expect(calls).toEqual(['status W1 WATCHED', 'review W1 GOOD -> R1', 'delete R1', 'status W1 NO_STATE'])
+  })
+
+  it('does not make a second review when the work already has one (rated on another device), and undo puts the earlier rating back', async () => {
+    existingReviews = new Map([
+      [1, { id: 'OLD', body: '', createdAt: '2026-10-01T00:00:00Z', ratingOverallState: 'AVERAGE', ratingStoryState: null, ratingAnimationState: null, ratingMusicState: null, ratingCharacterState: null }],
+    ])
+    const hook = await setup()
+    act(() => hook.result.current.answer({ kind: 'rate', rating: 'GREAT' }))
+    await settle(hook)
+    // 総合だけの感想は「作ってから古いものを消す」で付け直す（新しく2つ目は作らない）
+    expect(calls).toEqual(['status W1 WATCHED', 'review W1 GREAT -> R1', 'delete OLD'])
   })
 
   it('"watched but forgotten" sets the status without a review', async () => {
@@ -252,5 +274,77 @@ describe('useBackfill', () => {
       'delete R2', 'status W3 NO_STATE',
       'delete R1', 'status W1 NO_STATE',
     ])
+  })
+})
+
+describe('useBackfill: looking again at works marked "not watched"', () => {
+  const unseenOf = (id: number) => JSON.parse(localStorage.getItem('animax.backfill.unseen')!).unseen[String(id)]
+
+  it('offers them only once the season is done, and only when asked', async () => {
+    const hook = await setup()
+    act(() => hook.result.current.answer({ kind: 'skip' }))
+    act(() => hook.result.current.answer({ kind: 'rate', rating: 'GOOD' }))
+    expect(hook.result.current.unseenLeft).toBe(0)
+    act(() => hook.result.current.answer({ kind: 'skip' }))
+    expect(hook.result.current.seasonDone).toBe(true)
+    // 作品1と作品3を「見てない」にした。勝手には山に戻さない
+    expect(hook.result.current.unseenLeft).toBe(2)
+    expect(hook.result.current.reviewing).toBe(false)
+    act(() => hook.result.current.reviewUnseen())
+    expect(hook.result.current.reviewing).toBe(true)
+    expect(hook.result.current.current?.work.id).toBe('W1')
+    // 進み具合は満たしたまま（どれも答え済み）
+    expect(hook.result.current.progress).toEqual({ answered: 3, total: 3 })
+  })
+
+  it('recording one in the second look takes it out of "not watched"; undo puts it back', async () => {
+    const hook = await setup()
+    act(() => hook.result.current.answer({ kind: 'skip' }))
+    act(() => hook.result.current.answer({ kind: 'wanna' }))
+    act(() => hook.result.current.answer({ kind: 'wanna' }))
+    act(() => hook.result.current.reviewUnseen())
+    act(() => hook.result.current.answer({ kind: 'rate', rating: 'GREAT' }))
+    expect(unseenOf(1)).toMatchObject({ active: false })
+    expect(hook.result.current.seasonDone).toBe(true)
+    expect(hook.result.current.unseenLeft).toBe(0)
+    act(() => hook.result.current.undo())
+    expect(unseenOf(1)).toMatchObject({ active: true })
+    await settle(hook)
+    expect(calls.slice(-3)).toEqual(['review W1 GREAT -> R1', 'delete R1', 'status W1 NO_STATE'])
+  })
+
+  it('"not watched" again keeps it so, and undoing that does not clear the earlier mark', async () => {
+    const hook = await setup()
+    act(() => hook.result.current.answer({ kind: 'skip' }))
+    act(() => hook.result.current.answer({ kind: 'wanna' }))
+    act(() => hook.result.current.answer({ kind: 'wanna' }))
+    act(() => hook.result.current.reviewUnseen())
+    act(() => hook.result.current.answer({ kind: 'skip' }))
+    expect(unseenOf(1)).toMatchObject({ active: true })
+    act(() => hook.result.current.undo())
+    expect(unseenOf(1)).toMatchObject({ active: true })
+  })
+})
+
+describe('useBackfill: the deck from the last visit', () => {
+  it('shows the stored works of the season at once, keeps the shown card when Annict answers, and drops works recorded elsewhere', async () => {
+    const slug = toSlug(seasonOf(new Date()))
+    // 前回の内容: 作品1〜3（どれも未記録）。Annict の今: 作品2 は別の端末で記録済み
+    localStorage.setItem('animax.seasonWorks.v1', JSON.stringify({ v: 1, seasons: { [slug]: { at: '2026-10-05T00:00:00.000Z', works } } }))
+    let release!: () => void
+    const gate = new Promise<void>((r) => (release = r))
+    const { fetchSeasonWorks } = await import('../../lib/annict')
+    vi.mocked(fetchSeasonWorks).mockImplementationOnce(async () => {
+      await gate
+      return works.map((w) => (w.id === 'W2' ? { ...w, viewerStatusState: 'WATCHED' as const } : w))
+    })
+    const hook = renderHook(() => useBackfill('t'))
+    // 読み直しを待たずに、前回の内容で山が出ている
+    await waitFor(() => expect(hook.result.current.current?.work.id).toBe('W1'))
+    expect(hook.result.current.staleAt).toBe('2026-10-05T00:00:00.000Z')
+    release()
+    await waitFor(() => expect(hook.result.current.staleAt).toBeNull())
+    // いま出している作品1はそのまま、まだ出していない分から作品2が外れる
+    expect(hook.result.current.cards?.map((c) => c.work.id)).toEqual(['W1', 'W3'])
   })
 })

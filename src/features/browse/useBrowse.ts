@@ -101,13 +101,13 @@ export function useBrowse(token: string, active = true) {
         const filter = filterOf(searched, season, JSON.parse(periodKey) as BrowsePeriod)
         setCapped(false)
         if (effectiveSort === 'score') {
-          setProgress('作品を集めています')
+          setProgress('作品を読み込み中')
           const collected = await collectAll(token, filter, () => cancelled)
           if (!collected) return
           const all = collected.works
           // Annict の満足度が無い作品だけ、Shikimori の点数を取る
           const lacking = all.filter((w) => !(typeof w.satisfactionRate === 'number' && w.satisfactionRate > 0)).map(malIdOf).filter((n): n is number => n !== null)
-          setProgress(`Shikimori の点数を集めています（${all.length}作品）`)
+          setProgress(`評価の点数を読み込み中（${all.length}作品）`)
           const media = lacking.length > 0 ? await fetchMedia(lacking) : new Map()
           if (cancelled) return
           const shikimori = new Map<number, number | null>([...media].map(([id, m]) => [id, m.score]))
@@ -126,14 +126,14 @@ export function useBrowse(token: string, active = true) {
           // 評価順と同じく、全件を集めてから手元で並べる（「もっと見る」は無い）。
           // 好みは見たいのおすすめ順と共通（起動中は使い回す）。好みを調べられなくても、一覧は人気順で見せる
           setTasteNote(null)
-          setProgress('作品を集めています')
+          setProgress('作品を読み込み中')
           const collected = await collectAll(token, filter, () => cancelled)
           if (!collected) return
           const all = collected.works
           let ordered = all
           let why = new Map<number, string>()
           let note: string | null = null
-          setProgress('好みを調べています')
+          setProgress('好みを分析しています')
           try {
             const taste = await loadTaste(token, (step) => {
               if (!cancelled) setProgress(step)
@@ -142,7 +142,7 @@ export function useBrowse(token: string, active = true) {
             if (!taste.seeds.some((s) => s.weight > 0)) {
               note = NO_LIKES_NOTE
             } else {
-              setProgress(`作品の情報を集めています（${all.length}作品）`)
+              setProgress(`作品のデータを整理しています（${all.length}作品）`)
               const malIds = all.map(malIdOf).filter((n): n is number => n !== null)
               const details = malIds.length > 0 ? await fetchMedia(malIds) : new Map()
               if (cancelled) return

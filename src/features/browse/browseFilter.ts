@@ -4,10 +4,11 @@ import { SEASON_KEYS, mediaKindOf, type MediaInfo, type MediaKind, type SeasonKe
 // ブラウズの絞り込み。どの項目も空なら絞らない。項目の中は「どれか」、項目どうしは「すべて」（記録の絞り込みと同じ考え方）。
 // 放送年と季節（期間）は、Annict から読む作品そのものを決める（上のクールの代わりに、期間のクールをまとめて読む）。
 // ほかの項目は、読み込んだ作品の中で絞る
-export type MineFilter = 'none' | 'watched' | 'watching' | 'wanna' | 'stopped'
+export type MineFilter = 'none' | 'unseen' | 'watched' | 'watching' | 'wanna' | 'stopped'
 
 export interface BrowseFilter {
-  // 自分の記録（未記録・見た・見てる・見たい・視聴中断）
+  // 自分の記録（未記録・見てない・見た・見てる・見たい・視聴中断）。
+  // 見てないは、評価の画面で「見てない」にした、まだ記録の無い作品（端末の控え。あとから見た作品を探して記録できるように）
   mine: readonly MineFilter[]
   media: readonly MediaKind[]
   genres: readonly string[]
@@ -53,13 +54,15 @@ export function periodLabel(p: BrowsePeriod): string {
 
 export const MINE_CHOICES: readonly { id: MineFilter; label: string }[] = [
   { id: 'none', label: '未記録' },
+  { id: 'unseen', label: '見てない' },
   { id: 'watched', label: '見た' },
   { id: 'watching', label: '見てる' },
   { id: 'wanna', label: '見たい' },
   { id: 'stopped', label: '視聴中断' },
 ]
 
-export function mineOf(state: StatusState | null): MineFilter {
+// unseen: 評価の画面で「見てない」にしているか（記録の無い作品だけが「見てない」になる。記録があれば記録の方）
+export function mineOf(state: StatusState | null, unseen = false): MineFilter {
   switch (state) {
     case 'WATCHED':
       return 'watched'
@@ -71,7 +74,7 @@ export function mineOf(state: StatusState | null): MineFilter {
     case 'STOP_WATCHING':
       return 'stopped'
     default:
-      return 'none'
+      return unseen ? 'unseen' : 'none'
   }
 }
 
@@ -87,10 +90,15 @@ function infoOf(w: BrowseWork, info: ReadonlyMap<number, MediaInfo> | null): Med
 
 // 読み込んだ作品から、条件に合う作品だけを残す（期間は読むときに済んでいる）。
 // ジャンル・制作会社の条件は、作品の情報が無い作品（読み込み中・Shikimori に無い）を外す
-export function applyBrowseFilter(works: readonly BrowseWork[], f: BrowseFilter, info: ReadonlyMap<number, MediaInfo> | null): BrowseWork[] {
+export function applyBrowseFilter(
+  works: readonly BrowseWork[],
+  f: BrowseFilter,
+  info: ReadonlyMap<number, MediaInfo> | null,
+  unseen: ReadonlySet<number> = new Set(),
+): BrowseWork[] {
   if (browseFilterCount(f, NO_PERIOD) === 0) return [...works]
   return works.filter((w) => {
-    if (f.mine.length > 0 && !f.mine.includes(mineOf(w.viewerStatusState))) return false
+    if (f.mine.length > 0 && !f.mine.includes(mineOf(w.viewerStatusState, unseen.has(w.annictId)))) return false
     if (f.media.length > 0 && !f.media.includes(mediaKindOf(w.media))) return false
     if (f.genres.length > 0 || f.studios.length > 0) {
       const m = infoOf(w, info)
@@ -106,6 +114,7 @@ export function applyBrowseFilter(works: readonly BrowseWork[], f: BrowseFilter,
 export function browseFilterChoices(
   works: readonly BrowseWork[],
   info: ReadonlyMap<number, MediaInfo> | null,
+  unseen: ReadonlySet<number> = new Set(),
 ): {
   mine: Record<MineFilter, number>
   genres: { name: string; count: number }[]
@@ -113,12 +122,13 @@ export function browseFilterChoices(
 } {
   const mine: Record<MineFilter, number> = {
     none: 0,
+    unseen: 0,
     watched: 0,
     watching: 0,
     wanna: 0,
     stopped: 0,
   }
-  for (const w of works) mine[mineOf(w.viewerStatusState)]++
+  for (const w of works) mine[mineOf(w.viewerStatusState, unseen.has(w.annictId))]++
   const genres = new Map<string, number>()
   const studios = new Map<string, number>()
   for (const w of works) {

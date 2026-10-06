@@ -47,18 +47,18 @@ function ratingsOf(reviews: ReadonlyMap<number, { ratingOverallState: RatingStat
 // 評価は共有の感想の控え（myReviews.ts）から。ここで差分だけ読み直すので、全部を辿り直すことは無い。
 // shikimori は Shikimori への問い合わせの優先度（先読みのときは裏の優先度にして、画面の問い合わせを遅らせない）
 async function load(token: string, onStep?: (step: string) => void, shikimori: FetchOptions = {}): Promise<Taste> {
-  onStep?.('Annict の記録を読んでいます')
+  onStep?.('Annict の記録を読み込み中')
   const library = await fetchLibrary(token)
   const ratings = ratingsOf(await refreshMyReviews(token))
   const seeds = buildSeeds(library, ratings)
   const topSeeds = [...seeds].sort((a, b) => Math.abs(b.weight) - Math.abs(a.weight)).slice(0, MAX_SEEDS)
   const hasLikes = seeds.some((s) => s.weight > 0)
-  onStep?.('好みを調べています')
+  onStep?.('好みを分析しています')
   const seedMedia = hasLikes ? await fetchMedia(topSeeds.map((s) => s.malId), shikimori) : new Map<number, Media>()
   const similarSeeds = hasLikes ? pickSimilarSeeds(topSeeds) : []
   const similar = await fetchSimilarMany(
     similarSeeds.map((s) => s.malId),
-    (done, total) => onStep?.(`似た作品を調べています（${done}/${total}）`),
+    (done, total) => onStep?.(`似た作品を検索中（${done}/${total}）`),
     shikimori,
   )
   return { library, ratings, seeds, topSeeds, seedMedia, similarSeeds, similar, profile: buildProfile(topSeeds, seedMedia) }

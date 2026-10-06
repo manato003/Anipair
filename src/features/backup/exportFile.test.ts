@@ -111,7 +111,7 @@ describe('exportBackupFile', () => {
 
   it('reads fresh data from Annict with the given token', async () => {
     await exportBackupFile('annict-token')
-    expect(fetchLibrary).toHaveBeenCalledWith('annict-token')
+    expect(fetchLibrary).toHaveBeenCalledWith('annict-token', { fresh: true })
     expect(refreshMyReviews).toHaveBeenCalledWith('annict-token')
   })
 

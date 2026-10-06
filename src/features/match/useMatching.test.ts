@@ -47,20 +47,27 @@ vi.mock('../../lib/annict', async (orig) => ({
   ...(await orig<typeof import('../../lib/annict')>()),
   fetchLibrary: vi.fn(async () => library),
   updateStatus: vi.fn(async (_t: string, id: string, state: string) => void calls.push(`status ${id} ${state}`)),
-  createReview: vi.fn(async (_t: string, id: string, rating: string) => {
-    calls.push(`review ${id} ${rating}`)
+  // 評価は共有の手順（lib/reviewOps.ts）を通る。総合だけの感想を作る
+  createReviewWith: vi.fn(async (_t: string, id: string, axes: { ratingOverallState: string }) => {
+    calls.push(`review ${id} ${axes.ratingOverallState}`)
     return `R-${id}`
   }),
   deleteReview: vi.fn(async (_t: string, id: string) => void calls.push(`delete ${id}`)),
+  fetchReview: vi.fn(async (_t: string, id: string) => [...reviewCache.values()].find((r) => r.id === id) ?? null),
 }))
+// 共有の感想の控えの代わり（作った感想を覚え、取り消しで消す）
+const reviewCache = new Map<number, { id: string; body: string; createdAt: string; ratingOverallState: string | null }>()
 vi.mock('../../lib/shikimori', () => ({
   fetchMedia: vi.fn(async (ids: number[]) => new Map(ids.filter((i) => catalog.has(i)).map((i) => [i, catalog.get(i)!]))),
   fetchSimilarMany: vi.fn(async (ids: number[]) => new Map(ids.map((i) => [i, similarTable.get(i) ?? []]))),
 }))
 vi.mock('../../lib/myReviews', () => ({
   refreshMyReviews: vi.fn(async () => new Map([...ratings].map(([id, r]) => [id, { id: `R${id}`, body: '', createdAt: '', ratingOverallState: r }]))),
-  rememberReview: vi.fn(async (_t: string, id: number, r: { id: string; ratingOverallState: string } | null) => {
+  getMyReviews: vi.fn(async () => reviewCache),
+  rememberReview: vi.fn(async (_t: string, id: number, r: { id: string; body: string; createdAt: string; ratingOverallState: string } | null) => {
     remembered.push(r ? `${id} ${r.id} ${r.ratingOverallState}` : `${id} null`)
+    if (r) reviewCache.set(id, r)
+    else reviewCache.delete(id)
   }),
 }))
 vi.mock('./resolve', () => ({
@@ -85,6 +92,7 @@ const { fetchMedia: fetchMediaByMal } = await import('../../lib/shikimori')
 beforeEach(() => {
   calls.length = 0
   remembered.length = 0
+  reviewCache.clear()
   syncGate = null
   vi.mocked(resolveAnnictWork).mockClear()
   localStorage.clear()

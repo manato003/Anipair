@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { fetchViewer } from '../../lib/annict'
 import { saveAnnictToken } from '../../lib/storage'
+import { AnnictHealth } from './AnnictHealth'
 import { Section, StatusChip } from './Section'
 
 // 連携しているアカウントの名前（Annict に1回だけ聞く。読めなくても「連携中」とは出せる）
@@ -25,6 +26,8 @@ export function AccountBlock(props: { token: string; onChange: (token: string | 
       summary="評価や視聴状況は、すべてあなたの Annict アカウントに保存されます。"
       status={<StatusChip>{viewer ? `${viewer.name}（@${viewer.username}）で連携中` : 'Annict と連携中'}</StatusChip>}
     >
+      {/* Anipair は Annict が無いと動かない。遅い・出ないときに、原因が Annict の側かを見分けられるように */}
+      <AnnictHealth token={props.token} />
       <div className="settings__actions">
         <button
           type="button"

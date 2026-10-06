@@ -1,14 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CoverImage } from '../../components/CoverImage'
 import { Sheet } from '../../components/Sheet'
+import { loadTitlesState } from '../achievements/achievementStore'
+import { trendsShare, type ShareCard } from '../share/shareCard'
+import { ShareSheet } from '../share/ShareSheet'
+import { YearReviewSheet } from './YearReviewSheet'
 import { fetchCredits, type RatingState, type WorkCredits } from '../../lib/annict'
-import { RATING_LABEL } from '../../lib/reviewOps'
+import { AXIS_LABEL, RATING_LABEL } from '../../lib/reviewOps'
 import { fetchMedia, type Media } from '../../lib/shikimori'
 import { messageOf } from '../../lib/useWriteQueue'
 import { genreName } from '../match/taste'
 import { Balance, Columns, Diverging, RankBars, Radar, Ring, Stack } from './Charts'
 import { MEDIA_KINDS, SEASON_KEYS, type RecordRow } from './recordList'
 import {
+  axisWeights,
   byYear,
   castAffinity,
   contrasts,
@@ -25,6 +30,7 @@ import {
   type Affinity,
   type Ranked,
 } from './trends'
+import { Loading } from '../../components/Loading'
 
 // 記録の「傾向」。記録を端末で集計して、カードごとに図にする（サーバーは使わない）。
 // 作品の情報（ジャンル・制作会社・世間の点数）は Shikimori、声優と監督は Annict から裏の優先度で読み、読めたカードから順に出す
@@ -85,11 +91,42 @@ export function TrendsSheet(props: { token: string; rows: readonly RecordRow[]; 
   // 声優との相性は、声優（Annict）と世間の点数（Shikimori）の両方がそろってから
   const affinity = credits && media ? castAffinity(rows, credits, media) : undefined
   const pace = monthlyPace(rows, new Date())
+  const weights = axisWeights(rows)
+  // 共有する画像の中身（押したときに決める）
+  const [shareCard, setShareCard] = useState<ShareCard | null>(null)
+  // 年間のふり返りを開いているか
+  const [yearOpen, setYearOpen] = useState(false)
+  const openShare = () => {
+    const t = loadTitlesState()
+    setShareCard(
+      trendsShare({
+        summary,
+        harsh,
+        genres: axes,
+        golden,
+        major,
+        affinity: affinity ?? null,
+        topAxis: weights.top,
+        title: t.equipped && t.equippedName && t.equippedRarity ? { name: t.equippedName, rarity: t.equippedRarity } : null,
+      }),
+    )
+  }
   const maxRating = Math.max(1, dist.unrated, ...RATING_BARS.map((b) => dist.counts[b.key]))
 
   return (
-    <Sheet label="好みの傾向" size="large" active={props.active} onClose={props.onClose}>
-      <h2 className="detail__title">あなたのアニメの傾向</h2>
+    <>
+    <Sheet label="好みの傾向" size="large" active={props.active && shareCard === null && !yearOpen} onClose={props.onClose}>
+      <div className="trend__head">
+        <h2 className="detail__title">あなたのアニメの傾向</h2>
+        <div className="trend__actions">
+          <button type="button" className="btn trend__share" onClick={() => setYearOpen(true)}>
+            年間のふり返り
+          </button>
+          <button type="button" className="btn trend__share" onClick={openShare} disabled={!media}>
+            画像で共有
+          </button>
+        </div>
+      </div>
       {error && <p className="note">一部の情報を読めませんでした（{error}）。読めた分で出しています。</p>}
 
       {/* まとめ: 大きな数と完走率のリング */}
@@ -163,9 +200,7 @@ export function TrendsSheet(props: { token: string; rows: readonly RecordRow[]; 
       <section className="trend">
         <h3 className="trend__title">ジャンルの好み</h3>
         {!media ? (
-          <p className="trend__note" aria-busy>
-            作品の情報を読んでいます
-          </p>
+          <Loading label="作品の情報を読み込み中" />
         ) : axes.length >= 3 ? (
           <>
             <Radar
@@ -178,6 +213,35 @@ export function TrendsSheet(props: { token: string; rows: readonly RecordRow[]; 
           </>
         ) : (
           <p className="trend__note">見た作品が増えると出ます。</p>
+        )}
+      </section>
+
+      {/* 重視する観点（項目別の評価と総合評価の連動） */}
+      <section className="trend">
+        <h3 className="trend__title">重視する観点</h3>
+        {weights.axes.some((a) => a.link !== null) ? (
+          <>
+            {weights.top && (
+              <p className="trend__headline">
+                あなたの評価を左右しているのは「{AXIS_LABEL[weights.top.key]}」
+              </p>
+            )}
+            <RankBars
+              items={weights.axes.map((a) => ({
+                key: a.key,
+                name: AXIS_LABEL[a.key],
+                count: Math.round(Math.max(0, a.link ?? 0) * 100),
+                unit: '',
+                note: `平均 ${a.average.toFixed(1)}・${a.n}本`,
+                valueText: a.link === null ? '—' : `${Math.round(a.link * 100)}`,
+              }))}
+            />
+            <p className="trend__note">
+              項目の評価が総合評価とどれだけ連動しているかです（100 で完全に連動）。連動が強い項目ほど、その良し悪しで作品全体の評価が決まっています。項目を付けた作品が5本以上の項目だけ数えます。
+            </p>
+          </>
+        ) : (
+          <p className="trend__note">作品の詳細の「項目別の評価と感想を書く」で、映像・キャラクター・ストーリー・音楽を評価した作品が5本以上になると出ます。</p>
         )}
       </section>
 
@@ -272,6 +336,9 @@ export function TrendsSheet(props: { token: string; rows: readonly RecordRow[]; 
         <p className="trend__note">直近12か月に「見た」にした本数です（明るい棒が今月）。</p>
       </section>
     </Sheet>
+    {shareCard && <ShareSheet card={shareCard} filename="anipair-trends.png" active={props.active} onClose={() => setShareCard(null)} />}
+    {yearOpen && <YearReviewSheet rows={rows} media={m} credits={credits} active={props.active} onClose={() => setYearOpen(false)} />}
+    </>
   )
 }
 
@@ -279,9 +346,7 @@ export function TrendsSheet(props: { token: string; rows: readonly RecordRow[]; 
 function AffinityCard({ affinity }: { affinity: { liked: Affinity[]; unliked: Affinity[]; n: number } | null | undefined }) {
   if (affinity === undefined)
     return (
-      <p className="trend__note" aria-busy>
-        読んでいます（初回は少し時間がかかります）
-      </p>
+      <Loading label="読み込み中（初回は少し時間がかかります）" />
     )
   if (affinity === null) return <p className="trend__note">世間の点数と比べられる、評価した作品が5本以上になると出ます。</p>
   if (affinity.liked.length === 0 && affinity.unliked.length === 0)
@@ -335,9 +400,7 @@ function ContrastList({ items }: { items: readonly { row: RecordRow; rating: Rat
 function PeopleList({ items }: { items: readonly Ranked[] | null }) {
   if (!items)
     return (
-      <p className="trend__note" aria-busy>
-        読んでいます（初回は少し時間がかかります）
-      </p>
+      <Loading label="読み込み中（初回は少し時間がかかります）" />
     )
   if (items.length === 0) return <p className="trend__note">2本以上見た人（会社）がまだいません。</p>
   return <RankBars items={items.map((i) => ({ key: i.key, name: i.name, count: i.count, note: averageText(i.average) }))} />

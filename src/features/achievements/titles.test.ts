@@ -57,7 +57,8 @@ describe('evaluateTitles', () => {
   it('gives a year title for each year whose four seasons are all complete', () => {
     const coverage = new Map<string, Coverage>(['winter', 'spring', 'summer', 'autumn'].map((n) => [`2019-${n}`, full]))
     const t = byId(facts({ coverage }))
-    expect(t.get('year-2019')).toMatchObject({ name: '2019年を統べる者', unlocked: true })
+    // 名前は干支（2019年＝己亥）。年は条件に出す
+    expect(t.get('year-2019')).toMatchObject({ name: '己亥を統べる者', condition: '2019年の4クールをすべて踏破する', unlocked: true })
     expect(t.get('season-full-4')?.unlocked).toBe(true)
   })
 
@@ -66,9 +67,26 @@ describe('evaluateTitles', () => {
       ['2003-spring', { answered: 8, total: 10 }],
       ['2005-autumn', { answered: 8, total: 10 }],
     ])
-    expect(byId(facts({ coverage })).get('decade-2000')).toMatchObject({ unlocked: true, name: 'ゼロ年代の語り部' })
+    expect(byId(facts({ coverage })).get('decade-2000')).toMatchObject({ unlocked: true, name: '深夜枠の開拓者' })
     coverage.set('2008-winter', { answered: 0, total: 10 })
     expect(byId(facts({ coverage })).get('decade-2000')).toMatchObject({ unlocked: false, progress: { value: 53, goal: 80, unit: '%' } })
+  })
+
+  it('shows the watched-works series with progress (counting everything watched on Annict), keeping the old hidden ids', () => {
+    const t = byId(facts({ stats: stats({ watchedCount: 79 }) }))
+    const series = evaluateTitles(facts({ stats: stats({ watchedCount: 79 }) })).filter((x) => x.group === 'watched')
+    expect(series.map((x) => x.id)).toEqual(['watched-10', 'watched-50', 'hidden-watched-100', 'watched-365', 'hidden-watched-500', 'watched-777', 'hidden-watched-1k'])
+    expect(series.every((x) => !x.hidden)).toBe(true)
+    expect(series.filter((x) => x.unlocked).map((x) => x.id)).toEqual(['watched-10', 'watched-50'])
+    expect(t.get('hidden-watched-100')?.progress).toEqual({ value: 79, goal: 100, unit: '本' })
+    expect(t.get('hidden-watched-100')?.condition).toBe('見た作品を100本にする')
+    expect(t.get('hidden-watched-1k')?.condition).toBe('見た作品を1,000本にする')
+    // 556本なら500本まで。最高位（1,000本）の手前に2段ある
+    const big = evaluateTitles(facts({ stats: stats({ watchedCount: 556 }) })).filter((x) => x.group === 'watched' && x.unlocked)
+    expect(big.map((x) => x.id)).toEqual(['watched-10', 'watched-50', 'hidden-watched-100', 'watched-365', 'hidden-watched-500'])
+    expect(byId(facts({ stats: stats({ watchedCount: 1000 }) })).get('hidden-watched-1k')).toMatchObject({ unlocked: true, rarity: 'radiant' })
+    // 数が読めなければ、進み具合は出さない
+    expect(byId(facts({ stats: null })).get('watched-10')?.progress).toBeNull()
   })
 
   it('unlocks hidden titles from what was built up on Annict and from moments in Anipair', () => {
@@ -137,7 +155,7 @@ describe('more coverage titles', () => {
         feats: { earlyMorning: '2026-10-01T05:30:00Z', newYear: '2026-01-01T10:00:00Z' },
       }),
     )
-    for (const id of ['hidden-watched-100', 'hidden-watched-2k', 'hidden-wanna-1k', 'hidden-watching', 'hidden-decade-friend', 'hidden-genesis', 'hidden-stars', 'hidden-bonds', 'hidden-dawn-era', 'hidden-all-eras', 'hidden-dawn-hour', 'hidden-new-year']) {
+    for (const id of ['hidden-watched-100', 'hidden-watched-1k', 'hidden-wanna-1k', 'hidden-watching', 'hidden-decade-friend', 'hidden-genesis', 'hidden-stars', 'hidden-bonds', 'hidden-dawn-era', 'hidden-all-eras', 'hidden-dawn-hour', 'hidden-new-year']) {
       expect(t.get(id)?.unlocked, id).toBe(true)
     }
   })
@@ -175,5 +193,15 @@ describe('coverageOf', () => {
       ['1970-winter', []],
     ])
     expect([...coverageOf(tops, new Set([2, 4, 99]))]).toEqual([['2020-spring', { answered: 2, total: 4 }]])
+  })
+})
+
+describe('etoOf', () => {
+  it('names the year by its sexagenary cycle (the year title shows this instead of the number)', async () => {
+    const { etoOf } = await import('./titles')
+    expect(etoOf(2026)).toBe('丙午')
+    expect(etoOf(2019)).toBe('己亥')
+    expect(etoOf(1984)).toBe('甲子')
+    expect(etoOf(1970)).toBe('庚戌')
   })
 })

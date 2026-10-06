@@ -24,6 +24,9 @@ import { useBackfill } from './useBackfill'
 import { useDeckMedia } from './useDeckMedia'
 import { useWatching } from './useWatching'
 import type { WatchAnswer } from './watching'
+import { Loading, LoadingMark } from '../../components/Loading'
+import { nextLabel } from '../records/episodes'
+import { StaleNote } from '../../components/StaleNote'
 
 // その回に答えた数がこの数に届くたびに、短い演出を出す（docs/concept.md「進み具合と称号」）
 const MILESTONE_STEP = 10
@@ -152,7 +155,13 @@ export function Backfill({ token, github, active }: { token: string; github: Git
         title: entry.title,
         cover,
         seed: { id: entry.workId, annictId: entry.annictId, title: entry.title, malAnimeId: entry.malAnimeId, viewerStatusState: entry.state },
-        meta: since ? `${since}から見てる` : '見てる',
+        // 「次は 第11話「題名」（全12話）」。見終えたかを答える手がかり（全話数はライブラリと一緒に読んでいる）
+        meta: [
+          since ? `${since}から見てる` : '見てる',
+          entry.nextEpisode ? `${nextLabel(entry.nextEpisode)}${entry.episodesCount ? `（全${entry.episodesCount}話）` : ''}` : null,
+        ]
+          .filter(Boolean)
+          .join('・'),
         facts: { malId: malIdOf(entry), head: [workMeta({ seasonYear: entry.seasonYear, seasonName: entry.seasonName })].filter(Boolean), note: null },
       }
     }
@@ -234,7 +243,8 @@ export function Backfill({ token, github, active }: { token: string; github: Git
 
   const next = inWatching ? (w.next ?? b.current) : b.next
   // クールの最後の1枚に答えて、そのクールを答え切った（開いた時点で全部記録済みだったクールでは祝わない）
-  const cleared = b.seasonDone && b.index > 0
+  // 見直しの山を答え終えたときは、踏破の演出を出し直さない
+  const cleared = b.seasonDone && b.index > 0 && !b.reviewing
   useEffect(() => {
     if (cleared && seasonAnswered.current >= ONE_NIGHT_CASTLE) recordFeat('oneNightCastle')
   }, [cleared])
@@ -290,6 +300,11 @@ export function Backfill({ token, github, active }: { token: string; github: Git
         </div>
 
         <div className="notes">
+          <StaleNote
+            at={active ? (inWatching ? w.staleAt : b.staleAt) : null}
+            error={inWatching ? w.staleError : b.staleError}
+            onRetry={inWatching ? w.reload : b.reload}
+          />
           <SaveStatus
             pending={b.pending + w.pending}
             failed={[...b.failed, ...w.failed]}
@@ -315,8 +330,11 @@ export function Backfill({ token, github, active }: { token: string; github: Git
 
         <div className="rate__stage">
           {!watchReady ? (
-            <div className="card card--loading" aria-busy>
-              <div className="card__cover" />
+            <div className="card card--loading">
+              <div className="card__cover">
+                <LoadingMark />
+              </div>
+              <Loading className="card__step" label="作品を読み込み中" delay={600} mark={false} />
             </div>
           ) : shown && inWatching ? (
             <WorkCard key={shown.key} shown={shown} media={shown.facts.malId ? deckMedia.get(shown.facts.malId) ?? null : null} onOpen={toggleSheet} />
@@ -329,8 +347,11 @@ export function Backfill({ token, github, active }: { token: string; github: Git
               </button>
             </Empty>
           ) : !b.cards ? (
-            <div className="card card--loading" aria-busy>
-              <div className="card__cover" />
+            <div className="card card--loading">
+              <div className="card__cover">
+                <LoadingMark />
+              </div>
+              <Loading className="card__step" label="作品を読み込み中" delay={600} mark={false} />
             </div>
           ) : cleared && progress ? (
             <div className="clear" role="status">
@@ -342,12 +363,17 @@ export function Backfill({ token, github, active }: { token: string; github: Git
               <button type="button" className="btn btn--primary" onClick={b.goToPrevious}>
                 {seasonLabel(previousSeason(b.season))}へ進む
               </button>
+              <ReviewUnseenButton count={b.unseenLeft} onClick={b.reviewUnseen} />
             </div>
           ) : b.seasonDone || !shown ? (
-            <Empty title={`${seasonLabel(b.season)}はここまで`} body="このクールの人気作をすべて見ました。">
+            <Empty
+              title={b.reviewing ? `${seasonLabel(b.season)}の見直しはここまで` : `${seasonLabel(b.season)}はここまで`}
+              body={b.reviewing ? '「見てない」にした作品を、すべて見直しました。' : 'このクールの人気作をすべて見ました。'}
+            >
               <button type="button" className="btn btn--primary" onClick={b.goToPrevious}>
                 {seasonLabel(previousSeason(b.season))}へ進む
               </button>
+              <ReviewUnseenButton count={b.unseenLeft} onClick={b.reviewUnseen} />
             </Empty>
           ) : (
             <WorkCard key={shown.key} shown={shown} media={shown.facts.malId ? deckMedia.get(shown.facts.malId) ?? null : null} onOpen={toggleSheet} />
@@ -357,7 +383,7 @@ export function Backfill({ token, github, active }: { token: string; github: Git
         </div>
 
         {/* 答えは押す回数の多いものほど下（親指の近く）に、大きく置く。どれも1回で押せて、位置はどの作品でも変わらない。
-            上: ときどき使う状態（見てる・視聴中断）と補助（取り消す・詳しく。よく押す詳しくを右端に） / 中: 評価 / 下: いちばん多い「見てない」と「見たい」 */}
+            上: ときどき使う状態（見てる・視聴中断）と補助（ひとつ戻る・詳しく。よく押す詳しくを右端に） / 中: 評価 / 下: いちばん多い「見てない」と「見たい」 */}
         <div className="answers answers--tiered" aria-disabled={!hasCurrent}>
           <div className="answers__sub">
             <button
@@ -365,7 +391,7 @@ export function Backfill({ token, github, active }: { token: string; github: Git
               className="sub"
               disabled={!hasCurrent}
               onClick={reply.watching}
-              title={inWatching ? 'まだ見ている作品は、そのまま次へ進みます' : '「見てる」にします'}
+              title={inWatching ? 'まだ見ている作品は、そのまま次へ進みます（このクールのあいだは聞き直しません）' : '「見てる」にします'}
             >
               見てる <kbd className="hint">{keyLabel(keys.watching)}</kbd>
             </button>
@@ -375,7 +401,7 @@ export function Backfill({ token, github, active }: { token: string; github: Git
             <span className="answers__gap" aria-hidden />
             <button type="button" className="misc misc--quiet" disabled={!canUndo} onClick={undo}>
               <UndoIcon />
-              取り消す <kbd className="hint">{keyLabel(keys.undo)}</kbd>
+              ひとつ戻る <kbd className="hint">{keyLabel(keys.undo)}</kbd>
             </button>
             <button type="button" className="misc misc--quiet" disabled={!hasCurrent} onClick={toggleSheet}>
               <InfoIcon />
@@ -447,5 +473,15 @@ function WorkCard({ shown, media, onOpen }: { shown: Shown; media: Media | null;
         <WorkFacts media={media} head={shown.facts.head} note={shown.facts.note} />
       </div>
     </article>
+  )
+}
+
+// クールを終えた画面の「見てないにした作品を見直す」。あとから見た作品を、評価の画面から記録できるように（押したときだけ山に足す）
+function ReviewUnseenButton(props: { count: number; onClick: () => void }) {
+  if (props.count === 0) return null
+  return (
+    <button type="button" className="btn review-unseen" onClick={props.onClick}>
+      「見てない」にした作品を見直す（{props.count}本）
+    </button>
   )
 }

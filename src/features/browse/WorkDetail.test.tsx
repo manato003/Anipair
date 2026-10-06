@@ -1,22 +1,36 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { BrowseWork, MyReview } from '../../lib/annict'
+import type { BrowseWork, MyReview, ReviewAxes } from '../../lib/annict'
 
 const calls: string[] = []
 // 本物と同じく、読み込みは1つの Promise を使い回す。テストごとに作り直す
 let releaseReviews: (m: Map<number, MyReview>) => void = () => undefined
 let reviewsPromise: Promise<Map<number, MyReview>> = Promise.resolve(new Map())
 
+// Annict 側の感想（書き込みの直前の読み直し fetchReview に答える）。作った・消したを追いかける
+const annictCreated = new Map<string, MyReview>()
+const annictDeleted = new Set<string>()
+afterEach(() => {
+  annictCreated.clear()
+  annictDeleted.clear()
+})
+
 vi.mock('../../lib/annict', async (orig) => ({
   ...(await orig<typeof import('../../lib/annict')>()),
   fetchWorkDetail: vi.fn(async () => ({ ...work, titleKana: null, episodesCount: 12, officialSiteUrl: 'javascript:alert(1)', wikipediaUrl: null, twitterUsername: null, copyright, casts: [], staffs: [] })),
   updateStatus: vi.fn(async (_t: string, id: string, s: string) => void calls.push(`status ${id} ${s}`)),
-  createReview: vi.fn(async (_t: string, id: string, r: string) => {
+  createReviewWith: vi.fn(async (_t: string, id: string, axes: ReviewAxes, body: string) => {
+    const r = axes.ratingOverallState
     calls.push(`create ${id} ${r}`)
+    annictCreated.set('NEW', { id: 'NEW', body, createdAt: '', ...axes })
     return 'NEW'
   }),
-  deleteReview: vi.fn(async (_t: string, id: string) => void calls.push(`delete ${id}`)),
+  fetchReview: vi.fn(async (_t: string, id: string) => (annictDeleted.has(id) ? null : (annictCreated.get(id) ?? [...(await reviewsPromise).values()].find((x) => x.id === id) ?? null))),
+  deleteReview: vi.fn(async (_t: string, id: string) => {
+    annictDeleted.add(id)
+    void calls.push(`delete ${id}`)
+  }),
 }))
 let copyright: string | null = null
 // Shikimori はジャンルとテーマ（と Shikimori へのリンク）だけに使う
@@ -28,6 +42,21 @@ vi.mock('../../lib/shikimori', async (orig) => ({
 // あらすじは Wikipedia から（既定は無し。あらすじのテストだけ入れる）
 let wikiSynopsis: { text: string; blocks: { heading: boolean; text: string }[]; title: string; url: string; licenseUrl: string } | null = null
 vi.mock('../../lib/wikipedia', () => ({ fetchWikiSynopsis: vi.fn(async () => wikiSynopsis) }))
+// 話の一覧（ネットワークに出さない）。読むように頼まれた作品を控える
+const episodeAsks: string[][] = []
+vi.mock('../records/useEpisodes', () => ({
+  useEpisodes: (_t: string, ids: readonly string[]) => {
+    if (ids.length > 0) episodeAsks.push([...ids])
+    return {
+      byWork: new Map([['W1', { workId: 'W1', noEpisodes: false, episodes: [{ id: 'E1', annictId: 1, number: 1, numberText: '#1', title: '始まり', viewerDidTrack: false, viewerRecordsCount: 0 }] }]]),
+      errors: new Map(),
+      undoable: new Set(),
+      record: vi.fn(),
+      undo: vi.fn(),
+      retry: vi.fn(),
+    }
+  },
+}))
 vi.mock('../../lib/myReviews', () => ({
   getMyReviews: vi.fn(() => reviewsPromise),
   rememberReview: vi.fn(async () => undefined),
@@ -82,18 +111,39 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
+describe('WorkDetail: recording episodes', () => {
+  it('shows the episode recorder in an editable sheet of a work being watched or watched', () => {
+    episodeAsks.length = 0
+    render(<WorkDetail token="t" work={{ ...work, viewerStatusState: 'WATCHING' }} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
+    expect(screen.getByRole('heading', { name: '話ごとの記録' })).toBeTruthy()
+    expect(within(screen.getByRole('list', { name: '話の一覧' })).getByText('始まり')).toBeTruthy()
+    expect(episodeAsks).toContainEqual(['W1'])
+  })
+
+  it('does not show it (or read the episodes) for other states, or in a read-only sheet', () => {
+    episodeAsks.length = 0
+    const { unmount } = render(<WorkDetail token="t" work={{ ...work, viewerStatusState: 'WANNA_WATCH' }} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
+    expect(screen.queryByRole('heading', { name: '話ごとの記録' })).toBeNull()
+    unmount()
+    // 評価の画面・マッチングの読むだけのシートでは出さない（答え方を2つにしない）
+    render(<WorkDetail readOnly token="t" work={{ ...work, viewerStatusState: 'WATCHING' }} cover={null} onClose={() => undefined} />)
+    expect(screen.queryByRole('heading', { name: '話ごとの記録' })).toBeNull()
+    expect(episodeAsks).toEqual([])
+  })
+})
+
 describe('WorkDetail', () => {
   it('rating before my reviews have loaded replaces the existing review instead of adding a second one', async () => {
     const q = queue()
     const onChange = vi.fn()
     render(<WorkDetail token="t" work={work} cover={null} enqueue={q.enqueue} onChange={onChange} onClose={() => undefined} />)
-    fireEvent.click(screen.getByRole('button', { name: 'とても良い' }))
+    fireEvent.click(within(screen.getByRole('group', { name: '評価' })).getByRole('button', { name: 'とても良い' }))
     expect(onChange).toHaveBeenCalledWith({ rating: 'GREAT' })
     releaseReviews(new Map([[1, existing]]))
     await q.done()
     expect(calls).toEqual(['create W1 GREAT', 'delete R1'])
     // 読み込みが後から終わっても、押した評価の表示は戻らない
-    expect(screen.getByRole('button', { name: 'とても良い' }).getAttribute('aria-pressed')).toBe('true')
+    expect(within(screen.getByRole('group', { name: '評価' })).getByRole('button', { name: 'とても良い' }).getAttribute('aria-pressed')).toBe('true')
   })
 
   it('pressing the selected state again removes the work from the library', async () => {
@@ -193,6 +243,38 @@ describe('WorkDetail', () => {
     expect(document.querySelector('.detail__loading')).toBeNull()
   })
 
+  it('after giving up waiting, says what is still loading until it arrives (what is shown is not everything)', async () => {
+    vi.useFakeTimers()
+    try {
+      let releaseDetail: () => void = () => undefined
+      const gate = new Promise<void>((r) => (releaseDetail = r))
+      const real = vi.mocked(fetchWorkDetail).getMockImplementation()!
+      vi.mocked(fetchWorkDetail).mockImplementationOnce(async (...args) => {
+        await gate
+        return real(...args)
+      })
+      render(<WorkDetail readOnly token="t" work={work} cover={null} onClose={() => undefined} />)
+      // 中身を待つ上限が過ぎたあと、書体の待ち（次のタイマー）も進める
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3000)
+      })
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1500)
+      })
+      // 待つのをやめて、届いた分（手元の項目）だけで出している。まだ届いていない部分を名前で知らせる
+      expect(document.querySelector('.detail--ready')).not.toBeNull()
+      expect(screen.getByText('あらすじ・制作会社・スタッフ・声優を読み込み中')).toBeTruthy()
+      releaseDetail()
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10)
+      })
+      expect(screen.getByText('2023年秋 TV 12話')).toBeTruthy()
+      expect(screen.queryByText(/を読み込み中/)).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('links to Shikimori only when the work has a MyAnimeList id', () => {
     const { unmount } = render(<WorkDetail token="t" work={{ ...work, malAnimeId: '52991' }} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
     expect(screen.getByRole('link', { name: 'Shikimori で見る' }).getAttribute('href')).toBe('https://shikimori.io/animes/52991')
@@ -282,8 +364,8 @@ describe('WorkDetail', () => {
     const q = queue()
     render(<WorkDetail token="t" work={work} cover={null} enqueue={q.enqueue} onChange={() => undefined} onClose={() => undefined} />)
     releaseReviews(new Map([[1, existing]]))
-    await waitFor(() => expect(screen.getByRole('button', { name: '良い' }).getAttribute('aria-pressed')).toBe('true'))
-    fireEvent.click(screen.getByRole('button', { name: 'とても良い' }))
+    await waitFor(() => expect(within(screen.getByRole('group', { name: '評価' })).getByRole('button', { name: '良い' }).getAttribute('aria-pressed')).toBe('true'))
+    fireEvent.click(within(screen.getByRole('group', { name: '評価' })).getByRole('button', { name: 'とても良い' }))
     await q.done()
     expect(calls).toEqual(['create W1 GREAT', 'delete R1'])
     expect(rememberReview).toHaveBeenCalledWith('t', 1, expect.objectContaining({ id: 'NEW', ratingOverallState: 'GREAT' }))

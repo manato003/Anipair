@@ -8,6 +8,7 @@ import type { Cover } from '../../lib/storage'
 import { messageOf } from '../../lib/useWriteQueue'
 import { resolveAnnictWork } from '../match/resolve'
 import { WorkDetail, type Enqueue, type RelatedChange, type WorkSeed } from './WorkDetail'
+import { Loading } from '../../components/Loading'
 
 // 関連作品から開く先。Annict のシリーズの作品か、Shikimori の関連作品（Annict の作品を先に探す）
 export type RelatedTarget = { kind: 'annict'; work: SeriesWork } | { kind: 'shiki'; media: Media }
@@ -96,7 +97,7 @@ export function RelatedDetail(
         <div className="detail__cover">{cover && <CoverImage cover={cover} size="large" />}</div>
         <div className="detail__titles">
           <h2 className="detail__title">{title}</h2>
-          {found.kind === 'loading' && <p className="detail__meta">Annict で作品を探しています</p>}
+          {found.kind === 'loading' && <Loading className="detail__meta" label="Annict で作品を検索中" />}
           {found.kind === 'missing' && (
             <>
               <p className="detail__meta">Annict で作品を見つけられませんでした。</p>

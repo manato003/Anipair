@@ -3,6 +3,7 @@ import { checkAccess, type GithubConnection } from '../../lib/github'
 import { parseRepo, saveGithubRepo, saveGithubToken } from '../../lib/storage'
 import { messageOf } from '../../lib/useWriteQueue'
 import { Section, StatusChip } from './Section'
+import { Spinner } from '../../components/Loading'
 
 // GitHub の連携。リポジトリもトークンも利用者が自分で用意する（作者のものは使わない）
 export function GithubBlock(props: { github: GithubConnection | null; onChange: (github: GithubConnection | null) => void }) {
@@ -121,7 +122,14 @@ export function GithubBlock(props: { github: GithubConnection | null; onChange: 
               aria-label="GitHub の Fine-grained トークン"
             />
             <button type="submit" className="btn btn--primary" disabled={checking || !repoDraft.trim() || !tokenDraft.trim()}>
-              {checking ? '確認しています…' : '連携する'}
+              {checking ? (
+            <>
+              <Spinner />
+              確認しています…
+            </>
+          ) : (
+            '連携する'
+          )}
             </button>
           </form>
         </>

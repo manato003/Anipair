@@ -1,20 +1,39 @@
-import { Fragment, useEffect, useState, type ReactNode } from 'react'
+import { Fragment, lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
 import { AuthExpiredBanner } from './components/AuthExpiredBanner'
 import { TabIcon } from './components/Icons'
 import { Logo } from './components/Logo'
 import { useAutoBackup } from './features/backup/useAutoBackup'
-import { Browse } from './features/browse/Browse'
-import { Matching } from './features/match/Matching'
+import { Loading } from './components/Loading'
 import { usePrefetchTaste } from './features/match/usePrefetchTaste'
 import { Backfill } from './features/rate/Backfill'
-import { Records } from './features/records/Records'
-import { Settings } from './features/settings/Settings'
 import { useAnnictLogin } from './features/settings/useAnnictLogin'
 import { onAnnictAuthFailed } from './lib/authEvents'
+import { UnsentWrites } from './features/unsent/UnsentWrites'
 import type { GithubConnection } from './lib/github'
 import { loadAnnictToken, loadGithubConnection } from './lib/storage'
 
 type Tab = 'rate' | 'match' | 'records' | 'browse' | 'settings'
+
+// 最初に開く評価の画面のほかは、別のファイルに分けて後から読む（最初に読む JS を小さくして、起動を早くする）。
+// 最初の画面が出て手が空いたら、裏で先に読んでおく（タブを押したときに待たせない。下の useEffect）
+const loadMatching = () => import('./features/match/Matching')
+const loadRecords = () => import('./features/records/Records')
+const loadBrowse = () => import('./features/browse/Browse')
+const loadSettings = () => import('./features/settings/Settings')
+const Matching = lazy(() => loadMatching().then((m) => ({ default: m.Matching })))
+const Records = lazy(() => loadRecords().then((m) => ({ default: m.Records })))
+const Browse = lazy(() => loadBrowse().then((m) => ({ default: m.Browse })))
+const Settings = lazy(() => loadSettings().then((m) => ({ default: m.Settings })))
+
+function preloadScreens(): () => void {
+  const run = () => void [loadMatching, loadRecords, loadBrowse, loadSettings].reduce((p, load) => p.then(() => load().then(() => undefined)), Promise.resolve())
+  if (typeof window.requestIdleCallback === 'function') {
+    const id = window.requestIdleCallback(run, { timeout: 4000 })
+    return () => window.cancelIdleCallback(id)
+  }
+  const id = window.setTimeout(run, 2000)
+  return () => window.clearTimeout(id)
+}
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'rate', label: '評価' },
@@ -29,7 +48,7 @@ const TABS: { id: Tab; label: string }[] = [
 function Screen(props: { active: boolean; children: ReactNode }) {
   return (
     <div className="app__screen" hidden={!props.active}>
-      {props.children}
+      <Suspense fallback={<Loading block label="画面を読み込み中" />}>{props.children}</Suspense>
     </div>
   )
 }
@@ -75,22 +94,28 @@ export default function App() {
   const shown = showSettings ? null : tab
   // 評価の画面を出して少したったら、好みの先読みを裏で1回だけ始める（マッチングや記録の初回を速くする）
   usePrefetchTaste(token, shown === 'rate')
+  // 最初の画面が出て手が空いたら、ほかの画面の JS を裏で読んでおく
+  useEffect(() => preloadScreens(), [])
 
   return (
     <div className="app">
       {/* 帯を主な画面の上に出すための枠（広い画面では上の帯のタブのすぐ下になる） */}
       <div className="app__body">
         {authExpired && <AuthExpiredBanner onOpenSettings={() => go('settings')} onDismiss={() => setExpiredToken(null)} />}
+        {/* 前回送れなかった記録（送る前に閉じた・失敗したまま閉じた）。送るかどうかを聞く */}
+        {token && !authExpired && <UnsentWrites key={token} token={token} />}
         <main className="app__main">
           {showSettings && (
-            <Settings
-              annictToken={token}
-              github={github}
-              onAnnictTokenChange={onTokenChange}
-              onGithubChange={setGithub}
-              loginBusy={login.busy}
-              loginError={login.error}
-            />
+            <Suspense fallback={<Loading block label="画面を読み込み中" />}>
+              <Settings
+                annictToken={token}
+                github={github}
+                onAnnictTokenChange={onTokenChange}
+                onGithubChange={setGithub}
+                loginBusy={login.busy}
+                loginError={login.error}
+              />
+            </Suspense>
           )}
           {token && (
             <Fragment key={token}>
@@ -106,7 +131,7 @@ export default function App() {
               )}
               {visited.has('records') && (
                 <Screen active={shown === 'records'}>
-                  <Records token={token} active={shown === 'records'} />
+                  <Records token={token} github={github} active={shown === 'records'} />
                 </Screen>
               )}
               {visited.has('browse') && (

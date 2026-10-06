@@ -159,6 +159,20 @@ function start(token: string, forceFull: boolean, prior: Entry | null): Entry {
   return entry
 }
 
+// 通信せずに、いま手元にある感想の控えをのぞく（メモリの読み込み済み、無ければ端末の控え）。どちらも無ければ null。
+// 起動したらすぐ一覧を出すために使う（そのあと getMyReviews / refreshMyReviews で読み直す）
+export function peekMyReviews(token: string): Map<number, MyReview> | null {
+  if (cache && cache.token === token && cache.done) return new Map(cache.done.map)
+  const persisted = readPersisted(token)
+  return persisted ? persisted.map : null
+}
+
+// 1作品の感想だけを、通信せずにのぞく（答えるたびに呼ぶので、一覧を写さない）
+export function peekMyReview(token: string, annictId: number): MyReview | null {
+  if (cache && cache.token === token && cache.done) return cache.done.map.get(annictId) ?? null
+  return readPersisted(token)?.map.get(annictId) ?? null
+}
+
 // 共有の控えを返す。無ければ読み込む（普段は差分。同じトークンの読み込み中なら、それに便乗する）
 export function getMyReviews(token: string): Promise<Map<number, MyReview>> {
   if (!cache || cache.token !== token) cache = start(token, false, cache)

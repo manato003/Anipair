@@ -5,6 +5,7 @@ import { TAGLINE_PHRASES } from '../../lib/brand'
 import { saveAnnictToken } from '../../lib/storage'
 import { LegalLinks } from './LegalLinks'
 import { TokenForm } from './TokenForm'
+import { Spinner } from '../../components/Loading'
 
 async function verifyAnnictToken(token: string): Promise<string> {
   const v = await fetchViewer(token)
@@ -31,7 +32,14 @@ export function Welcome(props: { clientId: string | null; busy: boolean; error: 
           disabled={props.busy}
           onClick={() => startLogin({ clientId: props.clientId!, origin: window.location.origin, assign: (url) => window.location.assign(url) })}
         >
-          {props.busy ? 'ログインしています…' : 'Annict でログイン'}
+          {props.busy ? (
+            <>
+              <Spinner />
+              ログインしています…
+            </>
+          ) : (
+            'Annict でログイン'
+          )}
         </button>
       )}
       {props.error && (

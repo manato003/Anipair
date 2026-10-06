@@ -2,8 +2,10 @@ import type { ViewerStats } from '../../lib/annict'
 import { compareSeasons, nextSeason, parseSlug, SEASON_NAMES, seasonNameLabel, seasonOf, toSlug, type Season, type SeasonName } from '../../lib/season'
 
 // 称号の一覧と、その条件の判定。方針は docs/concept.md「進み具合と称号」。
-// 数えるのは「答えた数」（網羅）で、評価の数では与えない。隠し称号は Annict での積み重ね（Anipair の中の連打では増えない数）から与える。
-// 名前を変えるときはここだけ直せばよい（id は保存に使うので変えない）
+// 数えるのは「答えた数」（網羅）で、評価の数では与えない。見た作品の数は見える系列にする（2026-10-06 利用者の決定）。
+// 隠し称号は Annict での積み重ね（Anipair の中の連打では増えない数）から与える。
+// 名前を変えるときはここだけ直せばよい（id は保存に使うので変えない）。
+// 名前は数字をそのまま書かず、少し考えると「なるほど」となる元ネタを仕込む（2026-10-06 利用者の希望。例: 100クール＝四半世紀、10年＝一昔）
 
 // クールの人気作のうち、答えた数（Annict に記録があるか「見てない」にした作品）
 export interface Coverage {
@@ -33,7 +35,7 @@ export interface Facts {
   now: Date
 }
 
-export type TitleGroup = 'season' | 'year' | 'decade' | 'hidden' | 'special'
+export type TitleGroup = 'season' | 'watched' | 'year' | 'decade' | 'hidden' | 'special'
 
 // レア度。名札の色と装飾が変わる（styles/achievements.css の .plate--*）。並びは低い順。
 // 色はゲームのレア度とランクの決まりに寄せた（原神・鳴潮の星の色、Valorant・Apex・LoL のランクの色）
@@ -58,12 +60,33 @@ const isFull = (c: Coverage) => c.total > 0 && c.answered >= c.total
 
 // クールの踏破の数で与える称号（見える称号）
 const SEASON_TITLES: readonly { id: string; name: string; goal: number; rarity: Rarity; half?: boolean }[] = [
-  { id: 'season-half-1', name: '半ばを越えし者', goal: 1, rarity: 'bronze', half: true },
-  { id: 'season-full-1', name: '踏破者', goal: 1, rarity: 'bronze' },
-  { id: 'season-full-4', name: '四季を巡る者', goal: 4, rarity: 'silver' },
-  { id: 'season-full-12', name: '十二の季を統べる者', goal: 12, rarity: 'gold' },
+  // 中天＝空の真ん中（半分）
+  { id: 'season-half-1', name: '中天に至りし者', goal: 1, rarity: 'bronze', half: true },
+  { id: 'season-full-1', name: '初めの頂を踏みし者', goal: 1, rarity: 'bronze' },
+  // 4クール＝1年
+  { id: 'season-full-4', name: '暦を一巡りせし者', goal: 4, rarity: 'silver' },
+  // 12クール＝3年
+  { id: 'season-full-12', name: '三巡りの暦守', goal: 12, rarity: 'gold' },
   { id: 'season-full-40', name: '時を喰らう者', goal: 40, rarity: 'amethyst' },
-  { id: 'season-full-100', name: '百季の覇王', goal: 100, rarity: 'radiant' },
+  // 100クール＝25年
+  { id: 'season-full-100', name: '四半世紀の覇王', goal: 100, rarity: 'radiant' },
+]
+// 見た作品（Annict の WATCHED）の本数で与える称号（見える称号。進み具合を出す）。
+// 100・500・1,000本は、もとは隠し称号だったもの（id はそのまま。解放の記録を引き継ぐ）。
+// 段の目安: 長年 Annict を使っている人でも、見た作品は数百本ほど。最高位は1,000本（長く深く見てきた人だけが届く）
+const WATCHED_TITLES: readonly { id: string; name: string; goal: number; rarity: Rarity }[] = [
+  // 十人十色: 10本＝10通りの色
+  { id: 'watched-10', name: '十人十色を知る者', goal: 10, rarity: 'bronze' },
+  // 半百＝50
+  { id: 'watched-50', name: '半百の語り部', goal: 50, rarity: 'bronze' },
+  // 百物語（百の怪談を語る会）
+  { id: 'hidden-watched-100', name: '百物語を語り終えし者', goal: 100, rarity: 'silver' },
+  // 1日1本で1年
+  { id: 'watched-365', name: '一年分の夜を越えし者', goal: 365, rarity: 'gold' },
+  { id: 'hidden-watched-500', name: '五百羅漢を従えし者', goal: 500, rarity: 'amethyst' },
+  // スロットの大当たり
+  { id: 'watched-777', name: '大当たりを引き当てし者', goal: 777, rarity: 'crimson' },
+  { id: 'hidden-watched-1k', name: '千界の旅人', goal: 1000, rarity: 'radiant' },
 ]
 // 年の称号と年代の称号のレア度
 const YEAR_RARITY: Rarity = 'silver'
@@ -83,21 +106,24 @@ const STREAK_GOAL = 8
 const OLD_SEASON_BEFORE = 1990
 // 4クールすべて踏破した年の数
 const YEAR_COUNT_TITLES: readonly { id: string; name: string; goal: number; rarity: Rarity }[] = [
-  { id: 'years-3', name: '三年を統べる者', goal: 3, rarity: 'gold' },
-  { id: 'years-10', name: '十年を統べる覇者', goal: 10, rarity: 'radiant' },
+  // 石の上にも三年
+  { id: 'years-3', name: '冷たき石を温めし者', goal: 3, rarity: 'gold' },
+  // 十年一昔
+  { id: 'years-10', name: '一昔を統べる者', goal: 10, rarity: 'radiant' },
 ]
 // 三代の証人: この年代のそれぞれで、人気作の半分に答えた
 const THREE_ERAS = [2000, 2010, 2020] as const
 
 // 年代の網羅（その年代のクールの人気作のうち、答えた割合）
 const DECADE_GOAL = 0.8
+// 年代の名前は、その時代のアニメを象徴するもので（ロボットアニメの黎明、OVA と VHS、セル画の終わり、深夜アニメの広がり、BD の売上の時代、配信の時代）
 const DECADES: readonly { from: number; name: string }[] = [
-  { from: 1970, name: '七〇年代の語り部' },
-  { from: 1980, name: '八〇年代の語り部' },
-  { from: 1990, name: '九〇年代の語り部' },
-  { from: 2000, name: 'ゼロ年代の語り部' },
-  { from: 2010, name: 'テン年代の語り部' },
-  { from: 2020, name: '二〇年代の語り部' },
+  { from: 1970, name: 'ロボットの夜明けを知る者' },
+  { from: 1980, name: 'ビデオデッキの守り人' },
+  { from: 1990, name: 'セル画の最後の目撃者' },
+  { from: 2000, name: '深夜枠の開拓者' },
+  { from: 2010, name: '円盤の時代の語り部' },
+  { from: 2020, name: '配信の海を渡る者' },
 ]
 
 // 隠し称号。条件は解放するまで見せない
@@ -105,9 +131,7 @@ const HIDDEN: readonly { id: string; name: string; condition: string; rarity: Ra
   { id: 'hidden-dawn', name: '黎明より記す者', condition: '2016年までに Annict に登録した', rarity: 'gold', test: (f) => !!f.stats && new Date(f.stats.createdAt).getFullYear() <= 2016 },
   { id: 'hidden-veteran', name: '歴戦の観測者', condition: 'Annict に登録して5年が経った', rarity: 'silver', test: (f) => !!f.stats && yearsBetween(new Date(f.stats.createdAt), f.now) >= 5 },
   { id: 'hidden-records-1k', name: '千夜の語り部', condition: 'Annict でエピソードを1,000話記録した', rarity: 'gold', test: (f) => (f.stats?.recordsCount ?? 0) >= 1000 },
-  { id: 'hidden-records-10k', name: '万話を刻む者', condition: 'Annict でエピソードを10,000話記録した', rarity: 'radiant', test: (f) => (f.stats?.recordsCount ?? 0) >= 10000 },
-  { id: 'hidden-watched-500', name: '五百の世界を渡りし者', condition: '見た作品が500本になった', rarity: 'gold', test: (f) => (f.stats?.watchedCount ?? 0) >= 500 },
-  { id: 'hidden-watched-1k', name: '千界の旅人', condition: '見た作品が1,000本になった', rarity: 'amethyst', test: (f) => (f.stats?.watchedCount ?? 0) >= 1000 },
+  { id: 'hidden-records-10k', name: '万象の観測者', condition: 'Annict でエピソードを10,000話記録した', rarity: 'radiant', test: (f) => (f.stats?.recordsCount ?? 0) >= 10000 },
   { id: 'hidden-showa', name: '昭和を識る者', condition: '1988年以前の作品を見た', rarity: 'gold', test: (f) => f.watchedYears.some((y) => y <= 1988) },
   { id: 'hidden-decades', name: '時空を越えし者', condition: '5つ以上の年代の作品を見た', rarity: 'amethyst', test: (f) => new Set(f.watchedYears.map((y) => Math.floor(y / 10))).size >= 5 },
   { id: 'hidden-wanna', name: '積みの魔王', condition: '見たい作品が300本を超えた', rarity: 'crimson', test: (f) => (f.stats?.wannaWatchCount ?? 0) >= 300 },
@@ -115,8 +139,6 @@ const HIDDEN: readonly { id: string; name: string; condition: string; rarity: Ra
   { id: 'hidden-guide', name: '導く者', condition: 'Annict のフォロワーが100人を超えた', rarity: 'amethyst', test: (f) => (f.stats?.followersCount ?? 0) >= 100 },
   { id: 'hidden-midnight', name: '丑三つ時の観測者', condition: '深夜2時から4時のあいだに記録した', rarity: 'crimson', test: (f) => !!f.feats.lateNight },
   { id: 'hidden-castle', name: '一夜城', condition: '一度に20本以上答えて、クールを踏破した', rarity: 'gold', test: (f) => !!f.feats.oneNightCastle },
-  { id: 'hidden-watched-100', name: '百の物語を見届けし者', condition: '見た作品が100本になった', rarity: 'silver', test: (f) => (f.stats?.watchedCount ?? 0) >= 100 },
-  { id: 'hidden-watched-2k', name: '万象の観測者', condition: '見た作品が2,000本になった', rarity: 'radiant', test: (f) => (f.stats?.watchedCount ?? 0) >= 2000 },
   { id: 'hidden-wanna-1k', name: '積み山脈の主', condition: '見たい作品が1,000本を超えた', rarity: 'crimson', test: (f) => (f.stats?.wannaWatchCount ?? 0) >= 1000 },
   { id: 'hidden-watching', name: '並行世界の住人', condition: '見てる作品が20本を超えた', rarity: 'crimson', test: (f) => (f.stats?.watchingCount ?? 0) >= 20 },
   { id: 'hidden-decade-friend', name: '十年来の盟友', condition: 'Annict に登録して10年が経った', rarity: 'gold', test: (f) => !!f.stats && yearsBetween(new Date(f.stats.createdAt), f.now) >= 10 },
@@ -138,6 +160,14 @@ const SPECIAL: readonly { id: string; name: string; condition: string; rarity: R
   // Annict サポーターの称号も考えたが、サポーターかは API に無い（プロフィールページにしか出ない）ので入れない。
   // Annict は API で取れるものだけを使う（docs/concept.md の設計の原則）。編集者も外から見分ける方法が無い
 ]
+
+// その年の干支（2026年＝丙午）。年の称号の名前に使う（年の数字は条件の欄に出す）
+const STEMS = '甲乙丙丁戊己庚辛壬癸'
+const BRANCHES = '子丑寅卯辰巳午未申酉戌亥'
+export function etoOf(year: number): string {
+  const i = (((year - 4) % 60) + 60) % 60
+  return STEMS[i % 10] + BRANCHES[i % 12]
+}
 
 function yearsBetween(from: Date, to: Date): number {
   const years = to.getFullYear() - from.getFullYear()
@@ -165,6 +195,21 @@ export function evaluateTitles(f: Facts): Title[] {
     })
   }
 
+  // 見た作品の本数（Annict の記録全体。Anipair の前に Annict で付けた分も入る）
+  const watched = f.stats?.watchedCount ?? 0
+  for (const t of WATCHED_TITLES) {
+    out.push({
+      id: t.id,
+      name: t.name,
+      condition: `見た作品を${t.goal.toLocaleString()}本にする`,
+      group: 'watched',
+      rarity: t.rarity,
+      hidden: false,
+      unlocked: watched >= t.goal,
+      progress: f.stats ? { value: Math.min(watched, t.goal), goal: t.goal, unit: '本' } : null,
+    })
+  }
+
   // 年: その年の4クールをすべて踏破した年ごとに1つ。まだの年は、いちばん近い年を1つだけ見せる
   const years = new Map<number, number>()
   for (const [slug, c] of f.coverage) {
@@ -174,14 +219,14 @@ export function evaluateTitles(f: Facts): Title[] {
   }
   const doneYears = [...years].filter(([, n]) => n >= SEASON_NAMES.length).map(([y]) => y).sort((a, b) => b - a)
   for (const year of doneYears) {
-    out.push({ id: `year-${year}`, name: `${year}年を統べる者`, condition: `${year}年の4クールをすべて踏破する`, group: 'year', rarity: YEAR_RARITY, hidden: false, unlocked: true, progress: null })
+    out.push({ id: `year-${year}`, name: `${etoOf(year)}を統べる者`, condition: `${year}年の4クールをすべて踏破する`, group: 'year', rarity: YEAR_RARITY, hidden: false, unlocked: true, progress: null })
   }
   const nearest = [...years].filter(([, n]) => n < SEASON_NAMES.length).sort((a, b) => b[1] - a[1] || b[0] - a[0])[0]
   if (nearest) {
     const [year, n] = nearest
     out.push({
       id: `year-${year}`,
-      name: `${year}年を統べる者`,
+      name: `${etoOf(year)}を統べる者`,
       condition: `${year}年の4クールをすべて踏破する`,
       group: 'year',
       rarity: YEAR_RARITY,
@@ -217,7 +262,8 @@ export function evaluateTitles(f: Facts): Title[] {
   const current = f.coverage.get(toSlug(seasonOf(f.now)))
   out.push({
     id: 'season-current',
-    name: '今を生きる者',
+    // 今期＝最前線
+    name: '最前線の観測者',
     condition: '今のクールを踏破する',
     group: 'season',
     rarity: 'silver',
@@ -235,7 +281,8 @@ export function evaluateTitles(f: Facts): Title[] {
   }
   out.push({
     id: 'season-streak-8',
-    name: '途切れぬ観測',
+    // 8クール続けて＝2年間眠らずに見張る
+    name: '二年の不寝番',
     condition: `${STREAK_GOAL}つ続けてクールを踏破する`,
     group: 'season',
     rarity: 'gold',
@@ -247,7 +294,8 @@ export function evaluateTitles(f: Facts): Title[] {
   // 古いクールを踏破
   out.push({
     id: 'season-old',
-    name: '古の扉を開く者',
+    // 1989年まで昭和
+    name: '昭和の残響を聴く者',
     condition: `${OLD_SEASON_BEFORE}年より前のクールを踏破する`,
     group: 'season',
     rarity: 'amethyst',
@@ -291,7 +339,8 @@ export function evaluateTitles(f: Facts): Title[] {
   const halfEras = THREE_ERAS.filter((from) => decadeRatio(f.coverage, from) >= 0.5).length
   out.push({
     id: 'decade-three-eras',
-    name: '三代の証人',
+    // ゼロ年代から二〇年代＝平成から令和
+    name: '二つの元号を渡りし者',
     condition: 'ゼロ年代・テン年代・二〇年代のそれぞれで、人気作の半分に答える',
     group: 'decade',
     rarity: 'amethyst',

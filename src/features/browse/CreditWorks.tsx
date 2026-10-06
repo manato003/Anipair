@@ -7,6 +7,7 @@ import { messageOf } from '../../lib/useWriteQueue'
 import { STATUS_LABEL } from './detail'
 import { RelatedDetail } from './RelatedDetail'
 import type { Enqueue, RelatedChange } from './WorkDetail'
+import { Loading } from '../../components/Loading'
 
 // キャスト・スタッフ・制作会社の参加作品。作品の詳細の上に、もう1枚のシートとして重ねて開く（関連作品と同じ）。
 // Annict の API には人物・団体の参加作品が無いので（GraphQL・REST とも、キャスト・スタッフは作品からしか引けない）、Shikimori から引く。
@@ -121,9 +122,7 @@ export function CreditWorks(
         </p>
 
         {found.kind === 'loading' && (
-          <p className="note" aria-busy>
-            作品を探しています
-          </p>
+          <Loading label="参加作品を検索中" />
         )}
         {found.kind === 'error' && <p className="settings__error">{found.message}</p>}
         {(found.kind === 'missing' || (found.kind === 'found' && list.length === 0)) && (

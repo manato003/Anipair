@@ -2,6 +2,7 @@ import { loadFeatsRaw, loadSeasonTopsRaw, loadTitlesRaw, saveFeatsRaw, saveSeaso
 import { compareSeasons, nextSeason, parseSlug, seasonOf, toSlug } from '../../lib/season'
 import { OLDEST_SEASON } from '../rate/queue'
 import type { Feats } from './titles'
+import { RARITIES, type Rarity } from './titles'
 
 // ── クールごとの人気作の ID の控え ──
 // だれのものでも同じで、ゆっくりしか変わらない。直近1年のクールは7日、それより前は90日で読み直す
@@ -61,6 +62,9 @@ export function isStale(slug: string, top: SeasonTop | undefined, now: Date): bo
 
 export interface TitlesState {
   equipped: string | null
+  // 掲げた称号の名前とレア度（傾向の共有の画像に出すため。実績の画面で掲げたとき・開いたときに書く）
+  equippedName?: string | null
+  equippedRarity?: Rarity | null
   // 見たことのある解放済みの称号（NEW の印を外すため）
   seen: string[]
   // 初回の「覚醒」を見たか
@@ -71,6 +75,9 @@ export function parseTitlesState(value: unknown): TitlesState {
   const v = (value && typeof value === 'object' ? value : {}) as Record<string, unknown>
   return {
     equipped: typeof v.equipped === 'string' ? v.equipped : null,
+    ...(typeof v.equippedName === 'string' && typeof v.equippedRarity === 'string' && (RARITIES as readonly string[]).includes(v.equippedRarity)
+      ? { equippedName: v.equippedName, equippedRarity: v.equippedRarity as Rarity }
+      : {}),
     seen: Array.isArray(v.seen) ? v.seen.filter((s): s is string => typeof s === 'string') : [],
     awakened: v.awakened === true,
   }

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchCovers, quickCovers } from '../../lib/covers'
 import { fetchLibrary, updateStatus, type RatingState, type StatusState } from '../../lib/annict'
-import { getMyReviews, refreshMyReviews, rememberReview } from '../../lib/myReviews'
+import { getMyReviews, peekMyReviews, refreshMyReviews, rememberReview } from '../../lib/myReviews'
+import { loadStoredLibrary } from '../../lib/offlineCache'
+import { delay } from '../../lib/retry'
 import { blankReview, changeRating } from '../../lib/reviewOps'
 import type { Cover } from '../../lib/storage'
 import { hasPendingWrites, messageOf, useWriteQueue } from '../../lib/useWriteQueue'
@@ -24,12 +26,35 @@ function toRows({ library, myReviews }: Fetched, covers?: Map<number, Cover>): R
   return library.map((entry) => ({ entry, review: myReviews.get(entry.annictId) ?? null, cover: covers?.get(entry.annictId) ?? null }))
 }
 
-// active: 画面が表示されているか。隠れているだけで残っているとき、再び表示されたら裏で読み直す
+// 端末にとっておいた前回の内容（ライブラリと感想の控え）で作った一覧。無ければ null
+function storedRows(token: string): { rows: RecordRow[]; at: string } | null {
+  const lib = loadStoredLibrary()
+  if (!lib) return null
+  const fetched = { library: lib.value, myReviews: peekMyReviews(token) ?? new Map() }
+  return { rows: toRows(fetched, quickCovers(lib.value)), at: lib.at }
+}
+
+// 送信待ちが無くなるまで待つ（前回の内容を見せているあいだに書き込んだら、書き込みが済んでから読み直す）
+async function untilWritesDone(cancelled: () => boolean): Promise<void> {
+  while (hasPendingWrites() && !cancelled()) await delay(500)
+}
+
+// active: 画面が表示されているか。隠れているだけで残っているとき、再び表示されたら裏で読み直す。
+// 開いたらまず端末にとっておいた前回の内容で一覧を出し（staleAt にその日時）、Annict から読み直したら差し替える（2026-10-06）
 export function useRecords(token: string, active = true) {
-  const [rows, setRows] = useState<RecordRow[] | null>(null)
+  const [initial] = useState(() => storedRows(token))
+  const [rows, setRows] = useState<RecordRow[] | null>(() => initial?.rows ?? null)
+  // 前回の内容を見せているあいだの、その内容の日時（読み直したら null）
+  const [staleAt, setStaleAt] = useState<string | null>(() => initial?.at ?? null)
+  // 前回の内容を見せたまま、読み直しに失敗したとき
+  const [refreshError, setRefreshError] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [reloadTick, setReloadTick] = useState(0)
   const { pending, failed, enqueue, retryFailed, dismissFailed } = useWriteQueue()
+  const staleRef = useRef(staleAt !== null)
+  useEffect(() => {
+    staleRef.current = staleAt !== null
+  })
   // 最初の読み込みが済んだか（済むまでは裏で読み直さない）
   const loaded = useRef(false)
   // 「もう一度読み込む」で読み直すときだけ、感想を全部読み直す（Annict のサイトでの変更に追いつくため）
@@ -41,17 +66,29 @@ export function useRecords(token: string, active = true) {
     fullNext.current = false
     ;(async () => {
       try {
-        const fetched = await fetchRecords(token, full)
+        let fetched = await fetchRecords(token, full)
         if (cancelled) return
+        // 前回の内容を見せているあいだに書き込んでいたら、書き込みが済んでから読み直す（画面の先行表示を、書く前の中身で上書きしない）
+        if (hasPendingWrites()) {
+          await untilWritesDone(() => cancelled)
+          if (cancelled) return
+          fetched = await fetchRecords(token)
+          if (cancelled) return
+        }
         // Annict の画像はもう手元にあるので先に出し、Shikimori のポスターは後から埋める（件数が多いと問い合わせに時間がかかるため）
         setRows(toRows(fetched, quickCovers(fetched.library)))
+        setStaleAt(null)
+        setRefreshError(null)
         const covers = await fetchCovers(fetched.library)
         if (cancelled) return
         setRows((cur) => (cur ?? []).map((r) => ({ ...r, cover: covers.get(r.entry.annictId) ?? null })))
         // 表紙まで揃ってから。途中で裏の読み直しが走ると、後から来た表紙で上書きされてしまう
         loaded.current = true
       } catch (e) {
-        if (!cancelled) setLoadError(messageOf(e))
+        if (cancelled) return
+        // 前回の内容を見せているなら、それを見せたまま知らせる（一覧は消さない）
+        if (staleRef.current) setRefreshError(messageOf(e))
+        else setLoadError(messageOf(e))
       }
     })()
     return () => {
@@ -85,7 +122,15 @@ export function useRecords(token: string, active = true) {
     loaded.current = false
     fullNext.current = true
     setRows(null)
+    setStaleAt(null)
+    setRefreshError(null)
     setLoadError(null)
+    setReloadTick((t) => t + 1)
+  }, [])
+
+  // 前回の内容を見せたまま、もう一度 Annict から読み直す（一覧は消さない）
+  const retryRefresh = useCallback(() => {
+    setRefreshError(null)
     setReloadTick((t) => t + 1)
   }, [])
 
@@ -105,12 +150,16 @@ export function useRecords(token: string, active = true) {
           ? { ...(r.review ?? blankReview()), ratingOverallState: rating }
           : null,
       }))
-      enqueue(`「${title}」の評価`, async () => {
-        if (becomesWatched) await updateStatus(token, workId, 'WATCHED')
-        // 画面の表示は先に変えるが、何を送るかは列の順番どおりに、この時点の実際の感想で決める
-        const current = (await getMyReviews(token)).get(annictId) ?? null
-        await rememberReview(token, annictId, await changeRating(token, workId, current, rating))
-      })
+      enqueue(
+        `「${title}」の評価`,
+        async () => {
+          if (becomesWatched) await updateStatus(token, workId, 'WATCHED')
+          // 画面の表示は先に変えるが、何を送るかは列の順番どおりに、この時点の実際の感想で決める
+          const current = (await getMyReviews(token)).get(annictId) ?? null
+          await rememberReview(token, annictId, await changeRating(token, workId, current, rating))
+        },
+        [...(becomesWatched ? [{ kind: 'status' as const, workId, state: 'WATCHED' as const }] : []), { kind: 'rating', workId, annictId, rating }],
+      )
     },
     [token, enqueue, patchRow],
   )
@@ -121,9 +170,13 @@ export function useRecords(token: string, active = true) {
       const { annictId, workId, title } = row.entry
       if (state === row.entry.state) return
       patchRow(annictId, (r) => (state === 'NO_STATE' ? null : { ...r, entry: { ...r.entry, state, stateAt: new Date().toISOString() } }))
-      enqueue(`「${title}」の状態`, async () => {
-        await updateStatus(token, workId, state)
-      })
+      enqueue(
+        `「${title}」の状態`,
+        async () => {
+          await updateStatus(token, workId, state)
+        },
+        [{ kind: 'status', workId, state }],
+      )
     },
     [token, enqueue, patchRow],
   )
@@ -154,5 +207,5 @@ export function useRecords(token: string, active = true) {
     [rows, patchRecord],
   )
 
-  return { rows, loadError, reload, pending, failed, enqueue, retryFailed, dismissFailed, setRating, setState, patchRecord, noteRelatedChange }
+  return { rows, staleAt, refreshError, retryRefresh, loadError, reload, pending, failed, enqueue, retryFailed, dismissFailed, setRating, setState, patchRecord, noteRelatedChange }
 }

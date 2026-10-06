@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { rememberReview } from '../../lib/myReviews'
+import { getMyReviews, rememberReview } from '../../lib/myReviews'
 import type { GithubConnection } from '../../lib/github'
-import { annictSearchUrl, createReview, deleteReview, updateStatus, type RatingState, type WorkRef } from '../../lib/annict'
-import { blankReview } from '../../lib/reviewOps'
+import { annictSearchUrl, updateStatus, type RatingState, type WorkRef } from '../../lib/annict'
+import { changeRating } from '../../lib/reviewOps'
 import { fetchMedia, type Media } from '../../lib/shikimori'
 import { loadMatchFilterRaw, saveMatchFilterRaw } from '../../lib/storage'
 import { useCoalescedTask } from '../../lib/useCoalescedTask'
@@ -49,8 +49,8 @@ interface UndoEntry {
   index: number
   // 送信で Annict の作品が特定できたら埋まる
   ref: WorkRef | null
-  // 評価を送ったら埋まる
-  reviewId: string | null
+  // 評価を送るところまで進んだら true（取り消しで評価を外す）
+  rated: boolean
 }
 
 export function titleOf(m: Media): string {
@@ -84,7 +84,7 @@ export function useMatching(annictToken: string, github: GithubConnection | null
     const filter = filterRef.current
     // 提案を作るたびに好みを読み直す（評価が増えたあとでも、新しい好みで提案できるように）。読んだ好みは、記録ページの傾向などが使い回す
     forgetTaste()
-    setPhase({ kind: 'loading', step: 'Annict の記録を読んでいます' })
+    setPhase({ kind: 'loading', step: 'Annict の記録を読み込み中' })
     try {
       const { library, ratings, seeds, similarSeeds, similar, profile } = await loadTaste(annictToken, (step) => {
         if (alive()) setPhase({ kind: 'loading', step })
@@ -99,7 +99,7 @@ export function useMatching(annictToken: string, github: GithubConnection | null
 
       let passes = loadLocalPasses()
       if (github) {
-        setPhase({ kind: 'loading', step: 'パスした作品を GitHub から読んでいます' })
+        setPhase({ kind: 'loading', step: 'パスした作品を GitHub から読み込み中' })
         try {
           passes = await syncPasses(github)
           setSyncNote(null)
@@ -113,7 +113,7 @@ export function useMatching(annictToken: string, github: GithubConnection | null
       const exclude = new Set([...recorded, ...activePassIds(passes, new Date())])
       const pool = collectPool(similarSeeds, similar, exclude).slice(0, isDefaultFilter(filter) ? POOL_SIZE : FILTERED_POOL_SIZE)
 
-      setPhase({ kind: 'loading', step: '候補を調べています' })
+      setPhase({ kind: 'loading', step: '候補を整理しています' })
       const details = await fetchMedia(pool.map((p) => p.malId))
       if (!alive()) return
       const ranked = rankCandidates(pool, details, profile, seenMalIds(library), filter).slice(0, MAX_CARDS)
@@ -170,7 +170,7 @@ export function useMatching(annictToken: string, github: GithubConnection | null
     (a: MatchAnswer) => {
       if (index >= cards.length) return
       const card = cards[index]
-      const entry: UndoEntry = { card, answer: a, index, ref: null, reviewId: null }
+      const entry: UndoEntry = { card, answer: a, index, ref: null, rated: false }
       undoStack.current.push(entry)
       setUndoCount(undoStack.current.length)
       setIndex(index + 1)
@@ -183,21 +183,26 @@ export function useMatching(annictToken: string, github: GithubConnection | null
       const label =
         a.kind === 'wanna' ? `「${title}」の見たいへの追加` : a.kind === 'watching' ? `「${title}」の見てるへの追加` : `「${title}」の記録`
       const state = a.kind === 'wanna' ? 'WANNA_WATCH' : a.kind === 'watching' ? 'WATCHING' : a.kind === 'stop' ? 'STOP_WATCHING' : 'WATCHED'
-      enqueue(label, async () => {
-        entry.ref ??= await resolveCard(card)
-        if (!entry.ref) {
-          throw new WriteError(`「${title}」を Annict で見つけられませんでした。`, {
-            href: annictSearchUrl(title),
-            text: 'Annict で探して登録する',
-          })
-        }
-        await updateStatus(annictToken, entry.ref.id, state)
-        if (a.kind === 'rate') {
-          entry.reviewId = await createReview(annictToken, entry.ref.id, a.rating)
-          // 共有の感想の控えにも入れる（あとで詳細のシートから評価を変えたときに、作った感想を見つけられるように）
-          await rememberReview(annictToken, entry.ref.annictId, { ...blankReview(), id: entry.reviewId, ratingOverallState: a.rating })
-        }
-      })
+      enqueue(
+        label,
+        async () => {
+          entry.ref ??= await resolveCard(card)
+          if (!entry.ref) {
+            throw new WriteError(`「${title}」を Annict で見つけられませんでした。`, {
+              href: annictSearchUrl(title),
+              text: 'Annict で探して登録する',
+            })
+          }
+          await updateStatus(annictToken, entry.ref.id, state)
+          if (a.kind === 'rate') {
+            entry.rated = true
+            // 共有の感想の控えから付ける（作った感想は控えにも入る。あとで詳細のシートから評価を変えたときに見つけられるように）
+            const current = (await getMyReviews(annictToken)).get(entry.ref.annictId) ?? null
+            await rememberReview(annictToken, entry.ref.annictId, await changeRating(annictToken, entry.ref.id, current, a.rating))
+          }
+        },
+        [{ kind: 'match', idMal: card.media.idMal, title: card.media.title, state, ...(a.kind === 'rate' ? { rating: a.rating } : {}) }],
+      )
     },
     [cards, index, annictToken, enqueue, syncLater, resolveCard],
   )
@@ -213,14 +218,21 @@ export function useMatching(annictToken: string, github: GithubConnection | null
       return
     }
     // 候補は記録の無い作品だけなので「未設定」に戻せばよい。Annict で特定できていなければ何も書いていない
-    enqueue(`「${titleOf(entry.card.media)}」の取り消し`, async () => {
-      if (entry.reviewId) {
-        await deleteReview(annictToken, entry.reviewId)
-        if (entry.ref) await rememberReview(annictToken, entry.ref.annictId, null)
-      }
-      entry.reviewId = null
-      if (entry.ref) await updateStatus(annictToken, entry.ref.id, 'NO_STATE')
-    })
+    const { media } = entry.card
+    enqueue(
+      `「${titleOf(media)}」の取り消し`,
+      async () => {
+        const ref = entry.ref
+        if (!ref) return
+        if (entry.rated) {
+          const current = (await getMyReviews(annictToken)).get(ref.annictId) ?? null
+          await rememberReview(annictToken, ref.annictId, await changeRating(annictToken, ref.id, current, null))
+        }
+        entry.rated = false
+        await updateStatus(annictToken, ref.id, 'NO_STATE')
+      },
+      [{ kind: 'match', idMal: media.idMal, title: media.title, state: 'NO_STATE', ...(entry.answer.kind === 'rate' ? { rating: null } : {}) }],
+    )
   }, [annictToken, enqueue, syncLater])
 
   // 関連作品のシートで記録した作品を、これから出てくる候補から外す（いま出している候補は残す）

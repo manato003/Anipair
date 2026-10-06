@@ -34,7 +34,9 @@
       <ul>
         <li>Annict のアクセストークン（ログインしたとき）</li>
         <li>GitHub のトークンとリポジトリ名（利用者が任意で連携したとき）</li>
-        <li>パス・スルー・「見てない」にした作品の記録、キーの割り当て、画面の設定</li>
+        <li>パス・スルー・「見てない」にした作品の記録、「見たい」の作品の優先の印とメモ、キーの割り当て、画面の設定</li>
+        <li>Annict から前回読み込んだ自分の記録の写し（ライブラリ・評価と感想・評価画面のクールの作品）。次に開いたときにすぐ表示するために使い、開くたびに Annict から読み直します</li>
+        <li>まだ Annict に送り終えていない記録の控えと、書きかけの感想。送り終えたら消します</li>
         <li>称号の状態（手に入れた称号のうち見たもの、掲げている称号）と、称号の条件になる出来事の日時（深夜・早朝・元日に記録した、など）</li>
         <li>作品情報の一時的な控え（表紙の画像の場所、各クールの人気作の一覧など）</li>
       </ul>
@@ -58,7 +60,7 @@
         </li>
         <li>
           <strong>GitHub</strong>（利用者が任意で連携した場合だけ）:
-          パス・スルー・「見てない」の記録とバックアップを、利用者自身のリポジトリに保存します。
+          パス・スルー・「見てない」の記録、「見たい」の優先の印とメモ、バックアップを、利用者自身のリポジトリに保存します。
         </li>
         <li>
           <strong>Google Fonts</strong>: 画面の文字の表示のために、フォントを読み込みます。
@@ -99,15 +101,16 @@
         <p>None. Anipair has no operator-run database or user registration, and uses no analytics, advertising or tracking cookies.</p>
         <h2>2. Information kept on your device</h2>
         <p>
-          Your Annict access token, your optional GitHub token and repository name, your pass, skip and "not watched" records, key bindings, display settings,
-          and short-lived caches of anime information are stored only in your browser's storage. They are never sent to the operator. You can delete them by
+          Your Annict access token, your optional GitHub token and repository name, your pass, skip and "not watched" records, your priority marks and notes on
+          "want to watch" anime, key bindings, display settings, short-lived caches of anime information, a copy of your records last read from Annict (to show
+          them quickly next time), records not yet sent to Annict, and unfinished comments are stored only in your browser's storage. They are never sent to the operator. You can delete them by
           removing the token in Settings or by clearing the site data in your browser.
         </p>
         <h2>3. Services Anipair connects to</h2>
         <ul>
           <li><strong>Annict</strong>: login, reading and writing your watch records and ratings, anime information and synopses. Your records are stored in your own Annict account.</li>
           <li><strong>Anime data provider</strong> (currently Shikimori): public data such as genres, similar and related anime, cover images, and the works of voice actors, staff and studios, fetched through Anipair's proxy without any information that identifies you. To look up the works of a person, Anipair sends that person's public name as listed on Annict.</li>
-          <li><strong>GitHub</strong>, only if you connect it: your pass, skip and "not watched" records and backups are saved to your own repository.</li>
+          <li><strong>GitHub</strong>, only if you connect it: your pass, skip and "not watched" records, your priority marks and notes on "want to watch" anime, and backups are saved to your own repository.</li>
           <li><strong>Google Fonts</strong>: web fonts used to display the app.</li>
         </ul>
         <h2>4. Server functions and hosting</h2>

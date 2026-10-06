@@ -98,7 +98,7 @@ describe('runBackup', () => {
     setPass(10, true, { now: new Date('2026-09-30T01:00:00Z') })
     setUnseen(5, true, new Date('2026-09-30T02:00:00Z'))
     await runBackup('annict-token', conn)
-    expect(fetchLibrary).toHaveBeenCalledWith('annict-token')
+    expect(fetchLibrary).toHaveBeenCalledWith('annict-token', { fresh: true })
     expect(refreshMyReviews).toHaveBeenCalledWith('annict-token')
     expect(writes[0].value).toMatchObject({
       passes: { passes: { '10': { active: true } } },

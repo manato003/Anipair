@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { LibraryEntry, MyReview, RatingState } from '../../lib/annict'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { LibraryEntry, MyReview, RatingState, ReviewAxes } from '../../lib/annict'
 
 const calls: string[] = []
 let seq = 0
@@ -29,16 +29,30 @@ const review = (id: string, rating: RatingState): MyReview => ({
   ratingCharacterState: null,
 })
 
+// Annict 側の感想（書き込みの直前の読み直し fetchReview に答える）。作った・消したを追いかける
+const annictCreated = new Map<string, MyReview>()
+const annictDeleted = new Set<string>()
+afterEach(() => {
+  annictCreated.clear()
+  annictDeleted.clear()
+})
+
 vi.mock('../../lib/annict', async (orig) => ({
   ...(await orig<typeof import('../../lib/annict')>()),
   fetchLibrary: vi.fn(async () => library),
   updateStatus: vi.fn(async (_t: string, id: string, s: string) => void calls.push(`status ${id} ${s}`)),
-  createReview: vi.fn(async (_t: string, id: string, r: string) => {
+  createReviewWith: vi.fn(async (_t: string, id: string, axes: ReviewAxes, body: string) => {
+    const r = axes.ratingOverallState
     const rid = `N${++seq}`
     calls.push(`create ${id} ${r} -> ${rid}`)
+    annictCreated.set(rid, { id: rid, body, createdAt: '', ...axes })
     return rid
   }),
-  deleteReview: vi.fn(async (_t: string, id: string) => void calls.push(`delete ${id}`)),
+  fetchReview: vi.fn(async (_t: string, id: string) => (annictDeleted.has(id) ? null : (annictCreated.get(id) ?? [...cache.values()].find((x) => x.id === id) ?? null))),
+  deleteReview: vi.fn(async (_t: string, id: string) => {
+    annictDeleted.add(id)
+    void calls.push(`delete ${id}`)
+  }),
   updateReview: vi.fn(async (_t: string, id: string, r: string) => void calls.push(`update ${id} ${r}`)),
 }))
 // 表紙は Annict の作品 ID ごと。作品 1 だけに付く
@@ -48,6 +62,7 @@ vi.mock('../../lib/covers', async (orig) => ({
 }))
 vi.mock('../../lib/myReviews', () => ({
   getMyReviews: vi.fn(async () => cache),
+  peekMyReview: vi.fn((_t: string, id: number) => cache.get(id) ?? null),
   rememberReview: vi.fn(async (_t: string, id: number, r: MyReview | null) => {
     if (r) cache.set(id, r)
     else cache.delete(id)
@@ -58,6 +73,8 @@ const { useWatching } = await import('./useWatching')
 const { fetchLibrary } = await import('../../lib/annict')
 
 beforeEach(() => {
+  localStorage.removeItem('animax.library.v1')
+  localStorage.removeItem('animax.stillWatching.v1')
   calls.length = 0
   seq = 0
   cache = new Map()
@@ -147,6 +164,21 @@ describe('useWatching', () => {
     expect(hook.result.current.done).toBe(false)
   })
 
+  it('"still watching" is not asked again when the app is opened again (for a week), unless it was undone', async () => {
+    const first = await setup()
+    act(() => first.result.current.answer({ kind: 'still' }))
+    first.unmount()
+    // 開き直した: 作品1は出さず、次の作品から
+    const second = await setup()
+    expect(second.result.current.cards!.map((c) => c.entry.annictId)).toEqual([2, 4])
+    act(() => second.result.current.answer({ kind: 'still' }))
+    act(() => second.result.current.undo())
+    second.unmount()
+    // 取り消した作品2は、また出る
+    const third = await setup()
+    expect(third.result.current.cards!.map((c) => c.entry.annictId)).toEqual([2, 4])
+  })
+
   describe('refreshIfIdle', () => {
     it('picks up works added elsewhere while the deck is untouched', async () => {
       const hook = await setup()
@@ -164,5 +196,26 @@ describe('useWatching', () => {
       expect(fetchLibrary).not.toHaveBeenCalled()
       expect(hook.result.current.cards).toHaveLength(3)
     })
+  })
+})
+
+describe('useWatching: the deck from the last visit', () => {
+  it('shows the stored watching works at once, keeps the shown card, and follows Annict for the rest', async () => {
+    // 前回の内容: 作品1と作品9を見ていた。Annict の今: 作品9は見終えていて、作品2と作品4を見ている
+    const stored = [entry(1, 'WATCHING', '2026-06-01T00:00:00Z'), entry(9, 'WATCHING', '2026-07-01T00:00:00Z')]
+    localStorage.setItem('animax.library.v1', JSON.stringify({ v: 1, at: '2026-10-05T00:00:00.000Z', entries: stored }))
+    let release!: () => void
+    const gate = new Promise<void>((r) => (release = r))
+    vi.mocked(fetchLibrary).mockImplementationOnce(async () => {
+      await gate
+      return library
+    })
+    const hook = renderHook(() => useWatching('t'))
+    expect(hook.result.current.current?.entry.workId).toBe('W1')
+    expect(hook.result.current.staleAt).toBe('2026-10-05T00:00:00.000Z')
+    release()
+    await waitFor(() => expect(hook.result.current.staleAt).toBeNull())
+    // いま出している作品1は残り、作品9が外れて、Annict の今の見てる（作品2・作品4。見始めた順）が後ろに入る
+    expect(hook.result.current.cards?.map((c) => c.entry.workId)).toEqual(['W1', 'W2', 'W4'])
   })
 })

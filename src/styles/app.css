@@ -79,6 +79,44 @@
   font-size: 0.85rem;
 }
 
+/* 前回送れなかった記録の帯。知らせるだけで、危ない色（ログイン切れの赤）にはしない */
+.unsent {
+  border-bottom-color: color-mix(in srgb, var(--brand-lavender) 40%, var(--line));
+  background: color-mix(in srgb, var(--brand-lavender) 12%, var(--ink-raised));
+}
+
+.unsent .auth-banner__text {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.unsent__body {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.unsent__list {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.unsent__list summary {
+  cursor: pointer;
+}
+
+.unsent__list ul {
+  max-height: 30vh;
+  margin-top: 4px;
+  padding-left: 1.2em;
+  overflow-y: auto;
+  text-align: left;
+}
+
 /* 隠したタブの画面。中の画面は height: 100% なので、ここも 100% にして以前と同じ寸法にする */
 .app__screen {
   height: 100%;

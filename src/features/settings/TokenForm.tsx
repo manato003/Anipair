@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { messageOf } from '../../lib/useWriteQueue'
+import { Spinner } from '../../components/Loading'
 
 // トークンを貼って確かめて保存する欄（開発者向け）
 export function TokenForm(props: {
@@ -42,7 +43,14 @@ export function TokenForm(props: {
             aria-label={props.label}
           />
           <button type="submit" className="btn btn--primary" disabled={checking || !draft.trim()}>
-            {checking ? '確認しています…' : '連携する'}
+            {checking ? (
+            <>
+              <Spinner />
+              確認しています…
+            </>
+          ) : (
+            '連携する'
+          )}
           </button>
       </form>
       {message && <p className={message.ok ? 'settings__ok' : 'settings__error'}>{message.text}</p>}

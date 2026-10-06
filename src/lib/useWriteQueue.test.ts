@@ -95,4 +95,31 @@ describe('useWriteQueue', () => {
     act(() => hook.result.current.retryFailed())
     expect(hook.result.current.pending).toBe(0)
   })
+
+  it('keeps the wish on the device until the write succeeds, keeps it on failure, and drops it when dismissed', async () => {
+    localStorage.clear()
+    const hook = renderHook(() => useWriteQueue())
+    const journal = () => JSON.parse(localStorage.getItem('animax.writeJournal.v1') ?? '{"entries":[]}').entries.map((e: { key: string }) => e.key)
+    let release!: () => void
+    const gate = new Promise<void>((r) => (release = r))
+    act(() => hook.result.current.enqueue('ok', () => gate, [{ kind: 'status', workId: 'W1', state: 'WATCHED' }]))
+    // 送り終えるまでは控えにある（ここで閉じても、次に開いたときに送り直せる）
+    expect(journal()).toEqual(['status:W1'])
+    release()
+    await waitFor(() => expect(hook.result.current.pending).toBe(0))
+    expect(journal()).toEqual([])
+    act(() =>
+      hook.result.current.enqueue(
+        'ng',
+        async () => {
+          throw new Error('HTTP 502')
+        },
+        [{ kind: 'status', workId: 'W2', state: 'WATCHED' }],
+      ),
+    )
+    await waitFor(() => expect(hook.result.current.failed).toHaveLength(1))
+    expect(journal()).toEqual(['status:W2'])
+    act(() => hook.result.current.dismissFailed())
+    expect(journal()).toEqual([])
+  })
 })

@@ -171,6 +171,91 @@ kbd {
   font-size: 0.75rem;
 }
 
+/* 保存中の札。画面の下（タブの帯の上）に浮かべ、画面の流れには入れない。空のときは見えないが、読み上げのために置いておく */
+.save-toast {
+  position: fixed;
+  bottom: calc(76px + env(safe-area-inset-bottom));
+  left: 50%;
+  z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: rgba(27, 32, 56, 0.94);
+  color: var(--paper);
+  font-size: 0.8rem;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translate(-50%, 8px);
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+  pointer-events: none;
+}
+
+.save-toast[data-visible] {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* 広い画面ではタブの帯が上にあるので、下の端から少し離すだけ */
+@media (min-width: 960px) {
+  .save-toast {
+    bottom: 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .save-toast {
+    transition: opacity 0.2s ease;
+    transform: translate(-50%, 0);
+  }
+}
+
+/* 前回の内容を表示しているときの一言（StaleNote）。保存中の札の少し上に浮かべる。読み直しの失敗は「もう一度」を押せるようにする */
+.stale-toast {
+  position: fixed;
+  bottom: calc(128px + env(safe-area-inset-bottom));
+  left: 50%;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: max-content;
+  max-width: min(92vw, 560px);
+  padding: 8px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-m);
+  background: rgba(27, 32, 56, 0.96);
+  color: var(--paper);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  transform: translateX(-50%);
+  animation: stale-in 0.2s ease;
+  /* お知らせだけなので、押した操作は下の一覧やボタンに通す */
+  pointer-events: none;
+}
+
+.stale-toast--error {
+  border-color: var(--danger);
+  /* 「もう一度」を押せるように */
+  pointer-events: auto;
+}
+
+@keyframes stale-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (min-width: 960px) {
+  .stale-toast {
+    bottom: 72px;
+  }
+}
+
 .save--error {
   display: flex;
   flex-wrap: wrap;
@@ -185,8 +270,31 @@ kbd {
 }
 
 .notes {
+  position: relative;
+  /* 浮かぶ札（下）を、後ろにあるカードより手前に出す */
+  z-index: 7;
   display: grid;
   gap: 2px;
+}
+
+/* 評価・マッチングの画面では、浮かぶ札（保存中・前回の内容）を、下の答えのボタンに重ねない
+   （2026-10-06 に、下に浮かべた札がボタンを隠したのを撮って確かめた）。
+   狭い画面ではカードの絵の上の端に、広い画面では上の帯とカードのあいだの空いたところに浮かべる */
+.notes > .save-toast,
+.notes > .stale-toast {
+  position: absolute;
+  top: 6px;
+  bottom: auto;
+  max-width: min(92vw, 100%);
+}
+
+@media (min-width: 960px) {
+  .notes > .save-toast,
+  .notes > .stale-toast {
+    position: fixed;
+    top: 76px;
+    max-width: min(92vw, 640px);
+  }
 }
 
 .note {
@@ -370,6 +478,13 @@ kbd {
 
 .badge--state {
   border: 1px solid var(--line);
+  background: none;
+  color: var(--muted);
+}
+
+/* 評価の画面で「見てない」にした作品（記録ではないので、記録の印より控えめに点線で） */
+.badge--unseen {
+  border: 1px dashed var(--line-strong);
   background: none;
   color: var(--muted);
 }
@@ -749,5 +864,192 @@ kbd {
   .sheet__bar {
     margin: 0 -28px;
     padding: 8px 28px;
+  }
+}
+
+/* 読み込み中（components/Loading.tsx）。動くロゴと文言、少し経ったら秒数。固まったのではないと分かるように */
+.loading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.loading--block {
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  padding: 48px 16px;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.loading__spinner {
+  display: inline-block;
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--line-strong);
+  border-top-color: var(--brand-lavender);
+  border-radius: 999px;
+  vertical-align: -2px;
+  animation: loading-spin 0.8s linear infinite;
+}
+
+.loading--block .loading__spinner {
+  width: 24px;
+  height: 24px;
+  border-width: 3px;
+}
+
+.btn .loading__spinner {
+  margin-right: 6px;
+}
+
+/* 評価・マッチングの読み込み中のカードでは、カードに合わせて中央に */
+.card--loading .loading {
+  justify-content: center;
+  text-align: center;
+}
+
+.loading__time {
+  margin-left: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.loading__slow {
+  flex-basis: 100%;
+  font-size: 0.75rem;
+}
+
+/* 動くロゴ: 2つの円が離れては寄り添い、重なると真ん中のレンズと星が光る（1周 1.6 秒） */
+.loading-mark {
+  flex: none;
+  width: 28px;
+  height: auto;
+  overflow: visible;
+}
+
+.loading--block .loading-mark {
+  width: 76px;
+}
+
+.loading-mark__left,
+.loading-mark__right,
+.loading-mark__lens,
+.loading-mark__star {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: 1.6s ease-in-out infinite;
+}
+
+.loading-mark__left {
+  animation-name: mark-left;
+}
+
+.loading-mark__right {
+  animation-name: mark-right;
+}
+
+.loading-mark__lens {
+  animation-name: mark-lens;
+}
+
+.loading-mark__star {
+  animation-name: mark-star;
+}
+
+@keyframes mark-left {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(-20px);
+  }
+}
+
+@keyframes mark-right {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(20px);
+  }
+}
+
+@keyframes mark-lens {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  35%,
+  65% {
+    opacity: 0;
+  }
+}
+
+@keyframes mark-star {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+  12% {
+    transform: scale(1.3) rotate(45deg);
+  }
+  35%,
+  65% {
+    opacity: 0;
+    transform: scale(0.3) rotate(90deg);
+  }
+}
+
+/* 評価・マッチングの読み込み中のカード: 表紙の位置の真ん中にロゴ */
+.card--loading .card__cover {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card--loading .card__cover .loading-mark {
+  width: 30%;
+  max-width: 120px;
+}
+
+@keyframes loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 動きを減らす設定（Windows の「アニメーション効果」オフもこれになる）: 動かす・回す・大きさを変えるはやめ、明るさだけをゆっくり変える。
+   読み込み中の印は「止まっていない」と伝えるのが役目なので、止めてしまわない（止めると固まって見える。2026-10-05 利用者の PC で起きた） */
+@media (prefers-reduced-motion: reduce) {
+  .loading__spinner {
+    animation: loading-fade 1.6s ease-in-out infinite;
+  }
+
+  .loading-mark__left,
+  .loading-mark__right {
+    animation: none;
+  }
+
+  .loading-mark__lens,
+  .loading-mark__star {
+    animation: loading-fade 2.4s ease-in-out infinite;
+  }
+}
+
+@keyframes loading-fade {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
   }
 }

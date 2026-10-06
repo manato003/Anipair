@@ -10,6 +10,8 @@ const KEYS = {
   // 旧: 「見てない」の作品 ID の配列。いまは unseen に移した（読んで移したら消す）
   skipped: 'animax.backfill.skipped',
   unseen: 'animax.backfill.unseen',
+  // 見たいの作品の「優先して見る」の印と短いメモ（GitHub の wanna-notes.json と同期する）
+  wannaNotes: 'animax.wannaNotes.v1',
   // 旧: 前の版の表紙の控え（animax.covers.v1。別の出どころの画像で、形も違う）。新しい鍵（v2）に切り替えて、旧い方は clearLegacyCovers で消す
   legacyCovers: 'animax.covers.v1',
   covers: 'animax.covers.v2',
@@ -22,6 +24,20 @@ const KEYS = {
   backup: 'animax.backup',
   // 自分の感想の控え（差分で読むための印つき）。今のトークンの持ち主のもので、トークンが変わったら消す
   reviews: 'animax.reviews.v1',
+  // 保存していない感想の下書き（作品の Annict ID ごと）。今のトークンの持ち主のもので、トークンが変わったら消す
+  reviewDrafts: 'animax.reviewDrafts.v1',
+  // Annict から最後に読んだ自分のライブラリと、評価の画面のクールの作品（起動したらまずこれで出す。lib/offlineCache.ts）。
+  // 今のトークンの持ち主のもので、トークンが変わったら消す
+  library: 'animax.library.v1',
+  seasonWorks: 'animax.seasonWorks.v1',
+  // Annict に送る前・送れなかった書き込み（最終的にどうしたいか）。次に開いたときに送り直せるように（lib/writeJournal.ts）。
+  // 届いたか分からない作成の印（lib/uncertainWrites.ts）。どちらも今のトークンの持ち主のもので、トークンが変わったら消す
+  writeJournal: 'animax.writeJournal.v1',
+  uncertainWrites: 'animax.uncertainWrites.v1',
+  // 「見てる」の山で「まだ見てる」と答えた作品と時刻（1週間は聞き直さない。features/rate/stillWatching.ts）。今のトークンの持ち主のもの
+  stillWatching: 'animax.stillWatching.v1',
+  // 書いている途中の話の感想（話の ID ごと。features/records/episodeDrafts.ts）。今のトークンの持ち主のもの
+  episodeDrafts: 'animax.episodeDrafts.v1',
   // 初めての人への案内（評価画面の「Anipair の使い方」）を見たか。端末ごと
   onboarding: 'animax.onboarding.v1',
   // スマホで「シートはタップで閉じる」の案内を見たか
@@ -74,7 +90,16 @@ export function saveAnnictToken(token: string | null): void {
   // 感想の控えは、いまログインしている人のもの（トークンそのものは控えに置けない）。
   // 別の値に変わった・消えたら、別のアカウントの感想を混ぜないよう控えも消す
   const next = token && token.trim() ? token.trim() : null
-  if (loadAnnictToken() !== next) write(KEYS.reviews, null)
+  if (loadAnnictToken() !== next) {
+    write(KEYS.reviews, null)
+    write(KEYS.reviewDrafts, null)
+    write(KEYS.library, null)
+    write(KEYS.seasonWorks, null)
+    write(KEYS.writeJournal, null)
+    write(KEYS.uncertainWrites, null)
+    write(KEYS.stillWatching, null)
+    write(KEYS.episodeDrafts, null)
+  }
   write(KEYS.annictToken, token)
 }
 
@@ -149,6 +174,41 @@ export function loadReviewsRaw(): unknown {
 
 export function saveReviewsRaw(value: unknown): void {
   write(KEYS.reviews, JSON.stringify(value))
+}
+
+// 見たいの印とメモの検証は features/records/wannaNotes.ts が行う
+export function loadWannaNotesRaw(): unknown {
+  return readJson(KEYS.wannaNotes)
+}
+
+export function saveWannaNotesRaw(value: unknown): void {
+  write(KEYS.wannaNotes, JSON.stringify(value))
+}
+
+// とっておいたライブラリとクールの作品の検証は lib/offlineCache.ts が行う
+export function loadStoredLibraryRaw(): unknown {
+  return readJson(KEYS.library)
+}
+
+export function saveStoredLibraryRaw(value: unknown): void {
+  write(KEYS.library, JSON.stringify(value))
+}
+
+export function loadSeasonWorksRaw(): unknown {
+  return readJson(KEYS.seasonWorks)
+}
+
+export function saveSeasonWorksRaw(value: unknown): void {
+  write(KEYS.seasonWorks, JSON.stringify(value))
+}
+
+// 感想の下書きの検証は lib/reviewDrafts.ts が行う
+export function loadReviewDraftsRaw(): unknown {
+  return readJson(KEYS.reviewDrafts)
+}
+
+export function saveReviewDraftsRaw(value: unknown): void {
+  write(KEYS.reviewDrafts, JSON.stringify(value))
 }
 
 export function clearReviewsRaw(): void {
@@ -361,4 +421,36 @@ export function saveOauthState(state: string | null): void {
 
 export function clearAll(): void {
   for (const k of ALL_KEYS) write(k, null)
+}
+
+export function loadWriteJournalRaw(): unknown {
+  return readJson(KEYS.writeJournal)
+}
+
+export function saveWriteJournalRaw(value: unknown): void {
+  write(KEYS.writeJournal, value === null ? null : JSON.stringify(value))
+}
+
+export function loadUncertainWritesRaw(): unknown {
+  return readJson(KEYS.uncertainWrites)
+}
+
+export function saveUncertainWritesRaw(value: unknown): void {
+  write(KEYS.uncertainWrites, value === null ? null : JSON.stringify(value))
+}
+
+export function loadStillWatchingRaw(): unknown {
+  return readJson(KEYS.stillWatching)
+}
+
+export function saveStillWatchingRaw(value: unknown): void {
+  write(KEYS.stillWatching, value === null ? null : JSON.stringify(value))
+}
+
+export function loadEpisodeDraftsRaw(): unknown {
+  return readJson(KEYS.episodeDrafts)
+}
+
+export function saveEpisodeDraftsRaw(value: unknown): void {
+  write(KEYS.episodeDrafts, value === null ? null : JSON.stringify(value))
 }

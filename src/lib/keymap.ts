@@ -17,7 +17,7 @@ export const KEY_ACTIONS: readonly { action: KeyAction; label: string; where: st
   { action: 'watched', label: '覚えてない（評価なしで見た）', where: '評価・マッチング' },
   { action: 'pass', label: 'パス', where: 'マッチング' },
   { action: 'later', label: 'スルー', where: 'マッチング' },
-  { action: 'undo', label: '取り消す', where: '評価・マッチング' },
+  { action: 'undo', label: 'ひとつ戻る', where: '評価・マッチング' },
   { action: 'detail', label: '詳しく見る', where: '評価・マッチング' },
   // 未記録の作品は「見てる」にする。見てる作品のカードでは「まだ見てる」（次へ進むだけ）
   { action: 'watching', label: '見てる', where: '評価・マッチング' },

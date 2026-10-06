@@ -5,6 +5,7 @@ import { annictSearchUrl, type WorkRef } from '../../lib/annict'
 import { messageOf } from '../../lib/useWriteQueue'
 import { WorkDetail, type Enqueue, type RelatedChange } from '../browse/WorkDetail'
 import { titleOf, type MatchCard } from './useMatching'
+import { Loading } from '../../components/Loading'
 
 type Found = { kind: 'loading' } | { kind: 'found'; ref: WorkRef } | { kind: 'missing' } | { kind: 'error'; message: string }
 
@@ -56,7 +57,7 @@ export function MatchDetail(props: {
         <div className="detail__cover">{card.media.cover && <CoverImage cover={card.media.cover} size="large" />}</div>
         <div className="detail__titles">
           <h2 className="detail__title">{title}</h2>
-          {found.kind === 'loading' && <p className="detail__meta">Annict で作品を探しています</p>}
+          {found.kind === 'loading' && <Loading className="detail__meta" label="Annict で作品を検索中" />}
           {found.kind === 'missing' && (
             <>
               <p className="detail__meta">Annict で作品を見つけられませんでした。</p>

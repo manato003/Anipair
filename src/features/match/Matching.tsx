@@ -15,6 +15,7 @@ import { MatchDetail } from './MatchDetail'
 import { MatchFilterControls } from './MatchFilterControls'
 import { ENOUGH_LIKED } from './tasteLoader'
 import { titleOf, useMatching, type MatchCard } from './useMatching'
+import { Loading, LoadingMark } from '../../components/Loading'
 
 const FORMAT_JA: Record<string, string> = {
   TV: 'TV',
@@ -115,8 +116,10 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
             </Empty>
           ) : m.phase.kind === 'loading' ? (
             <div className="card card--loading" aria-busy>
-              <div className="card__cover" />
-              <p className="card__step">{m.phase.step}</p>
+              <div className="card__cover">
+                <LoadingMark />
+              </div>
+              <Loading className="card__step" label={m.phase.step} mark={false} />
             </div>
           ) : m.phase.kind === 'error' ? (
             <Empty title="提案を作れませんでした" body={m.phase.message}>
@@ -212,7 +215,7 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
                 </button>
                 <button type="button" className="misc" disabled={!m.canUndo} onClick={m.undo}>
                   <UndoIcon />
-                  取り消す <kbd className="hint">{keyLabel(keys.undo)}</kbd>
+                  ひとつ戻る <kbd className="hint">{keyLabel(keys.undo)}</kbd>
                 </button>
               </>
             )}

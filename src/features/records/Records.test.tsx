@@ -101,6 +101,48 @@ afterEach(() => {
 const titles = () => [...document.querySelectorAll('.row__title')].map((e) => e.textContent)
 const openWanna = () => fireEvent.click(screen.getByRole('tab', { name: /見たい/ }))
 
+describe('Records: the list it opens on', () => {
+  it('opens on 見てる (the usual errand: recording this cour’s episodes), first in the row of tabs', () => {
+    rows.push(row(entry(9, 'WATCHING', '2026-10-01T00:00:00Z')))
+    try {
+      render(<Records token="t" active />)
+      const tabs = within(screen.getByRole('tablist', { name: '状態' })).getAllByRole('tab').map((t) => t.textContent?.replace(/\d+$/, ''))
+      expect(tabs.slice(0, 2)).toEqual(['見てる', '見た'])
+      expect(screen.getByRole('tab', { name: /^見てる/ }).getAttribute('aria-selected')).toBe('true')
+      expect(titles()).toEqual(['作品9'])
+    } finally {
+      rows.pop()
+    }
+  })
+
+  it('opens on 見た when nothing is being watched', () => {
+    render(<Records token="t" active />)
+    expect(screen.getByRole('tab', { name: /^見た\d/ }).getAttribute('aria-selected')).toBe('true')
+  })
+})
+
+describe('Records: 見たいの優先とメモ', () => {
+  it('puts a work marked 優先 at the top, and keeps a memo written in the sheet', () => {
+    localStorage.removeItem('animax.wannaNotes.v1')
+    render(<Records token="t" active />)
+    openWanna()
+    expect(titles()).toEqual(['作品1', '作品2', '作品3'])
+    const third = document.querySelectorAll('.row')[2] as HTMLElement
+    fireEvent.click(within(third).getByRole('button', { name: '☆ 優先' }))
+    expect(titles()).toEqual(['作品3', '作品1', '作品2'])
+    // メモを書く
+    const first = document.querySelectorAll('.row')[1] as HTMLElement
+    fireEvent.click(within(first).getByRole('button', { name: 'メモ' }))
+    const sheet = screen.getByRole('dialog', { name: '見たいのメモ' })
+    fireEvent.change(within(sheet).getByRole('textbox'), { target: { value: '友達のおすすめ' } })
+    fireEvent.click(within(sheet).getByRole('button', { name: '保存' }))
+    expect(screen.getByRole('button', { name: '友達のおすすめ' })).toBeTruthy()
+    expect(JSON.parse(localStorage.getItem('animax.wannaNotes.v1')!).notes['1'].memo).toBe('友達のおすすめ')
+    // ほかのテストに残さない
+    localStorage.removeItem('animax.wannaNotes.v1')
+  })
+})
+
 describe('Records: 見たい sort', () => {
   it('starts in newest-recorded order and asks for no taste until おすすめ順 is chosen', () => {
     render(<Records token="t" active />)
@@ -134,13 +176,13 @@ describe('Records: 見たい sort', () => {
     expect(titles()).toEqual(['作品1', '作品2', '作品3'])
   })
 
-  it('shows 好みを調べています while loading, with the list still in newest-first order', () => {
+  it('shows 好みを分析しています while loading, with the list still in newest-first order', () => {
     tasteState = { status: 'loading' }
     scoreMap = null
     render(<Records token="t" active />)
     openWanna()
     fireEvent.click(screen.getByRole('button', { name: /^おすすめ順/ }))
-    expect(screen.getByText('好みを調べています')).toBeTruthy()
+    expect(screen.getByText('好みを分析しています')).toBeTruthy()
     expect(titles()).toEqual(['作品1', '作品2', '作品3'])
   })
 
@@ -182,7 +224,8 @@ describe('Records: 傾向', () => {
   it('opens the trends sheet with the summary and the charts, reading work data in the background, and closes', async () => {
     render(<Records token="t" active />)
     fireEvent.click(screen.getByRole('button', { name: '傾向' }))
-    const sheet = screen.getByRole('dialog', { name: '好みの傾向' })
+    // 傾向は別のファイルから読む（読み終えるのを待つ）
+    const sheet = await screen.findByRole('dialog', { name: '好みの傾向' })
     expect(within(sheet).getByText('あなたのアニメの傾向')).toBeTruthy()
     expect(within(sheet).getByText('見たい')).toBeTruthy()
     expect(within(sheet).getByText('評価の分布')).toBeTruthy()
@@ -194,14 +237,15 @@ describe('Records: 傾向', () => {
 })
 
 describe('Records and achievements switch', () => {
-  it('switches between the records and the achievements, and marks the achievements until they are first opened', () => {
+  it('switches between the records and the achievements, and marks the achievements until they are first opened', async () => {
     render(<Records token="t" active />)
     const tab = screen.getByRole('tab', { name: /実績/ })
     expect(screen.getByLabelText('まだ見ていません')).toBeTruthy()
     expect(screen.getByRole('tab', { name: /記録/ }).getAttribute('aria-selected')).toBe('true')
     fireEvent.click(tab)
     expect(tab.getAttribute('aria-selected')).toBe('true')
-    expect(screen.getByTestId('achievements')).toBeTruthy()
+    // 実績は別のファイルから読む（読み終えるのを待つ）
+    expect(await screen.findByTestId('achievements')).toBeTruthy()
     expect(screen.queryByLabelText('まだ見ていません')).toBeNull()
     // 実績では、記録の操作（傾向・編集）は出さない
     expect(screen.queryByRole('button', { name: '傾向' })).toBeNull()

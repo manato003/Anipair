@@ -9,13 +9,18 @@ import type { Cover } from '../../lib/storage'
 import { useFontsReady } from '../../lib/useFontsReady'
 import { messageOf } from '../../lib/useWriteQueue'
 import { fetchWikiSynopsis, type WikiSynopsis } from '../../lib/wikipedia'
+import type { WriteIntent } from '../../lib/writeJournal'
 import { genreName, malIdOf } from '../match/taste'
 import { RATINGS } from '../rate/queue'
 import { STATE_OPTIONS, optionState } from '../records/recordList'
+import { EpisodeRecorder } from '../records/EpisodeRecords'
+import { useEpisodes, type EpisodesController } from '../records/useEpisodes'
 import { CreditWorks, type CreditTarget } from './CreditWorks'
 import { STATUS_LABEL, mainStaff, studioFor, withCopyrightMark, safeHttpUrl, workMeta, xUrl } from './detail'
 import { RelatedDetail, type RelatedTarget } from './RelatedDetail'
 import { RelatedWorks } from './RelatedWorks'
+import { Loading } from '../../components/Loading'
+import { ReviewEditor } from './ReviewEditor'
 
 // シートを開く作品の手がかり。詳細を読み込むまでは、ここにある項目だけで出す（分からない項目は省く）
 export interface WorkSeed {
@@ -30,7 +35,8 @@ export interface WorkSeed {
   viewerStatusState?: StatusState | null
 }
 
-export type Enqueue = (label: string, task: () => Promise<void>) => void
+// intents: 最終的にどうしたいか（送り終えるまで端末にも控える。lib/writeJournal.ts）
+export type Enqueue = (label: string, task: () => Promise<void>, intents?: readonly WriteIntent[]) => void
 export type RecordPatch = { state?: StatusState | null; rating?: RatingState | null }
 // 関連作品のシートで状態や評価を変えたことを、元の画面に知らせる（一覧の表示を合わせる・山から外すため）
 export type RelatedChange = (work: { annictId: number; malAnimeId: string | null }, patch: RecordPatch) => void
@@ -52,6 +58,9 @@ type RelatedOptions = { relatedEnqueue?: Enqueue; onRelatedChange?: RelatedChang
 // active が false（隠れたタブに開いたまま残っている）のあいだは Esc に反応しない
 // シートが出てくる動きの長さ（base.css の sheet-in と同じ）。読み込みはこのあとに始める
 const OPEN_ANIMATION_MS = 240
+// 話の一覧を読まないとき（読むだけのシート・見た／見てる以外）と、書き込まないシートの列の代わり
+const NO_WORKS: readonly string[] = []
+const noEnqueue: Enqueue = () => undefined
 // 中身（詳細・ジャンル）がそろうのを待つ上限。過ぎたら、届いたものだけで出す
 const CONTENT_WAIT_MS = 2500
 
@@ -61,6 +70,8 @@ export function WorkDetail(
     work: WorkSeed
     cover: Cover | null
     active?: boolean
+    // 話ごとの記録（記録ページは自分の控えを渡す。一覧の「次は 第5話」と合わせるため。無ければシートで読む）
+    episodes?: EpisodesController
     onClose: () => void
   } & RelatedOptions &
     (Editable | ReadOnly),
@@ -92,6 +103,12 @@ export function WorkDetail(
   const [state, setState] = useState<StatusState | null>(work.viewerStatusState && work.viewerStatusState !== 'NO_STATE' ? work.viewerStatusState : null)
   const [rating, setRating] = useState<RatingState | null>(null)
   const touched = useRef(false)
+  // 話ごとの記録は、書き込めるシートの「見た」「見てる」の作品でだけ出す（評価の画面・マッチングの読むだけのシートでは出さない。答え方を2つにしない）
+  const showEpisodes = !readOnly && (state === 'WATCHING' || state === 'WATCHED')
+  const ownEpisodes = useEpisodes(token, !props.episodes && showEpisodes ? [work.id] : NO_WORKS, props.enqueue ?? noEnqueue)
+  const eps = props.episodes ?? ownEpisodes
+  // 開いた時刻。読み込み中の秒数を、待つのをやめて中身を出したあとも続けて数える
+  const [openedAt] = useState(() => Date.now())
 
   useEffect(() => {
     let cancelled = false
@@ -145,7 +162,14 @@ export function WorkDetail(
     const value = next === optionState(state) ? 'NO_STATE' : next
     setState(value === 'NO_STATE' ? null : value)
     props.onChange({ state: value === 'NO_STATE' ? null : value })
-    props.enqueue(`「${work.title}」の状態`, () => updateStatus(token, work.id, value))
+    props.enqueue(`「${work.title}」の状態`, () => updateStatus(token, work.id, value), [{ kind: 'status', workId: work.id, state: value }])
+  }
+
+  // 見てる作品の最終話まで記録したあと: 作品の評価を付けて（付けずに）「見た」にする
+  function finish(next: RatingState | null) {
+    if (props.readOnly) return
+    if (next && next !== rating) changeRatingTo(next)
+    else if (state !== 'WATCHED') changeState('WATCHED')
   }
 
   function changeRatingTo(next: RatingState) {
@@ -156,13 +180,17 @@ export function WorkDetail(
     setRating(value)
     if (becomesWatched) setState('WATCHED')
     props.onChange({ rating: value, ...(becomesWatched ? { state: 'WATCHED' as const } : {}) })
-    props.enqueue(`「${work.title}」の評価`, async () => {
-      if (becomesWatched) await updateStatus(token, work.id, 'WATCHED')
-      // 送信の時点での実際の感想を、共有の控えから読む（画面は先に変えている）。
-      // 読み込み前に押されても、ここで読み込みを待つので、既存の評価を重複させない
-      const current = (await getMyReviews(token)).get(work.annictId) ?? null
-      await rememberReview(token, work.annictId, await changeRating(token, work.id, current, value))
-    })
+    props.enqueue(
+      `「${work.title}」の評価`,
+      async () => {
+        if (becomesWatched) await updateStatus(token, work.id, 'WATCHED')
+        // 送信の時点での実際の感想を、共有の控えから読む（画面は先に変えている）。
+        // 読み込み前に押されても、ここで読み込みを待つので、既存の評価を重複させない
+        const current = (await getMyReviews(token)).get(work.annictId) ?? null
+        await rememberReview(token, work.annictId, await changeRating(token, work.id, current, value))
+      },
+      [...(becomesWatched ? [{ kind: 'status' as const, workId: work.id, state: 'WATCHED' as const }] : []), { kind: 'rating', workId: work.id, annictId: work.annictId, rating: value }],
+    )
   }
 
   const official = safeHttpUrl(detail?.officialSiteUrl)
@@ -186,6 +214,33 @@ export function WorkDetail(
   const settled = waitedLong || (error !== null && shikiDone) || (detail !== null && wiki !== undefined && shikiDone)
   const rootRef = useRef<HTMLDivElement>(null)
   const ready = useFontsReady(settled, rootRef)
+  // 待つのをやめて出したあとも、まだ届いていない部分。届くまで、何を読んでいるかを添えて読み込み中を出し続ける
+  // （出ている分だけで全部だと思わせない）。あらすじは Annict の詳細が届いてから Wikipedia を読む
+  const detailPending = detail === null && error === null
+  const pending = [
+    !shikiDone && 'ジャンル',
+    (detailPending || (detail !== null && wiki === undefined)) && 'あらすじ',
+    detailPending && '制作会社・スタッフ・声優',
+  ].filter((x): x is string => !!x)
+
+  // 話ごとの記録（書き込めるシートの「見た」「見てる」の作品だけ）
+  const episodeSection = showEpisodes && (
+    <section className="detail__section">
+      <h3 className="detail__label">話ごとの記録</h3>
+      <EpisodeRecorder
+        data={eps.byWork.get(work.id)}
+        error={eps.errors.get(work.id) ?? null}
+        watching={state === 'WATCHING'}
+        undoable={eps.undoable}
+        commented={eps.commented}
+        onRecord={(ep, r, comment) => eps.record(work.title, work.id, ep, r, comment)}
+        onComment={(ep, r, text) => eps.comment(work.title, ep, r, text)}
+        onUndo={(ep) => eps.undo(work.title, work.id, ep)}
+        onFinish={finish}
+        onRetry={eps.retry}
+      />
+    </section>
+  )
 
   return (
     <>
@@ -204,12 +259,20 @@ export function WorkDetail(
               {detail?.titleKana && <p className="detail__kana">{detail.titleKana}</p>}
               {meta && <p className="detail__meta">{meta}</p>}
               {watchers !== undefined && <p className="detail__meta">Annict で{watchers.toLocaleString()}人が記録</p>}
+              {/* 待つのをやめて出したあとも届いていない部分を、何を読んでいるかと一緒に出す。広い画面でも開いてすぐ目に入るよう、題名の欄に置く */}
+              {pending.length > 0 && <Loading className="detail__pending" label={`${pending.join('・')}を読み込み中`} since={openedAt} />}
             </div>
           </div>
         </header>
 
         <div className="detail__body">
-          {!ready && <div className="detail__loading" aria-hidden />}
+          {!ready && (
+            <>
+              <div className="detail__loading" aria-hidden />
+              {/* ふつうはすぐそろうので、少し経ってから文言と秒数を出す */}
+              <Loading className="detail__wait" label="詳しい情報を読み込み中" delay={800} since={openedAt} />
+            </>
+          )}
           <div className="detail__late">
             {!readOnly && (
               <>
@@ -225,9 +288,12 @@ export function WorkDetail(
                   <p className="detail__hint">{state ? `選んでいる「${STATUS_LABEL[state]}」をもう一度押すと、記録から外します。` : 'まだ記録していません。'}</p>
                 </section>
 
+                {/* 見てる作品は、話ごとの記録がいちばんの用事。作品の評価（最後に1回）より上に置く（同じ形のボタンが続いて押し間違えないように） */}
+                {state === 'WATCHING' && episodeSection}
+
                 <section className="detail__section">
                   <h3 className="detail__label">評価</h3>
-                  <div className="mini-ratings">
+                  <div className="mini-ratings" role="group" aria-label="評価">
                     {RATINGS.map((r) => (
                       <button
                         key={r.rating}
@@ -240,7 +306,10 @@ export function WorkDetail(
                       </button>
                     ))}
                   </div>
+                  <ReviewEditor token={token} workId={work.id} annictId={work.annictId} title={work.title} overall={rating} enqueue={props.enqueue} />
                 </section>
+
+                {state === 'WATCHED' && episodeSection}
               </>
             )}
 

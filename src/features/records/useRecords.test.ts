@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { LibraryEntry, MyReview } from '../../lib/annict'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { LibraryEntry, MyReview, ReviewAxes } from '../../lib/annict'
 
 const calls: string[] = []
 let seq = 0
@@ -16,19 +16,31 @@ const reviews = new Map<number, MyReview>([
   [1, { id: 'R1', body: '', createdAt: '', ratingOverallState: 'GOOD', ratingStoryState: null, ratingAnimationState: null, ratingMusicState: null, ratingCharacterState: null }],
 ])
 
+// Annict 側の感想（書き込みの直前の読み直し fetchReview に答える）。作った・消したを追いかける
+const annictCreated = new Map<string, MyReview>()
+const annictDeleted = new Set<string>()
+afterEach(() => {
+  annictCreated.clear()
+  annictDeleted.clear()
+})
+
 vi.mock('../../lib/annict', async (orig) => ({
   ...(await orig<typeof import('../../lib/annict')>()),
   fetchLibrary: vi.fn(async () => library),
   // 控え（myReviews.ts）が中身を書き換えるので、毎回コピーを返す
   scanMyReviews: vi.fn(async () => ({ reviews: new Map(reviews), newest: null })),
   updateStatus: vi.fn(async (_t: string, id: string, s: string) => void calls.push(`status ${id} ${s}`)),
-  createReview: vi.fn(async (_t: string, id: string, r: string) => {
+  createReviewWith: vi.fn(async (_t: string, id: string, axes: ReviewAxes, body: string) => {
+    const r = axes.ratingOverallState
     const rid = `N${++seq}`
     calls.push(`create ${id} ${r} -> ${rid}`)
+    annictCreated.set(rid, { id: rid, body, createdAt: '', ...axes })
     return rid
   }),
+  fetchReview: vi.fn(async (_t: string, id: string) => (annictDeleted.has(id) ? null : (annictCreated.get(id) ?? [...reviews.values()].find((x) => x.id === id) ?? null))),
   deleteReview: vi.fn(async (_t: string, id: string) => {
     await deleteGate
+    annictDeleted.add(id)
     calls.push(`delete ${id}`)
   }),
   updateReview: vi.fn(async () => void calls.push('update')),
@@ -54,6 +66,7 @@ beforeEach(() => {
   reviews.delete(2)
   library = [...initialLibrary]
   vi.mocked(fetchLibrary).mockClear()
+  localStorage.removeItem('animax.library.v1')
 })
 
 async function setup() {
@@ -113,6 +126,7 @@ describe('useRecords', () => {
     const hook = await setup()
     // ブラウズの詳細などが先に評価を作り直して、控えを更新した
     await rememberReview('t', 1, { ...reviews.get(1)!, id: 'R9' })
+    annictCreated.set('R9', { ...reviews.get(1)!, id: 'R9' })
     act(() => hook.result.current.setRating(rowOf(hook, 1), null))
     await settle(hook)
     expect(calls).toEqual(['delete R9'])
@@ -200,3 +214,37 @@ describe('how the reviews are read', () => {
   })
 })
 
+
+describe('useRecords: the list from the last visit', () => {
+  const stored = { v: 1, at: '2026-10-05T00:00:00.000Z', entries: [{ workId: 'W9', annictId: 9, title: '前回の作品', malAnimeId: null, state: 'WATCHED', stateAt: '2026-10-01T00:00:00Z' }] }
+
+  it('shows the stored list at once, then replaces it when Annict answers', async () => {
+    localStorage.setItem('animax.library.v1', JSON.stringify(stored))
+    let release!: () => void
+    const gate = new Promise<void>((r) => (release = r))
+    vi.mocked(fetchLibrary).mockImplementationOnce(async () => {
+      await gate
+      return library
+    })
+    const hook = renderHook(() => useRecords('t', true))
+    // 読み直しを待たずに、前回の内容で一覧が出ている
+    expect(hook.result.current.rows?.map((r) => r.entry.title)).toEqual(['前回の作品'])
+    expect(hook.result.current.staleAt).toBe('2026-10-05T00:00:00.000Z')
+    release()
+    await waitFor(() => expect(hook.result.current.staleAt).toBeNull())
+    expect(hook.result.current.rows?.map((r) => r.entry.annictId)).toEqual([1, 2])
+  })
+
+  it('keeps the stored list and tells when Annict cannot be read', async () => {
+    localStorage.setItem('animax.library.v1', JSON.stringify(stored))
+    vi.mocked(fetchLibrary).mockRejectedValueOnce(new Error('Annict のサーバーが混み合っているか、止まっているようです（HTTP 502）'))
+    const hook = renderHook(() => useRecords('t', true))
+    await waitFor(() => expect(hook.result.current.refreshError).toContain('HTTP 502'))
+    expect(hook.result.current.rows?.map((r) => r.entry.title)).toEqual(['前回の作品'])
+    expect(hook.result.current.loadError).toBeNull()
+    // もう一度読み直すと、一覧を消さずに差し替わる
+    act(() => hook.result.current.retryRefresh())
+    await waitFor(() => expect(hook.result.current.staleAt).toBeNull())
+    expect(hook.result.current.rows?.map((r) => r.entry.annictId)).toEqual([1, 2])
+  })
+})

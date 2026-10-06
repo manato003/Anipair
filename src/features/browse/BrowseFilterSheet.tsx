@@ -18,6 +18,8 @@ export function BrowseFilterSheet(props: {
   filter: BrowseFilter
   period: BrowsePeriod
   info: ReadonlyMap<number, MediaInfo> | null
+  // 評価の画面で「見てない」にした作品（Annict の作品 ID）
+  unseen: ReadonlySet<number>
   infoError: string | null
   resultCount: number
   // まだ読み込んでいない作品がある（「もっと見る」）
@@ -29,7 +31,7 @@ export function BrowseFilterSheet(props: {
 }) {
   const { filter: f, onChange, period: p, onPeriodChange } = props
   const works = props.works ?? []
-  const choices = browseFilterChoices(works, props.info)
+  const choices = browseFilterChoices(works, props.info, props.unseen)
   const loading = !props.info && !props.infoError
   const years = yearsDescending(OLDEST_SEASON, nextSeason(seasonOf(new Date())))
 

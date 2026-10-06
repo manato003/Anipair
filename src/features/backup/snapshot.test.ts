@@ -3,6 +3,7 @@ import type { LibraryEntry, MyReview } from '../../lib/annict'
 import type { Passes } from '../match/passes'
 import type { Unseen } from '../rate/unseen'
 import { buildSnapshot, countSnapshot, describeCounts, sameSnapshot } from './snapshot'
+import type { WannaNotes } from '../records/wannaNotes'
 
 const NOW = new Date('2026-10-01T12:00:00Z')
 
@@ -27,20 +28,29 @@ function review(id: string, over: Partial<MyReview> = {}): MyReview {
 const noPasses: Passes = new Map()
 const noUnseen: Unseen = new Map()
 
-function build(library: LibraryEntry[], reviews: [number, MyReview][] = [], extra: { passes?: Passes; unseen?: Unseen; now?: Date } = {}) {
-  return buildSnapshot({ library, reviews: new Map(reviews), passes: extra.passes ?? noPasses, unseen: extra.unseen ?? noUnseen, now: extra.now ?? NOW })
+function build(library: LibraryEntry[], reviews: [number, MyReview][] = [], extra: { passes?: Passes; unseen?: Unseen; wannaNotes?: WannaNotes; now?: Date } = {}) {
+  return buildSnapshot({
+    library,
+    reviews: new Map(reviews),
+    passes: extra.passes ?? noPasses,
+    unseen: extra.unseen ?? noUnseen,
+    wannaNotes: extra.wannaNotes ?? new Map(),
+    now: extra.now ?? NOW,
+  })
 }
 
 describe('buildSnapshot', () => {
   it('has the file header and the serialized passes and unseen', () => {
     const passes: Passes = new Map([[20, { at: '2026-09-20T00:00:00.000Z', active: true, kind: 'skip' }]])
     const unseen: Unseen = new Map([[5, { at: '2026-09-21T00:00:00.000Z', active: false }]])
-    const s = build([], [], { passes, unseen })
+    const wannaNotes: WannaNotes = new Map([[7, { at: '2026-09-22T00:00:00.000Z', priority: true, memo: '友達のおすすめ' }]])
+    const s = build([], [], { passes, unseen, wannaNotes })
     expect(s.version).toBe(1)
     expect(s.app).toBe('animax')
     expect(s.createdAt).toBe('2026-10-01T12:00:00.000Z')
     expect(s.passes).toEqual({ version: 1, passes: { '20': { at: '2026-09-20T00:00:00.000Z', active: true, kind: 'skip' } } })
     expect(s.unseen).toEqual({ version: 1, unseen: { '5': { at: '2026-09-21T00:00:00.000Z', active: false } } })
+    expect(s.wannaNotes).toEqual({ version: 1, notes: { '7': { at: '2026-09-22T00:00:00.000Z', priority: true, memo: '友達のおすすめ' } } })
   })
 
   it('keeps every review axis and the body', () => {

@@ -15,13 +15,35 @@
     <meta name="description" content="あなたの「好き」と、次の「好き」をつなぐ。Annict の視聴記録を、タップだけで付けていくためのアプリ。見たアニメを1タップで評価して、好みに合う作品も提案します。" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet" />
+    <!-- 書体の CSS は先読みだけにして、最初の描画を止めない（別のサーバーへの接続を待たない）。
+         本当に当てるのは src/main.tsx（この preload を stylesheet に変える）。CSP で HTML の中の onload は使えないため -->
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" />
     <!-- ロゴの「Anipair」の字だけ（text= でその文字だけの小さなフォントを読む） -->
-    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@700&display=swap&text=Anipair" rel="stylesheet" />
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Quicksand:wght@700&display=swap&text=Anipair" />
+    <!-- 最初の読み込み中の表示（下の .splash）の見た目 -->
+    <link rel="stylesheet" href="/splash.css" />
     <title>Anipair</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- アプリの JS を読み終えるまでの読み込み中の表示（React が描き始めると置き換わる）。ロゴは public/logo-mark.svg と同じ形 -->
+      <div class="splash" role="status">
+        <svg class="splash__mark" viewBox="-20 0 451 276" aria-hidden="true">
+          <defs>
+            <radialGradient id="splash-l" cx="0.66" cy="0.45" r="0.75"><stop offset="0" stop-color="#FFFFFF" /><stop offset="0.5" stop-color="#E6F0FF" /><stop offset="1" stop-color="#9FC0FF" /></radialGradient>
+            <radialGradient id="splash-r" cx="0.34" cy="0.45" r="0.75"><stop offset="0" stop-color="#FFFFFF" /><stop offset="0.5" stop-color="#FFE8F2" /><stop offset="1" stop-color="#FFA3CC" /></radialGradient>
+            <linearGradient id="splash-m" x1="0.2" y1="0" x2="0.8" y2="1"><stop offset="0" stop-color="#6483F6" /><stop offset="1" stop-color="#B07CF0" /></linearGradient>
+          </defs>
+          <circle class="splash__left" cx="138" cy="138" r="138" fill="url(#splash-l)" />
+          <circle class="splash__right" cx="273" cy="138" r="138" fill="url(#splash-r)" />
+          <g class="splash__lens">
+            <path d="M205.5 17.63 A138 138 0 0 1 205.5 258.37 A138 138 0 0 1 205.5 17.63 Z" fill="url(#splash-m)" />
+            <path d="M205.5 86 Q212.5 131 257.5 138 Q212.5 145 205.5 190 Q198.5 145 153.5 138 Q198.5 131 205.5 86 Z" fill="#fff" />
+          </g>
+        </svg>
+        <span>読み込み中</span>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

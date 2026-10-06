@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Episode } from '../../lib/annict'
-import { episodeLabel, episodeProgress, episodeWindow, nextEpisode } from './episodes'
+import { episodeLabel, episodeProgress, episodeWindow, nextEpisode, nextLabel } from './episodes'
 
 const ep = (n: number, tracked = false, extra: Partial<Episode> = {}): Episode => ({
   id: `E${n}`,
@@ -52,5 +52,13 @@ describe('episodeWindow', () => {
     expect(episodeWindow(long.slice(0, 10), 40)).toEqual({ start: 0, end: 10 })
     const done = long.map((e) => ({ ...e, viewerDidTrack: true }))
     expect(episodeWindow(done, 40)).toEqual({ start: 60, end: 100 })
+  })
+})
+
+describe('nextLabel', () => {
+  it('names the next episode with its title, and without it when there is none or it repeats the label', () => {
+    expect(nextLabel({ number: 5, numberText: '第5話', title: '旅立ち' })).toBe('次は 第5話「旅立ち」')
+    expect(nextLabel({ number: 5, numberText: null, title: null })).toBe('次は 第5話')
+    expect(nextLabel({ number: null, numberText: null, title: '前編' })).toBe('次は 前編')
   })
 })

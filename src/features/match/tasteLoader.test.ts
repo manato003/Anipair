@@ -149,7 +149,7 @@ describe('loadTaste', () => {
   it('reports its steps only when it actually loads', async () => {
     const steps: string[] = []
     await loadTaste('t', (s) => steps.push(s))
-    expect(steps).toEqual(['Annict の記録を読んでいます', '好みを調べています', '似た作品を調べています（1/2）', '似た作品を調べています（2/2）'])
+    expect(steps).toEqual(['Annict の記録を読み込み中', '好みを分析しています', '似た作品を検索中（1/2）', '似た作品を検索中（2/2）'])
     const again: string[] = []
     await loadTaste('t', (s) => again.push(s))
     expect(again).toEqual([])

@@ -6,14 +6,19 @@ import type { Episode, WorkEpisodes } from '../../lib/annict'
 const fetchEpisodes = vi.fn()
 const createRecord = vi.fn()
 const deleteRecord = vi.fn()
+const fetchRecentActivity = vi.fn()
+const updateRecord = vi.fn()
 vi.mock('../../lib/annict', async (orig) => ({
   ...(await orig<typeof import('../../lib/annict')>()),
   fetchEpisodes: (...a: unknown[]) => fetchEpisodes(...a),
   createRecord: (...a: unknown[]) => createRecord(...a),
   deleteRecord: (...a: unknown[]) => deleteRecord(...a),
+  fetchRecentActivity: (...a: unknown[]) => fetchRecentActivity(...a),
+  updateRecord: (...a: unknown[]) => updateRecord(...a),
 }))
 
 const { useEpisodes } = await import('./useEpisodes')
+const { AnnictError } = await import('../../lib/annict')
 
 const ep = (n: number, tracked = false): Episode => ({ id: `E${n}`, annictId: n, number: n, numberText: `#${n}`, title: null, viewerDidTrack: tracked, viewerRecordsCount: tracked ? 1 : 0 })
 const work = (id = 'W1'): WorkEpisodes => ({ workId: id, noEpisodes: false, episodes: [ep(1, true), ep(2), ep(3)] })
@@ -25,7 +30,10 @@ function queue() {
   return { tasks, enqueue }
 }
 
-afterEach(() => vi.clearAllMocks())
+afterEach(() => {
+  vi.clearAllMocks()
+  localStorage.clear()
+})
 
 describe('useEpisodes', () => {
   it('reads only the works that were opened, adding new ones without reading the old again', async () => {
@@ -55,7 +63,7 @@ describe('useEpisodes', () => {
     expect(result.current.undoable.has('E2')).toBe(true)
     expect(q.tasks[0].label).toBe('「作品」#2の記録')
     await q.tasks[0].run()
-    expect(createRecord).toHaveBeenCalledWith('t', 'E2', 'GOOD')
+    expect(createRecord).toHaveBeenCalledWith('t', 'E2', 'GOOD', undefined)
 
     act(() => result.current.undo('作品', 'W1', ep(2)))
     expect(result.current.byWork.get('W1')?.episodes[1].viewerDidTrack).toBe(false)
@@ -66,15 +74,76 @@ describe('useEpisodes', () => {
 
   it('undoing before the record was sent waits for it, and deletes nothing when sending failed', async () => {
     fetchEpisodes.mockResolvedValue(new Map([['W1', work()]]))
-    createRecord.mockRejectedValue(new Error('offline'))
+    // Annict が断った（GraphQL のエラー）。届いていないことがはっきりしている
+    createRecord.mockRejectedValue(new AnnictError('Annict がエラーを返しました: invalid', 'api'))
     const q = queue()
     const { result } = renderHook(() => useEpisodes('t', ['W1'], q.enqueue))
     await waitFor(() => expect(result.current.byWork.has('W1')).toBe(true))
     act(() => result.current.record('作品', 'W1', ep(3), 'BAD'))
     act(() => result.current.undo('作品', 'W1', ep(3)))
-    await expect(q.tasks[0].run()).rejects.toThrow('offline')
+    await expect(q.tasks[0].run()).rejects.toThrow('invalid')
     await q.tasks[1].run()
     expect(deleteRecord).not.toHaveBeenCalled()
+    expect(fetchRecentActivity).not.toHaveBeenCalled()
+  })
+
+  it('after a 502 on recording, sending again first checks Annict and does not record twice when it had arrived', async () => {
+    fetchEpisodes.mockResolvedValue(new Map([['W1', work()]]))
+    createRecord.mockRejectedValueOnce(new AnnictError('Annict のサーバーが混み合っているか、止まっているようです（HTTP 502）', 'api', 502))
+    // 実は Annict には届いていた
+    fetchRecentActivity.mockResolvedValue({ reviews: [], records: [{ id: 'REC1', episodeId: 'E3', createdAt: new Date().toISOString() }] })
+    const q = queue()
+    const { result } = renderHook(() => useEpisodes('t', ['W1'], q.enqueue))
+    await waitFor(() => expect(result.current.byWork.has('W1')).toBe(true))
+    act(() => result.current.record('作品', 'W1', ep(3), 'BAD'))
+    await expect(q.tasks[0].run()).rejects.toThrow('HTTP 502')
+    // 送り直し（失敗の帯の「もう一度」と同じ）
+    await q.tasks[0].run()
+    expect(createRecord).toHaveBeenCalledTimes(1)
+    expect(fetchRecentActivity).toHaveBeenCalledTimes(1)
+  })
+
+  it('undoing a record that failed with a 502 deletes it if it had arrived after all', async () => {
+    fetchEpisodes.mockResolvedValue(new Map([['W1', work()]]))
+    createRecord.mockRejectedValueOnce(new AnnictError('Annict に接続できませんでした', 'network'))
+    fetchRecentActivity.mockResolvedValue({ reviews: [], records: [{ id: 'REC1', episodeId: 'E3', createdAt: new Date().toISOString() }] })
+    const q = queue()
+    const { result } = renderHook(() => useEpisodes('t', ['W1'], q.enqueue))
+    await waitFor(() => expect(result.current.byWork.has('W1')).toBe(true))
+    act(() => result.current.record('作品', 'W1', ep(3), 'BAD'))
+    act(() => result.current.undo('作品', 'W1', ep(3)))
+    await expect(q.tasks[0].run()).rejects.toThrow('接続できません')
+    await q.tasks[1].run()
+    expect(deleteRecord).toHaveBeenCalledWith('t', 'REC1')
+  })
+
+  it('puts a comment on the record made here, once that record has been sent', async () => {
+    fetchEpisodes.mockResolvedValue(new Map([['W1', work()]]))
+    createRecord.mockResolvedValue('REC3')
+    const q = queue()
+    const { result } = renderHook(() => useEpisodes('t', ['W1'], q.enqueue))
+    await waitFor(() => expect(result.current.byWork.has('W1')).toBe(true))
+    act(() => result.current.record('作品', 'W1', ep(3), 'GOOD'))
+    act(() => result.current.comment('作品', ep(3), 'GOOD', '良かった'))
+    expect(result.current.commented.has('E3')).toBe(true)
+    expect(q.tasks.map((t) => t.label)).toEqual(['「作品」#3の記録', '「作品」#3の感想'])
+    await q.tasks[0].run()
+    await q.tasks[1].run()
+    expect(updateRecord).toHaveBeenCalledWith('t', 'REC3', '良かった', 'GOOD')
+  })
+
+  it('finds the record among recent activity when its id was not received (sent again later)', async () => {
+    fetchEpisodes.mockResolvedValue(new Map([['W1', work()]]))
+    createRecord.mockRejectedValueOnce(new AnnictError('Annict がエラーを返しました: busy', 'api'))
+    fetchRecentActivity.mockResolvedValue({ reviews: [], records: [{ id: 'REC9', episodeId: 'E3', createdAt: new Date().toISOString() }] })
+    const q = queue()
+    const { result } = renderHook(() => useEpisodes('t', ['W1'], q.enqueue))
+    await waitFor(() => expect(result.current.byWork.has('W1')).toBe(true))
+    act(() => result.current.record('作品', 'W1', ep(3), 'GOOD'))
+    act(() => result.current.comment('作品', ep(3), 'GOOD', '良かった'))
+    await expect(q.tasks[0].run()).rejects.toThrow('busy')
+    await q.tasks[1].run()
+    expect(updateRecord).toHaveBeenCalledWith('t', 'REC9', '良かった', 'GOOD')
   })
 
   it('does not offer undo for records it did not make', async () => {

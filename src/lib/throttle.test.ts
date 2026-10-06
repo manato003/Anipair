@@ -117,6 +117,89 @@ describe('createThrottle', () => {
     expect(c.starts.slice(1).map((t, i) => t - c.starts[i])).toEqual([300, 300])
   })
 
+  it('with maxConcurrent, a slow task does not hold back the next ones, and starts stay apart', async () => {
+    const c = fakeClock()
+    const schedule = createThrottle(300, c.now, c.sleep, 3)
+    let release!: () => void
+    const gate = new Promise<void>((r) => (release = r))
+    const order: string[] = []
+    const slow = schedule(async () => {
+      c.starts.push(c.now())
+      order.push('slow start')
+      await gate
+      order.push('slow end')
+    })
+    const quick = [1, 2].map((n) =>
+      schedule(async () => {
+        c.starts.push(c.now())
+        order.push(`quick${n}`)
+      }),
+    )
+    await Promise.all(quick)
+    // 遅い1件が終わる前に、後ろの2件が終わっている。開始の間隔は 300 のまま
+    expect(order).toEqual(['slow start', 'quick1', 'quick2'])
+    expect(c.starts.slice(1).map((t, i) => t - c.starts[i])).toEqual([300, 300])
+    release()
+    await slow
+  })
+
+  it('with maxConcurrent, keeps at most that many running at once', async () => {
+    const c = fakeClock()
+    const schedule = createThrottle(10, c.now, c.sleep, 2)
+    const gates: (() => void)[] = []
+    let running = 0
+    let peak = 0
+    const jobs = [1, 2, 3, 4].map(() =>
+      schedule(async () => {
+        running++
+        peak = Math.max(peak, running)
+        await new Promise<void>((r) => gates.push(r))
+        running--
+      }),
+    )
+    for (let i = 0; i < 4; i++) {
+      while (gates.length === 0) await new Promise((r) => setTimeout(r, 0))
+      gates.shift()!()
+    }
+    await Promise.all(jobs)
+    expect(peak).toBe(2)
+  })
+
+  it('runs an exclusive task alone: after everything before it finishes, and nothing starts until it ends', async () => {
+    const c = fakeClock()
+    const schedule = createThrottle(10, c.now, c.sleep, 3)
+    const order: string[] = []
+    let releaseRead!: () => void
+    const readGate = new Promise<void>((r) => (releaseRead = r))
+    let releaseWrite!: () => void
+    const writeGate = new Promise<void>((r) => (releaseWrite = r))
+    const read1 = schedule(async () => {
+      order.push('read1 start')
+      await readGate
+      order.push('read1 end')
+    })
+    const write = schedule(
+      async () => {
+        order.push('write start')
+        await writeGate
+        order.push('write end')
+      },
+      { exclusive: true },
+    )
+    const read2 = schedule(async () => void order.push('read2'))
+    // 書き込みは、前の読み込みが終わるまで始まらない
+    await new Promise((r) => setTimeout(r, 0))
+    expect(order).toEqual(['read1 start'])
+    releaseRead()
+    await read1
+    await new Promise((r) => setTimeout(r, 0))
+    // 書き込みの間は、あとの読み込みも始まらない
+    expect(order).toEqual(['read1 start', 'read1 end', 'write start'])
+    releaseWrite()
+    await Promise.all([write, read2])
+    expect(order).toEqual(['read1 start', 'read1 end', 'write start', 'write end', 'read2'])
+  })
+
   it('keeps the existing call form working (no options means foreground)', async () => {
     const c = fakeClock()
     const schedule = createThrottle(100, c.now, c.sleep)
