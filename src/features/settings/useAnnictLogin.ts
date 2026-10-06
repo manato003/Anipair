@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { completeLogin, hasCallback, withoutCallback } from '../../lib/annictLogin'
-import { saveAnnictToken } from '../../lib/storage'
 
 // 開いたアドレスが「Annict でログイン」から戻ってきたものなら、ここで受け取りを済ませる（App が1回だけ呼ぶ）。
-// 結果は、トークンを保存して onToken に渡すか、最初の画面に出すエラーのどちらか
+// 結果は、トークンを onToken に渡すか、最初の画面に出すエラーのどちらか
 export function useAnnictLogin(onToken: (token: string) => void): { busy: boolean; error: string | null; clearError: () => void } {
   // 戻ってきたアドレスなら、最初の描画から「ログインしています…」を出す
   const [busy, setBusy] = useState(() => hasCallback(window.location.search))
@@ -20,7 +19,7 @@ export function useAnnictLogin(onToken: (token: string) => void): { busy: boolea
     window.history.replaceState(null, '', withoutCallback(pathname, search, hash))
     void completeLogin({ search, origin: window.location.origin }).then((result) => {
       if (result.kind === 'token') {
-        saveAnnictToken(result.token)
+        // 保存は App が、持ち主の名前を確かめて記録を入れ替えるのと一度にする
         onToken(result.token)
       } else {
         setError(result.message)

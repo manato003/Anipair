@@ -5,3 +5,8 @@ dist/
 !.env.example
 *.local
 .vercel/
+# 通信の記録（Annict のトークンが入る）とテストの出力。コミットして公開用に出さない（2026-10-06 のセキュリティの点検）
+*.har
+coverage/
+test-results/
+playwright-report/

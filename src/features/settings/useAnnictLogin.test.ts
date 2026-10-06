@@ -37,7 +37,7 @@ describe('useAnnictLogin', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('on a return from Annict: saves the token, hands it over, and cleans the address', async () => {
+  it('on a return from Annict: hands the token over (App saves it with the account switch), and cleans the address', async () => {
     saveOauthState('st')
     goTo('/?code=abc&state=st')
     tokenReply(200, { access_token: 'TOKEN' })
@@ -46,7 +46,8 @@ describe('useAnnictLogin', () => {
     // 最初の描画から「ログインしています」
     expect(result.current.busy).toBe(true)
     await waitFor(() => expect(onToken).toHaveBeenCalledWith('TOKEN'))
-    expect(localStorage.getItem('animax.annictToken')).toBe('TOKEN')
+    // 保存は App が、持ち主の名前を確かめて記録を入れ替えるのと一度にする
+    expect(localStorage.getItem('animax.annictToken')).toBeNull()
     expect(window.location.search).toBe('')
     await waitFor(() => expect(result.current.busy).toBe(false))
     expect(result.current.error).toBeNull()

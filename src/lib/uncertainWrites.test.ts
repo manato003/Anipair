@@ -7,6 +7,8 @@ const calls: string[] = []
 let recent: RecentReview[] = []
 // 作成をどう失敗させるか（無ければ成功）
 let createFails: Error[] = []
+// 削除をどう失敗させるか（無ければ成功）
+let deleteFails: Error[] = []
 let seq = 0
 // Annict にある感想（読み直しの結果）
 const onAnnict = new Map<string, MyReview>()
@@ -21,7 +23,11 @@ vi.mock('./annict', async (orig) => {
       if (e) throw e
       return `NEW${++seq}`
     }),
-    deleteReview: vi.fn(async (_t: string, id: string) => void calls.push(`delete ${id}`)),
+    deleteReview: vi.fn(async (_t: string, id: string) => {
+      calls.push(`delete ${id}`)
+      const e = deleteFails.shift()
+      if (e) throw e
+    }),
     updateReview: vi.fn(async (_t: string, id: string) => void calls.push(`update ${id}`)),
     fetchReview: vi.fn(async (_t: string, id: string) => onAnnict.get(id) ?? null),
     fetchRecentActivity: vi.fn(async () => {
@@ -45,6 +51,7 @@ beforeEach(() => {
   calls.length = 0
   recent = []
   createFails = []
+  deleteFails = []
   seq = 0
   onAnnict.clear()
 })
@@ -92,6 +99,19 @@ describe('a review create that may have arrived (5xx / lost connection)', () => 
     const after = await changeRating('t', 'W1', old, 'GREAT')
     expect(after?.id).toBe('GHOST')
     expect(calls).toEqual(['create W1 GREAT', 'check', 'delete OLD'])
+  })
+
+  // 2026-10-06 の点検: 作るのは届いたのに古い感想を消すのが（混み合いなどで確かに）失敗すると、送り直しでもう1つ作っていた
+  it('a replace whose create arrived but whose delete failed does not create a second review on retry', async () => {
+    const old = review('OLD', 'AVERAGE')
+    onAnnict.set('OLD', old)
+    deleteFails = [new AnnictError('Annict が混み合っています。少し待ってから試してください', 'api')]
+    await expect(changeRating('t', 'W1', old, 'GREAT')).rejects.toThrow('混み合っています')
+    expect(hasUncertainReview('W1')).toBe(true)
+    recent = [{ workId: 'W1', review: review('NEW1', 'GREAT') }]
+    const after = await changeRating('t', 'W1', old, 'GREAT')
+    expect(after?.id).toBe('NEW1')
+    expect(calls).toEqual(['create W1 GREAT', 'delete OLD', 'check', 'delete OLD'])
   })
 
   it('undo after an uncertain create deletes the review if it had arrived', async () => {

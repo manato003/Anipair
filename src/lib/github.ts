@@ -2,6 +2,8 @@
 // Annict に置き場所の無いデータと、全記録のバックアップだけをここに置く。
 // リポジトリは利用者ごとに違うので、トークンとあわせて「つなぎ」として受け取る
 
+import { pageIsCurrent } from './storage'
+
 // 利用者が設定でつないだ GitHub。トークンとリポジトリ（owner/name）の両方がそろったときだけ作る
 export interface GithubConnection {
   token: string
@@ -39,6 +41,8 @@ async function isRateLimited(res: Response): Promise<boolean> {
 }
 
 async function call(url: string, init: RequestInit): Promise<Response> {
+  // アカウントを切り替えたあとの古いページからは、GitHub に読み書きしない（前の人のつなぎで、次の人の記録を送らない。2026-10-06 のセキュリティの点検）
+  if (!pageIsCurrent()) throw new GitHubError('アカウントが切り替わったので、GitHub と同期しませんでした', 'api')
   let res: Response
   try {
     res = await fetch(url, init)
@@ -76,12 +80,23 @@ export interface RemoteJson {
 }
 
 export async function readJson(conn: GithubConnection, path: string): Promise<RemoteJson> {
-  const res = await call(`https://api.github.com/repos/${conn.repo}/contents/${path}`, { headers: headers(conn.token), cache: 'no-store' })
+  const url = `https://api.github.com/repos/${conn.repo}/contents/${path}`
+  const res = await call(url, { headers: headers(conn.token), cache: 'no-store' })
   if (res.status === 404) return { value: null, sha: null }
   if (!res.ok) throw new GitHubError(`GitHub がエラーを返しました（HTTP ${res.status}）`, 'api')
-  const json = (await res.json()) as { content: string; sha: string }
+  const json = (await res.json()) as { content: string; sha: string; encoding?: string; size?: number }
+  let text: string
+  if (json.encoding === 'none' || (!json.content && (json.size ?? 0) > 0)) {
+    // 1MB を超えるファイルは、中身（content）が空で返る。中身だけを別に読む（2026-10-06 の点検: 空と読んで「壊れている」扱いにし、
+    // 記録の多い人のバックアップが毎回別物に見えて、毎日コミットしていた）
+    const raw = await call(url, { headers: { ...headers(conn.token), Accept: 'application/vnd.github.raw+json' }, cache: 'no-store' })
+    if (!raw.ok) throw new GitHubError(`GitHub がエラーを返しました（HTTP ${raw.status}）`, 'api')
+    text = await raw.text()
+  } else {
+    text = fromBase64(json.content)
+  }
   try {
-    return { value: JSON.parse(fromBase64(json.content)), sha: json.sha }
+    return { value: JSON.parse(text), sha: json.sha }
   } catch {
     // 壊れていたら空として扱い、次の書き込みで上書きする（履歴は git に残る）
     return { value: null, sha: json.sha }

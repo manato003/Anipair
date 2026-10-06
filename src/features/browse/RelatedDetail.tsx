@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { CoverImage } from '../../components/CoverImage'
 import { Sheet } from '../../components/Sheet'
 import { annictSearchUrl, type SeriesWork, type WorkRef } from '../../lib/annict'
@@ -58,20 +58,15 @@ export function RelatedDetail(
     }
   }, [target])
 
-  if (found.kind === 'found') {
-    const seed: WorkSeed =
-      target.kind === 'annict'
-        ? {
-            id: target.work.id,
-            annictId: target.work.annictId,
-            title: target.work.title,
-            malAnimeId: target.work.malAnimeId,
-            media: target.work.media,
-            seasonYear: target.work.seasonYear,
-            seasonName: target.work.seasonName,
-            viewerStatusState: target.work.viewerStatusState,
-          }
-        : found.ref
+  // 詳細に渡す作品は、中身が変わるときだけ作り直す（毎回作ると、表紙が届くなどで描き直すたびに詳細の読み込みがやり直しになる）
+  const seed = useMemo<WorkSeed | null>(() => {
+    if (found.kind !== 'found') return null
+    if (target.kind !== 'annict') return found.ref
+    const w = target.work
+    return { id: w.id, annictId: w.annictId, title: w.title, malAnimeId: w.malAnimeId, media: w.media, seasonYear: w.seasonYear, seasonName: w.seasonName, viewerStatusState: w.viewerStatusState }
+  }, [found, target])
+
+  if (seed) {
     if (props.readOnly) return <WorkDetail readOnly token={token} work={seed} cover={cover} active={props.active} onClose={props.onClose} />
     return (
       <WorkDetail

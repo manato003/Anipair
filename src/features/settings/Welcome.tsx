@@ -2,7 +2,6 @@ import { fetchViewer } from '../../lib/annict'
 import { Logo } from '../../components/Logo'
 import { startLogin } from '../../lib/annictLogin'
 import { TAGLINE_PHRASES } from '../../lib/brand'
-import { saveAnnictToken } from '../../lib/storage'
 import { LegalLinks } from './LegalLinks'
 import { TokenForm } from './TokenForm'
 import { Spinner } from '../../components/Loading'
@@ -68,10 +67,7 @@ export function Welcome(props: { clientId: string | null; busy: boolean; error: 
         <TokenForm
           label="Annict の個人用アクセストークン"
           verify={verifyAnnictToken}
-          save={(t) => {
-            saveAnnictToken(t)
-            props.onAnnictTokenChange(t)
-          }}
+          save={(t) => props.onAnnictTokenChange(t)}
         />
       </details>
     </div>

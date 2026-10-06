@@ -106,6 +106,21 @@ describe('EpisodeRecorder', () => {
     expect(current()).toBe('#1')
   })
 
+  // 2026-10-06 の点検: 記録すると話の中身が新しいものに差し替わり、取り消すと第1話に飛んでいた
+  it('undo goes back to the episode it recorded, after the list was updated by the record', () => {
+    const h = { onRecord: vi.fn(), onUndo: vi.fn(), onFinish: vi.fn(), onRetry: vi.fn(), onComment: vi.fn() }
+    const props = { error: null, watching: true, commented: new Set<string>(), ...h }
+    const view = render(<EpisodeRecorder data={data([ep(1, true), ep(2), ep(3)])} undoable={new Set<string>()} {...props} />)
+    expect(current()).toBe('#2')
+    fireEvent.click(within(ratings()).getByRole('button', { name: '普通' }))
+    expect(current()).toBe('#3')
+    // 記録した話の中身（記録数）が差し替わる
+    view.rerender(<EpisodeRecorder data={data([ep(1, true), ep(2, true), ep(3)])} undoable={new Set(['E2'])} {...props} />)
+    fireEvent.click(screen.getByRole('button', { name: '取り消す' }))
+    expect(h.onUndo).toHaveBeenCalledWith(expect.objectContaining({ id: 'E2' }))
+    expect(current()).toBe('#2')
+  })
+
   it('arrows choose another episode; a finished watched work starts again from the first one', () => {
     recorder(data([ep(1, true), ep(2, true), ep(3, true)]), { watching: false })
     expect(current()).toBe('#1')

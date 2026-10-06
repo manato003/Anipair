@@ -28,7 +28,7 @@ let state: {
   searching: boolean
   period: BrowsePeriod
   sort: BrowseSort
-  tasteNote: string | null
+  sortNote: string | null
   reasons: Map<number, string>
   works: BrowseWork[] | null
 }
@@ -39,7 +39,7 @@ function base() {
     searching: false,
     period: { yearFrom: null, yearTo: null, seasons: [] } as BrowsePeriod,
     sort: 'popular' as BrowseSort,
-    tasteNote: null,
+    sortNote: null,
     reasons: new Map<number, string>(),
     works: [w(1), w(2)],
   }
@@ -121,7 +121,7 @@ describe('Browse sort options', () => {
   })
 
   it('shows the note instead of the explanation when the taste could not be used', () => {
-    state = { ...base(), sort: 'taste', tasteNote: '好みの手がかりがまだありません。評価画面で、好きな作品を評価すると使えます。' }
+    state = { ...base(), sort: 'taste', sortNote: '好みの手がかりがまだありません。評価画面で、好きな作品を評価すると使えます。' }
     render(<Browse token="t" />)
     expect(screen.getByText('好みの手がかりがまだありません。評価画面で、好きな作品を評価すると使えます。')).toBeTruthy()
     expect(screen.queryByText(/好みに合いそうな順/)).toBeNull()

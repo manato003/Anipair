@@ -69,6 +69,9 @@ export interface TitlesState {
   seen: string[]
   // 初回の「覚醒」を見たか
   awakened: boolean
+  // 一度でも手に入れた称号。条件から外れても（クールの人気作の顔ぶれが変わって踏破でなくなった・新しいクールが始まったなど）取り上げない。
+  // 称号は答えを数えるもので、他人の視聴者数の変動で消えるのは筋が違う（2026-10-06 の点検のあと、利用者と合意）
+  earned?: string[]
 }
 
 export function parseTitlesState(value: unknown): TitlesState {
@@ -80,6 +83,7 @@ export function parseTitlesState(value: unknown): TitlesState {
       : {}),
     seen: Array.isArray(v.seen) ? v.seen.filter((s): s is string => typeof s === 'string') : [],
     awakened: v.awakened === true,
+    ...(Array.isArray(v.earned) ? { earned: v.earned.filter((s): s is string => typeof s === 'string') } : {}),
   }
 }
 
@@ -89,6 +93,14 @@ export function loadTitlesState(): TitlesState {
 
 export function saveTitlesState(state: TitlesState): void {
   saveTitlesRaw(state)
+}
+
+// 手に入れた称号を覚える（増えたときだけ書く）
+export function rememberEarned(ids: readonly string[]): void {
+  const state = loadTitlesState()
+  const earned = new Set(state.earned ?? [])
+  if (ids.every((id) => earned.has(id))) return
+  saveTitlesState({ ...state, earned: [...new Set([...earned, ...ids])] })
 }
 
 // ── Anipair の中での出来事 ──

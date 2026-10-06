@@ -83,7 +83,8 @@ export function EpisodeRecorder(props: {
     if (!last) return
     if (writing?.episode.id === last.episode.id) setWriting(null)
     props.onUndo(last.episode)
-    select(episodes.indexOf(last.episode))
+    // 記録すると話の中身（記録数）が新しいものに差し替わるので、ID で探す（2026-10-06 の点検: 取り消すと第1話に飛んでいた）
+    select(episodes.findIndex((e) => e.id === last.episode.id))
     setLast(null)
   }
   const ratingLabel = (r: RatingState) => RATINGS.find((x) => x.rating === r)?.label ?? ''

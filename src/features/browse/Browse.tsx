@@ -103,9 +103,11 @@ export function Browse({ token, active = true }: { token: string; active?: boole
         {/* いまの並べ方が何の順かを、いつも1行で出す（人気順と評価順の違いが分かるように） */}
         {b.sort === 'popular' && <p className="note">Annict でこの作品を記録した人の多い順です。</p>}
         {b.sort === 'newest' && <p className="note">放送の新しい順です。</p>}
-        {b.sort === 'score' && <p className="note">評判の高い順です。Annict の満足度、無ければ Shikimori の点数（10点満点）で並べ、点数の無い作品は最後に並びます。</p>}
+        {b.sort === 'score' && (
+          <p className="note">{b.sortNote ?? '評判の高い順です。Annict の満足度、無ければ Shikimori の点数（10点満点）で並べ、点数の無い作品は最後に並びます。'}</p>
+        )}
         {b.sort === 'taste' && b.works && (
-          <p className="note">{b.tasteNote ?? 'あなたの評価から、好みに合いそうな順に並べています。情報の無い作品は最後に並びます。'}</p>
+          <p className="note">{b.sortNote ?? 'あなたの評価から、好みに合いそうな順に並べています。情報の無い作品は最後に並びます。'}</p>
         )}
         {b.capped && b.works && <p className="note">{CAPPED_NOTE}</p>}
         {/* 期間は、クール一覧ではクールの代わりの行に出ているので、条件の並びには検索のときだけ出す */}
@@ -198,6 +200,8 @@ export function Browse({ token, active = true }: { token: string; active?: boole
             </ul>
             {b.hasMore && (
               <div className="more">
+                {/* 続きを読めなくても、読めている一覧はそのまま（もう一度押せば続きから読む） */}
+                {b.moreError && <p className="note" role="alert">続きを読み込めませんでした（{b.moreError}）</p>}
                 <button type="button" className="btn" onClick={b.loadMore} disabled={b.loadingMore}>
                   {b.loadingMore ? (
                   <>

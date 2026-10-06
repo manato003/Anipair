@@ -88,5 +88,11 @@ describe('parseSynopsis (the whole section for 続きを読む)', () => {
   it('gives nothing when there is no real paragraph', () => {
     expect(parseSynopsis('<h3>第1巻</h3><p>短い</p>')).toBeNull()
   })
+
+  it('does not list the section heading itself when the section is an h3', () => {
+    const html = `<div class="mw-heading mw-heading3"><h3>あらすじ</h3></div>
+      <p>高校2年生の主人公は、図書館でバニーガール姿の先輩を目撃する。周りの誰にも見えていない。</p>`
+    expect(parseSynopsis(html, 'あらすじ')?.blocks).toEqual([{ heading: false, text: '高校2年生の主人公は、図書館でバニーガール姿の先輩を目撃する。周りの誰にも見えていない。' }])
+  })
 })
 

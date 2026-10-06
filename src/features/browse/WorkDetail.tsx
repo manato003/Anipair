@@ -103,6 +103,8 @@ export function WorkDetail(
   const [state, setState] = useState<StatusState | null>(work.viewerStatusState && work.viewerStatusState !== 'NO_STATE' ? work.viewerStatusState : null)
   const [rating, setRating] = useState<RatingState | null>(null)
   const touched = useRef(false)
+  // 状態をこのシートで変えたか（変えたら、あとから届いた詳細の状態で上書きしない）
+  const stateTouched = useRef(false)
   // 話ごとの記録は、書き込めるシートの「見た」「見てる」の作品でだけ出す（評価の画面・マッチングの読むだけのシートでは出さない。答え方を2つにしない）
   const showEpisodes = !readOnly && (state === 'WATCHING' || state === 'WATCHED')
   const ownEpisodes = useEpisodes(token, !props.episodes && showEpisodes ? [work.id] : NO_WORKS, props.enqueue ?? noEnqueue)
@@ -114,7 +116,13 @@ export function WorkDetail(
     let cancelled = false
     const load = () => {
       fetchWorkDetail(token, work.id)
-        .then((d) => !cancelled && setDetail(d))
+        .then((d) => {
+          if (cancelled) return
+          setDetail(d)
+          // 開いた元が自分の状態を知らない（参加作品・Shikimori の関連作品から開いた）ときは、詳細の状態を使う
+          // （2026-10-06 の点検: 見た作品が「まだ記録していません」と出て、話ごとの記録も出なかった）
+          if (work.viewerStatusState === undefined && !stateTouched.current) setState(d.viewerStatusState && d.viewerStatusState !== 'NO_STATE' ? d.viewerStatusState : null)
+        })
         .catch((e) => !cancelled && setError(messageOf(e)))
       const mal = malIdOf(work)
       if (mal) {
@@ -160,6 +168,7 @@ export function WorkDetail(
   function changeState(next: StatusState) {
     if (props.readOnly) return
     const value = next === optionState(state) ? 'NO_STATE' : next
+    stateTouched.current = true
     setState(value === 'NO_STATE' ? null : value)
     props.onChange({ state: value === 'NO_STATE' ? null : value })
     props.enqueue(`「${work.title}」の状態`, () => updateStatus(token, work.id, value), [{ kind: 'status', workId: work.id, state: value }])
@@ -178,7 +187,10 @@ export function WorkDetail(
     const becomesWatched = value !== null && state !== 'WATCHED'
     touched.current = true
     setRating(value)
-    if (becomesWatched) setState('WATCHED')
+    if (becomesWatched) {
+      stateTouched.current = true
+      setState('WATCHED')
+    }
     props.onChange({ rating: value, ...(becomesWatched ? { state: 'WATCHED' as const } : {}) })
     props.enqueue(
       `「${work.title}」の評価`,

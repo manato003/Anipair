@@ -71,8 +71,10 @@ function tidy(text: string | null): string {
 
 // 節の HTML を、冒頭の段落と全文に分ける。注の番号・編集のリンク・表・画像の説明は除く。
 // 冒頭は、短すぎる段落（案内の一言など）と記事の説明の段落を飛ばした最初の段落を、文の区切りで短くしたもの。
-// 全文は、節の見出しのあとの小見出しと段落の並び（記事の説明の段落は除く）。冒頭の段落が無ければ null
-export function parseSynopsis(html: string): { text: string; blocks: WikiBlock[] } | null {
+// 全文は、節の見出しのあとの小見出しと段落の並び（記事の説明の段落は除く）。冒頭の段落が無ければ null。
+// ownHeading: 節そのものの見出し（節が h3 のとき、その見出しを小見出しとして並べない。2026-10-06 の点検で見つけた:
+// 短い1段落でも「続きを読む」が出て、開くと「あらすじ」が小見出しとして重なっていた）
+export function parseSynopsis(html: string, ownHeading?: string): { text: string; blocks: WikiBlock[] } | null {
   const doc = new DOMParser().parseFromString(html, 'text/html')
   for (const el of doc.querySelectorAll('sup.reference, .mw-editsection, .hatnote, table, figure, .thumb, style, script')) el.remove()
   const blocks: WikiBlock[] = []
@@ -85,6 +87,8 @@ export function parseSynopsis(html: string): { text: string; blocks: WikiBlock[]
       if (META.test(text)) continue
       if (lead === null && text.length >= 30) lead = text
       if (lead !== null) blocks.push({ heading: false, text })
+    } else if (ownHeading !== undefined && text === tidy(ownHeading)) {
+      continue
     } else if (lead !== null || blocks.length === 0) {
       blocks.push({ heading: true, text })
     }
@@ -132,7 +136,7 @@ export function fetchWikiSynopsis(wikipediaUrl: string | null | undefined): Prom
       const section = pickSynopsisSection(s.parse.sections)
       if (!section) return null
       const t = await call<{ parse?: { text: string } }>({ action: 'parse', page: s.parse.title, section: section.index, prop: 'text', disableeditsection: '1' })
-      const parsed = t.parse ? parseSynopsis(t.parse.text) : null
+      const parsed = t.parse ? parseSynopsis(t.parse.text, section.anchor.replace(/_/g, ' ')) : null
       if (!parsed) return null
       const title = s.parse.title
       return {

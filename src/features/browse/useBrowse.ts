@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchCovers, quickCovers } from '../../lib/covers'
-import { browseWorks, type BrowseOrder, type BrowseWork, type RatingState } from '../../lib/annict'
+import { browseWorks, fetchLibrary, type BrowseOrder, type BrowseWork, type RatingState } from '../../lib/annict'
 import { getMyReviews } from '../../lib/myReviews'
 import { nextSeason, seasonOf, toSlug, type Season } from '../../lib/season'
-import { fetchMedia } from '../../lib/shikimori'
+import { fetchMedia, type Media } from '../../lib/shikimori'
 import type { Cover } from '../../lib/storage'
-import { messageOf } from '../../lib/useWriteQueue'
+import { hasPendingWrites, messageOf } from '../../lib/useWriteQueue'
 import { malIdOf } from '../match/taste'
 import { forgetTaste, loadTaste } from '../match/tasteLoader'
 import { OLDEST_YEAR } from '../rate/queue'
@@ -60,15 +60,20 @@ export function useBrowse(token: string, active = true) {
   const [cursor, setCursor] = useState<{ endCursor: string | null; hasNext: boolean }>({ endCursor: null, hasNext: false })
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // 「もっと見る」の失敗。読めている一覧はそのまま残し、ボタンのそばに出す
+  const [moreError, setMoreError] = useState<string | null>(null)
+  // 一覧を読み直した回数。「もっと見る」の途中で条件（クール・期間・検索・並び）を変えたら、届いた続きを捨てるのに使う
+  const listGen = useRef(0)
   const [covers, setCovers] = useState<Map<number, Cover>>(new Map())
   const [ratings, setRatings] = useState<Map<number, RatingState>>(new Map())
   const [sort, setSortState] = useState<BrowseSort>('popular')
   // 評価順で並べたときの、作品（Annict の ID）ごとの点数と出どころ
   const [scores, setScores] = useState<Map<number, BrowseScore>>(new Map())
   const [progress, setProgress] = useState<string | null>(null)
-  // おすすめ順で並べたときの、作品（Annict の ID）ごとの理由と、並べられなかったときの注意（好みの手がかりが無い・好みを読めない）
+  // おすすめ順で並べたときの、作品（Annict の ID）ごとの理由
   const [reasons, setReasons] = useState<Map<number, string>>(new Map())
-  const [tasteNote, setTasteNote] = useState<string | null>(null)
+  // 評価順・おすすめ順で、思いどおりに並べられなかったときの注意（好みの手がかりが無い・好みを読めない・Shikimori の点数を読めない）
+  const [sortNote, setSortNote] = useState<string | null>(null)
   // 評価順・おすすめ順で、上限まで集めて打ち切った
   const [capped, setCapped] = useState(false)
   const mode: BrowseMode = searched ? 'search' : periodActive(period) ? 'period' : 'cour'
@@ -96,9 +101,15 @@ export function useBrowse(token: string, active = true) {
 
   useEffect(() => {
     let cancelled = false
+    listGen.current++
     ;(async () => {
       try {
         const filter = filterOf(searched, season, JSON.parse(periodKey) as BrowsePeriod)
+        setMoreError(null)
+        setLoadingMore(false)
+        // 前の並べ方の読み込み中の文言を残さない（評価順の途中で人気順に変えたときなど）
+        setProgress(null)
+        setSortNote(null)
         setCapped(false)
         if (effectiveSort === 'score') {
           setProgress('作品を読み込み中')
@@ -108,7 +119,14 @@ export function useBrowse(token: string, active = true) {
           // Annict の満足度が無い作品だけ、Shikimori の点数を取る
           const lacking = all.filter((w) => !(typeof w.satisfactionRate === 'number' && w.satisfactionRate > 0)).map(malIdOf).filter((n): n is number => n !== null)
           setProgress(`評価の点数を読み込み中（${all.length}作品）`)
-          const media = lacking.length > 0 ? await fetchMedia(lacking) : new Map()
+          // Shikimori が読めなくても、Annict の満足度だけで並べる（一覧ごと失敗にしない）
+          let media = new Map<number, Media>()
+          try {
+            if (lacking.length > 0) media = await fetchMedia(lacking)
+          } catch (e) {
+            if (cancelled) return
+            setSortNote(`Shikimori の点数を読み込めませんでした（${messageOf(e)}）。Annict の満足度だけで並べています。`)
+          }
           if (cancelled) return
           const shikimori = new Map<number, number | null>([...media].map(([id, m]) => [id, m.score]))
           const got = new Map<number, BrowseScore>()
@@ -125,7 +143,6 @@ export function useBrowse(token: string, active = true) {
         } else if (effectiveSort === 'taste') {
           // 評価順と同じく、全件を集めてから手元で並べる（「もっと見る」は無い）。
           // 好みは見たいのおすすめ順と共通（起動中は使い回す）。好みを調べられなくても、一覧は人気順で見せる
-          setTasteNote(null)
           setProgress('作品を読み込み中')
           const collected = await collectAll(token, filter, () => cancelled)
           if (!collected) return
@@ -155,7 +172,7 @@ export function useBrowse(token: string, active = true) {
             note = `好みを読み込めませんでした（${messageOf(e)}）。人気順で並べています。`
           }
           setReasons(why)
-          setTasteNote(note)
+          setSortNote(note)
           setCapped(collected.capped)
           setWorks(ordered)
           setCursor({ endCursor: null, hasNext: false })
@@ -180,16 +197,31 @@ export function useBrowse(token: string, active = true) {
     }
   }, [token, searched, season, periodKey, reloadTick, effectiveSort, order, addCovers])
 
-  // 隠れていたタブが再び表示されたときは、好みの控えを捨てる（そのあいだに評価が増えているかもしれない。次におすすめ順にしたときに読み直す）
+  // 隠れていたタブが再び表示されたときは、好みの控えを捨てる（そのあいだに評価が増えているかもしれない。次におすすめ順にしたときに読み直す）。
+  // 一覧の記録の状態も、ほかの画面で変えたかもしれないので、自分のライブラリに合わせ直す（2026-10-06 の点検: 戻るまで古いままだった）。
+  // 送信待ちがあるあいだは、書く前のライブラリを読むことになるので合わせない
   const wasHidden = useRef(false)
   useEffect(() => {
     if (!active) {
       wasHidden.current = true
-    } else if (wasHidden.current) {
-      wasHidden.current = false
-      forgetTaste()
+      return
     }
-  }, [active])
+    if (!wasHidden.current) return
+    wasHidden.current = false
+    forgetTaste()
+    if (hasPendingWrites()) return
+    let cancelled = false
+    fetchLibrary(token)
+      .then((library) => {
+        if (cancelled || hasPendingWrites()) return
+        const states = new Map(library.map((e) => [e.annictId, e.state]))
+        setWorks((cur) => cur?.map((w) => ({ ...w, viewerStatusState: states.get(w.annictId) ?? null })) ?? cur)
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [active, token])
 
   // 自分の評価をバッジに出す（読めなくても一覧は使える）。ほかの画面で評価を変えることがあるので、表示されるたびに共有の控えから読み直す
   useEffect(() => {
@@ -225,11 +257,18 @@ export function useBrowse(token: string, active = true) {
     [periodKey],
   )
 
-  const setSort = useCallback((s: BrowseSort) => {
-    setWorks(null)
-    setError(null)
-    setSortState(s)
-  }, [])
+  // 実際の並べ方が変わらないなら、一覧を空にしない（読み直しも起きないので、空にすると戻らない。
+  // 選んでいる並び順をもう一度押したときや、期間で選んだ並び順がクールでは使えず人気順になっているとき。2026-10-06 の点検）
+  const setSort = useCallback(
+    (s: BrowseSort) => {
+      if (sortFor(s, mode) !== effectiveSort) {
+        setWorks(null)
+        setError(null)
+      }
+      setSortState(s)
+    },
+    [mode, effectiveSort],
+  )
 
   const retry = useCallback(() => {
     setWorks(null)
@@ -237,18 +276,22 @@ export function useBrowse(token: string, active = true) {
     setReloadTick((t) => t + 1)
   }, [])
 
+  // 届くまでに条件を変えていたら、届いた続きは捨てる（前の条件の作品を混ぜない・前の条件の続きの位置で読まない）
   const loadMore = useCallback(async () => {
     if (!cursor.hasNext || loadingMore) return
+    const gen = listGen.current
     setLoadingMore(true)
+    setMoreError(null)
     try {
       const page = await browseWorks(token, filterOf(searched, season, period), { after: cursor.endCursor, order })
+      if (gen !== listGen.current) return
       setWorks((cur) => [...(cur ?? []), ...page.works.filter((w) => !cur?.some((c) => c.id === w.id))])
       setCursor({ endCursor: page.endCursor, hasNext: page.hasNext })
       await addCovers(page.works)
     } catch (e) {
-      setError(messageOf(e))
+      if (gen === listGen.current) setMoreError(messageOf(e))
     } finally {
-      setLoadingMore(false)
+      if (gen === listGen.current) setLoadingMore(false)
     }
   }, [token, searched, season, period, order, cursor, loadingMore, addCovers])
 
@@ -282,12 +325,13 @@ export function useBrowse(token: string, active = true) {
     setSort,
     scores,
     reasons,
-    tasteNote,
+    sortNote,
     progress,
     works,
     hasMore: cursor.hasNext,
     loadingMore,
     loadMore,
+    moreError,
     error,
     retry,
     covers,

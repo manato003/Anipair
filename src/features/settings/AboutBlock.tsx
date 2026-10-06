@@ -5,7 +5,7 @@ import { saveOnboardingSeen } from '../../lib/storage'
 import { LegalLinks } from './LegalLinks'
 import { Section } from './Section'
 
-// 設定の末尾。何のアプリで、何が外に出て、何が出ないか。要点だけ出して、通信先・画像の細かい説明は畳む
+// 設定の先頭（ログイン前の最初の画面では末尾）。何のアプリで、何が外に出て、何が出ないか。要点だけ出して、通信先・画像の細かい説明は畳む
 // showTagline: ログイン前の最初の画面では、すぐ上にキャッチコピーがあるので出さない
 export function AboutBlock({ showTagline = true }: { showTagline?: boolean }) {
   // 初めての人に出す使い方のシートを、ここからいつでも見直せる

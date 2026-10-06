@@ -10,6 +10,7 @@ import { loadBackfillSeason, saveBackfillSeason } from '../../lib/storage'
 import { useCoalescedTask } from '../../lib/useCoalescedTask'
 import { messageOf, useWriteQueue } from '../../lib/useWriteQueue'
 import { rememberSeasonTop } from '../achievements/achievementStore'
+import { markStillWatching, unmarkStillWatching } from './stillWatching'
 import { activeUnseenIds } from './unseen'
 import { loadLocalUnseen, setUnseen, syncUnseen } from './unseenStore'
 import { OLDEST_YEAR, pickQueue, toCards, type Answer, type Card } from './queue'
@@ -64,6 +65,11 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
   })
   // 「見てない」を GitHub と合わせたつなぎ（デッキを読むたびには合わせない。押したときの同期は別。つなぎ先が変われば合わせ直す）
   const synced = useRef<GithubConnection | null>(null)
+  // 山を読むときのつなぎ先。山の読み込みは、つなぎ先が変わっても読み直さない（答えている途中の山と位置を崩さない。2026-10-06 の点検）
+  const githubRef = useRef(github)
+  useEffect(() => {
+    githubRef.current = github
+  })
   // 記録済みで空のクールを、前のクールへ自動で飛ばすか。次のクールへ進んだときは飛ばさず、空だと見せる（戻されないように）
   const skipEmpty = useRef(true)
   // 次の読み込みで、クールの作品の控え（lib/annict.ts の5分の控え）を使わない（「もう一度読み込む」）
@@ -102,6 +108,7 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
         const worksPromise = fetchSeasonWorks(token, toSlug(season), undefined, { fresh })
         // 同期を待つあいだに失敗しても、未処理の拒否として扱われないように（失敗はあとの await で受ける）
         worksPromise.catch(() => undefined)
+        const github = githubRef.current
         if (github && synced.current !== github) {
           try {
             unseen = await syncUnseen(github)
@@ -159,7 +166,24 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
     return () => {
       cancelled = true
     }
-  }, [token, github, season, reloadTick])
+  }, [token, season, reloadTick])
+
+  // 使っている途中で GitHub とつないだ・つなぎ先を変えたら、「見てない」だけを合わせる（山はそのまま）
+  const mountedGithub = useRef(github)
+  useEffect(() => {
+    if (!github || github === mountedGithub.current || synced.current === github) return
+    let cancelled = false
+    syncUnseen(github).then(
+      () => {
+        synced.current = github
+        if (!cancelled) setSyncNote(null)
+      },
+      (e: unknown) => !cancelled && setSyncNote(`GitHub と同期できませんでした（${messageOf(e)}）。この端末の記録だけで進めます。`),
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [github])
 
   // 始まる前の同期はまとめる（詳しくは useCoalescedTask）
   const syncRun = useMemo(() => (github ? async () => void (await syncUnseen(github)) : null), [github])
@@ -215,6 +239,9 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
         setUnseen(card.work.annictId, false)
         syncLater()
       }
+      // 「見てる」と答えた作品は、「まだ見てる」と同じく、答えたクールのあいだは「見終わりましたか」と聞かない
+      // （2026-10-06 の点検: 古いクールの作品に「見てる」と答えると、次に開いたときすぐ聞いていた。stillWatching.ts）
+      if (a.kind === 'watching') markStillWatching(card.work.annictId)
       const state = a.kind === 'wanna' ? 'WANNA_WATCH' : a.kind === 'watching' ? 'WATCHING' : a.kind === 'stop' ? 'STOP_WATCHING' : 'WATCHED'
       const { id: workId, annictId } = card.work
       enqueue(
@@ -250,6 +277,7 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
       setUnseen(entry.card.work.annictId, true)
       syncLater()
     }
+    if (entry.answer.kind === 'watching') unmarkStillWatching(entry.card.work.annictId)
     // 列に並んでいる作品は、もともと何も記録していなかったものだけなので「未設定」に戻せばよい
     const { id: workId, annictId } = entry.card.work
     const rated = entry.answer.kind === 'rate'

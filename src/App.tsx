@@ -1,4 +1,4 @@
-import { Fragment, lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
+import { Fragment, lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
 import { AuthExpiredBanner } from './components/AuthExpiredBanner'
 import { TabIcon } from './components/Icons'
 import { Logo } from './components/Logo'
@@ -10,7 +10,23 @@ import { useAnnictLogin } from './features/settings/useAnnictLogin'
 import { onAnnictAuthFailed } from './lib/authEvents'
 import { UnsentWrites } from './features/unsent/UnsentWrites'
 import type { GithubConnection } from './lib/github'
-import { loadAnnictToken, loadGithubConnection } from './lib/storage'
+import { fetchViewer, ownerKeyOf } from './lib/annict'
+import { reloadPage } from './lib/reload'
+import {
+  ACCOUNT_KEYS,
+  forgetAccount,
+  freezeStorage,
+  hasUnclaimed,
+  loadAnnictToken,
+  loadGithubConnection,
+  loadOwner,
+  pageIsCurrent,
+  saveAnnictToken,
+  setAsideUnclaimed,
+  settleUnclaimed,
+  switchAccount,
+} from './lib/storage'
+import { hasPendingWrites } from './lib/useWriteQueue'
 
 type Tab = 'rate' | 'match' | 'records' | 'browse' | 'settings'
 
@@ -54,7 +70,8 @@ function Screen(props: { active: boolean; children: ReactNode }) {
 }
 
 export default function App() {
-  const [token, setToken] = useState<string | null>(loadAnnictToken)
+  // トークンは開いたときのもの。ログイン・ログアウトでは、ページを読み込み直して変える（onTokenChange）
+  const [token] = useState<string | null>(loadAnnictToken)
   // GitHub は任意。トークンとリポジトリの両方がそろったときだけ連携する
   const [github, setGithub] = useState<GithubConnection | null>(loadGithubConnection)
   const [tab, setTab] = useState<Tab>(token ? 'rate' : 'settings')
@@ -68,12 +85,100 @@ export default function App() {
     setVisited((v) => (v.has(next) ? v : new Set(v).add(next)))
   }
 
-  function onTokenChange(next: string | null) {
-    setToken(next)
-    // 別のトークンの画面を引き継がないよう、開いたタブの記憶も戻す（画面は token を key にして作り直される）
-    setVisited(new Set(['rate']))
-    if (next) setTab('rate')
+  // ログイン・ログアウト・アカウントの切り替えの最中（送信待ちを送り切るのを待っている）
+  const [switching, setSwitching] = useState(false)
+
+  // ログイン・ログアウト（next が null）。手順（2026-10-06 のセキュリティの点検で作り直した）:
+  // 1. 送信待ちを送り切る（前の人の答えを失わない。ログアウトのあとに前の人のトークンで書かない）
+  // 2. 新しいトークンの持ち主を Annict に聞く（数字の ID。ユーザー名は変えられるので使わない）
+  // 3. トークンの保存と、人ごとの記録（パス・見てない・称号・GitHub のつなぎなど）の入れ替えを一度にして、それ以降は端末に何も書かない
+  // 4. ページを読み込み直す（前の人の画面で走っていた同期・バックアップ・読み込みを止め、次の人の記録に混ぜない）
+  // forget: 「ログアウトして、この端末の記録も消す」（送り切ってから消す。先に消すと、待つあいだに届いた書き込みが残る）
+  // 切り替えの最中（起動時の確かめが、進めているログアウトを打ち消さないように）
+  const switchingRef = useRef(false)
+  async function onTokenChange(next: string | null, opts: { forget?: boolean } = {}) {
+    switchingRef.current = true
+    setSwitching(true)
+    await untilWritesDone()
+    const ownerOf = (t: string) =>
+      fetchViewer(t).then(
+        (v) => ownerKeyOf(v),
+        () => null,
+      )
+    // 持ち主を覚えていない記録（この仕組みの前から使っている端末）なら、いまの人を確かめて、その人のものにしてから切り替える。
+    // 確かめられなければ、記録は消さずに隔離し、次にログインした人に「あなたの記録ですか」と聞く（黙って渡さない・黙って消さない）
+    // ログアウトしたままの端末（v0.11 まではログアウトしても記録と GitHub のつなぎが残っていた）も、持ち主が分からないので隔離する
+    // （2026-10-06 のセキュリティの点検: 次にログインした人が、前の人の記録と GitHub のつなぎを丸ごと引き継いでいた）
+    const prev = loadAnnictToken()
+    let unclaimed = false
+    if (loadOwner() === null) {
+      const prevOwner = prev ? await ownerOf(prev) : null
+      if (prev && prevOwner) switchAccount(prevOwner, prev)
+      else unclaimed = true
+    }
+    // 持ち主を読めなければ、名前の分からないログインとして進む（前の人の記録は退避し、あとで分かったらその人の分を戻す）
+    const owner = next ? await ownerOf(next) : null
+    saveAnnictToken(next)
+    if (unclaimed) setAsideUnclaimed()
+    if (opts.forget) forgetAccount()
+    switchAccount(owner, next)
+    freezeStorage()
+    reloadPage()
   }
+
+  // 開いているあいだに一度、記録の持ち主がいまの人かを確かめる（この仕組みの前から使っている端末で持ち主を覚える・
+  // ログインのときに名前を読めなかった）。別の人の記録だったら入れ替えて、読み込み直す
+  // 同じ持ち主への入れ替えで読み込み直すのは、1回の起動（タブ）で1回まで（保存できない環境で、入れ替えが毎回起きて読み込み直しが続かないように）
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    fetchViewer(token).then(
+      (v) => {
+        const key = ownerKeyOf(v)
+        if (cancelled || switchingRef.current || loadAnnictToken() !== token || loadOwner() === key) return
+        if (switchAccount(key, token) && !reloadedOnce(key)) {
+          freezeStorage()
+          reloadPage()
+        }
+      },
+      () => undefined,
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [token])
+
+  // 持ち主を確かめられなかった以前の記録があれば、いまの人のものかを聞く（lib/storage.ts の setAsideUnclaimed）
+  const [unclaimed, setUnclaimed] = useState(() => token !== null && hasUnclaimed())
+  function settle(mine: boolean) {
+    settleUnclaimed(mine)
+    setUnclaimed(false)
+    if (mine) {
+      freezeStorage()
+      reloadPage()
+    }
+  }
+
+  // 別のタブでログイン・ログアウト・切り替えをしたら、このタブも読み込み直す（前の人のつもりのまま、次の人の記録に書かない）
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== null && !ACCOUNT_KEYS.includes(e.key)) return
+      freezeStorage()
+      reloadPage()
+    }
+    // 戻るボタンで、前の内容のままよみがえったページ。持ち主が替わっていれば読み込み直す
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (!e.persisted || pageIsCurrent()) return
+      freezeStorage()
+      reloadPage()
+    }
+    window.addEventListener('storage', onStorage)
+    window.addEventListener('pageshow', onPageShow)
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener('pageshow', onPageShow)
+    }
+  }, [])
 
   // Annict が 401 を返したら（トークンが使えない）、上に「もう一度ログイン」の帯を出す。
   // 失敗したトークンがいまのものと違えば（ログインし直したあとに遅れて届いた古い要求）無視する。トークンが変われば帯は消える
@@ -101,6 +206,26 @@ export default function App() {
     <div className="app">
       {/* 帯を主な画面の上に出すための枠（広い画面では上の帯のタブのすぐ下になる） */}
       <div className="app__body">
+        {switching && (
+          <div className="auth-banner" role="status">
+            <p className="auth-banner__text">記録を送り終えてから切り替えます…</p>
+          </div>
+        )}
+        {unclaimed && !switching && (
+          <div className="auth-banner" role="alert">
+            <p className="auth-banner__text">
+              この端末に、持ち主を確かめられなかった以前の記録（パス・見てない・称号など）があります。あなたの記録なら、いまの記録と合わせます。
+            </p>
+            <div className="auth-banner__actions">
+              <button type="button" className="btn btn--primary" onClick={() => settle(true)}>
+                自分の記録
+              </button>
+              <button type="button" className="link" onClick={() => settle(false)}>
+                自分のものではない（消す）
+              </button>
+            </div>
+          </div>
+        )}
         {authExpired && <AuthExpiredBanner onOpenSettings={() => go('settings')} onDismiss={() => setExpiredToken(null)} />}
         {/* 前回送れなかった記録（送る前に閉じた・失敗したまま閉じた）。送るかどうかを聞く */}
         {token && !authExpired && <UnsentWrites key={token} token={token} />}
@@ -164,4 +289,22 @@ export default function App() {
       </nav>
     </div>
   )
+}
+
+// 送信待ちが無くなるまで待つ（長くても20秒。Annict が止まっていて送れないときは、控え（writeJournal）から次に開いたときに送り直せる）
+async function untilWritesDone(): Promise<void> {
+  const until = Date.now() + 20_000
+  while (hasPendingWrites() && Date.now() < until) await new Promise((r) => setTimeout(r, 200))
+}
+
+// この起動（タブ）で、この持ち主に入れ替えて読み込み直したか。まだなら印を付ける
+function reloadedOnce(owner: string): boolean {
+  try {
+    if (sessionStorage.getItem('anipair.reidentified') === owner) return true
+    sessionStorage.setItem('anipair.reidentified', owner)
+  } catch {
+    // 読めない環境では、読み込み直さない（続けて読み込み直すよりよい）
+    return true
+  }
+  return false
 }

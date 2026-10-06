@@ -53,6 +53,8 @@ export default defineConfig({
     environment: 'node',
     // api/ は Vercel の関数なので、テストは api/ の外（tests/）に置く（api/ の中に置くと関数として配備されてしまう）
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'tests/**/*.test.ts'],
+    // テストのたびに、端末の保存の「開いたばかりのページ」に戻す（lib/storage.ts の pageIsCurrent）
+    setupFiles: ['src/test/setup.ts'],
     // CSS を実際に読み込ませる。既定ではスタブ化されて ?raw が空文字になり、
     // スタイルシートのカスケードを検証するテストが書けない
     css: true,

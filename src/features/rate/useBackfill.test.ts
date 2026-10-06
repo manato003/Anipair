@@ -181,6 +181,30 @@ describe('useBackfill', () => {
     expect(calls).toEqual(['status W1 WATCHING', 'status W1 NO_STATE'])
   })
 
+  // 2026-10-06 の点検: 古いクールの作品に「見てる」と答えると、次に開いたとき（タブに戻ったとき）すぐ「見終わりましたか」と聞いていた
+  it('"watching" is not asked about again until the cour ends, like 「まだ見てる」; undo takes that back', async () => {
+    const { snoozedWatching } = await import('./stillWatching')
+    const hook = await setup()
+    act(() => hook.result.current.answer({ kind: 'watching' }))
+    expect(snoozedWatching().has(1)).toBe(true)
+    act(() => hook.result.current.undo())
+    expect(snoozedWatching().has(1)).toBe(false)
+    await settle(hook)
+  })
+
+  // 2026-10-06 の点検: 答えている途中で GitHub とつなぐと、山を読み直して位置がずれていた（空なら前のクールへ飛んでいた）
+  it('connecting GitHub on the way syncs "not watched" only, and keeps the cards and the position', async () => {
+    const { fetchSeasonWorks } = await import('../../lib/annict')
+    const hook = renderHook(({ gh }) => useBackfill('token', gh), { initialProps: { gh: null as GithubConnection | null } })
+    await waitFor(() => expect(hook.result.current.current).not.toBeNull())
+    act(() => hook.result.current.answer({ kind: 'skip' }))
+    const reads = vi.mocked(fetchSeasonWorks).mock.calls.length
+    hook.rerender({ gh: GH })
+    await waitFor(() => expect(calls).toContain('sync'))
+    expect(vi.mocked(fetchSeasonWorks).mock.calls.length).toBe(reads)
+    expect(hook.result.current.current?.work.id).toBe('W2')
+  })
+
   it('puts a created review in the shared cache, and takes it out again on undo', async () => {
     const hook = await setup()
     act(() => hook.result.current.answer({ kind: 'rate', rating: 'GREAT' }))

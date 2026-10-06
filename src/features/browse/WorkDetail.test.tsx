@@ -156,6 +156,19 @@ describe('WorkDetail', () => {
     expect(onChange).toHaveBeenCalledWith({ state: null })
   })
 
+  // 2026-10-06 の点検: 参加作品・Shikimori の関連作品から開くと、見た作品が「まだ記録していません」と出ていた
+  it('takes my status from the loaded detail when the sheet was opened from a work that did not know it', async () => {
+    const q = queue()
+    const seed = { id: 'W1', annictId: 1, title: '作品', malAnimeId: null }
+    render(<WorkDetail token="t" work={seed} cover={null} enqueue={q.enqueue} onChange={() => undefined} onClose={() => undefined} />)
+    expect(screen.getByText('まだ記録していません。')).toBeTruthy()
+    await waitFor(() => expect(screen.getByRole('heading', { name: '話ごとの記録' })).toBeTruthy())
+    // 「見た」をもう一度押すと、記録から外す（記録していないと思い込んで「見た」を送り直さない）
+    fireEvent.click(screen.getByRole('button', { name: '見た' }))
+    await q.done()
+    expect(calls).toEqual(['status W1 NO_STATE'])
+  })
+
   it('treats NO_STATE as not recorded', () => {
     render(
       <WorkDetail token="t" work={{ ...work, viewerStatusState: 'NO_STATE' }} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />,

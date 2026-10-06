@@ -37,10 +37,14 @@
         <li>パス・スルー・「見てない」にした作品の記録、「見たい」の作品の優先の印とメモ、キーの割り当て、画面の設定</li>
         <li>Annict から前回読み込んだ自分の記録の写し（ライブラリ・評価と感想・評価画面のクールの作品）。次に開いたときにすぐ表示するために使い、開くたびに Annict から読み直します</li>
         <li>まだ Annict に送り終えていない記録の控えと、書きかけの感想。送り終えたら消します</li>
-        <li>称号の状態（手に入れた称号のうち見たもの、掲げている称号）と、称号の条件になる出来事の日時（深夜・早朝・元日に記録した、など）</li>
+        <li>称号の状態（手に入れた称号、そのうち見たもの、掲げている称号）と、称号の条件になる出来事の日時（深夜・早朝・元日に記録した、など）</li>
         <li>作品情報の一時的な控え（表紙の画像の場所、各クールの人気作の一覧など）</li>
       </ul>
-      <p>保存した情報は、設定画面でトークンを消すか、ブラウザのサイトデータを消すと削除できます。</p>
+      <p>
+        ログアウトすると、Annict のトークン、GitHub のトークン、Annict の記録の写しを削除します。パス・「見てない」・称号など、この端末にしかない記録は、
+        同じアカウントでログインし直したときのために端末に残します（ほかのアカウントでログインしても、アプリには表示しません）。
+        これらも消すには、設定画面の「ログアウトして、この端末の記録も消す」を使うか、ブラウザのサイトデータを消してください。
+      </p>
 
       <h2>3. 本アプリが通信する先</h2>
       <ul>
@@ -102,9 +106,11 @@
         <h2>2. Information kept on your device</h2>
         <p>
           Your Annict access token, your optional GitHub token and repository name, your pass, skip and "not watched" records, your priority marks and notes on
-          "want to watch" anime, key bindings, display settings, short-lived caches of anime information, a copy of your records last read from Annict (to show
-          them quickly next time), records not yet sent to Annict, and unfinished comments are stored only in your browser's storage. They are never sent to the operator. You can delete them by
-          removing the token in Settings or by clearing the site data in your browser.
+          "want to watch" anime, your titles, key bindings, display settings, short-lived caches of anime information, a copy of your records last read from Annict (to show
+          them quickly next time), records not yet sent to Annict, and unfinished comments are stored only in your browser's storage. They are never sent to the operator. Logging out deletes the Annict
+          token, the GitHub token and the copy of your Annict records. Records that exist only on this device (passes, "not watched", titles and so on) are kept
+          for when you log in again with the same account, and the app does not show them to anyone who logs in with another account. To delete them as well, use "Log out and
+          delete the records on this device" in Settings, or clear the site data in your browser.
         </p>
         <h2>3. Services Anipair connects to</h2>
         <ul>

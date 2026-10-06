@@ -4,6 +4,7 @@ import { annictImageOf } from './covers'
 import { delay, parseRetryAfter } from './retry'
 import { createThrottle, type ScheduleOptions } from './throttle'
 import { patchStoredStatus, saveStoredLibrary, saveStoredSeasonWorks } from './offlineCache'
+import { pageIsCurrent } from './storage'
 
 // Annict GraphQL API。型は annict/annict の rails/app/graphql/beta/schema.graphql が正
 const ENDPOINT = 'https://api.annict.com/graphql'
@@ -67,6 +68,9 @@ async function gql<T>(token: string, query: string, variables: Record<string, un
       const abort = write ? null : new AbortController()
       const timer = abort ? setTimeout(() => abort.abort(), READ_TIMEOUT_MS) : null
       try {
+        // アカウントを切り替えたあとの古いページ（このタブ・別のタブ）からは送らない。前の人の書き込みを次の人のトークンで送ったり、
+        // ログアウトのあとに前の人のトークンを使ったりしない（2026-10-06 のセキュリティの点検）。列で待っていた分も、送る直前にここで止まる
+        if (!pageIsCurrent()) throw new AnnictError('アカウントが切り替わったので、送りませんでした', 'api')
         return await send(abort?.signal)
       } catch (e) {
         if (abort?.signal.aborted) throw new AnnictError('Annict の応答がありません。混み合っているようです。少し待ってからもう一度試してください', 'timeout')
@@ -121,10 +125,13 @@ async function gql<T>(token: string, query: string, variables: Record<string, un
   }
 }
 
-export async function fetchViewer(token: string): Promise<{ username: string; name: string }> {
-  const data = await gql<{ viewer: { username: string; name: string } }>(token, '{ viewer { username name } }')
+export async function fetchViewer(token: string): Promise<{ annictId: number; username: string; name: string }> {
+  const data = await gql<{ viewer: { annictId: number; username: string; name: string } }>(token, '{ viewer { annictId username name } }')
   return data.viewer
 }
+
+// 端末の人ごとの記録の持ち主の鍵（Annict の数字の ID。ユーザー名は変えられるので使わない）
+export const ownerKeyOf = (viewer: { annictId: number }): string => `u${viewer.annictId}`
 
 // 自分の Annict での積み重ね（隠し称号の材料。features/achievements）
 export interface ViewerStats {
@@ -514,10 +521,15 @@ export function peekLibrary(): readonly LibraryEntry[] | null {
 const LIBRARY_TTL_MS = 60_000
 let libraryCache: { token: string; at: number; value: LibraryEntry[] } | null = null
 let libraryFlight: { token: string; promise: Promise<LibraryEntry[]> } | null = null
+// 使い回しを捨てた回数。読み込みの途中で捨てられたら（ページの合間に状態を書いた）、読んだ中身は書く前のものが混ざるので、
+// 頼んだ人には返すが、使い回しにも端末の控えにも入れない（2026-10-06 の点検で見つけた: 答えた作品が次の起動でまた出ていた）
+let libraryGen = 0
 
-// 使い回しを捨てる（次の読み込みは Annict から読む）
+// 使い回しを捨てる（次の読み込みは Annict から読む）。読み込み中のものにも、あとから来た人を相乗りさせない
 export function forgetLibrary(): void {
   libraryCache = null
+  libraryFlight = null
+  libraryGen++
 }
 
 // 自分のライブラリ。状態が消えている（未設定に戻した）項目は含めない。
@@ -525,9 +537,12 @@ export function forgetLibrary(): void {
 export function fetchLibrary(token: string, opts: { fresh?: boolean } = {}): Promise<LibraryEntry[]> {
   if (!opts.fresh && libraryCache?.token === token && Date.now() - libraryCache.at < LIBRARY_TTL_MS) return Promise.resolve([...libraryCache.value])
   if (libraryFlight?.token === token) return libraryFlight.promise.then((v) => [...v])
+  const gen = libraryGen
   const promise = readLibrary(token)
     .then((value) => {
+      if (gen !== libraryGen) return value
       libraryCache = { token, at: Date.now(), value }
+      lastLibrary = value
       // 次の起動ですぐ出せるように、端末にもとっておく（lib/offlineCache.ts）
       saveStoredLibrary(value)
       return value
@@ -593,10 +608,7 @@ async function readLibrary(token: string): Promise<LibraryEntry[]> {
         episodesCount: n.work.episodesCount ?? null,
       })
     }
-    if (!conn.pageInfo.hasNextPage) {
-      lastLibrary = out
-      return out
-    }
+    if (!conn.pageInfo.hasNextPage) return out
     after = conn.pageInfo.endCursor
   }
 }
@@ -627,8 +639,15 @@ export interface ReviewScan {
 // 新しい順（2026-10-03 に実測。既定は古い順）に読み、stopBefore より古い項目に来たらそこで止める。
 // stopBefore が無ければ最後まで読む。
 // 注意: 感想のアクティビティは作ったときだけ増える。Annict のサイトで感想を直した・消した変更は、差分の読み込みでは見えない
+//
+// 1ページの件数: 最後まで読むときは500件、差分はふつう1ページで済むので100件。
+// 2026-10-06 に記録の多い利用者（アクティビティ約8,000件）で実測。100件だと81ページ・24秒、500件だと17ページ・6.4秒（1ページ約0.4秒）。
+// 時間の大半は問い合わせの間隔（300ms）で決まるので、件数を増やすほど速く、Annict への問い合わせの回数も減る。1000件は5.7秒で伸びが小さく、1回が1秒を超える
+const FULL_SCAN_PAGE = 500
+const DIFF_SCAN_PAGE = 100
 export async function scanMyReviews(token: string, opts: { stopBefore?: string | null } = {}): Promise<ReviewScan> {
   const stopAt = opts.stopBefore ? Date.parse(opts.stopBefore) : null
+  const first = stopAt === null ? FULL_SCAN_PAGE : DIFF_SCAN_PAGE
   const latest = new Map<number, MyReview>()
   let newest: string | null = null
   let after: string | null = null
@@ -642,7 +661,7 @@ export async function scanMyReviews(token: string, opts: { stopBefore?: string |
       }
     } = await gql(
       token,
-      `query($after: String) { viewer { activities(first: 100, after: $after, orderBy: {field: CREATED_AT, direction: DESC}) {
+      `query($after: String, $first: Int) { viewer { activities(first: $first, after: $after, orderBy: {field: CREATED_AT, direction: DESC}) {
         pageInfo { hasNextPage endCursor }
         edges { item { __typename
           ... on Review {
@@ -654,7 +673,7 @@ export async function scanMyReviews(token: string, opts: { stopBefore?: string |
           ... on MultipleRecord { createdAt }
         } }
       } } }`,
-      { after },
+      { after, first },
     )
     const conn = data.viewer.activities
     let reachedOld = false

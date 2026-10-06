@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react'
 import { fetchViewer } from '../../lib/annict'
-import { saveAnnictToken } from '../../lib/storage'
 import { AnnictHealth } from './AnnictHealth'
 import { Section, StatusChip } from './Section'
 
 // 連携しているアカウントの名前（Annict に1回だけ聞く。読めなくても「連携中」とは出せる）
 const viewerCache = new Map<string, Promise<{ name: string; username: string }>>()
 
-export function AccountBlock(props: { token: string; onChange: (token: string | null) => void }) {
+export function AccountBlock(props: { token: string; onChange: (token: string | null, opts?: { forget?: boolean }) => void }) {
   const [viewer, setViewer] = useState<{ name: string; username: string } | null>(null)
   useEffect(() => {
     let cancelled = false
@@ -33,14 +32,26 @@ export function AccountBlock(props: { token: string; onChange: (token: string | 
           type="button"
           className="btn"
           onClick={() => {
-            saveAnnictToken(null)
             props.onChange(null)
           }}
         >
           ログアウト
         </button>
+        <button
+          type="button"
+          className="link"
+          onClick={() => {
+            props.onChange(null, { forget: true })
+          }}
+        >
+          ログアウトして、この端末の記録も消す
+        </button>
       </div>
-      <p className="settings__lead">この端末から Annict のログイン情報を削除します。Annict の記録は消えません。</p>
+      <p className="settings__lead">
+        {'この端末から Annict のログイン情報を削除します。Annict の記録は消えません。' +
+          'この端末に置いた記録（パス・見てない・称号など）は、同じアカウントでログインし直すと戻ります。ほかの人がログインしても、アプリには出ません。' +
+          'GitHub のトークンは消えるので、もう一度つなぐときに入れ直してください。'}
+      </p>
     </Section>
   )
 }

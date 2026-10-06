@@ -65,9 +65,24 @@ export async function applyReviewPlan(token: string, workId: string, plan: Revie
       return plan.reviewId
     case 'replace': {
       const id = await createReviewWith(token, workId, plan.content.axes, plan.content.body)
-      await deleteReviewIfExists(token, plan.oldId)
+      try {
+        await deleteReviewIfExists(token, plan.oldId)
+      } catch (e) {
+        throw new ReplaceUnfinished(e)
+      }
       return id
     }
+  }
+}
+
+// 付け直しで、新しい感想は作れたのに古い感想を消せなかった（失敗の種類を問わない）。
+// このまま送り直すと、作った感想を知らずにもう1つ作ってしまうので、run が「届いたか分からない」と同じ印を残す
+// （次に書くとき settleUncertainReview が作った感想を見つけ、古いほうを消す。2026-10-06 の点検で見つけた）
+class ReplaceUnfinished extends Error {
+  readonly original: unknown
+  constructor(original: unknown) {
+    super(original instanceof Error ? original.message : String(original))
+    this.original = original
   }
 }
 
@@ -89,10 +104,10 @@ async function run(token: string, workId: string, cached: MyReview | null, next:
   try {
     id = await applyReviewPlan(token, workId, plan, current?.id ?? null)
   } catch (e) {
-    if ((plan.kind === 'create' || plan.kind === 'replace') && isUncertainFailure(e)) {
+    if ((plan.kind === 'create' || plan.kind === 'replace') && (isUncertainFailure(e) || e instanceof ReplaceUnfinished)) {
       markUncertain({ kind: 'review', workId, at, oldId: plan.kind === 'replace' ? plan.oldId : null })
     }
-    throw e
+    throw e instanceof ReplaceUnfinished ? e.original : e
   }
   if (!id) return null
   const created = plan.kind === 'create' || plan.kind === 'replace'

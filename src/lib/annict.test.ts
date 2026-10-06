@@ -239,7 +239,7 @@ describe('scanMyReviews', () => {
   const page = (edges: unknown[], endCursor: string | null) =>
     json({ data: { viewer: { activities: { pageInfo: { hasNextPage: endCursor !== null, endCursor }, edges } } } })
 
-  const sent = () => fetchMock.mock.calls.map(([, init]) => JSON.parse(init?.body as string) as { query: string; variables: { after: string | null } })
+  const sent = () => fetchMock.mock.calls.map(([, init]) => JSON.parse(init?.body as string) as { query: string; variables: { after: string | null; first: number } })
 
   it('asks for the newest first, and for createdAt on every kind of activity', async () => {
     fetchMock.mockResolvedValue(page([], null))
@@ -287,6 +287,14 @@ describe('scanMyReviews', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
+  // 記録の多い人（アクティビティ約8,000件）で、最後まで読むのが24秒から6秒台になった（2026-10-06 実測）。差分はふつう1ページで済む
+  it('reads 500 a page when reading to the end, and 100 a page for the difference', async () => {
+    fetchMock.mockResolvedValueOnce(page([], null)).mockResolvedValueOnce(page([], null))
+    await scanMyReviews('t')
+    await scanMyReviews('t', { stopBefore: '2026-10-02T12:00:00Z' })
+    expect(sent().map((x) => x.variables.first)).toEqual([500, 100])
+  })
+
   it('returns newest null when there is no activity at all', async () => {
     fetchMock.mockResolvedValue(page([], null))
     expect(await scanMyReviews('t')).toEqual({ reviews: new Map(), newest: null })
@@ -315,6 +323,31 @@ describe('fetchLibrary: one read for screens that ask together', () => {
     // 別のトークン（別の人）では使い回さない
     await fetchLibrary('other')
     expect(fetchMock).toHaveBeenCalledTimes(5)
+    forgetLibrary()
+  })
+
+  // 2026-10-06 の点検: 読み込みのページの合間に状態を書くと、書く前の中身が1分間使い回され、端末の控えにも残っていた
+  it('does not keep a read that was under way when a status was written', async () => {
+    forgetLibrary()
+    localStorage.clear()
+    let release!: () => void
+    const gate = new Promise<void>((r) => (release = r))
+    let reads = 0
+    fetchMock.mockImplementation(async (_url, init) => {
+      if (String(init?.body).includes('updateStatus')) return json({ data: { updateStatus: { work: { id: 'W1' } } } })
+      reads++
+      if (reads === 1) await gate
+      return json(page)
+    })
+    const during = fetchLibrary('t')
+    // 読み込みの途中で書いた
+    forgetLibrary()
+    release()
+    expect((await during).map((e) => e.annictId)).toEqual([1])
+    expect(localStorage.getItem('animax.library.v1')).toBeNull()
+    // 使い回さず、読み直す
+    await fetchLibrary('t')
+    expect(reads).toBe(2)
     forgetLibrary()
   })
 })

@@ -72,6 +72,9 @@ export function useMatching(annictToken: string, github: GithubConnection | null
   const filterRef = useRef(filter)
   // 候補（MAL の ID）ごとの、Annict の作品を探す問い合わせ。詳細のシートと「見たい」などの送信で使い回す
   const resolved = useRef(new Map<number, Promise<WorkRef | null>>())
+  // この画面で記録した候補（MAL の ID）。送信待ち・失敗のあいだは Annict のライブラリにまだ無いので、提案し直すときに自分で除く
+  // （2026-10-06 の点検: 答えた直後に「提案し直す」と、その作品がまた候補に出ていた）。取り消したら外す
+  const answered = useRef(new Set<number>())
 
   const run = useCallback(async () => {
     const id = ++runId.current
@@ -110,7 +113,7 @@ export function useMatching(annictToken: string, github: GithubConnection | null
       }
 
       const recorded = library.map(malIdOf).filter((n): n is number => n !== null)
-      const exclude = new Set([...recorded, ...activePassIds(passes, new Date())])
+      const exclude = new Set([...recorded, ...activePassIds(passes, new Date()), ...answered.current])
       const pool = collectPool(similarSeeds, similar, exclude).slice(0, isDefaultFilter(filter) ? POOL_SIZE : FILTERED_POOL_SIZE)
 
       setPhase({ kind: 'loading', step: '候補を整理しています' })
@@ -179,6 +182,7 @@ export function useMatching(annictToken: string, github: GithubConnection | null
         syncLater()
         return
       }
+      answered.current.add(card.media.idMal)
       const title = titleOf(card.media)
       const label =
         a.kind === 'wanna' ? `「${title}」の見たいへの追加` : a.kind === 'watching' ? `「${title}」の見てるへの追加` : `「${title}」の記録`
@@ -219,6 +223,7 @@ export function useMatching(annictToken: string, github: GithubConnection | null
     }
     // 候補は記録の無い作品だけなので「未設定」に戻せばよい。Annict で特定できていなければ何も書いていない
     const { media } = entry.card
+    answered.current.delete(media.idMal)
     enqueue(
       `「${titleOf(media)}」の取り消し`,
       async () => {
@@ -238,6 +243,7 @@ export function useMatching(annictToken: string, github: GithubConnection | null
   // 関連作品のシートで記録した作品を、これから出てくる候補から外す（いま出している候補は残す）
   const dropCandidate = useCallback(
     (malId: number) => {
+      answered.current.add(malId)
       setCards((cur) => {
         const at = cur.findIndex((c, i) => i > index && c.media.idMal === malId)
         return at < 0 ? cur : cur.filter((_, i) => i !== at)

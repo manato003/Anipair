@@ -88,7 +88,9 @@ export function useRecords(token: string, active = true) {
         if (cancelled) return
         // 前回の内容を見せているなら、それを見せたまま知らせる（一覧は消さない）
         if (staleRef.current) setRefreshError(messageOf(e))
-        else setLoadError(messageOf(e))
+        // 読み込み済みの一覧を裏で読み直していた（関連作品のシートで新しく記録した）なら、今の一覧をそのまま見せる
+        // （2026-10-06 の点検: 失敗すると一覧ごと「読み込めませんでした」に置き換わっていた。次に表示したときにまた読み直す）
+        else if (!loaded.current) setLoadError(messageOf(e))
       }
     })()
     return () => {
@@ -145,7 +147,8 @@ export function useRecords(token: string, active = true) {
       const becomesWatched = rating !== null && row.entry.state !== 'WATCHED'
       patchRow(annictId, (r) => ({
         ...r,
-        entry: becomesWatched ? { ...r.entry, state: 'WATCHED' } : r.entry,
+        // 「見た」になった日時は今（状態を変えたときと同じ。記録順・年のふり返りが古い日付で数えないように）
+        entry: becomesWatched ? { ...r.entry, state: 'WATCHED', stateAt: new Date().toISOString() } : r.entry,
         review: rating
           ? { ...(r.review ?? blankReview()), ratingOverallState: rating }
           : null,

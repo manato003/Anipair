@@ -50,11 +50,18 @@ const KEYS = {
   feats: 'animax.feats.v1',
   // 演出の強さ（ふつう・控えめ・なし）。端末ごと
   effects: 'animax.effects.v1',
+  // 下の「人ごとの記録」がいま誰のものか（Annict のユーザー名）
+  owner: 'animax.owner.v1',
+  // ログアウト・アカウントの切り替えで退避した、人ごとの記録（ユーザー名 → 鍵 → 値）。同じ人がログインし直したら戻す
+  accounts: 'animax.accounts.v1',
 } as const
 
 export const ALL_KEYS: readonly string[] = Object.values(KEYS)
 
-function read(key: string): string | null {
+// 別のタブで変わったら、このタブを読み込み直す鍵（ログイン・ログアウト・アカウントの切り替え）
+export const ACCOUNT_KEYS: readonly string[] = [KEYS.annictToken, KEYS.owner]
+
+function rawRead(key: string): string | null {
   try {
     return localStorage.getItem(key)
   } catch {
@@ -62,7 +69,49 @@ function read(key: string): string | null {
   }
 }
 
+// ── このページが、いまの持ち主のものか ──
+// ページを開いたときのトークンと持ち主を覚える。端末の内容がそれと違えば（このページで切り替えた・別のタブで切り替えた・
+// 戻るボタンでよみがえった古いページ）、このページは古い。古いページには、人ごとの記録を読ませず・書かせず、
+// Annict と GitHub に通信させない（annict.ts・github.ts が pageIsCurrent を見る）。
+// 2026-10-06 のセキュリティの点検: 切り替えのあと読み込み直すまでの一瞬に、前の人の画面が次の人の記録を読んで前の人の GitHub に送れた
+let frozen = false
+// ページを開いてから最初に読み書きしたときのトークンと持ち主（アプリは開いてすぐにトークンを読むので、開いたときのものになる）
+let page: { token: string | null; owner: string | null } | null = null
+function pageState(): { token: string | null; owner: string | null } {
+  page ??= { token: rawRead('animax.annictToken'), owner: rawRead('animax.owner.v1') }
+  return page
+}
+
+// このページでの切り替えを終えた。読み込み直すまで、何も読み書き・通信しない
+export function freezeStorage(): void {
+  frozen = true
+}
+
+// 切り替えを終えて、読み込み直すのを待っているか（ページを去る確認を出さない。useWriteQueue）
+export function isFrozen(): boolean {
+  return frozen
+}
+
+export function pageIsCurrent(): boolean {
+  const p = pageState()
+  return !frozen && rawRead(KEYS.annictToken) === p.token && rawRead(KEYS.owner) === p.owner
+}
+
+// テストのたびに、開いたばかりのページに戻す（src/test/setup.ts）
+export function resetPageForTests(): void {
+  frozen = false
+  page = null
+}
+
+function read(key: string): string | null {
+  // 最初に読んだ時点で、このページの持ち主を覚える（アプリは開いてすぐトークンを読む）
+  pageState()
+  if (GUARDED.has(key) && !pageIsCurrent()) return null
+  return rawRead(key)
+}
+
 function write(key: string, value: string | null): void {
+  if (!pageIsCurrent()) return
   try {
     if (value === null) localStorage.removeItem(key)
     else localStorage.setItem(key, value)
@@ -87,20 +136,229 @@ export function loadAnnictToken(): string | null {
 }
 
 export function saveAnnictToken(token: string | null): void {
-  // 感想の控えは、いまログインしている人のもの（トークンそのものは控えに置けない）。
-  // 別の値に変わった・消えたら、別のアカウントの感想を混ぜないよう控えも消す
+  // Annict から読んだ記録の写しは、トークンが変わったら消す（開いたときに Annict から読み直せる）。
+  // 送れなかった記録の控え・書きかけ・「まだ見てる」などは人ごとの記録として持ち、switchAccount が入れ替える
+  // （同じ人がログインし直しても失わない。2026-10-06 のセキュリティの点検）
   const next = token && token.trim() ? token.trim() : null
   if (loadAnnictToken() !== next) {
-    write(KEYS.reviews, null)
-    write(KEYS.reviewDrafts, null)
-    write(KEYS.library, null)
-    write(KEYS.seasonWorks, null)
-    write(KEYS.writeJournal, null)
-    write(KEYS.uncertainWrites, null)
-    write(KEYS.stillWatching, null)
-    write(KEYS.episodeDrafts, null)
+    for (const key of ANNICT_COPIES) write(key, null)
   }
   write(KEYS.annictToken, token)
+  // このページでの切り替え（ページは、このあと読み込み直す）
+  if (!frozen) pageState().token = rawRead(KEYS.annictToken)
+}
+
+// ── 人ごとの記録 ──
+// Annict の記録の写しはトークンが変わったら消す（saveAnnictToken）。一方、Annict に置き場所の無い記録（パス・見てない・見たいのメモ・
+// 称号・GitHub のつなぎなど）は、ログインし直す（「Annict でログイン」はそのたびに新しいトークンになる）たびに消すと失われる。
+// なので Annict のユーザー名で持ち主を覚え、別の人に替わるときだけ、前の人の分を退避して次の人の分を戻す
+// （2026-10-06 の点検: 共有の端末で、前の人の称号やパスが次の人に引き継がれ、GitHub のバックアップにも混ざっていた）
+// Annict から読んだ自分の記録の写し（トークンが変わったら消す）
+const ANNICT_COPIES: readonly string[] = [KEYS.reviews, KEYS.library, KEYS.seasonWorks]
+
+const PERSONAL_KEYS: readonly string[] = [
+  KEYS.writeJournal,
+  KEYS.uncertainWrites,
+  KEYS.stillWatching,
+  KEYS.episodeDrafts,
+  KEYS.reviewDrafts,
+  // 似た作品の鍵は好きな作品、表紙の控えは見た作品の ID（好みと記録が分かる）
+  KEYS.similar,
+  KEYS.covers,
+  KEYS.backfillSeason,
+  KEYS.skipped,
+  KEYS.unseen,
+  KEYS.wannaNotes,
+  KEYS.githubToken,
+  KEYS.githubRepo,
+  KEYS.passes,
+  KEYS.matchFilter,
+  KEYS.backup,
+  KEYS.titles,
+  KEYS.feats,
+]
+
+// GitHub のトークンは、退避の控えにも残さない（ログアウトで消す。次の人が端末の中を覗いても読めない。もう一度つなぐときに入れ直す）
+const NOT_KEPT: readonly string[] = [KEYS.githubToken]
+
+// 古いページに読ませない鍵（人ごとの記録と、Annict の記録の写し）
+const GUARDED: ReadonlySet<string> = new Set([...PERSONAL_KEYS, ...ANNICT_COPIES])
+
+type Accounts = Record<string, Record<string, string>>
+
+// 鍵は利用者の名前なので、プロトタイプを持たないオブジェクトにする（`__proto__` という名前の人の分が消えないように。2026-10-06 の点検）
+function loadAccounts(): Accounts {
+  const out: Accounts = Object.create(null) as Accounts
+  const v = readJson(KEYS.accounts)
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return out
+  for (const [name, saved] of Object.entries(v as Record<string, unknown>)) {
+    if (!saved || typeof saved !== 'object' || Array.isArray(saved)) continue
+    const kept = Object.entries(saved as Record<string, unknown>).filter((e): e is [string, string] => PERSONAL_KEYS.includes(e[0]) && typeof e[1] === 'string')
+    if (kept.length > 0) out[name] = Object.fromEntries(kept)
+  }
+  return out
+}
+
+export function loadOwner(): string | null {
+  return read(KEYS.owner)
+}
+
+// 名前をまだ確かめられないログインのあいだの記録は、そのときのトークンの印（トークンそのものではなく、短いハッシュ）を持ち主にする。
+// 同じトークンで名前が分かったときだけ、その人のものにする（名前が分からないままログアウトした記録を、次の別の人に引き継がない。
+// 2026-10-06 のセキュリティの点検の指摘）
+function tokenMark(token: string): string {
+  let h = 0x811c9dc5
+  for (let i = 0; i < token.length; i++) {
+    h ^= token.charCodeAt(i)
+    h = Math.imul(h, 0x01000193) >>> 0
+  }
+  return `?${h.toString(36)}`
+}
+
+// いまログインしている人に、人ごとの記録を合わせる。
+// - username: Annict のユーザー名。分からなければ null（token があれば、名前の分からないログイン。どちらも無ければログアウト）
+// - ログアウトのあとの持ち主は「ログアウト済み」の印にする（持ち主を覚えていない＝この仕組みの前から、と区別する）
+// - 前の持ち主の分は退避して空にする（名前が分からないのに前の人の記録を見せたり、前の人の GitHub に書いたりしない）
+// - 名前の分からないあいだに付けた記録は、同じトークンで名前が分かったら、その人のものとして残す
+// - 次の人の退避していた分を戻す（空のあいだに付けた分は残し、無い分だけ戻す）
+// - 持ち主を覚えていない記録（この仕組みの前から使っている端末）は、最初の人のものとみなす（前からの状態と同じ）
+// 記録を入れ替えたら true（画面を作り直す）
+// ログアウトしたあとの持ち主の印。このあいだに書かれた記録（別のタブの遅れた書き込みなど）は、誰のものとも確かめられないので次の人に渡さない
+const LOGGED_OUT = '!'
+// 誰のものか確かめられない持ち主（名前の分からないログイン・ログアウトのあと）
+const unattributable = (owner: string) => owner.startsWith('?') || owner === LOGGED_OUT
+
+export function switchAccount(username: string | null, token: string | null = null): boolean {
+  const owner = loadOwner()
+  const mark = token ? tokenMark(token) : null
+  const target = username ?? mark ?? LOGGED_OUT
+  if (owner === target) return false
+  const accounts = loadAccounts()
+  let changed = false
+  // 名前の分からなかったログインが、同じトークンのまま名前が分かった
+  const identified = owner !== null && owner === mark
+  if (owner !== null && !identified) {
+    const mine = takePersonal()
+    if (Object.keys(mine).length > 0) changed = true
+    // 名前の分からなかったログインの記録は、トークンが替わる・ログアウトすると持ち主を確かめる道が無くなるので、退避せずに消す。
+    // ログアウトのあとに書かれた記録も同じ
+    if (Object.keys(mine).length > 0 && !unattributable(owner)) accounts[owner] = mine
+  }
+  for (const from of new Set([username, mark])) {
+    if (from === null || !accounts[from]) continue
+    putBack(accounts[from])
+    delete accounts[from]
+    changed = true
+  }
+  saveAccounts(accounts)
+  setOwner(target)
+  return changed
+}
+
+// 人ごとの記録を端末から取り出す（GitHub のトークンは控えに残さず消す）
+function takePersonal(): Record<string, string> {
+  const mine: Record<string, string> = {}
+  for (const key of PERSONAL_KEYS) {
+    const value = read(key)
+    if (value !== null && !NOT_KEPT.includes(key)) mine[key] = value
+    write(key, null)
+  }
+  return mine
+}
+
+function putBack(kept: Record<string, string>): void {
+  for (const [key, value] of Object.entries(kept)) {
+    const current = read(key)
+    write(key, current === null ? value : mergeKept(key, current, value))
+  }
+}
+
+function saveAccounts(accounts: Accounts): void {
+  write(KEYS.accounts, Object.keys(accounts).length > 0 ? JSON.stringify(accounts) : null)
+}
+
+// このページでの持ち主の変更（ページはこのあと読み込み直すか、同じ人のまま続ける）
+function setOwner(owner: string | null): void {
+  write(KEYS.owner, owner)
+  if (!frozen) pageState().owner = rawRead(KEYS.owner)
+}
+
+// ── 持ち主を確かめられなかった以前の記録 ──
+// この仕組みの前から使っている端末で、前の人の名前を確かめられないまま切り替えるとき、その記録は消さずに隔離し、
+// ログインした人に「あなたの記録ですか」と聞いてから戻す（黙って渡さない・黙って消さない。2026-10-06 のセキュリティの点検）
+const UNCLAIMED = '?unclaimed'
+
+export function setAsideUnclaimed(): void {
+  const mine = takePersonal()
+  // 前の人の送れなかった記録の控えと「届いたか分からない」印は隔離しない（受け取った人のトークンで、前の人の答えを送らないように）
+  delete mine[KEYS.writeJournal]
+  delete mine[KEYS.uncertainWrites]
+  if (Object.keys(mine).length === 0) return
+  const accounts = loadAccounts()
+  accounts[UNCLAIMED] = { ...(accounts[UNCLAIMED] ?? {}), ...mine }
+  saveAccounts(accounts)
+}
+
+export function hasUnclaimed(): boolean {
+  return !!loadAccounts()[UNCLAIMED]
+}
+
+// 自分のものとして受け取る（いまの記録と合わせる）か、消す
+export function settleUnclaimed(mine: boolean): void {
+  const accounts = loadAccounts()
+  const kept = accounts[UNCLAIMED]
+  if (!kept) return
+  if (mine) putBack(kept)
+  delete accounts[UNCLAIMED]
+  saveAccounts(accounts)
+}
+
+// 戻す記録と、名前の分からなかったあいだに付けた記録の両方があるとき。どちらも作品などの ID を鍵にした表なら合わせ、
+// そうでなければ、その人の積み重ね（戻す方）を残す（名前の分からなかった短いあいだの分より重い。2026-10-06 のセキュリティの点検）
+function mergeKept(key: string, current: string, kept: string): string {
+  try {
+    const a = JSON.parse(current) as unknown
+    const b = JSON.parse(kept) as unknown
+    const plain = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
+    // 送れなかった記録の控え（{ v, entries: [...] }）と「届いたか分からない」印（[...]）は、どちらも残す（送り漏れ・二重の作成を防ぐ）。
+    // 同じ項目の控えは、新しく頼んだ方（at が大きい方）を残す
+    if (key === KEYS.writeJournal && plain(a) && plain(b) && Array.isArray(a.entries) && Array.isArray(b.entries)) {
+      const byKey = new Map<string, Record<string, unknown>>()
+      for (const e of [...b.entries, ...a.entries] as Record<string, unknown>[]) {
+        const k = String(e?.key)
+        const prev = byKey.get(k)
+        if (!prev || Number(e?.at) >= Number(prev.at)) byKey.set(k, e)
+      }
+      return JSON.stringify({ ...b, entries: [...byKey.values()] })
+    }
+    if (key === KEYS.uncertainWrites && Array.isArray(a) && Array.isArray(b)) {
+      const seen = new Set<string>()
+      return JSON.stringify([...b, ...a].filter((m) => !seen.has(JSON.stringify(m)) && !!seen.add(JSON.stringify(m))))
+    }
+    if (plain(a) && plain(b)) {
+      const merged = Object.assign(Object.create(null) as Record<string, unknown>, a)
+      for (const [k, v] of Object.entries(b)) {
+        // 中もまた表なら、1段だけ合わせる（{ v: 1, items: {…} } のような形）
+        merged[k] = plain(merged[k]) && plain(v) ? { ...merged[k], ...v } : v
+      }
+      return JSON.stringify(merged)
+    }
+  } catch {
+    // JSON でなければ、戻す方を残す
+  }
+  return kept
+}
+
+// いまの人の記録を、この端末から消す（「ログアウトして、この端末の記録も消す」）。退避していた分も消す
+export function forgetAccount(): void {
+  const owner = loadOwner()
+  for (const key of PERSONAL_KEYS) write(key, null)
+  if (owner !== null) {
+    const accounts = loadAccounts()
+    delete accounts[owner]
+    saveAccounts(accounts)
+  }
+  setOwner(LOGGED_OUT)
 }
 
 export function loadGithubToken(): string | null {
@@ -419,8 +677,18 @@ export function saveOauthState(state: string | null): void {
   }
 }
 
+// この端末の保存を全部消す（画面が壊れたときの「消して再読み込み」）。消したあとは読み込み直すので、以降は何も書かない。
+// 1つずつ write で消すと、最初にトークンを消した時点でこのページが「古い」になり、残りが消えなかった（2026-10-06 のセキュリティの点検）
 export function clearAll(): void {
-  for (const k of ALL_KEYS) write(k, null)
+  if (frozen) return
+  for (const k of ALL_KEYS) {
+    try {
+      localStorage.removeItem(k)
+    } catch {
+      // 消せない環境では何もしない
+    }
+  }
+  frozen = true
 }
 
 export function loadWriteJournalRaw(): unknown {

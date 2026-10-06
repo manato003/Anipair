@@ -143,6 +143,12 @@ export function Backfill({ token, github, active }: { token: string; github: Git
     else if (m === 'b') b.undo()
   }
   const canUndo = historyLength > 0
+  // 見てる作品の山を読み直すと、その山の取り消しは消える（useWatching が捨てる）ので、その分の印も外す
+  const reloadWatching = () => {
+    history.current = history.current.filter((m) => m !== 'w')
+    setHistoryLength(history.current.length)
+    w.reload()
+  }
 
   const bCurrent = b.current
   const wCurrent = w.current
@@ -303,7 +309,7 @@ export function Backfill({ token, github, active }: { token: string; github: Git
           <StaleNote
             at={active ? (inWatching ? w.staleAt : b.staleAt) : null}
             error={inWatching ? w.staleError : b.staleError}
-            onRetry={inWatching ? w.reload : b.reload}
+            onRetry={inWatching ? reloadWatching : b.reload}
           />
           <SaveStatus
             pending={b.pending + w.pending}
@@ -321,7 +327,7 @@ export function Backfill({ token, github, active }: { token: string; github: Git
           {w.loadError && (
             <p className="note">
               見てる作品を読み込めませんでした（{w.loadError}）。クールの作品だけで進めます。{' '}
-              <button type="button" className="link" onClick={w.reload}>
+              <button type="button" className="link" onClick={reloadWatching}>
                 読み直す
               </button>
             </p>

@@ -31,6 +31,15 @@ describe('github functions use the repository they are given', () => {
     expect(await readJson(conn, 'x.json')).toEqual({ value: { a: 1 }, sha: 's1' })
   })
 
+  // 2026-10-06 の点検: 1MB を超えるファイルは content が空で返り、空と読んで「壊れている」扱いにしていた
+  it('readJson reads a file over 1 MB through the raw media type', async () => {
+    fetchMock
+      .mockResolvedValueOnce(reply(200, { content: '', encoding: 'none', size: 2_000_000, sha: 's2' }))
+      .mockResolvedValueOnce(new Response('{"big":true}', { status: 200 }))
+    expect(await readJson(conn, 'backup.json')).toEqual({ value: { big: true }, sha: 's2' })
+    expect((fetchMock.mock.calls[1][1]?.headers as Record<string, string>).Accept).toBe('application/vnd.github.raw+json')
+  })
+
   it('writeJson puts to that repository, with the sha when there is one', async () => {
     fetchMock.mockResolvedValue(reply(200))
     await writeJson({ token: 't', repo: 'other/data-2' }, 'backup.json', { v: 1 }, 'old', 'msg')

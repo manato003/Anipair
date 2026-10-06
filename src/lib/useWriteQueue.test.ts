@@ -1,8 +1,17 @@
 // @vitest-environment jsdom
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { StrictMode } from 'react'
-import { describe, expect, it } from 'vitest'
-import { hasPendingWrites, useWriteQueue } from './useWriteQueue'
+import { describe, expect, it, vi } from 'vitest'
+import type { WriteIntent } from './writeJournal'
+
+// 一部だけ頼み直された失敗は、残りの行き先だけを reconcile で送る
+const reconciled: string[] = []
+vi.mock('../features/unsent/reconcile', () => ({
+  reconcileIntent: vi.fn(async (_t: string, intent: WriteIntent) => void reconciled.push(JSON.stringify(intent))),
+}))
+
+const { hasPendingWrites, useWriteQueue } = await import('./useWriteQueue')
+const { saveAnnictToken } = await import('./storage')
 
 describe('useWriteQueue', () => {
   it('runs writes from different screens one after another, in the order they were asked', async () => {
@@ -121,5 +130,66 @@ describe('useWriteQueue', () => {
     expect(journal()).toEqual(['status:W2'])
     act(() => hook.result.current.dismissFailed())
     expect(journal()).toEqual([])
+  })
+
+  // 2026-10-06 の点検: 失敗した送信を「もう一度」送ると、そのあとで付け直した・取り消した答えを古い答えで上書きしていた
+  describe('a failed write that was asked again since', () => {
+    const status = (workId: string, state: 'WATCHED' | 'NO_STATE'): WriteIntent => ({ kind: 'status', workId, state })
+    const rating = (workId: string, r: 'GOOD' | 'GREAT'): WriteIntent => ({ kind: 'rating', workId, annictId: 1, rating: r })
+
+    it('is dropped from the list when the same items are asked again, and retry does not send it', async () => {
+      const hook = renderHook(() => useWriteQueue())
+      const sent: string[] = []
+      act(() => hook.result.current.enqueue('GOOD', async () => Promise.reject(new Error('HTTP 502')), [status('W1', 'WATCHED'), rating('W1', 'GOOD')]))
+      await waitFor(() => expect(hook.result.current.failed).toHaveLength(1))
+      // 取り消した（状態と評価の両方を頼み直した）
+      act(() => hook.result.current.enqueue('取り消し', async () => void sent.push('undo'), [status('W1', 'NO_STATE'), rating('W1', 'GOOD')]))
+      expect(hook.result.current.failed).toEqual([])
+      await waitFor(() => expect(hook.result.current.pending).toBe(0))
+      act(() => hook.result.current.retryFailed())
+      expect(sent).toEqual(['undo'])
+    })
+
+    it('is not kept as a failure when it was asked again while it was being sent', async () => {
+      const hook = renderHook(() => useWriteQueue())
+      let fail!: () => void
+      const gate = new Promise<void>((_, reject) => (fail = () => reject(new Error('HTTP 502'))))
+      act(() => {
+        hook.result.current.enqueue('GOOD', () => gate, [rating('W1', 'GOOD')])
+        hook.result.current.enqueue('GREAT', async () => undefined, [rating('W1', 'GREAT')])
+      })
+      fail()
+      await waitFor(() => expect(hook.result.current.pending).toBe(0))
+      expect(hook.result.current.failed).toEqual([])
+    })
+
+    it('a write asked again on another screen is skipped on retry; only the rest is sent, through reconcile', async () => {
+      localStorage.clear()
+      saveAnnictToken('t')
+      reconciled.length = 0
+      const a = renderHook(() => useWriteQueue())
+      const b = renderHook(() => useWriteQueue())
+      let attempts = 0
+      act(() =>
+        a.result.current.enqueue(
+          '状態と評価',
+          async () => {
+            attempts++
+            throw new Error('HTTP 502')
+          },
+          [status('W1', 'WATCHED'), rating('W1', 'GOOD')],
+        ),
+      )
+      await waitFor(() => expect(a.result.current.failed).toHaveLength(1))
+      // 別の画面で評価だけ付け直した
+      act(() => b.result.current.enqueue('GREAT', async () => undefined, [rating('W1', 'GREAT')]))
+      await waitFor(() => expect(b.result.current.pending).toBe(0))
+      act(() => a.result.current.retryFailed())
+      await waitFor(() => expect(a.result.current.pending).toBe(0))
+      // 元の送信（古い評価を含む）はもう走らせず、状態だけを送る
+      expect(attempts).toBe(1)
+      expect(reconciled).toEqual([JSON.stringify(status('W1', 'WATCHED'))])
+      expect(a.result.current.failed).toEqual([])
+    })
   })
 })

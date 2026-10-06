@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest'
-import { saveAnnictToken } from './storage'
+import { saveAnnictToken, switchAccount } from './storage'
 import { isStillPending, journalDone, journalPut, keyOf, leftoverEntries, type JournalEntry, type WriteIntent } from './writeJournal'
 
 const KEY = 'animax.writeJournal.v1'
@@ -50,12 +50,18 @@ describe('writeJournal', () => {
     expect(leftoverEntries()).toEqual([])
   })
 
-  it('is dropped when the account changes', () => {
+  // 2026-10-06 のセキュリティの点検: ログインし直す（新しいトークン）と、送れなかった記録の控えが消えていた。人ごとの記録として持つ
+  it('survives the same person logging in again, and is put aside when someone else signs in', () => {
+    switchAccount('u1')
     saveAnnictToken('a')
     journalPut('記録', [status('W1')])
     saveAnnictToken('b')
-    expect(leftoverEntries()).toEqual([])
+    expect(stored().map((e) => e.key)).toEqual(['status:W1'])
+    switchAccount('u2', 'b')
     expect(localStorage.getItem(KEY)).toBeNull()
+    // 元の人に戻れば、控えも戻る
+    switchAccount('u1', 'c')
+    expect(stored().map((e) => e.key)).toEqual(['status:W1'])
   })
 
   it('keys every kind of wish', () => {

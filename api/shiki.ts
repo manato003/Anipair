@@ -58,6 +58,15 @@ function fail(status: number, error: string, extra: Record<string, string> = {})
   return res
 }
 
+// 問い合わせの種類ごとに受け付ける引数（v は、応答の形を変えたときにクライアントが CDN の古い控えを避けるための版）
+const PARAMS: Record<string, readonly string[]> = {
+  animes: ['op', 'ids', 'v'],
+  studio: ['op', 'id', 'page', 'v'],
+  people: ['op', 'q'],
+  person: ['op', 'id', 'v'],
+  similar: ['op', 'id'],
+}
+
 function parseIds(raw: string | null): number[] | null {
   if (!raw || !/^[1-9][0-9]{0,8}(,[1-9][0-9]{0,8})*$/.test(raw)) return null
   const ids = [...new Set(raw.split(',').map(Number))].sort((a, b) => a - b)
@@ -132,8 +141,24 @@ function trim(a: RawAnime) {
 
 export async function handleShiki(request: Request, fetchFn: FetchLike = fetch): Promise<Response> {
   if (request.method !== 'GET') return fail(405, 'method_not_allowed', { Allow: 'GET' })
-  const q = new URL(request.url).searchParams
+  const url = new URL(request.url)
+  const q = url.searchParams
   const op = q.get('op')
+  // 問い合わせの形を1つに決める。CDN の控えは URL ごとなので、余計な引数や並びの違う ids を付けると控えを素通りして、
+  // 毎回 Shikimori に問い合わせさせられる（共有の User-Agent と出口が締め出されると、全員の表紙が出なくなる。2026-10-06 の点検）
+  const allowed = op ? PARAMS[op] : undefined
+  const keys = [...q.keys()]
+  if (!allowed || keys.some((k) => !allowed.includes(k)) || new Set(keys).size !== keys.length) return fail(400, 'bad_request')
+  const v = q.get('v')
+  if (v !== null && !/^[0-9]{1,2}$/.test(v)) return fail(400, 'bad_request')
+  if (op === 'animes') {
+    const ids = parseIds(q.get('ids'))
+    if (ids && ids.join(',') !== q.get('ids')) {
+      // 並びや重複の違いは、そろえた URL へ送る（同じ中身は1つの控えにする）
+      q.set('ids', ids.join(','))
+      return new Response(null, { status: 308, headers: { Location: `${url.pathname}?${q.toString()}`, 'Cache-Control': CACHE_OK } })
+    }
+  }
 
   let upstream: Response
   try {

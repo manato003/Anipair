@@ -323,7 +323,8 @@ describe('Settings first screen (no Annict token)', () => {
     fireEvent.change(screen.getByLabelText('Annict の個人用アクセストークン'), { target: { value: ' tok ' } })
     fireEvent.click(screen.getByRole('button', { name: '連携する' }))
     await waitFor(() => expect(onAnnictTokenChange).toHaveBeenCalledWith('tok'))
-    expect(localStorage.getItem('animax.annictToken')).toBe('tok')
+    // 保存は App が、持ち主の名前を確かめて記録を入れ替えるのと一度にする
+    expect(localStorage.getItem('animax.annictToken')).toBeNull()
   })
 
   it('does not show the login button once there is a token', () => {
@@ -340,10 +341,10 @@ describe('Settings about block', () => {
     expect(headings.at(-1)).toBe('このアプリについて')
   })
 
-  it('comes before the long key bindings list when signed in', () => {
+  it('is the first section when signed in', () => {
     show()
     const headings = screen.getAllByRole('heading').map((h) => h.textContent)
-    expect(headings.slice(-2)).toEqual(['このアプリについて', 'キーバインド（PC）'])
+    expect(headings[0]).toBe('このアプリについて')
   })
 
   it('states what the app is and where data goes', () => {
@@ -374,7 +375,7 @@ describe('Settings layout (sections, status first, folded explanations)', () => 
 
   it('has the six sections in order, each a card with a short heading', () => {
     show()
-    expect(headings()).toEqual(['Annict 連携（必須）', 'GitHub 連携（任意）', 'バックアップ', '演出', 'このアプリについて', 'キーバインド（PC）'])
+    expect(headings()).toEqual(['このアプリについて', 'Annict 連携（必須）', 'GitHub 連携（任意）', 'バックアップ', '演出', 'キーバインド（PC）'])
     expect(document.querySelectorAll('.settings__card')).toHaveLength(6)
   })
 

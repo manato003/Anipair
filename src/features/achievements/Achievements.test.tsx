@@ -72,6 +72,19 @@ describe('Achievements', () => {
     expect(screen.getAllByText('NEW')).toHaveLength(2)
   })
 
+  // 2026-10-06 の点検: 称号を掲げると、開いたときの古い内容で保存し直し、見終えた称号に次も NEW が付いていた
+  it('raising a title keeps the titles already seen, so NEW is not shown again next time', () => {
+    localStorage.setItem('animax.titles.v1', JSON.stringify({ equipped: null, seen: [], awakened: true }))
+    data = ready([title('season-full-1', '踏破者', true), title('season-full-4', '四季を巡る者', true)])
+    show()
+    expect(screen.getAllByText('NEW')).toHaveLength(2)
+    fireEvent.click(screen.getByRole('button', { name: /^踏破者/ }))
+    expect(JSON.parse(localStorage.getItem('animax.titles.v1') ?? '{}').seen).toEqual(['season-full-1', 'season-full-4'])
+    cleanup()
+    show()
+    expect(screen.queryByText('NEW')).toBeNull()
+  })
+
   it('God mode lays out every title as unlocked, and saves nothing', () => {
     localStorage.setItem('animax.titles.v1', JSON.stringify({ equipped: null, seen: ['season-full-1'], awakened: true }))
     data = ready([title('season-full-1', '踏破者', true), title('season-full-4', '四季を巡る者', false), title('hidden-wanna', '積みの魔王', false, true)])

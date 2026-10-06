@@ -280,6 +280,17 @@ describe('useMatching', () => {
     expect(resolveAnnictWork).toHaveBeenCalledTimes(2)
   })
 
+  // 2026-10-06 の点検: 答えた直後（送信待ち・失敗のあいだ）に「提案し直す」と、その作品がまた候補に出ていた
+  it('does not suggest again a work answered here before Annict has it', async () => {
+    const hook = await ready()
+    act(() => hook.result.current.answer({ kind: 'wanna' }))
+    // ライブラリ（偽物）には、まだ入っていない
+    await act(() => hook.result.current.run())
+    await waitFor(() => expect(hook.result.current.phase.kind).toBe('ready'))
+    expect(hook.result.current.cards.map((c) => c.media.idMal)).toEqual([11])
+    await settle(hook)
+  })
+
   it('searches again after "run" starts a new set of suggestions', async () => {
     const hook = await ready()
     const card = hook.result.current.current!

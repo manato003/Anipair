@@ -45,9 +45,9 @@ const RAW = {
 }
 
 describe('handleShiki animes', () => {
-  it('asks Shikimori GraphQL with the app User-Agent and a fixed query, ids sorted and de-duplicated', async () => {
+  it('asks Shikimori GraphQL with the app User-Agent and a fixed query', async () => {
     const fetchFn = upstream(200, { data: { animes: [RAW] } })
-    await handleShiki(req('?op=animes&ids=9253,52991,9253'), fetchFn)
+    await handleShiki(req('?op=animes&ids=9253,52991'), fetchFn)
     const [url, init] = fetchFn.mock.calls[0]
     expect(url).toBe('https://shikimori.io/api/graphql')
     expect(init.method).toBe('POST')
@@ -128,6 +128,25 @@ describe('handleShiki animes', () => {
     const fetchFn = upstream(200, { data: { animes: [] } })
     const res = await handleShiki(req(`?op=animes&ids=${Array.from({ length: 50 }, (_, i) => i + 1).join(',')}`), fetchFn)
     expect(res.status).toBe(200)
+  })
+})
+
+// 2026-10-06 の点検: 余計な引数や並びの違う ids で CDN の控えを素通りし、毎回 Shikimori に問い合わせさせられた
+describe('handleShiki keeps one URL per answer', () => {
+  it('sends ids that are not sorted or have duplicates to the sorted URL, without asking Shikimori', async () => {
+    const fetchFn = upstream(200, { data: { animes: [RAW] } })
+    const res = await handleShiki(req('?op=animes&ids=52991,9253,9253&v=4'), fetchFn)
+    expect(res.status).toBe(308)
+    expect(res.headers.get('Location')).toBe('/api/shiki?op=animes&ids=9253%2C52991&v=4')
+    expect(fetchFn).not.toHaveBeenCalled()
+  })
+
+  it('refuses unknown or repeated parameters, and a version that is not a short number', async () => {
+    const fetchFn = upstream(200, { data: { animes: [RAW] } })
+    for (const query of ['?op=animes&ids=1&x=nonce', '?op=similar&id=1&v=4', '?op=animes&ids=1&ids=2', '?op=animes&ids=1&v=abc', '?op=people&q=a&id=1', '?op=nope']) {
+      expect((await handleShiki(req(query), fetchFn)).status).toBe(400)
+    }
+    expect(fetchFn).not.toHaveBeenCalled()
   })
 })
 

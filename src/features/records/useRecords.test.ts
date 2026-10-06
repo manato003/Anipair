@@ -108,6 +108,8 @@ describe('useRecords', () => {
     const hook = await setup()
     act(() => hook.result.current.setRating(rowOf(hook, 2), 'GOOD'))
     expect(rowOf(hook, 2).entry.state).toBe('WATCHED')
+    // 「見た」になった日時は今（2026-10-06 の点検: 見たいにした古い日付のままだった）
+    expect(Date.now() - Date.parse(rowOf(hook, 2).entry.stateAt!)).toBeLessThan(60_000)
     await settle(hook)
     expect(calls).toEqual(['status W2 WATCHED', 'create W2 GOOD -> N1'])
   })
@@ -186,6 +188,17 @@ describe('useRecords', () => {
       vi.mocked(fetchLibrary).mockRejectedValueOnce(new Error('offline'))
       hook.rerender({ active: true })
       await waitFor(() => expect(fetchLibrary).toHaveBeenCalledTimes(2))
+      expect(hook.result.current.rows).toHaveLength(2)
+      expect(hook.result.current.loadError).toBeNull()
+    })
+
+    // 2026-10-06 の点検: 関連作品のシートで一覧に無い作品を記録したあとの読み直しが失敗すると、一覧ごと消えていた
+    it('keeps the current rows when the reload after recording a related work fails', async () => {
+      const hook = await setup()
+      vi.mocked(fetchLibrary).mockRejectedValueOnce(new Error('offline'))
+      act(() => hook.result.current.noteRelatedChange(99, { state: 'WANNA_WATCH' }))
+      await waitFor(() => expect(fetchLibrary).toHaveBeenCalledTimes(2))
+      await act(async () => undefined)
       expect(hook.result.current.rows).toHaveLength(2)
       expect(hook.result.current.loadError).toBeNull()
     })

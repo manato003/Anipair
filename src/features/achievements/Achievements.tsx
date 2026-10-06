@@ -26,7 +26,10 @@ export function Achievements(props: { token: string; rows: RecordRow[] | null; l
   const [shareCard, setShareCard] = useState<ShareCard | null>(null)
 
   const unlocked = useMemo(() => (a.titles ?? []).filter((t) => t.unlocked), [a.titles])
-  const update = (next: TitlesState) => {
+  // 端末の最新の内容に重ねて保存する（画面を開いたときの内容に重ねると、そのあと別の所で書いた「見た」などを古い内容で消してしまう。
+  // 2026-10-06 の点検: 称号を掲げると、見終えた称号に NEW が戻っていた）
+  const update = (patch: Partial<TitlesState>) => {
+    const next = { ...loadTitlesState(), ...patch }
     setState(next)
     saveTitlesState(next)
   }
@@ -81,8 +84,8 @@ export function Achievements(props: { token: string; rows: RecordRow[] | null; l
   const equipped = titles.find((t) => t.id === equippedId && t.unlocked) ?? null
   const toggleEquip = (t: Title) => {
     if (god) setGodEquipped((cur) => (cur === t.id ? null : t.id))
-    else if (state.equipped === t.id) update({ ...state, equipped: null, equippedName: null, equippedRarity: null })
-    else update({ ...state, equipped: t.id, equippedName: t.name, equippedRarity: t.rarity })
+    else if (state.equipped === t.id) update({ equipped: null, equippedName: null, equippedRarity: null })
+    else update({ equipped: t.id, equippedName: t.name, equippedRarity: t.rarity })
   }
   const isNew = (t: Title) => !god && t.unlocked && state.awakened && !seenAtOpen.has(t.id)
   const hidden = titles.filter((t) => t.group === 'hidden')
@@ -197,7 +200,7 @@ export function Achievements(props: { token: string; rows: RecordRow[] | null; l
       {!state.awakened && a.ready && (
         <Awakening
           titles={unlocked}
-          onClose={() => update({ ...state, awakened: true, seen: [...new Set([...state.seen, ...unlocked.map((t) => t.id)])] })}
+          onClose={() => update({ awakened: true, seen: [...new Set([...loadTitlesState().seen, ...unlocked.map((t) => t.id)])] })}
         />
       )}
     </div>

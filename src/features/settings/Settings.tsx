@@ -12,7 +12,7 @@ import { Welcome } from './Welcome'
 export function Settings(props: {
   annictToken: string | null
   github: GithubConnection | null
-  onAnnictTokenChange: (token: string | null) => void
+  onAnnictTokenChange: (token: string | null, opts?: { forget?: boolean }) => void
   onGithubChange: (github: GithubConnection | null) => void
   // 「Annict でログイン」から戻ってきて、受け取っている最中か・失敗したときの文言
   loginBusy?: boolean
@@ -41,12 +41,12 @@ export function Settings(props: {
         <header className="settings__head">
           <HelpButton topic="settings" />
         </header>
+        {/* このアプリについては、使う人が最初に知っておくこと（非公式であること・データの行き先）なので一番上に置く */}
+        <AboutBlock />
         <AccountBlock token={props.annictToken} onChange={props.onAnnictTokenChange} />
         <GithubBlock github={props.github} onChange={props.onGithubChange} />
         <BackupBlock annictToken={props.annictToken} github={props.github} />
         <EffectsBlock />
-        {/* このアプリについては大切な説明なので、長いキーバインドの一覧より前に置く（キーバインドは PC だけで使うもの） */}
-        <AboutBlock />
         <Keybinds />
       </div>
     </section>
@@ -55,11 +55,11 @@ export function Settings(props: {
 
 // 広い画面だけ、左に出るページ内の目次（押すとその項目へ動く）。狭い画面では出さない
 const SECTIONS = [
+  { id: 'settings-about', label: 'このアプリについて' },
   { id: 'settings-account', label: 'Annict 連携' },
   { id: 'settings-github', label: 'GitHub 連携' },
   { id: 'settings-backup', label: 'バックアップ' },
   { id: 'settings-effects', label: '演出' },
-  { id: 'settings-about', label: 'このアプリについて' },
   { id: 'settings-keys', label: 'キーバインド' },
 ] as const
 

@@ -43,13 +43,18 @@ describe('when a watching work is asked "finished?"', () => {
     expect(askableWatching(works, NOW).map((w) => w.annictId)).toEqual([2, 4])
   })
 
-  it('ignores broken data, and is dropped with the other per-account data when the account changes', async () => {
+  it('ignores broken data, survives logging in again, and is put aside when someone else signs in', async () => {
     localStorage.setItem('animax.stillWatching.v1', JSON.stringify({ x: 1, 3: 'no' }))
     expect(snoozedWatching(NOW).size).toBe(0)
-    const { saveAnnictToken } = await import('../../lib/storage')
+    const { saveAnnictToken, switchAccount } = await import('../../lib/storage')
+    switchAccount('u1')
     saveAnnictToken('a')
     markStillWatching(1, NOW)
+    // 同じ人がログインし直した（新しいトークン）
     saveAnnictToken('b')
+    expect(snoozedWatching(NOW).has(1)).toBe(true)
+    // 別の人
+    switchAccount('u2', 'b')
     expect(localStorage.getItem('animax.stillWatching.v1')).toBeNull()
   })
 })

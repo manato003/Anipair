@@ -27,6 +27,8 @@ const pages: Record<string, { works: BrowseWork[]; endCursor: string | null; has
 
 vi.mock('../../lib/annict', async (orig) => ({
   ...(await orig<typeof import('../../lib/annict')>()),
+  // ほかの画面で W2 を「見たい」にした
+  fetchLibrary: vi.fn(async () => [{ annictId: 2, state: 'WANNA_WATCH' }]),
   browseWorks: vi.fn(async (_t: string, filter: unknown, opts: { after?: string | null; first?: number; order?: string } = {}) => {
     const { after = null, first = 30, order = 'WATCHERS_COUNT' } = opts
     calls.push({ filter, after, first, order })
@@ -75,6 +77,50 @@ describe('useBrowse sorting', () => {
     expect(hook.result.current.sort).toBe('popular')
   })
 
+  // 2026-10-06 の点検: 実際の並べ方が変わらないのに一覧を空にして、読み込み中のまま戻らなかった
+  it('pressing the sort that is already in effect keeps the list', async () => {
+    const hook = await setup()
+    act(() => hook.result.current.setSort('popular'))
+    expect(hook.result.current.works).not.toBeNull()
+    // クールで選べない並び（新しい順）は人気順のまま。押しても一覧は消えない
+    act(() => hook.result.current.setSort('newest'))
+    expect(hook.result.current.sort).toBe('popular')
+    expect(hook.result.current.works).not.toBeNull()
+  })
+
+  it('a slow 「もっと見る」 that returns after the cour was changed is dropped, and its failure keeps the list', async () => {
+    const { browseWorks } = await import('../../lib/annict')
+    const hook = await setup()
+    let release!: () => void
+    vi.mocked(browseWorks).mockImplementationOnce(async () => {
+      await new Promise<void>((r) => (release = r))
+      return pages.c1
+    })
+    act(() => void hook.result.current.loadMore())
+    // 続きが届く前にクールを変えた
+    act(() => hook.result.current.setSeason({ year: 2020, name: 'spring' }))
+    await waitFor(() => expect(hook.result.current.works).not.toBeNull())
+    await act(async () => release())
+    expect(hook.result.current.works!.map((x) => x.annictId)).toEqual([1, 2])
+    expect(hook.result.current.loadingMore).toBe(false)
+    // 続きの失敗は、読めている一覧を消さない
+    vi.mocked(browseWorks).mockRejectedValueOnce(new Error('HTTP 502'))
+    await act(async () => hook.result.current.loadMore())
+    expect(hook.result.current.error).toBeNull()
+    expect(hook.result.current.moreError).toBe('HTTP 502')
+    expect(hook.result.current.works!.map((x) => x.annictId)).toEqual([1, 2])
+  })
+
+  // 2026-10-06 の点検: ほかの画面で記録した状態が、一覧を読み直すまで出なかった
+  it('when shown again, takes the record states from the library (changed on other screens)', async () => {
+    const hook = renderHook(({ active }) => useBrowse('t', active), { initialProps: { active: true } })
+    await waitFor(() => expect(hook.result.current.works).not.toBeNull())
+    hook.rerender({ active: false })
+    hook.rerender({ active: true })
+    await waitFor(() => expect(hook.result.current.works!.find((x) => x.annictId === 2)?.viewerStatusState).toBe('WANNA_WATCH'))
+    expect(hook.result.current.works!.find((x) => x.annictId === 1)?.viewerStatusState).toBeNull()
+  })
+
   it('setting the same period again keeps the list (no reload)', async () => {
     const hook = await setup()
     calls.length = 0
@@ -95,6 +141,18 @@ describe('useBrowse sorting', () => {
       ['c1', 50],
     ])
     expect(hook.result.current.scores.get(3)).toEqual({ value: 95, label: 'Shikimori 9.5' })
+  })
+
+  // 2026-10-06 の点検: Shikimori が読めないと、評価順の一覧ごと失敗していた
+  it('score: when Shikimori cannot be read, still lists the works and says why the order is partial', async () => {
+    const { fetchMedia } = await import('../../lib/shikimori')
+    vi.mocked(fetchMedia).mockRejectedValueOnce(new Error('Shikimori が混み合っています'))
+    const hook = await setup()
+    act(() => hook.result.current.setSort('score'))
+    await waitFor(() => expect(hook.result.current.works?.length).toBe(3))
+    expect(hook.result.current.error).toBeNull()
+    expect(hook.result.current.sortNote).toContain('Annict の満足度だけで並べています')
+    expect(hook.result.current.progress).toBeNull()
   })
 
   it('newest only applies while searching; the season list stays by popularity', async () => {
