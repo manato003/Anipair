@@ -195,7 +195,8 @@ describe('useMatching', () => {
     await settle(hook)
     expect(calls).toEqual([])
     const f = hook.result.current.failed[0]
-    expect(f.link?.href).toContain(encodeURIComponent('作品10'))
+    expect(f.links?.[0].href).toContain(encodeURIComponent('作品10'))
+    expect(f.links?.[1].href).toBe('https://annict.com/forum/posts/new')
   })
 
   it('"pass" is saved on this device and synced to GitHub when connected; undo reverses it', async () => {

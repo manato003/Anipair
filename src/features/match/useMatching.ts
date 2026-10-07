@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { getMyReviews, rememberReview } from '../../lib/myReviews'
 import type { GithubConnection } from '../../lib/github'
-import { annictSearchUrl, updateStatus, type RatingState, type WorkRef } from '../../lib/annict'
+import { annictMissingLinks, updateStatus, type RatingState, type WorkRef } from '../../lib/annict'
 import { changeRating } from '../../lib/reviewOps'
 import { fetchMedia, type Media } from '../../lib/shikimori'
 import { loadMatchFilterRaw, saveMatchFilterRaw } from '../../lib/storage'
@@ -192,10 +192,7 @@ export function useMatching(annictToken: string, github: GithubConnection | null
         async () => {
           entry.ref ??= await resolveCard(card)
           if (!entry.ref) {
-            throw new WriteError(`「${title}」を Annict で見つけられませんでした。`, {
-              href: annictSearchUrl(title),
-              text: 'Annict で探して登録する',
-            })
+            throw new WriteError(`「${title}」を Annict で見つけられませんでした。`, annictMissingLinks(title))
           }
           await updateStatus(annictToken, entry.ref.id, state)
           if (a.kind === 'rate') {

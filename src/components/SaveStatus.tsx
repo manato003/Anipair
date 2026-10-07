@@ -30,10 +30,12 @@ export function SaveStatus(props: { pending: number; failed: FailedWrite[]; onRe
         <span>
           {props.failed.length}件を保存できませんでした。{first.message}
         </span>
-        {first.link ? (
-          <a className="link" href={first.link.href} target="_blank" rel="noreferrer">
-            {first.link.text}
-          </a>
+        {first.links?.length ? (
+          first.links.map((l) => (
+            <a key={l.href} className="link" href={l.href} target="_blank" rel="noreferrer">
+              {l.text}
+            </a>
+          ))
         ) : (
           <button type="button" className="link" onClick={props.onRetry}>
             もう一度送る

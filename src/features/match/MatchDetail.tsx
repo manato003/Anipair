@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { CoverImage } from '../../components/CoverImage'
 import { Sheet } from '../../components/Sheet'
-import { annictSearchUrl, type WorkRef } from '../../lib/annict'
+import { annictMissingLinks, type WorkRef } from '../../lib/annict'
 import { messageOf } from '../../lib/useWriteQueue'
 import { WorkDetail, type Enqueue, type RelatedChange } from '../browse/WorkDetail'
 import { titleOf, type MatchCard } from './useMatching'
@@ -61,9 +61,11 @@ export function MatchDetail(props: {
           {found.kind === 'missing' && (
             <>
               <p className="detail__meta">Annict で作品を見つけられませんでした。</p>
-              <a className="detail__source" href={annictSearchUrl(title)} target="_blank" rel="noreferrer">
-                Annict で探す
-              </a>
+              {annictMissingLinks(title).map((l) => (
+                <a key={l.href} className="detail__source" href={l.href} target="_blank" rel="noreferrer">
+                  {l.text}
+                </a>
+              ))}
             </>
           )}
           {found.kind === 'error' && <p className="settings__error">{found.message}</p>}

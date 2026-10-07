@@ -1,4 +1,4 @@
-import { annictSearchUrl, fetchRecentActivity, updateRecord, updateStatus } from '../../lib/annict'
+import { annictMissingLinks, fetchRecentActivity, updateRecord, updateStatus } from '../../lib/annict'
 import { getMyReviews, rememberReview } from '../../lib/myReviews'
 import { changeRating, saveReview } from '../../lib/reviewOps'
 import { createRecordGuarded, deleteRecordIfExists, findMyRecord, MARGIN_MS } from '../../lib/uncertainWrites'
@@ -39,7 +39,7 @@ export async function reconcileIntent(token: string, intent: WriteIntent): Promi
     case 'match': {
       const ref = await resolveAnnictWork(token, intent)
       const title = intent.title.native ?? intent.title.english ?? intent.title.romaji ?? ''
-      if (!ref) throw new WriteError(`「${title}」を Annict で見つけられませんでした。`, { href: annictSearchUrl(title), text: 'Annict で探して登録する' })
+      if (!ref) throw new WriteError(`「${title}」を Annict で見つけられませんでした。`, annictMissingLinks(title))
       await updateStatus(token, ref.id, intent.state)
       if (intent.rating === undefined) return
       const current = (await getMyReviews(token)).get(ref.annictId) ?? null

@@ -6,8 +6,8 @@ import { journalDone, journalPut, keyOf, type JournalTicket, type WriteIntent } 
 export interface FailedWrite {
   label: string
   message: string
-  // 自動で直せないときに、利用者が手で直せる場所（Annict の検索ページなど）
-  link?: { href: string; text: string }
+  // 自動で直せないときに、利用者が手で直せる場所（Annict の検索ページ・フォーラムなど）
+  links?: readonly { href: string; text: string }[]
   task: () => Promise<void>
   intents?: readonly WriteIntent[]
   // 端末の控え（lib/writeJournal.ts）の札。送らないことにしたら控えからも消す
@@ -40,12 +40,12 @@ function liveIntents(f: FailedWrite): readonly WriteIntent[] | undefined {
   return f.intents.filter((_, i) => latestByKey.get(f.stamps![i].key) === f.stamps![i].n)
 }
 
-// 利用者に見せる形の失敗。link を付けると、失敗の表示に手で直すためのリンクが出る
+// 利用者に見せる形の失敗。links を付けると、失敗の表示に手で直すためのリンクが出る
 export class WriteError extends Error {
-  readonly link?: FailedWrite['link']
-  constructor(message: string, link?: FailedWrite['link']) {
+  readonly links?: FailedWrite['links']
+  constructor(message: string, links?: FailedWrite['links']) {
     super(message)
-    this.link = link
+    this.links = links
   }
 }
 
@@ -92,7 +92,7 @@ export function useWriteQueue() {
         await task()
         journalDone(ticket)
       } catch (e) {
-        const failed: FailedWrite = { label, message: messageOf(e), link: e instanceof WriteError ? e.link : undefined, task, intents, ticket, stamps }
+        const failed: FailedWrite = { label, message: messageOf(e), links: e instanceof WriteError ? e.links : undefined, task, intents, ticket, stamps }
         // 送っているあいだに、同じ項目がすべて頼み直されていたら、失敗として残さない（新しいほうが送られる）
         if (liveIntents(failed)?.length === 0) journalDone(ticket)
         else updateFailed([...failedRef.current, failed])

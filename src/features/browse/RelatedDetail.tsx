@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CoverImage } from '../../components/CoverImage'
 import { Sheet } from '../../components/Sheet'
-import { annictSearchUrl, type SeriesWork, type WorkRef } from '../../lib/annict'
+import { annictMissingLinks, type SeriesWork, type WorkRef } from '../../lib/annict'
 import { fetchCovers } from '../../lib/covers'
 import type { Media } from '../../lib/shikimori'
 import type { Cover } from '../../lib/storage'
@@ -96,9 +96,11 @@ export function RelatedDetail(
           {found.kind === 'missing' && (
             <>
               <p className="detail__meta">Annict で作品を見つけられませんでした。</p>
-              <a className="detail__source" href={annictSearchUrl(title)} target="_blank" rel="noreferrer">
-                Annict で探す
-              </a>
+              {annictMissingLinks(title).map((l) => (
+                <a key={l.href} className="detail__source" href={l.href} target="_blank" rel="noreferrer">
+                  {l.text}
+                </a>
+              ))}
             </>
           )}
           {found.kind === 'error' && <p className="settings__error">{found.message}</p>}

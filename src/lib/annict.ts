@@ -486,6 +486,17 @@ export function annictSearchUrl(title: string): string {
   return `https://annict.com/search?q=${encodeURIComponent(title)}`
 }
 
+// Annict に無い作品は、Annict のフォーラムで知らせてほしいとのこと（Annict の運営の案内。2026-10-07）。ログインしていなければ、ログインの画面を経る
+export const ANNICT_FORUM_NEW_POST_URL = 'https://annict.com/forum/posts/new'
+
+// Annict で作品を特定できなかったときの、手で直すためのリンク。照合の外れなら検索で、Annict に無い作品ならフォーラムで
+export function annictMissingLinks(title: string): { href: string; text: string }[] {
+  return [
+    { href: annictSearchUrl(title), text: 'Annict で探して登録する' },
+    { href: ANNICT_FORUM_NEW_POST_URL, text: '無ければフォーラムで追加を頼む' },
+  ]
+}
+
 export interface LibraryEntry {
   workId: string
   annictId: number
@@ -951,10 +962,11 @@ export interface WorkRef {
   malAnimeId: string | null
 }
 
+// 100件まで。短い題名は当たる作品が多く、30件では目当ての作品が入らなかった（「日常」は35件中31番目。2026-10-07）
 export async function searchWorksByTitle(token: string, title: string): Promise<WorkRef[]> {
   const data = await gql<{ searchWorks: { nodes: WorkRef[] } }>(
     token,
-    `query($titles: [String!]) { searchWorks(titles: $titles, first: 30) { nodes { id annictId title malAnimeId } } }`,
+    `query($titles: [String!]) { searchWorks(titles: $titles, first: 100) { nodes { id annictId title malAnimeId } } }`,
     { titles: [title] },
   )
   return data.searchWorks.nodes
