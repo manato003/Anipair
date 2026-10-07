@@ -319,6 +319,24 @@ img.cover--contain {
   font-size: 0.85rem;
 }
 
+/* 配信サービスで探す（検索ページへのリンクを、状態の選択と同じ丸い札で並べる） */
+.vods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip--link {
+  display: inline-block;
+  text-decoration: none;
+}
+
+.chip--link:hover,
+.chip--link:focus-visible {
+  border-color: var(--paper);
+  color: var(--paper);
+}
+
 /* ── 広い画面（幅 960px 以上） ── */
 /* 関連作品（RelatedWorks）。題名（2行まで）の下に、位置づけ（「第2期」など）と放送時期。端に自分の記録 */
 .related__series + .related__series {

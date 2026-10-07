@@ -6,6 +6,7 @@ import { getMyReviews, rememberReview } from '../../lib/myReviews'
 import { changeRating } from '../../lib/reviewOps'
 import { fetchMedia, shikimoriUrl, type Media } from '../../lib/shikimori'
 import type { Cover } from '../../lib/storage'
+import { vodSearchLinks } from '../../lib/vodSearch'
 import { useFontsReady } from '../../lib/useFontsReady'
 import { messageOf } from '../../lib/useWriteQueue'
 import { fetchWikiSynopsis, type WikiSynopsis } from '../../lib/wikipedia'
@@ -210,6 +211,7 @@ export function WorkDetail(
   const x = xUrl(detail?.twitterUsername)
   const genres = [...(shiki?.genres ?? []), ...(shiki?.themes ?? [])].map(genreName)
   const mal = malIdOf(work)
+  const vodLinks = vodSearchLinks(work.title)
   // 制作会社（団体で、役職が「〜制作」のもの。製作委員会などの「製作」は含めない）は、スタッフとは別に一番上に出す
   const isStudio = (st: { role: string; ref: Credit | null }) => st.ref?.kind === 'org' && st.role.includes('制作') && !st.role.includes('製作')
   const studios = (detail?.staffs ?? []).filter(isStudio).filter((st, i, all) => all.findIndex((x) => x.name === st.name) === i)
@@ -326,6 +328,21 @@ export function WorkDetail(
             )}
 
             {error && <p className="settings__error">{error}</p>}
+
+            {/* 配信サービスの検索への入り口（配信しているかは確かめない。lib/vodSearch.ts）。v0.7.1 で外した「配信」と同じ場所 */}
+            {vodLinks.length > 0 && (
+              <section className="detail__section">
+                <h3 className="detail__label">配信サービスで探す</h3>
+                <div className="vods">
+                  {vodLinks.map((l) => (
+                    <a key={l.name} className="chip chip--link" href={l.href} target="_blank" rel="noreferrer">
+                      {l.name}
+                    </a>
+                  ))}
+                </div>
+                <p className="detail__hint">各サービスで題名を検索します。配信していない作品もあります。</p>
+              </section>
+            )}
 
             {genres.length > 0 && (
               <section className="detail__section">

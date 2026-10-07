@@ -177,6 +177,15 @@ describe('WorkDetail', () => {
     expect(document.querySelectorAll('.state-chips [aria-selected="true"]')).toHaveLength(0)
   })
 
+  it('links to each streaming service search with the title (also in a read-only sheet)', async () => {
+    render(<WorkDetail readOnly token="t" work={work} cover={null} onClose={() => undefined} />)
+    await waitFor(() => expect(screen.getByText('配信サービスで探す')).toBeTruthy())
+    const d = screen.getByRole('link', { name: 'dアニメストア' })
+    expect(d.getAttribute('href')).toBe(`https://animestore.docomo.ne.jp/animestore/sch_pc?searchKey=${encodeURIComponent(work.title)}`)
+    expect(d.getAttribute('target')).toBe('_blank')
+    for (const name of ['Netflix', 'U-NEXT', 'Prime Video', 'ABEMA', 'ニコニコ']) expect(screen.getByRole('link', { name })).toBeTruthy()
+  })
+
   it('does not link to an official site with a non-http URL', async () => {
     render(<WorkDetail token="t" work={work} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
     await waitFor(() => expect(screen.getByText('2023年秋 TV 12話')).toBeTruthy())
