@@ -1,17 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { CoverImage } from '../../components/CoverImage'
-import { Sheet } from '../../components/Sheet'
 import { loadTitlesState } from '../achievements/achievementStore'
 import { trendsShare, type ShareCard } from '../share/shareCard'
 import { ShareSheet } from '../share/ShareSheet'
-import { YearReviewSheet } from './YearReviewSheet'
-import { fetchCredits, type RatingState, type WorkCredits } from '../../lib/annict'
+import type { RatingState } from '../../lib/annict'
 import { AXIS_LABEL, RATING_LABEL } from '../../lib/reviewOps'
-import { fetchMedia, type Media } from '../../lib/shikimori'
-import { messageOf } from '../../lib/useWriteQueue'
+import type { Media } from '../../lib/shikimori'
 import { genreName } from '../match/taste'
 import { Balance, Columns, Diverging, RankBars, Radar, Ring, Stack } from './Charts'
 import { MEDIA_KINDS, SEASON_KEYS, type RecordRow } from './recordList'
+import type { TrendsData } from './useTrendsData'
 import {
   axisWeights,
   byYear,
@@ -32,8 +31,8 @@ import {
 } from './trends'
 import { Loading } from '../../components/Loading'
 
-// 記録の「傾向」。記録を端末で集計して、カードごとに図にする（サーバーは使わない）。
-// 作品の情報（ジャンル・制作会社・世間の点数）は Shikimori、声優と監督は Annict から裏の優先度で読み、読めたカードから順に出す
+// 記録の「まとめ ▸ 傾向」。記録を端末で集計して、カードごとに図にする（サーバーは使わない）。
+// 作品の情報（ジャンル・制作会社・世間の点数）は Shikimori、声優と監督は Annict から裏の優先度で読み、読めたカードから順に出す（useTrendsData。ふり返りと共有）
 
 const RATING_BARS: readonly { key: RatingState; tone: string }[] = [
   { key: 'GREAT', tone: 'var(--r-great)' },
@@ -45,36 +44,11 @@ const RATING_BARS: readonly { key: RatingState; tone: string }[] = [
 // 平均評価（1〜4）を文に
 const averageText = (avg: number | null) => (avg === null ? null : `平均 ${avg.toFixed(1)}`)
 
-function useTrendsData(token: string, rows: readonly RecordRow[]) {
-  const [media, setMedia] = useState<ReadonlyMap<number, Media> | null>(null)
-  const [credits, setCredits] = useState<ReadonlyMap<string, WorkCredits> | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const watchedRows = useMemo(() => rows.filter((r) => r.entry.state === 'WATCHED'), [rows])
-  useEffect(() => {
-    let cancelled = false
-    const malIds = rows.map((r) => Number(r.entry.malAnimeId)).filter((n) => Number.isInteger(n) && n > 0)
-    fetchMedia(malIds, { background: true }).then(
-      (m) => !cancelled && setMedia(m),
-      (e) => !cancelled && setError(messageOf(e)),
-    )
-    fetchCredits(
-      token,
-      watchedRows.map((r) => r.entry.workId),
-      { background: true },
-    ).then(
-      (c) => !cancelled && setCredits(c),
-      (e) => !cancelled && setError(messageOf(e)),
-    )
-    return () => {
-      cancelled = true
-    }
-  }, [token, rows, watchedRows])
-  return { media, credits, error }
-}
 
-export function TrendsSheet(props: { token: string; rows: readonly RecordRow[]; active: boolean; onClose: () => void }) {
+// actions: 見出しの右の置き場（「画像で共有」をそこに出す）
+export function TrendsView(props: { rows: readonly RecordRow[]; data: TrendsData; active: boolean; actions: HTMLElement | null }) {
   const { rows } = props
-  const { media, credits, error } = useTrendsData(props.token, rows)
+  const { media, credits, error } = props.data
   const empty = useMemo(() => new Map<number, Media>(), [])
   const m = media ?? empty
   const summary = summarize(rows)
@@ -94,8 +68,6 @@ export function TrendsSheet(props: { token: string; rows: readonly RecordRow[]; 
   const weights = axisWeights(rows)
   // 共有する画像の中身（押したときに決める）
   const [shareCard, setShareCard] = useState<ShareCard | null>(null)
-  // 年間のふり返りを開いているか
-  const [yearOpen, setYearOpen] = useState(false)
   const openShare = () => {
     const t = loadTitlesState()
     setShareCard(
@@ -114,19 +86,14 @@ export function TrendsSheet(props: { token: string; rows: readonly RecordRow[]; 
   const maxRating = Math.max(1, dist.unrated, ...RATING_BARS.map((b) => dist.counts[b.key]))
 
   return (
-    <>
-    <Sheet label="好みの傾向" size="large" active={props.active && shareCard === null && !yearOpen} onClose={props.onClose}>
-      <div className="trend__head">
-        <h2 className="detail__title">あなたのアニメの傾向</h2>
-        <div className="trend__actions">
-          <button type="button" className="btn trend__share" onClick={() => setYearOpen(true)}>
-            年間のふり返り
-          </button>
-          <button type="button" className="btn trend__share" onClick={openShare} disabled={!media}>
+    <div className="summary">
+      {props.actions &&
+        createPortal(
+          <button type="button" className="btn rhead__edit" onClick={openShare} disabled={!media}>
             画像で共有
-          </button>
-        </div>
-      </div>
+          </button>,
+          props.actions,
+        )}
       {error && <p className="note">一部の情報を読めませんでした（{error}）。読めた分で出しています。</p>}
 
       {/* まとめ: 大きな数と完走率のリング */}
@@ -335,10 +302,8 @@ export function TrendsSheet(props: { token: string; rows: readonly RecordRow[]; 
         <Columns title="直近12か月の、月ごとに見た本数" every={2} bars={pace.map((p, i) => ({ label: p.label, value: p.count, emphasis: i === pace.length - 1, title: `${p.label} ${p.count}本` }))} />
         <p className="trend__note">直近12か月に「見た」にした本数です（明るい棒が今月）。</p>
       </section>
-    </Sheet>
-    {shareCard && <ShareSheet card={shareCard} filename="anipair-trends.png" active={props.active} onClose={() => setShareCard(null)} />}
-    {yearOpen && <YearReviewSheet rows={rows} media={m} credits={credits} active={props.active} onClose={() => setYearOpen(false)} />}
-    </>
+      {shareCard && <ShareSheet card={shareCard} filename="anipair-trends.png" active={props.active} onClose={() => setShareCard(null)} />}
+    </div>
   )
 }
 

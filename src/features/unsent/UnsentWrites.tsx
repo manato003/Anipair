@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Spinner } from '../../components/Loading'
 import { storedAtLabel } from '../../lib/offlineCache'
+import { useNotice } from '../../lib/notices'
 import { useWriteQueue } from '../../lib/useWriteQueue'
 import { isStillPending, journalDone, leftoverEntries, type JournalEntry } from '../../lib/writeJournal'
 import { reconcileIntent } from './reconcile'
@@ -12,6 +13,8 @@ export function UnsentWrites(props: { token: string }) {
   const [groups, setGroups] = useState(() => groupByAction(leftoverEntries()))
   const [sent, setSent] = useState(false)
   const queue = useWriteQueue()
+  // コントロールセンターにも並べる（画面の上の帯を閉じずに先へ進んでも、あとから送れるように）
+  useNotice(groups.length > 0 && !sent ? { id: 'unsent', title: `前回送れなかった記録 ${groups.length}件`, body: '送ると、Annict の今の内容と比べて足りない分だけを書きます。', action: { label: '送る', run: () => send() }, urgent: true } : null)
 
   if (groups.length === 0) return null
 

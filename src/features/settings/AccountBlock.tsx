@@ -49,7 +49,7 @@ export function AccountBlock(props: { token: string; onChange: (token: string | 
       </div>
       <p className="settings__lead">
         {'この端末から Annict のログイン情報を削除します。Annict の記録は消えません。' +
-          'この端末に置いた記録（パス・見てない・称号など）は、同じアカウントでログインし直すと戻ります。ほかの人がログインしても、アプリには出ません。' +
+          'この端末に置いた記録（興味なし・見てない・称号など）は、同じアカウントでログインし直すと戻ります。ほかの人がログインしても、アプリには出ません。' +
           'GitHub のトークンは消えるので、もう一度つなぐときに入れ直してください。'}
       </p>
     </Section>

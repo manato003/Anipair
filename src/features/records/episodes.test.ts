@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Episode } from '../../lib/annict'
-import { episodeLabel, episodeProgress, episodeWindow, nextEpisode, nextLabel } from './episodes'
+import { episodeLabel, episodeProgress, episodesLeft, episodeWindow, nextEpisode, nextLabel } from './episodes'
 
 const ep = (n: number, tracked = false, extra: Partial<Episode> = {}): Episode => ({
   id: `E${n}`,
@@ -60,5 +60,15 @@ describe('nextLabel', () => {
     expect(nextLabel({ number: 5, numberText: '第5話', title: '旅立ち' })).toBe('次は 第5話「旅立ち」')
     expect(nextLabel({ number: 5, numberText: null, title: null })).toBe('次は 第5話')
     expect(nextLabel({ number: null, numberText: null, title: '前編' })).toBe('次は 前編')
+  })
+})
+
+describe('episodesLeft', () => {
+  it('counts from the next episode to the last, and the ones before it as done', () => {
+    expect(episodesLeft([ep(1, true), ep(2, true), ep(3), ep(4)])).toEqual({ left: 2, done: 2, total: 4 })
+    // 途中を飛ばしても、いちばん先まで見た話の次から
+    expect(episodesLeft([ep(1, true), ep(2), ep(3, true), ep(4)])).toEqual({ left: 1, done: 3, total: 4 })
+    expect(episodesLeft([ep(1, true), ep(2, true)])).toEqual({ left: 0, done: 2, total: 2 })
+    expect(episodesLeft([ep(1), ep(2)])).toEqual({ left: 2, done: 0, total: 2 })
   })
 })

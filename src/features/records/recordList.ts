@@ -1,6 +1,7 @@
 import type { LibraryEntry, MyReview, RatingState, StatusState } from '../../lib/annict'
 import { RATING_ORDER } from '../../lib/reviewOps'
 import type { Cover } from '../../lib/storage'
+import type { Season } from '../../lib/season'
 
 // 記録ページの分類と並べ替え。すべて純粋な関数
 
@@ -40,7 +41,7 @@ export function countBuckets(rows: RecordRow[]): Record<Bucket, number> {
   return out
 }
 
-// 並べ替えの種類。評価順は見たのときだけ、おすすめ順は見たいのときだけ（おすすめ順は好みの点数で並べるので Records が並べる）。
+// 並べ替えの種類。好きな順（自分の評価）は見たのときだけ、おすすめ順は見たいのときだけ（おすすめ順は好みの点数で並べるので Records が並べる）。
 // 人気順は Annict でその作品を記録した人の数（ライブラリの読み込みで取っている）
 export type SortKey = 'rating' | 'popular' | 'recorded' | 'aired' | 'taste'
 // 降順（大きい・新しい・高いが先）と昇順。押している並べ替えをもう一度押すと入れ替わる
@@ -51,7 +52,7 @@ export interface SortChoice {
   dir: SortDir
 }
 
-const SORT_LABEL: Record<SortKey, string> = { rating: '評価順', popular: '人気順', recorded: '記録順', aired: '放送日順', taste: 'おすすめ順' }
+const SORT_LABEL: Record<SortKey, string> = { rating: '好きな順', popular: '人気順', recorded: '記録順', aired: '放送日順', taste: 'おすすめ順' }
 
 // 状態ごとに選べる並べ替え（先頭が最初に選ばれているもの）
 export function sortOptions(bucket: Bucket): { key: SortKey; label: string }[] {
@@ -65,7 +66,7 @@ export function sortNote({ key, dir }: SortChoice): string {
   const desc = dir === 'desc'
   switch (key) {
     case 'rating':
-      return desc ? '評価の高い順です。評価の無い作品は最後に並びます。' : '評価の低い順です。評価の無い作品は最後に並びます。'
+      return desc ? 'あなたの評価の高い順です。評価の無い作品は最後に並びます。' : 'あなたの評価の低い順です。評価の無い作品は最後に並びます。'
     case 'popular':
       return desc ? 'Annict でこの作品を記録した人の多い順です。' : 'Annict でこの作品を記録した人の少ない順です。'
     case 'recorded':
@@ -103,7 +104,7 @@ function compareValues(a: number | null, b: number | null, dir: SortDir): number
   return dir === 'desc' ? b - a : a - b
 }
 
-// 評価順: とても良い → 良い → 普通 → 良くない（昇順は逆）。評価なしはいつも最後。同じ評価の中は放送の新しい順、記録した日の新しい順。
+// 好きな順（自分の評価）: とても良い → 良い → 普通 → 良くない（昇順は逆）。評価なしはいつも最後。同じ評価の中は放送の新しい順、記録した日の新しい順。
 // 人気順: Annict で記録した人の数（分からない作品は最後）。記録順: Annict でその状態にした日。放送日順: 放送時期。同じ時期の中は記録した日の新しい順。
 // おすすめ順はここでは並べない（好みの点数が要るので Records が orderByScore で並べる。ここでは放送日順と同じ）
 export function sortRows(rows: RecordRow[], key: SortKey, dir: SortDir = 'desc'): RecordRow[] {
@@ -141,9 +142,12 @@ export interface RecordFilter {
   // ジャンルとテーマ（Shikimori の英語名）と、制作会社（Shikimori の名前）
   genres: readonly string[]
   studios: readonly string[]
+  // 1つの放送クール（一覧の上で、ブラウズ・評価の画面と同じ形で選ぶ。絞り込みのシートの条件の数には入れない）。
+  // 選んでいるあいだは、放送年の範囲と季節は使わない
+  cour?: Season | null
 }
 
-export const EMPTY_FILTER: RecordFilter = { ratings: [], yearFrom: null, yearTo: null, seasons: [], media: [], genres: [], studios: [] }
+export const EMPTY_FILTER: RecordFilter = { ratings: [], yearFrom: null, yearTo: null, seasons: [], media: [], genres: [], studios: [], cour: null }
 
 export const MEDIA_KINDS: readonly { id: MediaKind; label: string }[] = [
   { id: 'tv', label: 'TV' },
@@ -192,7 +196,8 @@ export function activeFilterCount(f: RecordFilter): number {
 }
 
 // 作品の情報（ジャンル・制作会社）。MyAnimeList の ID ごと
-export type MediaInfo = { genres: readonly string[]; studios: readonly string[] }
+// minutes・episodes・airing: 1話の長さ（分）・全話数・放送中か（見てる作品のカードの残りと進み具合に使う。分からなければ null）
+export type MediaInfo = { genres: readonly string[]; studios: readonly string[]; minutes?: number | null; episodes?: number | null; airing?: boolean }
 
 function infoOf(row: RecordRow, info: ReadonlyMap<number, MediaInfo> | null): MediaInfo | undefined {
   const mal = Number(row.entry.malAnimeId)
@@ -201,10 +206,11 @@ function infoOf(row: RecordRow, info: ReadonlyMap<number, MediaInfo> | null): Me
 
 // 条件に合う記録だけを残す。ジャンル・制作会社の条件は、作品の情報が無い作品（読み込み中・Shikimori に無い）を外す
 export function applyFilter(rows: readonly RecordRow[], f: RecordFilter, info: ReadonlyMap<number, MediaInfo> | null): RecordRow[] {
-  if (activeFilterCount(f) === 0) return [...rows]
+  if (activeFilterCount(f) === 0 && !f.cour) return [...rows]
   return rows.filter((row) => {
     const e = row.entry
     if (f.ratings.length > 0 && !f.ratings.includes(row.review?.ratingOverallState ?? 'NONE')) return false
+    if (f.cour && !(e.seasonYear === f.cour.year && e.seasonName?.toUpperCase() === f.cour.name.toUpperCase())) return false
     if (f.yearFrom !== null && !(e.seasonYear && e.seasonYear >= f.yearFrom)) return false
     if (f.yearTo !== null && !(e.seasonYear && e.seasonYear <= f.yearTo)) return false
     if (f.seasons.length > 0 && !(e.seasonName && (f.seasons as readonly string[]).includes(e.seasonName))) return false
@@ -260,4 +266,12 @@ export function formatDate(iso: string | null): string {
   if (!t) return ''
   const d = new Date(t)
   return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`
+}
+
+// 日付と時刻（作品の詳細の「いつ記録したか」）。2026/10/1 21:05
+export function formatDateTime(iso: string | null): string {
+  const t = time(iso)
+  if (!t) return ''
+  const d = new Date(t)
+  return `${formatDate(iso)} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`
 }

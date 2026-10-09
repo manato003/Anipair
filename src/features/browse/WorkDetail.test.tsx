@@ -174,7 +174,7 @@ describe('WorkDetail', () => {
       <WorkDetail token="t" work={{ ...work, viewerStatusState: 'NO_STATE' }} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />,
     )
     expect(screen.getByText('まだ記録していません。')).toBeTruthy()
-    expect(document.querySelectorAll('.state-chips [aria-selected="true"]')).toHaveLength(0)
+    expect(document.querySelectorAll('.state-chips [aria-pressed="true"]')).toHaveLength(0)
   })
 
   it('links to each streaming service search with the title (also in a read-only sheet)', async () => {
@@ -188,7 +188,7 @@ describe('WorkDetail', () => {
 
   it('does not link to an official site with a non-http URL', async () => {
     render(<WorkDetail token="t" work={work} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
-    await waitFor(() => expect(screen.getByText('2023年秋 TV 12話')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('全12話')).toBeTruthy())
     expect(screen.queryByRole('link', { name: '公式サイト' })).toBeNull()
     expect(screen.getByRole('link', { name: 'Annict' }).getAttribute('href')).toBe('https://annict.com/works/1')
   })
@@ -226,13 +226,16 @@ describe('WorkDetail', () => {
   it('shows the genres and themes from Shikimori in Japanese', async () => {
     shikiMedia = { genres: ['Fantasy'], themes: ['Award Winning'] }
     render(<WorkDetail token="t" work={{ ...work, malAnimeId: '52991' }} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
-    expect(await screen.findByText('ファンタジー・受賞作')).toBeTruthy()
+    // ジャンルは見出しの付いた小さな札で並べる
+    expect(await screen.findByText('ファンタジー', { selector: '.tag' })).toBeTruthy()
+    expect(screen.getByText('受賞作', { selector: '.tag' })).toBeTruthy()
+    expect(screen.getByText('ジャンル', { selector: 'h3' })).toBeTruthy()
   })
 
   it('reads nothing outside the Annict API: no synopsis and no streaming services (they are only on Annict\u2019s web pages)', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch')
     render(<WorkDetail readOnly token="t" work={work} cover={null} onClose={() => undefined} />)
-    await waitFor(() => expect(screen.getByText('2023年秋 TV 12話')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('全12話')).toBeTruthy())
     expect(screen.queryByText('あらすじ')).toBeNull()
     expect(screen.queryByText('配信')).toBeNull()
     expect(fetchSpy.mock.calls.some(([url]) => String(url).startsWith('https://annict.com/'))).toBe(false)
@@ -257,7 +260,7 @@ describe('WorkDetail', () => {
     vi.mocked(fetchMedia).mockImplementationOnce(() => new Promise((resolve) => (releaseShiki = resolve as (m: Map<number, unknown>) => void)))
     render(<WorkDetail readOnly token="t" work={{ ...work, malAnimeId: '52991' }} cover={null} onClose={() => undefined} />)
     // 詳細は届いたが、ジャンルがまだ
-    await waitFor(() => expect(screen.getByText('2023年秋 TV 12話')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('全12話')).toBeTruthy())
     expect(document.querySelector('.detail--ready')).toBeNull()
     expect(document.querySelector('.detail__loading')).not.toBeNull()
     releaseShiki(new Map())
@@ -290,7 +293,7 @@ describe('WorkDetail', () => {
       await act(async () => {
         await vi.advanceTimersByTimeAsync(10)
       })
-      expect(screen.getByText('2023年秋 TV 12話')).toBeTruthy()
+      expect(screen.getByText('全12話')).toBeTruthy()
       expect(screen.queryByText(/を読み込み中/)).toBeNull()
     } finally {
       vi.useRealTimers()
@@ -314,6 +317,35 @@ describe('WorkDetail', () => {
     render(<WorkDetail token="t" work={work} cover={{ url: 'https://s.example/p.jpg', thumb: 'https://s.example/p-s.jpg', landscape: false }} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
     expect(document.querySelector('.detail__cover--landscape')).toBeNull()
     expect(document.querySelector('.detail__cover img')?.className).toBe('')
+  })
+
+  it('shows the key facts under the title, a data table, and the contents in labelled groups (no jump chips)', async () => {
+    const seriesWork = (annictId: number, title: string, seasonYear: number) => ({ id: `W${annictId}`, annictId, title, seasonYear, seasonName: 'SPRING', media: 'TV', malAnimeId: null, viewerStatusState: null, summary: null })
+    vi.mocked(fetchWorkDetail).mockImplementationOnce(async () => ({
+      ...work,
+      titleKana: null,
+      episodesCount: 12,
+      officialSiteUrl: null,
+      wikipediaUrl: null,
+      twitterUsername: null,
+      copyright: null,
+      casts: [{ character: '主人公', name: '声優A', person: null }],
+      staffs: [],
+      series: [{ name: 'S', works: [seriesWork(1, '作品', 2023), seriesWork(2, '続編', 2099)] }],
+    }))
+    shikiMedia = { genres: [], themes: [], format: 'TV', status: 'FINISHED', episodes: 12, duration: 24 } as unknown as typeof shikiMedia
+    try {
+      render(<WorkDetail readOnly token="t" work={{ ...work, malAnimeId: '52991' }} cover={null} onClose={() => undefined} />)
+      await waitFor(() => expect(screen.getByText('一気見 約4時間48分')).toBeTruthy())
+      expect(screen.getByText('データで見る', { selector: 'h3' })).toBeTruthy()
+      expect(screen.getByText('約24分')).toBeTruthy()
+      expect(screen.getByText('放送予定の続編')).toBeTruthy()
+      // 中身は内容の塊に分かれる（どこまでが何の情報か）。目次は置かない
+      expect([...document.querySelectorAll('.group__title')].map((h) => h.textContent)).toEqual(['作品について', 'スタッフ・キャスト', 'ほかのサイトで見る'])
+      expect(screen.queryByRole('navigation', { name: '項目へ移る' })).toBeNull()
+    } finally {
+      shikiMedia = null
+    }
   })
 
   it('opens a related work over this sheet in the app (not on Annict); Escape closes only the top sheet', async () => {
@@ -395,7 +427,7 @@ describe('WorkDetail', () => {
 
   it('is read-only on request: no state or rating, and my reviews are not loaded', async () => {
     render(<WorkDetail readOnly token="t" work={work} cover={null} onClose={() => undefined} />)
-    await waitFor(() => expect(screen.getByText('2023年秋 TV 12話')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('全12話')).toBeTruthy())
     expect(screen.queryByText('状態')).toBeNull()
     expect(screen.queryByText('評価')).toBeNull()
     expect(document.querySelector('.state-chips')).toBeNull()
@@ -417,5 +449,23 @@ describe('WorkDetail', () => {
     rerender(<WorkDetail readOnly token="t" work={work} cover={null} active onClose={onClose} />)
     fireEvent.keyDown(window, { key: 'Escape' })
     expect(onClose).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('WorkDetail: when it was recorded', () => {
+  it('shows when the rating (and comment) was given, from my reviews', async () => {
+    render(<WorkDetail token="t" work={{ ...work, viewerStatusState: 'WATCHED' }} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
+    releaseReviews(new Map([[1, { ...existing, body: '良かった', createdAt: '2026-10-03T21:05:00' }]]))
+    expect(await screen.findByText('評価と感想を付けた日時', { exact: false })).toBeTruthy()
+    expect(screen.getByText('2026/10/3 21:05')).toBeTruthy()
+  })
+
+  it('shows the time when the state is changed in the sheet, and hides it when the work is removed', () => {
+    render(<WorkDetail token="t" work={{ ...work, viewerStatusState: null }} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
+    expect(screen.queryByText(/にした日時/)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '見たい' }))
+    expect(screen.getByText(/「見たい」にした日時/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '見たい' }))
+    expect(screen.queryByText(/にした日時/)).toBeNull()
   })
 })

@@ -3,10 +3,16 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import './index.css'
-import { applyEffectLevel, loadEffectLevel } from './lib/storage'
+import { applyButtonLabels, applyEffectLevel, loadButtonLabels, loadEffectLevel } from './lib/storage'
+import { startTheme } from './lib/theme'
 
-// 設定の「演出」の強さを、描く前に反映する
+// 画面の色（テーマ）、設定の「演出」の強さと「ボタンの表示」を、描く前に反映する
+startTheme()
 applyEffectLevel(loadEffectLevel())
+applyButtonLabels(loadButtonLabels())
+
+// 流した位置は画面ごとにアプリが覚えて戻す（lib/pageScroll.ts）。シートを「戻る」で閉じたときに、ブラウザが位置を動かさないようにする
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual'
 
 // 後から読む画面の JS が読めなかったら（開いたままのタブが、デプロイで消えた古いファイルを読みに行った）、ページを読み直して新しい版にする。
 // 読み直しても失敗するとき（通信が切れているなど）に繰り返さないよう、1分に1回まで

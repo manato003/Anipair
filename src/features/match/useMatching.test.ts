@@ -59,6 +59,7 @@ vi.mock('../../lib/annict', async (orig) => ({
 const reviewCache = new Map<number, { id: string; body: string; createdAt: string; ratingOverallState: string | null }>()
 vi.mock('../../lib/shikimori', () => ({
   fetchMedia: vi.fn(async (ids: number[]) => new Map(ids.filter((i) => catalog.has(i)).map((i) => [i, catalog.get(i)!]))),
+  isSimilarCached: () => true,
   fetchSimilarMany: vi.fn(async (ids: number[]) => new Map(ids.map((i) => [i, similarTable.get(i) ?? []]))),
 }))
 vi.mock('../../lib/myReviews', () => ({
@@ -306,11 +307,11 @@ describe('useMatching', () => {
     // 好きな作品 1 に、候補 200〜279（80件）を似させる
     function bigCatalog() {
       const original = similarTable.get(1)!
-      similarTable.set(1, Array.from({ length: 80 }, (_, i) => 200 + i))
-      for (let i = 0; i < 80; i++) catalog.set(200 + i, media(200 + i, { format: i % 2 ? 'MOVIE' : 'TV', seasonYear: 1990 + i }))
+      similarTable.set(1, Array.from({ length: 120 }, (_, i) => 200 + i))
+      for (let i = 0; i < 120; i++) catalog.set(200 + i, media(200 + i, { format: i % 2 ? 'MOVIE' : 'TV', seasonYear: 1900 + i }))
       return () => {
         similarTable.set(1, original)
-        for (let i = 0; i < 80; i++) catalog.delete(200 + i)
+        for (let i = 0; i < 120; i++) catalog.delete(200 + i)
       }
     }
     const lastDetailIds = () => vi.mocked(fetchMediaByMal).mock.calls.at(-1)![0]
@@ -328,18 +329,18 @@ describe('useMatching', () => {
       expect(again.result.current.filter).toEqual({ formats: ['movie'], fromYear: 2010 })
     })
 
-    it('fetches details for the top 50 without a filter, and the top 100 with one', async () => {
+    it('fetches details for the top 100 candidates, with or without a filter', async () => {
       const restore = bigCatalog()
       try {
         const plain = await ready()
-        expect(lastDetailIds()).toHaveLength(50)
+        expect(lastDetailIds()).toHaveLength(100)
         expect(plain.result.current.cards.length).toBeGreaterThan(0)
 
         const hook = renderHook(() => useMatching('annict', null))
         act(() => hook.result.current.setFilter({ formats: ['movie'], fromYear: null }))
         await act(() => hook.result.current.run())
         await waitFor(() => expect(hook.result.current.phase.kind).toBe('ready'))
-        expect(lastDetailIds()).toHaveLength(80)
+        expect(lastDetailIds()).toHaveLength(100)
         expect(hook.result.current.cards.every((c) => c.media.format === 'MOVIE')).toBe(true)
       } finally {
         restore()

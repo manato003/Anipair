@@ -1,4 +1,5 @@
 import { annictClientId, startLogin } from '../lib/annictLogin'
+import { useNotice } from '../lib/notices'
 
 // Annict のトークンが使えなくなった（401）ときに、画面の上に出す帯。
 // ログインのボタンがあるサイトでは、そのまま Annict のログインへ移る。無い環境（ローカルの開発など）では、設定を開いて貼り直してもらう
@@ -9,6 +10,7 @@ export function AuthExpiredBanner(props: {
   clientId?: string | null
 }) {
   const clientId = props.clientId === undefined ? annictClientId() : props.clientId
+  useNotice({ id: 'auth', title: 'Annict のログインが切れました', body: 'もう一度ログインすると、記録を続けられます。', action: { label: 'ログインし直す', run: relogin }, urgent: true })
 
   function relogin() {
     if (clientId) startLogin({ clientId, origin: window.location.origin, assign: (url) => window.location.assign(url) })

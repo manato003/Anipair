@@ -1,7 +1,7 @@
 // 作品のあらすじを、日本語版 Wikipedia の公式の API（MediaWiki）から読む。
 // 記事の URL は Annict の API が返す `wikipediaUrl`。文章は CC BY-SA 4.0 なので、出典（記事名とリンク）とライセンスを添えて出す。
 // ネタバレを避けるため、「あらすじ」の節の冒頭の段落だけを使う（後ろの段落ほど物語の先まで書かれている）。
-// Annict・Shikimori・MyAnimeList には、日本語で権利のはっきりしたあらすじが無い（docs/concept.md の設計の原則）
+// Annict・Shikimori・MyAnimeList には、日本語で権利のはっきりしたあらすじが無い（設計の原則）
 
 const API = 'https://ja.wikipedia.org/w/api.php'
 const LICENSE_URL = 'https://creativecommons.org/licenses/by-sa/4.0/deed.ja'

@@ -98,17 +98,18 @@ afterEach(() => {
   enabledLog.length = 0
 })
 
-const titles = () => [...document.querySelectorAll('.row__title')].map((e) => e.textContent)
+// 棚・見てるのカード・編集の行の題名（並び順）
+const titles = () => [...document.querySelectorAll('.shelf__title, .watchcard__title, .row__title')].map((e) => e.textContent)
 const openWanna = () => fireEvent.click(screen.getByRole('tab', { name: /見たい/ }))
 
 describe('Records: the list it opens on', () => {
-  it('opens on 見てる (the usual errand: recording this cour’s episodes), first in the row of tabs', () => {
+  it('opens on 見てる (the usual errand: recording this cour’s episodes), first in the row of tabs, with まとめ last', () => {
     rows.push(row(entry(9, 'WATCHING', '2026-10-01T00:00:00Z')))
     try {
       render(<Records token="t" active />)
-      const tabs = within(screen.getByRole('tablist', { name: '状態' })).getAllByRole('tab').map((t) => t.textContent?.replace(/\d+$/, ''))
-      expect(tabs.slice(0, 2)).toEqual(['見てる', '見た'])
-      expect(screen.getByRole('tab', { name: /^見てる/ }).getAttribute('aria-selected')).toBe('true')
+      const tabs = within(screen.getByRole('tablist', { name: '記録の項目' })).getAllByRole('tab').map((t) => t.textContent)
+      expect(tabs).toEqual(['見てる', '見た', '見たい', '視聴中断', 'まとめ'])
+      expect(screen.getByRole('tab', { name: '見てる' }).getAttribute('aria-selected')).toBe('true')
       expect(titles()).toEqual(['作品9'])
     } finally {
       rows.pop()
@@ -117,26 +118,31 @@ describe('Records: the list it opens on', () => {
 
   it('opens on 見た when nothing is being watched', () => {
     render(<Records token="t" active />)
-    expect(screen.getByRole('tab', { name: /^見た\d/ }).getAttribute('aria-selected')).toBe('true')
+    expect(screen.getByRole('tab', { name: '見た' }).getAttribute('aria-selected')).toBe('true')
+    expect(screen.getByRole('heading', { name: /^見た/ }).textContent).toBe('見た1')
   })
 })
 
 describe('Records: 見たいの優先とメモ', () => {
-  it('puts a work marked 優先 at the top, and keeps a memo written in the sheet', () => {
+  it('puts a work marked 優先 at the top, and keeps a memo written in the sheet (from 編集)', () => {
     localStorage.removeItem('animax.wannaNotes.v1')
     render(<Records token="t" active />)
     openWanna()
     expect(titles()).toEqual(['作品1', '作品2', '作品3'])
-    const third = document.querySelectorAll('.row')[2] as HTMLElement
-    fireEvent.click(within(third).getByRole('button', { name: '☆ 優先' }))
+    const third = document.querySelectorAll('.shelf__item')[2] as HTMLElement
+    fireEvent.click(within(third).getByRole('button', { name: '作品3を優先して見る' }))
     expect(titles()).toEqual(['作品3', '作品1', '作品2'])
-    // メモを書く
+    // メモは編集の行で書く
+    fireEvent.click(screen.getByRole('button', { name: '編集' }))
     const first = document.querySelectorAll('.row')[1] as HTMLElement
     fireEvent.click(within(first).getByRole('button', { name: 'メモ' }))
     const sheet = screen.getByRole('dialog', { name: '見たいのメモ' })
     fireEvent.change(within(sheet).getByRole('textbox'), { target: { value: '友達のおすすめ' } })
     fireEvent.click(within(sheet).getByRole('button', { name: '保存' }))
     expect(screen.getByRole('button', { name: '友達のおすすめ' })).toBeTruthy()
+    // 棚に戻ると、メモは題名の下に出る
+    fireEvent.click(screen.getByRole('button', { name: '完了' }))
+    expect(document.querySelector('.shelf__memo')?.textContent).toBe('友達のおすすめ')
     expect(JSON.parse(localStorage.getItem('animax.wannaNotes.v1')!).notes['1'].memo).toBe('友達のおすすめ')
     // ほかのテストに残さない
     localStorage.removeItem('animax.wannaNotes.v1')
@@ -220,38 +226,60 @@ describe('Records: 絞り込み', () => {
   })
 })
 
-describe('Records: 傾向', () => {
-  it('opens the trends sheet with the summary and the charts, reading work data in the background, and closes', async () => {
+describe('Records: 放送クールで絞り込む', () => {
+  it('chooses a cour above the list (starting from すべて), hides the year range in the sheet, steps it, and goes back to すべて', () => {
     render(<Records token="t" active />)
-    fireEvent.click(screen.getByRole('button', { name: '傾向' }))
-    // 傾向は別のファイルから読む（読み終えるのを待つ）
-    const sheet = await screen.findByRole('dialog', { name: '好みの傾向' })
-    expect(within(sheet).getByText('あなたのアニメの傾向')).toBeTruthy()
-    expect(within(sheet).getByText('見たい')).toBeTruthy()
-    expect(within(sheet).getByText('評価の分布')).toBeTruthy()
-    await waitFor(() => expect(fetchMediaMock).toHaveBeenCalled())
-    expect(fetchCreditsMock).toHaveBeenCalled()
-    fireEvent.click(within(sheet).getAllByRole('button', { name: '閉じる' })[0])
-    expect(screen.queryByRole('dialog')).toBeNull()
+    openWanna()
+    const near = () => screen.getByRole('group', { name: '近いクール' })
+    expect(within(near()).getByRole('button', { name: 'すべて' }).getAttribute('aria-pressed')).toBe('true')
+    expect(titles()).toEqual(['作品1', '作品2', '作品3'])
+    fireEvent.click(within(near()).getByRole('button', { name: '今期' }))
+    expect(within(near()).getByRole('button', { name: '今期' }).getAttribute('aria-pressed')).toBe('true')
+    // 試しの記録には放送時期が無いので、どのクールにも当てはまらない
+    expect(titles()).toEqual([])
+    expect(screen.getByText(/の作品は、ここにはありません/)).toBeTruthy()
+    // クールを選んでいるあいだ、シートの放送年の範囲は出さない（シートの条件の数にも入れない）
+    expect(screen.getByRole('button', { name: /^絞り込み/ }).textContent).not.toMatch(/\d/)
+    fireEvent.click(screen.getByRole('button', { name: /^絞り込み/ }))
+    const sheet = screen.getByRole('dialog', { name: '絞り込み' })
+    expect(within(sheet).queryByRole('combobox', { name: '放送年（から）' })).toBeNull()
+    fireEvent.click(within(sheet).getByRole('button', { name: /件を表示$/ }))
+    fireEvent.click(screen.getByRole('button', { name: '前のクール' }))
+    expect(within(near()).getByRole('button', { name: '前期' }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: 'すべてのクールにする' }))
+    expect(titles()).toEqual(['作品1', '作品2', '作品3'])
   })
 })
 
-describe('Records and achievements switch', () => {
-  it('switches between the records and the achievements, and marks the achievements until they are first opened', async () => {
+describe('Records: まとめ', () => {
+  it('opens 傾向 from the まとめ list, reading work data in the background, and goes back to the list', async () => {
     render(<Records token="t" active />)
-    const tab = screen.getByRole('tab', { name: /実績/ })
-    expect(screen.getByLabelText('まだ見ていません')).toBeTruthy()
-    expect(screen.getByRole('tab', { name: /記録/ }).getAttribute('aria-selected')).toBe('true')
-    fireEvent.click(tab)
-    expect(tab.getAttribute('aria-selected')).toBe('true')
+    fireEvent.click(screen.getByRole('tab', { name: /まとめ/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^傾向/ }))
+    // 傾向は別のファイルから読む（読み終えるのを待つ。全部のテストを一度に流すと、ファイルの変換が混んで1秒を超えることがある）
+    expect(await screen.findByText('評価の分布', {}, { timeout: 5000 })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: '傾向' })).toBeTruthy()
+    await waitFor(() => expect(fetchMediaMock).toHaveBeenCalled())
+    expect(fetchCreditsMock).toHaveBeenCalled()
+    // 「画像で共有」は見出しの右に出る
+    expect(screen.getByRole('button', { name: '画像で共有' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'まとめ' }))
+    expect(screen.getByRole('button', { name: /^ふり返り/ })).toBeTruthy()
+  })
+})
+
+describe('Records: 実績', () => {
+  it('marks まとめ and 実績 until the achievements are first opened', async () => {
+    render(<Records token="t" active />)
+    expect(screen.getAllByLabelText('まだ見ていません').length).toBe(1)
+    fireEvent.click(screen.getByRole('tab', { name: /まとめ/ }))
+    expect(screen.getAllByLabelText('まだ見ていません').length).toBe(2)
+    fireEvent.click(screen.getByRole('button', { name: /^実績/ }))
     // 実績は別のファイルから読む（読み終えるのを待つ）
     expect(await screen.findByTestId('achievements')).toBeTruthy()
     expect(screen.queryByLabelText('まだ見ていません')).toBeNull()
-    // 実績では、記録の操作（傾向・編集）は出さない
-    expect(screen.queryByRole('button', { name: '傾向' })).toBeNull()
-    fireEvent.click(screen.getByRole('tab', { name: /記録/ }))
-    expect(screen.queryByTestId('achievements')).toBeNull()
-    expect(screen.getByRole('button', { name: '傾向' })).toBeTruthy()
+    // 実績では、記録の操作（編集・絞り込み）は出さない
+    expect(screen.queryByRole('button', { name: '編集' })).toBeNull()
     cleanup()
 
     // 覚醒を見たあとは点を付けない
@@ -261,4 +289,3 @@ describe('Records and achievements switch', () => {
     localStorage.clear()
   })
 })
-

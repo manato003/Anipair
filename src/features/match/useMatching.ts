@@ -14,10 +14,10 @@ import { isDefaultFilter, parseMatchFilter, type MatchFilter } from './matchFilt
 import { collectPool, malIdOf, rankCandidates, seenMalIds } from './taste'
 import { forgetTaste, loadTaste } from './tasteLoader'
 
-// 候補の詳しい情報を取るのは、似ている度合いの強い順にこの件数まで（Shikimori 1回ぶん）。
-// 形式や放送年で絞っているときは、絞ったあとにも候補が残るように2回ぶん取る
-const POOL_SIZE = 50
-const FILTERED_POOL_SIZE = 100
+// 候補の詳しい情報を取って好みとの一致で並べ替えるのは、似ている度合いの強い順にこの件数まで（Shikimori 2回ぶん）。
+// 以前は50件（形式や放送年で絞っているときだけ100件）。似た作品の上限を外したあと、50件では広がった候補が届かず、
+// 100件で隠した好きな作品が最もよく戻った（2026-10-07、scripts/match_eval.ts）。絞っているときも、絞ったあとに候補が残る
+const POOL_SIZE = 100
 const MAX_CARDS = 30
 
 // wanna: 見たい / pass: パス（3ヶ月出さない）/ skip: スルー（今は決めない。1週間後にまた出す）/
@@ -38,7 +38,7 @@ export interface MatchCard {
 
 export type Phase =
   | { kind: 'idle' }
-  | { kind: 'loading'; step: string }
+  | { kind: 'loading'; step: string; note?: string; work?: { done: number; total: number } }
   | { kind: 'ready' }
   | { kind: 'empty'; message: string }
   | { kind: 'error'; message: string }
@@ -89,8 +89,8 @@ export function useMatching(annictToken: string, github: GithubConnection | null
     forgetTaste()
     setPhase({ kind: 'loading', step: 'Annict の記録を読み込み中' })
     try {
-      const { library, ratings, seeds, similarSeeds, similar, profile } = await loadTaste(annictToken, (step) => {
-        if (alive()) setPhase({ kind: 'loading', step })
+      const { library, ratings, seeds, similarSeeds, similar, profile } = await loadTaste(annictToken, (step, note, work) => {
+        if (alive()) setPhase({ kind: 'loading', step, note, work })
       })
       if (!alive()) return
       const liked = seeds.filter((s) => s.weight > 0).length
@@ -102,7 +102,7 @@ export function useMatching(annictToken: string, github: GithubConnection | null
 
       let passes = loadLocalPasses()
       if (github) {
-        setPhase({ kind: 'loading', step: 'パスした作品を GitHub から読み込み中' })
+        setPhase({ kind: 'loading', step: '興味なし・保留の作品を GitHub から読み込み中' })
         try {
           passes = await syncPasses(github)
           setSyncNote(null)
@@ -114,7 +114,7 @@ export function useMatching(annictToken: string, github: GithubConnection | null
 
       const recorded = library.map(malIdOf).filter((n): n is number => n !== null)
       const exclude = new Set([...recorded, ...activePassIds(passes, new Date()), ...answered.current])
-      const pool = collectPool(similarSeeds, similar, exclude).slice(0, isDefaultFilter(filter) ? POOL_SIZE : FILTERED_POOL_SIZE)
+      const pool = collectPool(similarSeeds, similar, exclude).slice(0, POOL_SIZE)
 
       setPhase({ kind: 'loading', step: '候補を整理しています' })
       const details = await fetchMedia(pool.map((p) => p.malId))
@@ -167,7 +167,7 @@ export function useMatching(annictToken: string, github: GithubConnection | null
 
   // 始まる前の同期はまとめる（詳しくは useCoalescedTask）
   const syncRun = useMemo(() => (github ? async () => void (await syncPasses(github)) : null), [github])
-  const syncLater = useCoalescedTask(enqueue, 'パス・スルーの記録の GitHub への保存', syncRun)
+  const syncLater = useCoalescedTask(enqueue, '興味なし・保留の記録の GitHub への保存', syncRun)
 
   const answer = useCallback(
     (a: MatchAnswer) => {

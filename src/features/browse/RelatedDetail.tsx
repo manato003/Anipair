@@ -1,3 +1,4 @@
+import { Phrase } from '../../components/Phrase'
 import { useEffect, useMemo, useState } from 'react'
 import { CoverImage } from '../../components/CoverImage'
 import { Sheet } from '../../components/Sheet'
@@ -15,7 +16,7 @@ export type RelatedTarget = { kind: 'annict'; work: SeriesWork } | { kind: 'shik
 
 type Found = { kind: 'loading' } | { kind: 'found'; ref: WorkRef } | { kind: 'missing' } | { kind: 'error'; message: string }
 
-// 関連作品の詳細。元の作品の詳細の上に、もう1枚のシートとして重ねて開く（Annict のサイトへは移らない。docs/concept.md の設計の原則）。
+// 関連作品の詳細。元の作品の詳細の上に、もう1枚のシートとして重ねて開く（Annict のサイトへは移らない）。
 // 状態や評価は、元の画面が送り先の列（enqueue）を渡したときに変えられる（評価画面・マッチングから開いても変えられる）。
 // 変えたことは onChange で元の画面に知らせ、元の画面が一覧の表示を合わせたり、山や候補から外したりする
 export function RelatedDetail(
@@ -87,11 +88,13 @@ export function RelatedDetail(
   const media = target.kind === 'shiki' ? target.media : null
   const title = media ? (media.title.native ?? media.title.romaji ?? media.title.english ?? `MAL ${media.idMal}`) : ''
   return (
-    <Sheet label={title} active={props.active} onClose={props.onClose}>
+    <Sheet label={title} size="page" active={props.active} onClose={props.onClose}>
       <header className="detail__head">
         <div className="detail__cover">{cover && <CoverImage cover={cover} size="large" />}</div>
         <div className="detail__titles">
-          <h2 className="detail__title">{title}</h2>
+          <h2 className="detail__title">
+            <Phrase text={title} />
+          </h2>
           {found.kind === 'loading' && <Loading className="detail__meta" label="Annict で作品を検索中" />}
           {found.kind === 'missing' && (
             <>

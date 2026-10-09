@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { previousSeason, seasonOf, type Season } from '../../lib/season'
@@ -118,7 +118,7 @@ describe('Backfill detail sheet', () => {
     expect(answer).toHaveBeenCalledTimes(1)
 
     // 詳細のキーで閉じ、閉じたらまた答えられる
-    press('i')
+    press('s')
     expect(screen.queryByTestId('sheet')).toBeNull()
     press('3')
     expect(answer).toHaveBeenCalledTimes(2)
@@ -126,10 +126,10 @@ describe('Backfill detail sheet', () => {
 
   it('the detail key opens the sheet, but not while the tab is hidden', () => {
     const { rerender } = render(<Backfill token="t" github={null} active={false} />)
-    press('i')
+    press('s')
     expect(screen.queryByTestId('sheet')).toBeNull()
     rerender(<Backfill token="t" github={null} active />)
-    press('i')
+    press('s')
     expect(screen.getByTestId('sheet')).toBeTruthy()
   })
 
@@ -155,11 +155,11 @@ describe('Backfill detail sheet', () => {
     expect(screen.queryByRole('button', { name: /さかのぼり|見てる（/ })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /^覚えてない/ }))
     expect(answer).toHaveBeenLastCalledWith({ kind: 'watched' })
-    press('f')
+    press('q')
     expect(answer).toHaveBeenLastCalledWith({ kind: 'watched' })
-    press('x')
+    press('r')
     expect(answer).toHaveBeenLastCalledWith({ kind: 'stop' })
-    press('0')
+    press('f')
     expect(answer).toHaveBeenLastCalledWith({ kind: 'skip' })
     press('w')
     expect(answer).toHaveBeenLastCalledWith({ kind: 'wanna' })
@@ -183,13 +183,14 @@ describe('Backfill detail sheet', () => {
     expect((screen.getByRole('button', { name: '次のクール' }) as HTMLButtonElement).disabled).toBe(true)
   })
 
-  it('jumps to a season picked in the dropdowns', () => {
+  it('jumps to a season picked in the panel', () => {
     season = { year: 2020, name: 'spring' }
     render(<Backfill token="t" github={null} active />)
-    fireEvent.change(screen.getByRole('combobox', { name: '年' }), { target: { value: '2012' } })
-    expect(jumpTo).toHaveBeenLastCalledWith({ year: 2012, name: 'spring' })
-    fireEvent.change(screen.getByRole('combobox', { name: '季節' }), { target: { value: 'autumn' } })
-    expect(jumpTo).toHaveBeenLastCalledWith({ year: 2020, name: 'autumn' })
+    fireEvent.click(screen.getByRole('button', { name: /^クールを選ぶ/ }))
+    const panel = screen.getByRole('dialog', { name: 'クールを選ぶ' })
+    fireEvent.click(within(panel).getByRole('button', { name: '2012' }))
+    fireEvent.click(within(panel).getByRole('button', { name: '秋' }))
+    expect(jumpTo).toHaveBeenLastCalledWith({ year: 2012, name: 'autumn' })
     expect(goToPrevious).not.toHaveBeenCalled()
   })
 
@@ -205,11 +206,11 @@ describe('Backfill detail sheet', () => {
     expect(watchAnswer).toHaveBeenLastCalledWith({ kind: 'rate', rating: 'GOOD' })
     press('e')
     expect(watchAnswer).toHaveBeenLastCalledWith({ kind: 'still' })
-    press('f')
+    press('q')
     expect(watchAnswer).toHaveBeenLastCalledWith({ kind: 'watched' })
     // さかのぼり用のキーは効かない
     press('w')
-    press('0')
+    press('f')
     expect(watchAnswer).toHaveBeenCalledTimes(3)
     expect(answer).not.toHaveBeenCalled()
     // 「途中でやめた」は「視聴中断」の1つだけ（一時中断のボタンは無い）
@@ -220,7 +221,7 @@ describe('Backfill detail sheet', () => {
     expect(wUndo).toHaveBeenCalledTimes(1)
     expect(bUndo).not.toHaveBeenCalled()
     // 詳細のシートは読むだけで開く
-    press('i')
+    press('s')
     expect(screen.getByTestId('sheet').getAttribute('data-readonly')).toBe('true')
   })
 })
@@ -254,8 +255,8 @@ describe('Backfill first-run guide', () => {
     render(<Backfill token="t" github={null} active />)
     press('3')
     press('w')
-    press('0')
-    press('i')
+    press('f')
+    press('s')
     expect(answer).not.toHaveBeenCalled()
     expect(screen.queryByTestId('sheet')).toBeNull()
 
@@ -287,7 +288,7 @@ describe('Backfill progress and celebrations', () => {
     render(<Backfill token="t" github={null} active />)
     for (let i = 0; i < 9; i++) press('3')
     expect(screen.queryByRole('status')).toBeNull()
-    press('0')
+    press('f')
     const toast = screen.getByRole('status')
     expect(toast.textContent).toContain('10件')
     expect(toast.textContent).toContain('次の目標 20件')

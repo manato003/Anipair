@@ -43,6 +43,13 @@ describe('when a watching work is asked "finished?"', () => {
     expect(askableWatching(works, NOW).map((w) => w.annictId)).toEqual([2, 4])
   })
 
+  it('does not ask a work started this cour (an old one picked up now) until the cour ends', () => {
+    const started = { annictId: 5, seasonYear: 2022, seasonName: 'SUMMER', stateAt: new Date(2026, 9, 9).toISOString() }
+    const earlier = { annictId: 6, seasonYear: 2022, seasonName: 'SUMMER', stateAt: new Date(2026, 5, 1).toISOString() }
+    expect(askableWatching([started, earlier], NOW).map((w) => w.annictId)).toEqual([6])
+    expect(askableWatching([started, earlier], NEXT_COUR).map((w) => w.annictId)).toEqual([5, 6])
+  })
+
   it('ignores broken data, survives logging in again, and is put aside when someone else signs in', async () => {
     localStorage.setItem('animax.stillWatching.v1', JSON.stringify({ x: 1, 3: 'no' }))
     expect(snoozedWatching(NOW).size).toBe(0)

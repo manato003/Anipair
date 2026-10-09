@@ -41,7 +41,11 @@ function Harness(props: { nested?: boolean }) {
 }
 
 const tab = (shift = false) => fireEvent.keyDown(window, { key: 'Tab', shiftKey: shift })
-const focused = () => (document.activeElement as HTMLElement | null)?.textContent
+// 閉じるボタンはアイコンだけなので、名前は aria-label で読む
+const focused = () => {
+  const el = document.activeElement as HTMLElement | null
+  return el?.getAttribute('aria-label') ?? el?.textContent
+}
 
 // 2026-10-07 の点検: Tab でシートの後ろの画面に移り、閉じたあとも開いた場所にフォーカスが戻らなかった
 describe('Sheet focus', () => {

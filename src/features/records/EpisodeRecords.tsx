@@ -89,7 +89,7 @@ export function EpisodeRecorder(props: {
   }
   const ratingLabel = (r: RatingState) => RATINGS.find((x) => x.rating === r)?.label ?? ''
   // 「感想を書く」の行き先: この画面で記録したばかりの話があればそれ（あとから付ける）、無ければいま選んでいる話（書いてから評価する）。
-  // 評価の前から見える場所に置く（記録のあとにだけ出していたら、見つけられなかった。2026-10-06、利用者の指摘）
+  // 評価の前から見える場所に置く（記録のあとにだけ出していると、見つけられない）
   const commentTarget = last && props.undoable.has(last.episode.id) ? last : !last && current ? { episode: current, rating: null } : null
   const showCommentButton = commentTarget !== null && writing?.episode.id !== commentTarget.episode.id
 

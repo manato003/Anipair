@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { CoverImage } from '../../components/CoverImage'
-import { Sheet } from '../../components/Sheet'
 import type { WorkCredits } from '../../lib/annict'
 import { RATING_LABEL } from '../../lib/reviewOps'
 import type { Media } from '../../lib/shikimori'
@@ -12,13 +12,14 @@ import { Columns } from './Charts'
 import type { RecordRow } from './recordList'
 import { reviewYears, yearReview } from './trends'
 
-// 年間のふり返り（傾向の画面から開く）。その年に Annict で「見た」にした作品で数える。画像で共有できる（表紙は入れない）
-export function YearReviewSheet(props: {
+// 記録の「まとめ ▸ ふり返り」。その年に Annict で「見た」にした作品で数える。画像で共有できる（表紙は入れない）
+export function YearReview(props: {
   rows: readonly RecordRow[]
   media: ReadonlyMap<number, Media>
   credits: ReadonlyMap<string, WorkCredits> | null
   active: boolean
-  onClose: () => void
+  // 見出しの右の置き場（「画像で共有」をそこに出す）
+  actions: HTMLElement | null
 }) {
   const years = useMemo(() => reviewYears(props.rows), [props.rows])
   const [year, setYear] = useState<number | null>(() => years[0] ?? null)
@@ -33,15 +34,16 @@ export function YearReviewSheet(props: {
 
   return (
     <>
-      <Sheet label="年間のふり返り" size="large" active={props.active && shareCard === null} onClose={props.onClose}>
-        <div className="trend__head">
-          <h2 className="detail__title">{y ? `${y.year}年のふり返り` : '年間のふり返り'}</h2>
-          {y && y.watched > 0 && (
-            <button type="button" className="btn trend__share" onClick={openShare}>
+      <div className="summary">
+        {y &&
+          y.watched > 0 &&
+          props.actions &&
+          createPortal(
+            <button type="button" className="btn rhead__edit" onClick={openShare}>
               画像で共有
-            </button>
+            </button>,
+            props.actions,
           )}
-        </div>
         {years.length > 1 && (
           <div className="filtersheet__chips yearreview__years" role="group" aria-label="年">
             {years.map((yy) => (
@@ -122,7 +124,7 @@ export function YearReviewSheet(props: {
             )}
           </>
         )}
-      </Sheet>
+      </div>
       {shareCard && y && <ShareSheet card={shareCard} filename={`anipair-${y.year}.png`} active={props.active} onClose={() => setShareCard(null)} />}
     </>
   )

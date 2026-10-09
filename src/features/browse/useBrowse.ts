@@ -10,7 +10,8 @@ import { malIdOf } from '../match/taste'
 import { forgetTaste, loadTaste } from '../match/tasteLoader'
 import { OLDEST_YEAR } from '../rate/queue'
 import { NO_PERIOD, periodActive, periodSlugs, type BrowsePeriod } from './browseFilter'
-import { rankByTaste, scoreOf, sortByScore, sortFor, type BrowseMode, type BrowseScore, type BrowseSort } from './browseSort'
+import { rankByTaste, reverseScored, scoreOf, sortByScore, sortFor, type BrowseMode, type BrowseScore, type BrowseSort } from './browseSort'
+import type { SortDir } from '../../components/SortRow'
 
 const DEBOUNCE_MS = 400
 // 評価順は全件の点数が要るので、まとめて読む。上限はクール1つぶん（200作品前後）が収まる数
@@ -67,9 +68,17 @@ export function useBrowse(token: string, active = true) {
   const [covers, setCovers] = useState<Map<number, Cover>>(new Map())
   const [ratings, setRatings] = useState<Map<number, RatingState>>(new Map())
   const [sort, setSortState] = useState<BrowseSort>('popular')
+  // 並べる向き。いまの並べ方をもう一度押すと入れ替わり、ほかの並べ方を選ぶと降順に戻る
+  const [dir, setDir] = useState<SortDir>('desc')
   // 評価順で並べたときの、作品（Annict の ID）ごとの点数と出どころ
   const [scores, setScores] = useState<Map<number, BrowseScore>>(new Map())
-  const [progress, setProgress] = useState<string | null>(null)
+  const [progress, setProgressState] = useState<string | null>(null)
+  // 進み具合が数で分かる手順（好みの読み込みで、似た作品を問い合わせているあいだ）だけ。画面が残り時間を見積もる
+  const [progressWork, setProgressWork] = useState<{ done: number; total: number } | undefined>(undefined)
+  const setProgress = useCallback((label: string | null, work?: { done: number; total: number }) => {
+    setProgressState(label)
+    setProgressWork(work)
+  }, [])
   // おすすめ順で並べたときの、作品（Annict の ID）ごとの理由
   const [reasons, setReasons] = useState<Map<number, string>>(new Map())
   // 評価順・おすすめ順で、思いどおりに並べられなかったときの注意（好みの手がかりが無い・好みを読めない・Shikimori の点数を読めない）
@@ -129,6 +138,7 @@ export function useBrowse(token: string, active = true) {
           }
           if (cancelled) return
           const shikimori = new Map<number, number | null>([...media].map(([id, m]) => [id, m.score]))
+          const counts = new Map<number, number | null>([...media].map(([id, m]) => [id, m.scoreCount ?? null]))
           const got = new Map<number, BrowseScore>()
           for (const w of all) {
             const sc = scoreOf(w, shikimori)
@@ -136,7 +146,8 @@ export function useBrowse(token: string, active = true) {
           }
           setScores((cur) => new Map([...cur, ...got]))
           setCapped(collected.capped)
-          setWorks(sortByScore(all, shikimori))
+          const byScore = sortByScore(all, shikimori, counts)
+          setWorks(dir === 'asc' ? reverseScored(byScore, (w) => got.has(w.annictId)) : byScore)
           setCursor({ endCursor: null, hasNext: false })
           setProgress(null)
           await addCovers(all)
@@ -152,8 +163,8 @@ export function useBrowse(token: string, active = true) {
           let note: string | null = null
           setProgress('好みを分析しています')
           try {
-            const taste = await loadTaste(token, (step) => {
-              if (!cancelled) setProgress(step)
+            const taste = await loadTaste(token, (step, _note, work) => {
+              if (!cancelled) setProgress(step, work)
             })
             if (cancelled) return
             if (!taste.seeds.some((s) => s.weight > 0)) {
@@ -164,7 +175,7 @@ export function useBrowse(token: string, active = true) {
               const details = malIds.length > 0 ? await fetchMedia(malIds) : new Map()
               if (cancelled) return
               const ranking = rankByTaste(all, details, taste)
-              ordered = ranking.works
+              ordered = dir === 'asc' ? reverseScored(ranking.works, (w) => ranking.scored.has(w.annictId)) : ranking.works
               why = ranking.reasons
             }
           } catch (e) {
@@ -179,7 +190,7 @@ export function useBrowse(token: string, active = true) {
           setProgress(null)
           await addCovers(all)
         } else {
-          const page = await browseWorks(token, filter, { order })
+          const page = await browseWorks(token, filter, { order, direction: dir === 'asc' ? 'ASC' : 'DESC' })
           if (cancelled) return
           setWorks(page.works)
           setCursor({ endCursor: page.endCursor, hasNext: page.hasNext })
@@ -195,7 +206,7 @@ export function useBrowse(token: string, active = true) {
     return () => {
       cancelled = true
     }
-  }, [token, searched, season, periodKey, reloadTick, effectiveSort, order, addCovers])
+  }, [token, searched, season, periodKey, reloadTick, effectiveSort, order, dir, addCovers])
 
   // 隠れていたタブが再び表示されたときは、好みの控えを捨てる（そのあいだに評価が増えているかもしれない。次におすすめ順にしたときに読み直す）。
   // 一覧の記録の状態も、ほかの画面で変えたかもしれないので、自分のライブラリに合わせ直す（2026-10-06 の点検: 戻るまで古いままだった）。
@@ -259,11 +270,20 @@ export function useBrowse(token: string, active = true) {
 
   // 実際の並べ方が変わらないなら、一覧を空にしない（読み直しも起きないので、空にすると戻らない。
   // 選んでいる並び順をもう一度押したときや、期間で選んだ並び順がクールでは使えず人気順になっているとき。2026-10-06 の点検）
+  // いまの並べ方をもう一度押したら、向きを入れ替えて読み直す。ほかの並べ方は降順から。
+  // いまの場合で使えない並べ方（クールでの新しい順）は人気順のままなので、一覧を空にしない（空にすると読み直しが起きず戻らない）
   const setSort = useCallback(
     (s: BrowseSort) => {
+      if (s === effectiveSort) {
+        setWorks(null)
+        setError(null)
+        setDir((d) => (d === 'desc' ? 'asc' : 'desc'))
+        return
+      }
       if (sortFor(s, mode) !== effectiveSort) {
         setWorks(null)
         setError(null)
+        setDir('desc')
       }
       setSortState(s)
     },
@@ -283,7 +303,7 @@ export function useBrowse(token: string, active = true) {
     setLoadingMore(true)
     setMoreError(null)
     try {
-      const page = await browseWorks(token, filterOf(searched, season, period), { after: cursor.endCursor, order })
+      const page = await browseWorks(token, filterOf(searched, season, period), { after: cursor.endCursor, order, direction: dir === 'asc' ? 'ASC' : 'DESC' })
       if (gen !== listGen.current) return
       setWorks((cur) => [...(cur ?? []), ...page.works.filter((w) => !cur?.some((c) => c.id === w.id))])
       setCursor({ endCursor: page.endCursor, hasNext: page.hasNext })
@@ -293,7 +313,7 @@ export function useBrowse(token: string, active = true) {
     } finally {
       if (gen === listGen.current) setLoadingMore(false)
     }
-  }, [token, searched, season, period, order, cursor, loadingMore, addCovers])
+  }, [token, searched, season, period, order, dir, cursor, loadingMore, addCovers])
 
   // 詳細画面で状態や評価を変えたら、一覧の表示も合わせる
   const patchWork = useCallback((annictId: number, patch: { state?: BrowseWork['viewerStatusState']; rating?: RatingState | null }) => {
@@ -322,11 +342,13 @@ export function useBrowse(token: string, active = true) {
     mode,
     capped,
     sort: effectiveSort,
+    dir,
     setSort,
     scores,
     reasons,
     sortNote,
     progress,
+    progressWork,
     works,
     hasMore: cursor.hasNext,
     loadingMore,

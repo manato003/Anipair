@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Season } from '../lib/season'
 import { SeasonPicker } from './SeasonPicker'
@@ -15,45 +15,69 @@ function setup(value: Season, extra: { onPrevious?: () => void; onNext?: () => v
   return onChange
 }
 
-const year = () => screen.getByRole('combobox', { name: '年' }) as HTMLSelectElement
-const season = () => screen.getByRole('combobox', { name: '季節' }) as HTMLSelectElement
-const optionTexts = (el: HTMLElement) => [...el.querySelectorAll('option')].map((o) => o.textContent)
+// パネルを開いて、年と季節を押す
+const openPicker = () => fireEvent.click(screen.getByRole('button', { name: /^クールを選ぶ/ }))
+const panel = () => screen.getByRole('dialog', { name: 'クールを選ぶ' })
+const yearButtons = () => within(panel()).getAllByRole('group', { name: '年' })[0].querySelectorAll('button')
+const pickYear = (y: number) => fireEvent.click(within(panel()).getByRole('button', { name: String(y) }))
+const seasonButton = (label: string) => within(panel()).getByRole('button', { name: label }) as HTMLButtonElement
 
 describe('SeasonPicker', () => {
-  it('shows the value, with years newest first and seasons in the app order', () => {
+  it('shows the value on one button, and opens a panel with the years newest first and the seasons in the app order', () => {
     setup({ year: 2020, name: 'spring' })
-    expect(year().value).toBe('2020')
-    expect(season().value).toBe('spring')
-    expect(optionTexts(year())[0]).toBe('2026年')
-    expect(optionTexts(year()).at(-1)).toBe('2010年')
-    expect(optionTexts(season())).toEqual(['冬', '春', '夏', '秋'])
+    const button = screen.getByRole('button', { name: 'クールを選ぶ（いまは 2020年 春）' })
+    expect(button.textContent).toBe('2020年春')
+    expect(button.getAttribute('aria-expanded')).toBe('false')
+    openPicker()
+    expect(button.getAttribute('aria-expanded')).toBe('true')
+    const years = [...yearButtons()].map((b) => b.textContent)
+    expect(years[0]).toBe('2026')
+    expect(years.at(-1)).toBe('2010')
+    expect(within(panel()).getByRole('button', { name: '2020' }).getAttribute('aria-pressed')).toBe('true')
+    expect([...within(panel()).getByRole('group', { name: '季節' }).querySelectorAll('button')].map((b) => b.textContent)).toEqual(['冬', '春', '夏', '秋'])
+    expect(seasonButton('春').getAttribute('aria-current')).toBe('true')
   })
 
-  it('calls back with the picked year, keeping the season', () => {
+  it('moves only when a season is pressed: the year alone does not move, then the panel closes', () => {
     const onChange = setup({ year: 2020, name: 'spring' })
-    fireEvent.change(year(), { target: { value: '2012' } })
-    expect(onChange).toHaveBeenCalledWith({ year: 2012, name: 'spring' })
+    openPicker()
+    pickYear(2012)
+    expect(onChange).not.toHaveBeenCalled()
+    fireEvent.click(seasonButton('秋'))
+    expect(onChange).toHaveBeenCalledWith({ year: 2012, name: 'autumn' })
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it('calls back with the picked season, keeping the year', () => {
+  it('does not call back when the current cour is pressed again', () => {
     const onChange = setup({ year: 2020, name: 'spring' })
-    fireEvent.change(season(), { target: { value: 'autumn' } })
-    expect(onChange).toHaveBeenCalledWith({ year: 2020, name: 'autumn' })
-  })
-
-  it('clamps to the max when the picked year makes the season come too late', () => {
-    const onChange = setup({ year: 2025, name: 'autumn' })
-    fireEvent.change(year(), { target: { value: '2026' } })
-    expect(onChange).toHaveBeenCalledWith(max)
+    openPicker()
+    fireEvent.click(seasonButton('春'))
+    expect(onChange).not.toHaveBeenCalled()
   })
 
   it('disables the seasons after the max in the max year, but not in other years', () => {
     setup({ year: 2026, name: 'spring' })
-    const disabled = [...season().querySelectorAll('option')].filter((o) => o.disabled).map((o) => o.textContent)
-    expect(disabled).toEqual(['秋'])
-    cleanup()
-    setup({ year: 2025, name: 'spring' })
-    expect([...season().querySelectorAll('option')].some((o) => o.disabled)).toBe(false)
+    openPicker()
+    expect(seasonButton('秋').disabled).toBe(true)
+    expect(seasonButton('夏').disabled).toBe(false)
+    pickYear(2025)
+    expect(seasonButton('秋').disabled).toBe(false)
+  })
+
+  it('closes without moving on Esc and on a press outside, and keeps ← → inside the panel', () => {
+    const onChange = setup({ year: 2020, name: 'spring' })
+    openPicker()
+    const onWindowKey = vi.fn()
+    window.addEventListener('keydown', onWindowKey)
+    fireEvent.keyDown(within(panel()).getByRole('button', { name: '2020' }), { key: 'ArrowRight' })
+    expect(onWindowKey).not.toHaveBeenCalled()
+    window.removeEventListener('keydown', onWindowKey)
+    fireEvent.keyDown(panel(), { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    openPicker()
+    fireEvent.pointerDown(document.body)
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(onChange).not.toHaveBeenCalled()
   })
 
   it('steps by one season with the arrows, unless the screen handles them itself', () => {

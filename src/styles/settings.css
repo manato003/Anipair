@@ -6,20 +6,6 @@
   padding: 28px 20px;
 }
 
-/* 設定は2つの欄が並ぶので、画面が低いときは中でスクロールさせる */
-.settings {
-  height: 100%;
-  overflow-y: auto;
-}
-
-/* 設定の上の段。右端に「?」（使い方）だけを置く */
-.settings__head {
-  display: flex;
-  justify-content: flex-end;
-  /* ほかの画面の「?」と高さをそろえる（設定は上の余白が広い） */
-  margin: -16px 0 4px;
-}
-
 /* 設定のまとまり（カード）。見出し → 1行の説明 → いまの状態 → 操作の順 */
 .settings__card {
   padding: 18px 16px;
@@ -37,10 +23,6 @@
   margin-top: 36px;
   padding-top: 28px;
   border-top: 1px solid var(--line);
-}
-
-.settings__nav {
-  display: none;
 }
 
 .settings__summary {
@@ -261,11 +243,6 @@
   margin-top: 10px;
 }
 
-/* バックアップの欄で、ファイルの書き出しの下に続く GitHub の説明 */
-.settings__auto {
-  margin-top: 20px;
-}
-
 .settings__list {
   padding-left: 1.5em;
 }
@@ -283,16 +260,48 @@
   font-size: 1rem;
 }
 
-/* 最初の画面のロゴとキャッチコピー */
+/* ── ログインする前の最初の画面 ──
+   ロゴ → キャッチコピー（この画面の見出し）→ 一言の説明 → ログイン。分類の帯は出さない（ログインするまで使えない）。
+   続く「このアプリについて」は、ログイン後の設定と同じく箱で囲まず、細い線で区切る */
+.settings.settings--welcome {
+  padding-top: max(48px, env(safe-area-inset-top));
+  padding-bottom: calc(40px + env(safe-area-inset-bottom));
+}
+
 .welcome__logo {
   font-weight: 700;
 }
 
 .welcome__tagline {
-  margin-top: 14px;
-  margin-bottom: 14px;
-  font-size: 0.92rem;
-  font-weight: 500;
+  margin-top: 28px;
+  margin-bottom: 12px;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.settings--welcome .settings__card {
+  margin-top: 36px;
+  padding: 28px 0 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
+}
+
+.settings--welcome .settings__title {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+@media (min-width: 960px) {
+  .settings.settings--welcome {
+    padding-top: 72px;
+  }
+
+  .welcome__tagline {
+    font-size: 2rem;
+  }
 }
 
 /* 句の途中では折り返さない（狭い画面では「…と、」と「次の…」の2行になる） */
@@ -372,37 +381,6 @@
     max-width: 640px;
   }
 
-  .settings--nav {
-    display: grid;
-    grid-template-columns: 170px minmax(0, 1fr);
-    gap: 32px;
-    max-width: 900px;
-  }
-
-  .settings__nav {
-    position: sticky;
-    top: 0;
-    align-self: start;
-    display: grid;
-    gap: 2px;
-  }
-
-  .settings__navitem {
-    padding: 8px 12px;
-    border: 0;
-    border-radius: var(--radius-s);
-    background: none;
-    color: var(--muted);
-    font-size: 0.9rem;
-    text-align: left;
-    cursor: pointer;
-  }
-
-  .settings__navitem:hover {
-    background: var(--ink-raised);
-    color: var(--paper);
-  }
-
   .settings__card {
     padding: 22px 24px;
   }
@@ -427,4 +405,59 @@
 .settings__card .toggle button[aria-pressed='true'] {
   background: var(--line-strong);
   font-weight: 700;
+}
+
+/* 表示の欄の小見出し（テーマの色・明るさ・時刻・片手操作） */
+.settings__sub {
+  margin-top: 16px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.settings__sub:first-of-type {
+  margin-top: 0;
+}
+
+/* ── 設定のまとまり（アカウント・表示・バックアップ・キー・このアプリ）──
+   スマホは一覧を挟み、PC は右端の縦の列（記録と同じ .rrail・.folder・.rhead）。欄は箱で囲まず、細い線と余白で区切る */
+.settings.settings--groups {
+  padding: 0 16px 24px;
+}
+
+.settings--groups .settings__card {
+  padding: 20px 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+.settings--groups .settings__card + .settings__card {
+  margin-top: 0;
+  border-top: 1px solid var(--line);
+}
+
+.settings--groups .settings__title {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+@media (min-width: 960px) {
+  .settings.settings--groups {
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr);
+    column-gap: 28px;
+    align-items: start;
+    max-width: 880px;
+    padding: 0 24px 32px;
+  }
+
+  .settings--groups .settings__body {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+
+/* 「使い方を見る」と、続く要点の並びのあいだ */
+.settings__about-foot + .settings__list {
+  margin-top: 12px;
 }

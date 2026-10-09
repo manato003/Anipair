@@ -1,24 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fetchSeasonTops, fetchViewerStats, SEASON_TOPS_BATCH, type ViewerStats } from '../../lib/annict'
+import { fetchSeasonTops, SEASON_TOPS_BATCH, type ViewerStats } from '../../lib/annict'
 import type { RecordRow } from '../records/recordList'
-import { activeUnseenIds } from '../rate/unseen'
-import { loadLocalUnseen } from '../rate/unseenStore'
-import { allSeasonSlugs, isStale, loadFeats, loadSeasonTops, loadTitlesState, rememberEarned, saveSeasonTops, type SeasonTop } from './achievementStore'
-import { coverageOf, evaluateTitles, type Coverage, type Title } from './titles'
+import { allSeasonSlugs, isStale, loadSeasonTops, rememberEarned, saveSeasonTops, type SeasonTop } from './achievementStore'
+import { coverageFor, liveStatsOf, statsOf, titlesFor } from './titleCheck'
+import type { Coverage, Title } from './titles'
 
 const AWAKEN_WAIT_MS = 15_000
-
-// 自分の Annict の数値（1起動に1回。トークンごと）
-const statsCache = new Map<string, Promise<ViewerStats>>()
-function statsOf(token: string): Promise<ViewerStats> {
-  let p = statsCache.get(token)
-  if (!p) {
-    p = fetchViewerStats(token)
-    p.catch(() => statsCache.delete(token))
-    statsCache.set(token, p)
-  }
-  return p
-}
 
 export interface Achievements {
   titles: Title[] | null
@@ -97,26 +84,9 @@ export function useAchievements(token: string, rows: RecordRow[] | null, active:
     }
   }, [token, active])
 
-  const coverage = useMemo(() => {
-    if (!rows) return null
-    // 答えた作品: Annict に記録がある作品と「見てない」にした作品
-    const answered = new Set<number>(rows.map((r) => r.entry.annictId))
-    for (const id of activeUnseenIds(loadLocalUnseen())) answered.add(id)
-    return coverageOf(new Map([...tops].map(([slug, t]) => [slug, t.ids])), answered)
-  }, [rows, tops])
-
-  // 状態ごとの作品数は、手元の記録（ライブラリ）から数える。Annict の数値は1起動に1回しか読まないので、
-  // アプリの中で記録した分が、開き直すまで称号に効かなかった（2026-10-06 の点検: 10本目を見たにしても「見た10本」が解放されなかった）
-  const liveStats = useMemo(() => (stats && rows ? { ...stats, ...stateCounts(rows) } : stats), [stats, rows])
-
-  const titles = useMemo(() => {
-    if (!rows || !coverage) return null
-    const watchedYears = rows.filter((r) => r.entry.state === 'WATCHED' && r.entry.seasonYear).map((r) => r.entry.seasonYear as number)
-    const evaluated = evaluateTitles({ stats: liveStats, watchedYears, coverage, feats: loadFeats(), now: new Date() })
-    // 一度手に入れた称号は、条件から外れても手放さない
-    const earned = new Set(loadTitlesState().earned ?? [])
-    return evaluated.map((t) => (!t.unlocked && earned.has(t.id) ? { ...t, unlocked: true, progress: null } : t))
-  }, [rows, liveStats, coverage])
+  const coverage = useMemo(() => (rows ? coverageFor(rows, tops) : null), [rows, tops])
+  const liveStats = useMemo(() => liveStatsOf(stats, rows), [stats, rows])
+  const titles = useMemo(() => (rows && coverage ? titlesFor(rows, liveStats, coverage) : null), [rows, liveStats, coverage])
 
   const unlockedKey = (titles ?? [])
     .filter((t) => t.unlocked)
@@ -127,15 +97,4 @@ export function useAchievements(token: string, rows: RecordRow[] | null, active:
   }, [unlockedKey])
 
   return { titles, coverage, stats: liveStats, scan, ready: titles !== null && statsDone && (scanDone || waitedLong) }
-}
-
-function stateCounts(rows: RecordRow[]): Pick<ViewerStats, 'watchedCount' | 'watchingCount' | 'wannaWatchCount' | 'onHoldCount' | 'stopWatchingCount'> {
-  const count = (state: string) => rows.filter((r) => r.entry.state === state).length
-  return {
-    watchedCount: count('WATCHED'),
-    watchingCount: count('WATCHING'),
-    wannaWatchCount: count('WANNA_WATCH'),
-    onHoldCount: count('ON_HOLD'),
-    stopWatchingCount: count('STOP_WATCHING'),
-  }
 }

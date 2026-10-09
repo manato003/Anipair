@@ -1,3 +1,4 @@
+import { Phrase } from '../../components/Phrase'
 import { useEffect, useState } from 'react'
 import { CoverImage } from '../../components/CoverImage'
 import { Sheet } from '../../components/Sheet'
@@ -52,11 +53,13 @@ export function MatchDetail(props: {
 
   const title = titleOf(card.media)
   return (
-    <Sheet label={title} active={props.active} onClose={props.onClose}>
+    <Sheet label={title} size="page" active={props.active} onClose={props.onClose}>
       <header className="detail__head">
         <div className="detail__cover">{card.media.cover && <CoverImage cover={card.media.cover} size="large" />}</div>
         <div className="detail__titles">
-          <h2 className="detail__title">{title}</h2>
+          <h2 className="detail__title">
+            <Phrase text={title} />
+          </h2>
           {found.kind === 'loading' && <Loading className="detail__meta" label="Annict で作品を検索中" />}
           {found.kind === 'missing' && (
             <>

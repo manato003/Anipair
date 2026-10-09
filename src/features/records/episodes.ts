@@ -44,3 +44,10 @@ export function episodeWindow(episodes: readonly Episode[], size: number, before
   const start = Math.max(0, Math.min(at - before, episodes.length - size))
   return { start, end: Math.min(episodes.length, start + size) }
 }
+
+// 見てる作品の残り（次に見る話から最後の話まで）。進み具合の棒は、次に見る話の前までを見た分とする
+export function episodesLeft(episodes: readonly Episode[]): { left: number; done: number; total: number } {
+  const next = nextEpisode(episodes)
+  const done = next ? episodes.indexOf(next) : episodes.length
+  return { left: episodes.length - done, done, total: episodes.length }
+}

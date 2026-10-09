@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { storedAtLabel } from '../lib/offlineCache'
+import { useNotice } from '../lib/notices'
 import { Spinner } from './Loading'
 
 // 前回の内容（端末にとっておいた Annict のデータ）で画面を出しているあいだの一言。画面の下に浮かべ、画面の流れには入れない。
@@ -17,6 +18,12 @@ export function StaleNote(props: { at: string | null; error: string | null; onRe
       setSlow(false)
     }
   }, [props.at])
+  // 読み直せなかったことは、コントロールセンターにも並べる
+  useNotice(
+    props.at && props.error
+      ? { id: 'stale', title: 'Annict から読み直せませんでした', body: `前回（${storedAtLabel(props.at)}）の内容を表示しています。${props.error}`, action: props.onRetry ? { label: 'もう一度', run: props.onRetry } : undefined }
+      : null,
+  )
   if (!props.at) return null
   if (props.error) {
     return (

@@ -1,26 +1,29 @@
+import { Phrase } from '../../components/Phrase'
 import { useEffect, useRef, useState } from 'react'
 import { CoverImage } from '../../components/CoverImage'
 import { Sheet } from '../../components/Sheet'
-import { annictWorkUrl, fetchWorkDetail, updateStatus, type Credit, type RatingState, type StatusState, type WorkDetail as Detail } from '../../lib/annict'
+import { annictWorkUrl, fetchWorkDetail, peekLibrary, updateStatus, type Credit, type RatingState, type StatusState, type WorkDetail as Detail } from '../../lib/annict'
 import { getMyReviews, rememberReview } from '../../lib/myReviews'
 import { changeRating } from '../../lib/reviewOps'
 import { fetchMedia, shikimoriUrl, type Media } from '../../lib/shikimori'
 import type { Cover } from '../../lib/storage'
 import { vodSearchLinks } from '../../lib/vodSearch'
+import { episodeFacts, formatMinutes } from '../../lib/watchFacts'
 import { useFontsReady } from '../../lib/useFontsReady'
 import { messageOf } from '../../lib/useWriteQueue'
 import { fetchWikiSynopsis, type WikiSynopsis } from '../../lib/wikipedia'
 import type { WriteIntent } from '../../lib/writeJournal'
 import { genreName, malIdOf } from '../match/taste'
 import { RATINGS } from '../rate/queue'
-import { STATE_OPTIONS, optionState } from '../records/recordList'
+import { STATE_OPTIONS, formatDateTime, optionState } from '../records/recordList'
 import { EpisodeRecorder } from '../records/EpisodeRecords'
 import { useEpisodes, type EpisodesController } from '../records/useEpisodes'
 import { CreditWorks, type CreditTarget } from './CreditWorks'
-import { STATUS_LABEL, mainStaff, studioFor, withCopyrightMark, safeHttpUrl, workMeta, xUrl } from './detail'
+import { STATUS_LABEL, mainStaff, seriesFacts, studioFor, withCopyrightMark, safeHttpUrl, workMeta, xUrl } from './detail'
 import { RelatedDetail, type RelatedTarget } from './RelatedDetail'
 import { RelatedWorks } from './RelatedWorks'
 import { Loading } from '../../components/Loading'
+import { ExternalIcon, InfoIcon, PeopleIcon, UserIcon } from '../../components/Icons'
 import { ReviewEditor } from './ReviewEditor'
 
 // シートを開く作品の手がかり。詳細を読み込むまでは、ここにある項目だけで出す（分からない項目は省く）
@@ -46,6 +49,8 @@ type Editable = {
   readOnly?: false
   enqueue: Enqueue
   onChange: (patch: RecordPatch) => void
+  // 見たいの作品の「優先して見る」とメモ（記録の画面だけが渡す。見たいのときだけ出す）
+  wanna?: { priority: boolean; memo: string; onTogglePriority: () => void; onEditMemo: () => void }
 }
 // 読むだけのシート。状態と評価は出さない（評価画面・マッチングでは、この作品への答えは下のボタンで付ける。答え方を2つにしない）
 type ReadOnly = { readOnly: true; enqueue?: undefined; onChange?: undefined }
@@ -64,6 +69,9 @@ const NO_WORKS: readonly string[] = []
 const noEnqueue: Enqueue = () => undefined
 // 中身（詳細・ジャンル）がそろうのを待つ上限。過ぎたら、届いたものだけで出す
 const CONTENT_WAIT_MS = 2500
+
+// Annict の形式（Media）を、作品の要点の計算に使う形式にそろえる（Shikimori の情報が無い作品のため）
+const ANNICT_FORMAT: Record<string, string> = { TV: 'TV', MOVIE: 'MOVIE', OVA: 'OVA', WEB: 'ONA' }
 
 export function WorkDetail(
   props: {
@@ -103,6 +111,13 @@ export function WorkDetail(
   // Annict は未記録を null ではなく NO_STATE で返す。画面では「記録なし」にそろえる
   const [state, setState] = useState<StatusState | null>(work.viewerStatusState && work.viewerStatusState !== 'NO_STATE' ? work.viewerStatusState : null)
   const [rating, setRating] = useState<RatingState | null>(null)
+  // いつ記録したか: 状態を付けた日時（手元のライブラリの控えから。状態が違えば出さない）と、評価・感想を付けた日時。
+  // このシートで変えたら、いまの日時にする
+  const [stateAt, setStateAt] = useState<string | null>(() => {
+    const entry = peekLibrary()?.find((e) => e.annictId === work.annictId)
+    return entry && entry.state === work.viewerStatusState ? entry.stateAt : null
+  })
+  const [reviewAt, setReviewAt] = useState<{ at: string; withText: boolean } | null>(null)
   const touched = useRef(false)
   // 状態をこのシートで変えたか（変えたら、あとから届いた詳細の状態で上書きしない）
   const stateTouched = useRef(false)
@@ -137,7 +152,9 @@ export function WorkDetail(
         getMyReviews(token)
           .then((map) => {
             if (cancelled || touched.current) return
-            setRating(map.get(work.annictId)?.ratingOverallState ?? null)
+            const review = map.get(work.annictId)
+            setRating(review?.ratingOverallState ?? null)
+            if (review) setReviewAt({ at: review.createdAt, withText: review.body.trim() !== '' })
           })
           .catch(() => undefined)
       }
@@ -171,6 +188,7 @@ export function WorkDetail(
     const value = next === optionState(state) ? 'NO_STATE' : next
     stateTouched.current = true
     setState(value === 'NO_STATE' ? null : value)
+    setStateAt(value === 'NO_STATE' ? null : new Date().toISOString())
     props.onChange({ state: value === 'NO_STATE' ? null : value })
     props.enqueue(`「${work.title}」の状態`, () => updateStatus(token, work.id, value), [{ kind: 'status', workId: work.id, state: value }])
   }
@@ -188,9 +206,11 @@ export function WorkDetail(
     const becomesWatched = value !== null && state !== 'WATCHED'
     touched.current = true
     setRating(value)
+    setReviewAt(value ? { at: new Date().toISOString(), withText: false } : null)
     if (becomesWatched) {
       stateTouched.current = true
       setState('WATCHED')
+      setStateAt(new Date().toISOString())
     }
     props.onChange({ rating: value, ...(becomesWatched ? { state: 'WATCHED' as const } : {}) })
     props.enqueue(
@@ -222,12 +242,32 @@ export function WorkDetail(
     setCredit({ credit: c, studio: c.kind === 'org' ? studioFor(c, role, shiki?.studioRefs ?? []) : null })
   // 詳細を読み込むまでは、手元の項目だけで出す
   const watchers = detail?.watchersCount ?? work.watchersCount
-  const meta = workMeta(detail ?? work, detail?.episodesCount)
+  // 題名の下の要点: 放送時期・形式に、放送中・全◯話・一気見の目安（Shikimori の話数と1話の長さ。無ければ Annict の話数）
+  const headFacts = [
+    workMeta(detail ?? work),
+    ...episodeFacts(
+      {
+        format: shiki?.format ?? ANNICT_FORMAT[(detail ?? work).media ?? ''] ?? null,
+        status: shiki?.status ?? null,
+        episodes: shiki?.episodes,
+        episodesAired: shiki?.episodesAired,
+        duration: shiki?.duration,
+      },
+      detail?.episodesCount,
+    ),
+  ].filter((f) => !!f)
+  // データで見る: 1話の長さと、シリーズの何作目か・次の作品（劇場版の上映時間は題名の下に出している）
+  const dataRows: [string, string][] = [
+    ...(shiki?.duration && shiki.format !== 'MOVIE' ? [['1話の長さ', formatMinutes(shiki.duration)] as [string, string]] : []),
+    ...seriesFacts(detail?.series, work.annictId),
+  ]
   // 表紙と題名はすぐ出す（評価の画面で出ている字なので組み直しが起きない）。それ以外は、中身と書体がそろってからまとめて出す。
   // そろうまでは並べずに置いておき、そこに含まれる字の書体だけを先に読む（lib/useFontsReady.ts、styles/detail.css の .detail--ready）
   const settled = waitedLong || (error !== null && shikiDone) || (detail !== null && wiki !== undefined && shikiDone)
   const rootRef = useRef<HTMLDivElement>(null)
   const ready = useFontsReady(settled, rootRef)
+  // 「作品について」の塊に出すものがあるか（無ければ塊ごと出さない）
+  const hasAbout = genres.length > 0 || dataRows.length > 0 || !!wiki || (detail?.series?.length ?? 0) > 0 || (shiki?.related?.length ?? 0) > 0
   // 待つのをやめて出したあとも、まだ届いていない部分。届くまで、何を読んでいるかを添えて読み込み中を出し続ける
   // （出ている分だけで全部だと思わせない）。あらすじは Annict の詳細が届いてから Wikipedia を読む
   const detailPending = detail === null && error === null
@@ -258,25 +298,34 @@ export function WorkDetail(
 
   return (
     <>
-    <Sheet label={work.title} size="large" active={active} onClose={props.onClose}>
+    <Sheet label={work.title} size="page" active={active} onClose={props.onClose}>
       <div ref={rootRef} className={ready ? 'detail detail--ready' : 'detail'} aria-busy={!ready}>
         <header className="detail__head">
-          <div>
-            <div className={props.cover?.landscape ? 'detail__cover detail__cover--landscape' : 'detail__cover'}>
-              {props.cover && <CoverImage cover={props.cover} size="large" />}
-            </div>
-            {withCopyrightMark(detail?.copyright) && <p className="detail__copyright detail__late">{withCopyrightMark(detail?.copyright)}</p>}
+          <div className={props.cover?.landscape ? 'detail__cover detail__cover--landscape' : 'detail__cover'}>
+            {props.cover && <CoverImage cover={props.cover} size="large" />}
           </div>
           <div className="detail__titles">
-            <h2 className="detail__title">{work.title}</h2>
+            <h2 className="detail__title">
+              <Phrase text={work.title} />
+            </h2>
             <div className="detail__late">
               {detail?.titleKana && <p className="detail__kana">{detail.titleKana}</p>}
-              {meta && <p className="detail__meta">{meta}</p>}
+              {headFacts.length > 0 && (
+                <p className="detail__meta">
+                  {headFacts.map((f) => (
+                    <span key={f} className="fact">
+                      {f}
+                    </span>
+                  ))}
+                </p>
+              )}
               {watchers !== undefined && <p className="detail__meta">Annict で{watchers.toLocaleString()}人が記録</p>}
               {/* 待つのをやめて出したあとも届いていない部分を、何を読んでいるかと一緒に出す。広い画面でも開いてすぐ目に入るよう、題名の欄に置く */}
               {pending.length > 0 && <Loading className="detail__pending" label={`${pending.join('・')}を読み込み中`} since={openedAt} />}
             </div>
           </div>
+          {/* 表紙の権利表記。表紙の列に入れると狭い画面で何行にも折れるので、表紙と題名の下に幅いっぱいで出す */}
+          {withCopyrightMark(detail?.copyright) && <p className="detail__copyright detail__late">{withCopyrightMark(detail?.copyright)}</p>}
         </header>
 
         <div className="detail__body">
@@ -288,19 +337,45 @@ export function WorkDetail(
             </>
           )}
           <div className="detail__late">
+            {/* 中身は内容で4つの塊に分ける（あなたの記録・作品について・スタッフ・キャスト・ほかのサイトで見る）。
+                塊は板で囲み（XMB の情報の板のような半透明）、見出しは分類の帯と同じくアイコンと名前。中の項目の見出しは小さく。塊のあいだは広く、中は狭く空ける */}
             {!readOnly && (
-              <>
+              <section className="group">
+                <h3 className="group__title">
+                  <UserIcon />
+                  あなたの記録
+                </h3>
                 <section className="detail__section">
                   <h3 className="detail__label">状態</h3>
                   <div className="state-chips">
                     {STATE_OPTIONS.map((o) => (
-                      <button key={o.state} type="button" className="chip" aria-selected={optionState(state) === o.state} onClick={() => changeState(o.state)}>
+                      <button key={o.state} type="button" className="chip" aria-pressed={optionState(state) === o.state} onClick={() => changeState(o.state)}>
                         {o.label}
                       </button>
                     ))}
                   </div>
                   <p className="detail__hint">{state ? `選んでいる「${STATUS_LABEL[state]}」をもう一度押すと、記録から外します。` : 'まだ記録していません。'}</p>
+                  {state && stateAt && (
+                    <p className="detail__when">
+                      「{STATUS_LABEL[state]}」にした日時 <time dateTime={stateAt}>{formatDateTime(stateAt)}</time>
+                    </p>
+                  )}
                 </section>
+
+                {state === 'WANNA_WATCH' && props.wanna && (
+                  <section className="detail__section">
+                    <h3 className="detail__label">優先とメモ</h3>
+                    <div className="wannanote">
+                      <button type="button" className="chip" aria-pressed={props.wanna.priority} onClick={props.wanna.onTogglePriority}>
+                        {props.wanna.priority ? '★ 優先して見る' : '☆ 優先して見る'}
+                      </button>
+                      <button type="button" className="btn" onClick={props.wanna.onEditMemo}>
+                        {props.wanna.memo ? 'メモを直す' : 'メモを書く'}
+                      </button>
+                    </div>
+                    {props.wanna.memo && <p className="wannanote__memo">{props.wanna.memo}</p>}
+                  </section>
+                )}
 
                 {/* 見てる作品は、話ごとの記録がいちばんの用事。作品の評価（最後に1回）より上に置く（同じ形のボタンが続いて押し間違えないように） */}
                 {state === 'WATCHING' && episodeSection}
@@ -320,168 +395,221 @@ export function WorkDetail(
                       </button>
                     ))}
                   </div>
+                  {rating && reviewAt && (
+                    <p className="detail__when">
+                      {reviewAt.withText ? '評価と感想を付けた日時' : '評価を付けた日時'} <time dateTime={reviewAt.at}>{formatDateTime(reviewAt.at)}</time>
+                    </p>
+                  )}
                   <ReviewEditor token={token} workId={work.id} annictId={work.annictId} title={work.title} overall={rating} enqueue={props.enqueue} />
                 </section>
 
                 {state === 'WATCHED' && episodeSection}
-              </>
+              </section>
             )}
 
             {error && <p className="settings__error">{error}</p>}
 
-            {/* 配信サービスの検索への入り口（配信しているかは確かめない。lib/vodSearch.ts）。v0.7.1 で外した「配信」と同じ場所 */}
-            {vodLinks.length > 0 && (
-              <section className="detail__section">
-                <h3 className="detail__label">配信サービスで探す</h3>
-                <div className="vods">
-                  {vodLinks.map((l) => (
-                    <a key={l.name} className="chip chip--link" href={l.href} target="_blank" rel="noreferrer">
-                      {l.name}
-                    </a>
-                  ))}
-                </div>
-                <p className="detail__hint">各サービスで題名を検索します。配信していない作品もあります。</p>
-              </section>
-            )}
+            {hasAbout && (
+              <section className="group">
+                <h3 className="group__title">
+                  <InfoIcon />
+                  作品について
+                </h3>
+                {genres.length > 0 && (
+                  <section className="detail__section">
+                    <h3 className="detail__label">ジャンル</h3>
+                    <ul className="tags">
+                      {genres.map((g) => (
+                        <li key={g} className="tag">
+                          {g}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
 
-            {genres.length > 0 && (
-              <section className="detail__section">
-                <p className="detail__genres">{genres.join('・')}</p>
-              </section>
-            )}
+                {/* データで見る: 次に見る1本を決める手がかり（myanimecheck.com を参考に。手元のデータから計算するだけ） */}
+                {dataRows.length > 0 && (
+                  <section className="detail__section">
+                    <h3 className="detail__label">データで見る</h3>
+                    <dl className="credits">
+                      {dataRows.map(([k, v]) => (
+                        <div key={k} className="credits__row">
+                          <dt>{k}</dt>
+                          <dd>
+                            <Phrase text={v} />
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </section>
+                )}
 
-            {/* あらすじ: Wikipedia の冒頭の段落（ネタバレを避ける）。続きは押したときだけ、その場で広げる。出典とライセンス（CC BY-SA 4.0）を添える */}
-            {wiki && (
-              <section className="detail__section">
-                <h3 className="detail__label">あらすじ</h3>
-                {wikiOpen ? (
-                  <div className="detail__wiki">
-                    {wiki.blocks.map((b, i) =>
-                      b.heading ? (
-                        <h4 key={i} className="detail__wiki-heading">
-                          {b.text}
-                        </h4>
-                      ) : (
-                        <p key={i} className="detail__text">
-                          {b.text}
-                        </p>
-                      ),
+                {/* あらすじ: Wikipedia の冒頭の段落（ネタバレを避ける）。続きは押したときだけ、その場で広げる。出典とライセンス（CC BY-SA 4.0）を添える */}
+                {wiki && (
+                  <section className="detail__section">
+                    <h3 className="detail__label">あらすじ</h3>
+                    {wikiOpen ? (
+                      <div className="detail__wiki">
+                        {wiki.blocks.map((b, i) =>
+                          b.heading ? (
+                            <h4 key={i} className="detail__wiki-heading">
+                              {b.text}
+                            </h4>
+                          ) : (
+                            <p key={i} className="detail__text">
+                              {b.text}
+                            </p>
+                          ),
+                        )}
+                      </div>
+                    ) : (
+                      <p className="detail__text">{wiki.text}</p>
                     )}
-                  </div>
-                ) : (
-                  <p className="detail__text">{wiki.text}</p>
+                    {(wiki.blocks.length > 1 || wiki.text.endsWith('…')) && (
+                      // 右端に置く（親指の届く側）。注意書きはボタンのすぐ左
+                      <p className="detail__more">
+                        {!wikiOpen && <span className="detail__spoiler">ネタバレを含むことがあります</span>}
+                        <button type="button" className="link" onClick={() => setWikiOpen((v) => !v)} aria-expanded={wikiOpen}>
+                          {wikiOpen ? '続きを閉じる' : '続きを読む'}
+                        </button>
+                      </p>
+                    )}
+                    <p className="detail__source">
+                      出典: Wikipedia「
+                      <a href={wiki.url} target="_blank" rel="noreferrer">
+                        {wiki.title}
+                      </a>
+                      」（
+                      <a href={wiki.licenseUrl} target="_blank" rel="noreferrer">
+                        CC BY-SA 4.0
+                      </a>
+                      ）
+                    </p>
+                  </section>
                 )}
-                {(wiki.blocks.length > 1 || wiki.text.endsWith('…')) && (
-                  // 右端に置く（親指の届く側）。注意書きはボタンのすぐ左
-                  <p className="detail__more">
-                    {!wikiOpen && <span className="detail__spoiler">ネタバレを含むことがあります</span>}
-                    <button type="button" className="link" onClick={() => setWikiOpen((v) => !v)} aria-expanded={wikiOpen}>
-                      {wikiOpen ? '続きを閉じる' : '続きを読む'}
-                    </button>
-                  </p>
-                )}
-                <p className="detail__source">
-                  出典: Wikipedia「
-                  <a href={wiki.url} target="_blank" rel="noreferrer">
-                    {wiki.title}
-                  </a>
-                  」（
-                  <a href={wiki.licenseUrl} target="_blank" rel="noreferrer">
-                    CC BY-SA 4.0
-                  </a>
-                  ）
-                </p>
+
+                {/* 関連作品: Annict のシリーズ。無ければ Shikimori の関連作品（詳細を読み込むまでは出さない） */}
+                <RelatedWorks
+                  annictId={work.annictId}
+                  series={detail ? (detail.series ?? []) : error ? [] : null}
+                  shiki={shiki}
+                  states={relatedStates}
+                  onOpen={setRelated}
+                />
               </section>
             )}
-
-            {/* 関連作品: Annict のシリーズ。無ければ Shikimori の関連作品（詳細を読み込むまでは出さない） */}
-            <RelatedWorks
-              annictId={work.annictId}
-              series={detail ? (detail.series ?? []) : error ? [] : null}
-              shiki={shiki}
-              states={relatedStates}
-              onOpen={setRelated}
-            />
 
             {/* 上から 制作会社 → スタッフ → 声優。名前を押すと、その会社・人の参加作品の一覧 */}
-            <div className="detail__credits">
-              {studios.length > 0 && (
+            {(studios.length > 0 || staff.length > 0 || (detail?.casts.length ?? 0) > 0) && (
+              <section className="group detail__credits">
+                <h3 className="group__title">
+                  <PeopleIcon />
+                  スタッフ・キャスト
+                </h3>
+                {studios.length > 0 && (
+                  <section className="detail__section">
+                    <h3 className="detail__label">制作会社</h3>
+                    <dl className="credits">
+                      {studios.map((st) => (
+                        <div key={st.name} className="credits__row">
+                          <dt>{st.role}</dt>
+                          <dd>{st.ref ? <CreditName name={st.name} onOpen={() => st.ref && openCredit(st.ref, st.role)} /> : st.name}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </section>
+                )}
+
+                {staff.length > 0 && (
+                  <section className="detail__section">
+                    <h3 className="detail__label">スタッフ</h3>
+                    <dl className="credits">
+                      {staff.map((s) => (
+                        <div key={s.role} className="credits__row">
+                          <dt>{s.role}</dt>
+                          <dd>
+                            {s.names.map((n, i) => {
+                              const ref = staffRefs.get(`${s.role}\u0000${n}`)
+                              return (
+                                <span key={n}>
+                                  {i > 0 && '、'}
+                                  {ref ? <CreditName name={n} onOpen={() => openCredit(ref, s.role)} /> : n}
+                                </span>
+                              )
+                            })}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </section>
+                )}
+
+                {detail && detail.casts.length > 0 && (
+                  <section className="detail__section">
+                    <h3 className="detail__label">声優</h3>
+                    <dl className="credits">
+                      {detail.casts.map((c) => (
+                        <div key={`${c.character}-${c.name}`} className="credits__row">
+                          <dt>{c.character}</dt>
+                          <dd>{c.person ? <CreditName name={c.name} onOpen={() => c.person && openCredit(c.person, '')} /> : c.name}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </section>
+                )}
+              </section>
+            )}
+
+            {/* 外のサイトを開くものは、ここにまとめる（記録のボタンと見た目を分け、↗ を付ける） */}
+            <section className="group">
+              <h3 className="group__title">
+                <ExternalIcon />
+                ほかのサイトで見る
+              </h3>
+              {/* 配信サービスの検索への入り口（配信しているかは確かめない。lib/vodSearch.ts）。v0.7.1 で外した「配信」と同じ場所 */}
+              {vodLinks.length > 0 && (
                 <section className="detail__section">
-                  <h3 className="detail__label">制作会社</h3>
-                  <dl className="credits">
-                    {studios.map((st) => (
-                      <div key={st.name} className="credits__row">
-                        <dt>{st.role}</dt>
-                        <dd>{st.ref ? <CreditName name={st.name} onOpen={() => st.ref && openCredit(st.ref, st.role)} /> : st.name}</dd>
-                      </div>
+                  <h3 className="detail__label">配信サービスで探す</h3>
+                  <div className="vods">
+                    {vodLinks.map((l) => (
+                      <a key={l.name} className="chip chip--link" href={l.href} target="_blank" rel="noreferrer">
+                        {l.name}
+                        <ExternalIcon />
+                      </a>
                     ))}
-                  </dl>
+                  </div>
+                  <p className="detail__hint">各サービスで題名を検索します。配信していない作品もあります。</p>
                 </section>
               )}
-
-              {staff.length > 0 && (
-                <section className="detail__section">
-                  <h3 className="detail__label">スタッフ</h3>
-                  <dl className="credits">
-                    {staff.map((s) => (
-                      <div key={s.role} className="credits__row">
-                        <dt>{s.role}</dt>
-                        <dd>
-                          {s.names.map((n, i) => {
-                            const ref = staffRefs.get(`${s.role}\u0000${n}`)
-                            return (
-                              <span key={n}>
-                                {i > 0 && '、'}
-                                {ref ? <CreditName name={n} onOpen={() => openCredit(ref, s.role)} /> : n}
-                              </span>
-                            )
-                          })}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
-                </section>
-              )}
-
-              {detail && detail.casts.length > 0 && (
-                <section className="detail__section">
-                  <h3 className="detail__label">声優</h3>
-                  <dl className="credits">
-                    {detail.casts.map((c) => (
-                      <div key={`${c.character}-${c.name}`} className="credits__row">
-                        <dt>{c.character}</dt>
-                        <dd>{c.person ? <CreditName name={c.name} onOpen={() => c.person && openCredit(c.person, '')} /> : c.name}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                </section>
-              )}
-            </div>
-
-            <section className="detail__section detail__links">
-              <a href={annictWorkUrl(work.annictId)} target="_blank" rel="noreferrer">
-                Annict
-              </a>
-              {official && (
-                <a href={official} target="_blank" rel="noreferrer">
-                  公式サイト
-                </a>
-              )}
-              {wikipedia && (
-                <a href={wikipedia} target="_blank" rel="noreferrer">
-                  Wikipedia
-                </a>
-              )}
-              {x && (
-                <a href={x} target="_blank" rel="noreferrer">
-                  X
-                </a>
-              )}
-              {mal && (
-                <a href={shikimoriUrl(mal)} target="_blank" rel="noreferrer">
-                  Shikimori で見る
-                </a>
-              )}
+              <section className="detail__section">
+                <h3 className="detail__label">作品のページ</h3>
+                <div className="detail__links">
+                  <a href={annictWorkUrl(work.annictId)} target="_blank" rel="noreferrer">
+                    Annict
+                  </a>
+                  {official && (
+                    <a href={official} target="_blank" rel="noreferrer">
+                      公式サイト
+                    </a>
+                  )}
+                  {wikipedia && (
+                    <a href={wikipedia} target="_blank" rel="noreferrer">
+                      Wikipedia
+                    </a>
+                  )}
+                  {x && (
+                    <a href={x} target="_blank" rel="noreferrer">
+                      X
+                    </a>
+                  )}
+                  {mal && (
+                    <a href={shikimoriUrl(mal)} target="_blank" rel="noreferrer">
+                      Shikimori で見る
+                    </a>
+                  )}
+                </div>
+              </section>
             </section>
           </div>
         </div>

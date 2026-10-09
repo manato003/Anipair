@@ -1,36 +1,96 @@
 /* 色と寸法の変数・リセット・文字と、どの画面でも使う部品（ボタン・リンク・チップ・トグル・バッジ・ステッパー・シート・空の状態など） */
 
-/* 深夜アニメの時間帯を思わせる藍色の地。色を持つのは評価の4段階と「見たい」、表紙からにじむ色だけ */
+/* 色の決まり。
+   地は、いま見ているクールの季節の色（lib/theme.ts が <html> に data-season・data-scheme を付ける）。
+   暗い地は深い季節の色に白い文字、明るい地は薄い季節の色に濃い文字（どの組み合わせも文字は 4.5:1 以上）。
+   時刻で地を黒に寄せ（--tod）、「もっと暗い」は大きく寄せる（--deep）。色を持つのは地だけで、部品は文字の色の濃淡で描く */
+/* 季節の色は「色」として登録して、季節が替わるとき（見ているクールを替えたとき）に 1.2秒かけて移す */
+@property --s-top {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #f4e5d2;
+}
+
+@property --s-bot {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #e9d1b4;
+}
+
 :root {
-  --ink: #161a2e;
-  --ink-raised: #20253f;
-  --line: #2e3458;
-  /* 補助ボタンの枠。--line では暗い地に溶けて、ボタンに見えない */
-  --line-strong: #4b5385;
-  --paper: #eeeaf6;
-  --muted: #9a9dbd;
+  --s-top: #f4e5d2;
+  --s-bot: #e9d1b4;
+  transition:
+    --s-top 1.2s ease,
+    --s-bot 1.2s ease;
+  --fg: #1c1b1f;
+  --sub: #4a4650;
+  --tod: 0%;
+  --deep: 0%;
+  --bg-top: color-mix(in oklab, var(--s-top), black calc(var(--tod) + var(--deep)));
+  --bg-bot: color-mix(in oklab, var(--s-bot), black calc(var(--tod) + var(--deep)));
+  /* 浮かぶもの（シート・吹き出し・知らせ）の地 */
+  --float: color-mix(in oklab, var(--bg-bot), var(--fg) 8%);
+  --overlay: rgb(0 0 0 / 0.45);
+  --theme-chrome: var(--bg-top);
 
-  --r-bad: #8e97b8;
-  --r-average: #d9c48f;
-  --r-good: #74d6b6;
-  --r-great: #ff9ec0;
-  --wanna: #b9a2ff;
+  /* これまでの名前（画面の CSS が使っている）。新しい色の上に読み替える */
+  --ink: var(--bg-bot);
+  --ink-raised: color-mix(in oklab, var(--bg-bot), var(--fg) 7%);
+  --line: color-mix(in oklab, var(--fg) 18%, transparent);
+  --line-strong: color-mix(in oklab, var(--fg) 34%, transparent);
+  --paper: var(--fg);
+  --muted: var(--sub);
+  /* 評価に色は付けない。段階はアイコンと名前で見分ける */
+  --r-bad: var(--fg);
+  --r-average: var(--fg);
+  --r-good: var(--fg);
+  --r-great: var(--fg);
+  --wanna: var(--fg);
+  --danger: #b3261e;
+  --brand-blue: var(--fg);
+  --brand-lavender: var(--fg);
+  --brand-pink: var(--fg);
+  --brand-gradient: var(--fg);
 
-  --danger: #ff7a7a;
-
-  /* ブランドの色（ロゴとコンセプトアートの配色）。ボタン・現在のタブ・リンク・フォーカスなど、ブランドを表す場所だけに使う。
-     評価の4段階・見たい・状態・エラーの色は意味を持つので、ここには寄せない */
-  --brand-blue: #7b9dff;
-  --brand-lavender: #c5b8ff;
-  --brand-pink: #ffb8d9;
-  --brand-gradient: linear-gradient(135deg, var(--brand-blue), var(--brand-lavender) 50%, var(--brand-pink));
-
-  --font-ui: 'Zen Kaku Gothic New', system-ui, sans-serif;
-  --font-display: 'Dela Gothic One', 'Zen Kaku Gothic New', sans-serif;
+  --font-ui: 'Zen Maru Gothic', system-ui, sans-serif;
+  /* 見出し用の書体は持たない（日本語の書体は重い。強弱は大きさと太さで付ける） */
+  --font-display: var(--font-ui);
 
   --radius-s: 6px;
   --radius-m: 10px;
+  /* 表紙の枠の縦横比。表紙の画像（Shikimori・MyAnimeList のポスター）の標準の 225:318 に合わせる（2:3 にすると左右が約5%切れていた） */
+  --cover-ratio: 0.7075;
   --col: 440px;
+  /* 形の決まり: 押せる操作（ボタン・検索欄・矢印・選択欄・切り替え）は丸い形に、文字の色をわずかに敷いた地。
+     中身をまとめる箱（作品の詳細の塊・傾向の数字）は、XMB の情報の板のような半透明の板（上がわずかに明るく、上端に細い光の線） */
+  --control: color-mix(in oklab, var(--fg) 5%, transparent);
+  --panel: linear-gradient(180deg, color-mix(in oklab, var(--fg) 7%, transparent), color-mix(in oklab, var(--fg) 2.5%, transparent) 72px);
+  --panel-edge: inset 0 1px 0 color-mix(in oklab, white 30%, transparent);
+  color-scheme: light;
+}
+
+:root[data-season='spring'] { --s-top: #f6e3ea; --s-bot: #ecccd9; }
+:root[data-season='summer'] { --s-top: #dcf0f2; --s-bot: #c2e2e8; }
+:root[data-season='autumn'] { --s-top: #f4e5d2; --s-bot: #e9d1b4; }
+:root[data-season='winter'] { --s-top: #e2e7f4; --s-bot: #ccd5ec; }
+
+:root[data-scheme='dark'] {
+  --fg: #ffffff;
+  --sub: #e0dcd8;
+  --danger: #ff8a80;
+  --overlay: rgb(0 0 0 / 0.55);
+  color-scheme: dark;
+}
+
+:root[data-scheme='dark'][data-season='spring'] { --s-top: #8a3358; --s-bot: #4d1b32; }
+:root[data-scheme='dark'][data-season='summer'] { --s-top: #1d6377; --s-bot: #0f3642; }
+:root[data-scheme='dark'][data-season='autumn'] { --s-top: #8f4d1d; --s-bot: #4f2a0f; }
+:root[data-scheme='dark'][data-season='winter'] { --s-top: #33477a; --s-bot: #18244a; }
+
+/* もっと暗い: 季節の色を黒に大きく寄せる（暗い部屋・有機 EL の画面向け） */
+:root[data-darker] {
+  --deep: 60%;
 }
 
 *,
@@ -44,12 +104,39 @@
 html,
 body,
 #root {
-  height: 100%;
+  min-height: 100%;
+}
+
+/* 季節の地。ページ全体が流れても地は動かない（iOS の Safari は background-attachment: fixed を効かせないので、固定した層に描く）。
+   html にも同じ地を敷く（PC の流し棒の溝と、iOS で端を引っぱったときに見える所） */
+html {
+  background: linear-gradient(180deg, var(--bg-top), var(--bg-bot)) fixed var(--bg-bot);
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(180deg, var(--bg-top), var(--bg-bot));
+}
+
+/* シートを開いているあいだは、後ろのページを流さない（lib/pageScroll.ts） */
+:root[data-locked] {
+  overflow: hidden;
+}
+
+/* PC では流し棒の溝をいつも空けておく（流せる画面と流せない画面を行き来しても、中身が横にずれない） */
+@media (min-width: 960px) {
+  html {
+    scrollbar-gutter: stable;
+  }
 }
 
 body {
-  background: var(--ink);
-  color: var(--paper);
+  /* 地は上の層（body::before）に描く。最初の読み込み中の表示（public/splash.css）が塗った地を消す */
+  background: transparent;
+  color: var(--fg);
   font-family: var(--font-ui);
   font-size: 15px;
   line-height: 1.6;
@@ -71,6 +158,22 @@ a {
 :focus-visible {
   outline: 2px solid var(--brand-lavender);
   outline-offset: 2px;
+}
+
+/* 文字の欄と選択欄は、光る縁を内側に描く（外側に出すと、すぐ下に重なる帯に下半分が隠れる） */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline-offset: -2px;
+}
+
+/* 指で触る端末では、入力欄の文字を 16px 以上にする（iPhone の Safari は、それより小さい欄を押すと画面を拡大し、拡大したまま戻らない） */
+@media (pointer: coarse) {
+  input:not([type='checkbox'], [type='radio'], [type='range']),
+  textarea,
+  select {
+    font-size: max(16px, 1em) !important;
+  }
 }
 
 kbd {
@@ -105,12 +208,18 @@ kbd {
 }
 
 .btn {
-  padding: 10px 18px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-s);
-  background: var(--ink-raised);
-  font-size: 0.9rem;
-  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 18px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--control);
+  color: var(--fg);
+  font-size: 0.85rem;
+  font-weight: 700;
   cursor: pointer;
 }
 
@@ -158,8 +267,9 @@ kbd {
 
 .season {
   font-family: var(--font-display);
-  font-size: 1.75rem;
-  font-weight: 400;
+  font-size: 1.4rem;
+  font-weight: 700;
+  white-space: nowrap;
   line-height: 1.2;
   letter-spacing: 0.02em;
 }
@@ -183,7 +293,7 @@ kbd {
   padding: 8px 16px;
   border: 1px solid var(--line-strong);
   border-radius: 999px;
-  background: rgba(27, 32, 56, 0.94);
+  background: var(--float);
   color: var(--paper);
   font-size: 0.8rem;
   white-space: nowrap;
@@ -207,11 +317,10 @@ kbd {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .save-toast {
-    transition: opacity 0.2s ease;
-    transform: translate(-50%, 0);
-  }
+/* 動きを減らす（端末の設定か、設定の「動き」。lib/theme.ts が :root に data-motion を付ける） */
+:root[data-motion='reduce'] .save-toast {
+  transition: opacity 0.2s ease;
+  transform: translate(-50%, 0);
 }
 
 /* 前回の内容を表示しているときの一言（StaleNote）。保存中の札の少し上に浮かべる。読み直しの失敗は「もう一度」を押せるようにする */
@@ -228,7 +337,7 @@ kbd {
   padding: 8px 16px;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-m);
-  background: rgba(27, 32, 56, 0.96);
+  background: var(--float);
   color: var(--paper);
   font-size: 0.78rem;
   line-height: 1.5;
@@ -269,6 +378,53 @@ kbd {
   height: 16px;
 }
 
+/* 評価とマッチングの答えのボタンの表示（設定の「ボタンの表示」。storage.ts の applyButtonLabels が <html> に印を付ける）。
+   既定は アイコンと名前を並べる。文字だけ: アイコンを出さない */
+:root[data-buttons='text'] .answers .icon,
+:root[data-buttons='text'] .answers .bookmark {
+  display: none;
+}
+
+/* アイコンだけ: 名前は見た目から隠して、読み上げには残す。PC ではマウスを重ねたとき・キーで選んだときに、ボタンの上に名前を出す */
+:root[data-buttons='icon'] .answers button {
+  position: relative;
+}
+
+:root[data-buttons='icon'] .answers .icon,
+:root[data-buttons='icon'] .answers .bookmark {
+  width: 22px;
+  height: 22px;
+}
+
+:root[data-buttons='icon'] .answers .act__label {
+  position: absolute;
+  z-index: 5;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%);
+  transition: opacity 0.12s ease;
+}
+
+:root[data-buttons='icon'] .answers button:focus-visible .act__label {
+  opacity: 1;
+}
+
+@media (hover: hover) {
+  :root[data-buttons='icon'] .answers button:hover .act__label {
+    opacity: 1;
+  }
+}
+
 .notes {
   position: relative;
   /* 浮かぶ札（下）を、後ろにあるカードより手前に出す */
@@ -307,12 +463,6 @@ kbd {
   margin-bottom: 4px;
 }
 
-.chips {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-}
-
 .chip {
   flex: none;
   padding: 6px 12px;
@@ -341,24 +491,28 @@ kbd {
 .search {
   flex: 1 1 auto;
   min-width: 0;
-  padding: 7px 10px;
+  height: 40px;
+  padding: 0 16px;
   border: 1px solid var(--line);
-  border-radius: var(--radius-s);
-  background: var(--ink-raised);
+  border-radius: 999px;
+  background: var(--control);
   font-size: 0.85rem;
 }
 
 .toggle {
   display: inline-flex;
   flex: none;
+  gap: 2px;
   overflow: hidden;
+  padding: 2px;
   border: 1px solid var(--line);
-  border-radius: var(--radius-s);
+  border-radius: 999px;
 }
 
 .toggle button {
-  padding: 6px 10px;
+  padding: 6px 12px;
   border: 0;
+  border-radius: 999px;
   background: none;
   color: var(--muted);
   font-size: 0.8rem;
@@ -405,59 +559,144 @@ kbd {
   justify-content: space-between;
 }
 
-/* 年と季節のプルダウン。選んだ値を大きい書体で見せ、右の ▾ でプルダウンだと分かるようにする */
-.stepper__selects {
-  display: flex;
+/* 真ん中の「2026年 秋 ▾」。枠も塗りも無い文字だけのボタンにして、地に溶け込ませる（押すとクールを選ぶパネル） */
+.stepper__current {
+  display: inline-flex;
   align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--fg);
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.stepper__caret {
+  width: 7px;
+  height: 7px;
+  margin-left: 2px;
+  border-right: 2px solid var(--sub);
+  border-bottom: 2px solid var(--sub);
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 0.16s ease;
+}
+
+.stepper__current[aria-expanded='true'] .stepper__caret {
+  transform: translateY(2px) rotate(225deg);
+}
+
+@media (hover: hover) {
+  .stepper__current:hover {
+    background: var(--control);
+  }
+}
+
+/* クールを選ぶパネル。地の色を透かした半透明の板（すりガラス）で、細い線だけで縁取る。年は数字だけを格子に、季節は4つの札 */
+.courpick {
+  position: fixed;
+  z-index: 30;
+  display: grid;
+  gap: 8px;
+  padding: 14px 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: color-mix(in oklab, var(--bg-top) 78%, transparent);
+  box-shadow:
+    var(--panel-edge),
+    0 18px 40px rgb(0 0 0 / 0.16);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  backdrop-filter: blur(18px) saturate(1.2);
+  animation: courpick-in 0.16s cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+
+@keyframes courpick-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.courpick__label {
+  color: var(--sub);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.courpick__years {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 2px;
+  max-height: 172px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.courpick__years button,
+.courpick__seasons button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--fg);
+  font-size: 0.95rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.courpick__years button[aria-pressed='true'] {
+  background: var(--fg);
+  color: var(--bg-bot);
+  font-weight: 700;
+}
+
+.courpick__seasons {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
 }
 
-.stepper__select {
-  position: relative;
-  display: inline-flex;
+.courpick__seasons button {
+  border: 1px solid var(--line-strong);
+  background: var(--control);
+  font-weight: 700;
 }
 
-.stepper__select::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  right: 11px;
-  width: 6px;
-  height: 6px;
-  border-right: 2px solid var(--muted);
-  border-bottom: 2px solid var(--muted);
-  transform: translateY(-75%) rotate(45deg);
-  pointer-events: none;
+/* いま見ているクール */
+.courpick__seasons button[aria-current='true'] {
+  border-color: var(--fg);
+  background: var(--fg);
+  color: var(--bg-bot);
 }
 
-.stepper__select select {
-  height: 40px;
-  padding: 0 28px 0 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-s);
-  background: var(--ink-raised);
-  color: var(--paper);
-  color-scheme: dark;
-  font-family: var(--font-display);
-  font-size: 1.05rem;
-  cursor: pointer;
-  appearance: none;
-  -webkit-appearance: none;
+.courpick__seasons button:disabled {
+  border-style: dashed;
+  background: none;
+  color: var(--sub);
+  cursor: default;
 }
 
-/* 開いた一覧は読みやすい書体に戻す */
-.stepper__select option {
-  font-family: var(--font-ui);
-  font-size: 1rem;
+@media (hover: hover) {
+  .courpick__years button:not([aria-pressed='true']):hover,
+  .courpick__seasons button:not([aria-current='true'], :disabled):hover {
+    background: var(--control);
+    box-shadow: inset 0 0 0 1px var(--line-strong);
+  }
 }
 
 .stepper__btn {
-  width: 44px;
+  width: 40px;
   height: 40px;
   flex: none;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-s);
-  background: var(--ink-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--control);
   font-size: 1.2rem;
   line-height: 1;
   cursor: pointer;
@@ -504,7 +743,7 @@ kbd {
   align-items: flex-end;
   justify-content: center;
   /* 後ろをぼかす（backdrop-filter）と、シートが動くあいだ毎フレームぼかし直すことになり、スマホで重い（2026-10-03 に実測でカクついた）。暗くするだけにする */
-  background: rgba(8, 10, 20, 0.72);
+  background: var(--overlay);
 }
 
 .sheet {
@@ -543,29 +782,112 @@ kbd {
   white-space: nowrap;
 }
 
+/* シートの上端: 真ん中につまみ（下へ払うと閉じる印。指で触る端末だけ）、右端に丸い閉じるボタン（片手操作が左手なら左端）。
+   初めての1回だけ、その下に地の文字で閉じ方を添える（押すものに見えないよう、枠も塗りも付けない） */
 .sheet__bar {
   position: sticky;
   top: -8px;
   z-index: 1;
-  display: flex;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 40px;
+  align-items: center;
+  row-gap: 4px;
   margin: 0 -20px;
-  padding: 8px 20px;
+  padding: 8px 12px;
   background: var(--ink);
 }
 
-/* 指で触る端末: 右上の「閉じる」は見えなくし、帯には閉じ方の案内を出す */
-.sheet__bar--hint {
-  justify-content: center;
+.sheet__grab {
+  grid-row: 1;
+  grid-column: 2;
+  justify-self: center;
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line-strong);
+}
+
+.sheet__close {
+  grid-row: 1;
+  grid-column: 3;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--ink-raised);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.sheet__close .icon {
+  width: 18px;
+  height: 18px;
+}
+
+:root[data-hand='left'] .sheet__close {
+  grid-column: 1;
+}
+
+@media (hover: hover) {
+  .sheet__close:hover {
+    border-color: var(--line-strong);
+  }
 }
 
 .sheet__hint {
-  padding: 6px 14px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--brand-blue) 18%, var(--ink-raised));
-  color: var(--paper);
-  font-size: 0.8rem;
-  font-weight: 700;
+  grid-column: 1 / -1;
+  color: var(--sub);
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+/* 中身を開く1枚（作品の詳細・参加作品の一覧）。画面いっぱいに地の色で開き、中身は読みやすい幅の列に置く。
+   閉じるボタンは列の上端に貼りつけて、流しても見える（中身の上に重なるので、ボタンにだけ塗りを付ける） */
+.sheet-backdrop--page {
+  align-items: stretch;
+  background: linear-gradient(180deg, var(--bg-top), var(--bg-bot)) var(--bg-bot);
+}
+
+.sheet.sheet--page {
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  padding: 0 0 calc(48px + env(safe-area-inset-bottom));
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overscroll-behavior: contain;
+  animation: page-in 0.34s cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+
+@keyframes page-in {
+  from {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+}
+
+.sheet__col {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.sheet--page .sheet__bar {
+  top: 0;
+  margin: 0 -12px;
+  padding: calc(8px + env(safe-area-inset-top)) 4px 0;
+  background: none;
+  pointer-events: none;
+}
+
+.sheet--page .sheet__close {
+  border-color: var(--line-strong);
+  background: var(--float);
+  pointer-events: auto;
 }
 
 /* 各画面の見出しの右端の「?」（使い方）。補助ボタンと同じ枠で、丸く小さく */
@@ -734,21 +1056,12 @@ kbd {
   font-size: 0.9rem;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .tour__spot {
-    transition: none;
-  }
-
-  .tour__bubble {
-    animation: none;
-  }
-}
-
-[data-effects='none'] .tour__spot {
+/* 動きを減らす（端末の設定か、設定の「動き」。lib/theme.ts が :root に data-motion を付ける） */
+:root[data-motion='reduce'] .tour__spot {
   transition: none;
 }
 
-[data-effects='none'] .tour__bubble {
+:root[data-motion='reduce'] .tour__bubble {
   animation: none;
 }
 
@@ -807,18 +1120,22 @@ kbd {
 }
 
 /* 2回目からの案内。読まなくても邪魔にならないよう、地の色に近い小さな文字だけにする */
-.sheet__hint--quiet {
-  padding: 0;
-  background: none;
-  color: color-mix(in srgb, var(--muted) 70%, transparent);
-  font-size: 0.7rem;
-  font-weight: 400;
+/* 動きを減らす（端末の設定か、設定の「動き」。lib/theme.ts が :root に data-motion を付ける） */
+/* 受け皿: 部品ごとに止め忘れても、動きと移ろいは一瞬で終える（終わった形で止まる。終わりの合図は届く）。
+   わざと残すもの（読み込み中の印・称号の知らせ・保存中の札。明るさだけをゆっくり変える）は除く。それぞれの止め方は部品の近くに書く */
+:root[data-motion='reduce'] *:not(.loading__spinner, .loading-mark__lens, .loading-mark__star, .titletoast, .save-toast),
+:root[data-motion='reduce'] *::before,
+:root[data-motion='reduce'] *::after {
+  animation-duration: 1ms !important;
+  animation-delay: 0s !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 1ms !important;
+  transition-delay: 0s !important;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .sheet {
-    animation: none;
-  }
+:root[data-motion='reduce'] .sheet,
+:root[data-motion='reduce'] .sheet.sheet--page {
+  animation: none;
 }
 
 .empty {
@@ -837,6 +1154,65 @@ kbd {
 .empty__body {
   color: var(--muted);
   font-size: 0.9rem;
+}
+
+/* 評価・マッチングの、作品の無いあいだの案内（提案の前・空・失敗）。画面の主役なので大きく */
+.flow__placeholder .empty {
+  gap: 14px;
+  max-width: 34ch;
+}
+
+.flow__placeholder .empty__title {
+  font-size: 1.4rem;
+}
+
+.flow__placeholder .empty__body {
+  font-size: 0.95rem;
+  line-height: 1.75;
+}
+
+.flow__placeholder .empty .btn--primary {
+  min-height: 48px;
+  padding-inline: 28px;
+  font-size: 1rem;
+}
+
+@media (min-width: 960px) {
+  .flow__placeholder .empty {
+    max-width: 40ch;
+  }
+
+  .flow__placeholder .empty__title {
+    font-size: 1.75rem;
+  }
+
+  .flow__placeholder .empty__body {
+    font-size: 1.05rem;
+  }
+}
+
+/* 選択欄（プルダウン）とチェックの印: ほかの押せる操作と同じ丸い形と地。開いた一覧は地と文字の色をはっきり決める
+   （欄の地は半透明なので、決めないと一覧の地がブラウザ任せになり、暗いテーマで白い字が明るい地に乗って読めなかった） */
+.filter select,
+.filtersheet__years select {
+  height: 40px;
+  padding: 0 12px 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--control);
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+select option {
+  background-color: var(--bg-bot);
+  color: var(--fg);
+}
+
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--fg);
 }
 
 /* ── 広い画面（幅 960px 以上） ──
@@ -863,7 +1239,31 @@ kbd {
 
   .sheet__bar {
     margin: 0 -28px;
-    padding: 8px 28px;
+    padding: 8px 20px;
+  }
+
+  /* 片手操作は指で持つ画面のためのもの。広い画面ではいつも右上 */
+  :root[data-hand='left'] .sheet__close {
+    grid-column: 3;
+  }
+
+  .sheet-backdrop.sheet-backdrop--page {
+    padding: 0;
+  }
+
+  .sheet.sheet--page {
+    border: 0;
+    border-radius: 0;
+    padding-bottom: 64px;
+  }
+
+  .sheet__col {
+    padding: 0 40px;
+  }
+
+  .sheet--page .sheet__bar {
+    margin: 0 -16px;
+    padding: 16px 0 0;
   }
 }
 
@@ -906,12 +1306,6 @@ kbd {
 
 .btn .loading__spinner {
   margin-right: 6px;
-}
-
-/* 評価・マッチングの読み込み中のカードでは、カードに合わせて中央に */
-.card--loading .loading {
-  justify-content: center;
-  text-align: center;
 }
 
 .loading__time {
@@ -1008,18 +1402,6 @@ kbd {
   }
 }
 
-/* 評価・マッチングの読み込み中のカード: 表紙の位置の真ん中にロゴ */
-.card--loading .card__cover {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.card--loading .card__cover .loading-mark {
-  width: 30%;
-  max-width: 120px;
-}
-
 @keyframes loading-spin {
   to {
     transform: rotate(360deg);
@@ -1027,21 +1409,20 @@ kbd {
 }
 
 /* 動きを減らす設定（Windows の「アニメーション効果」オフもこれになる）: 動かす・回す・大きさを変えるはやめ、明るさだけをゆっくり変える。
-   読み込み中の印は「止まっていない」と伝えるのが役目なので、止めてしまわない（止めると固まって見える。2026-10-05 利用者の PC で起きた） */
-@media (prefers-reduced-motion: reduce) {
-  .loading__spinner {
-    animation: loading-fade 1.6s ease-in-out infinite;
-  }
+   読み込み中の印は「止まっていない」と伝えるのが役目なので、止めてしまわない（止めると固まって見える） */
+/* 動きを減らす（端末の設定か、設定の「動き」。lib/theme.ts が :root に data-motion を付ける） */
+:root[data-motion='reduce'] .loading__spinner {
+  animation: loading-fade 1.6s ease-in-out infinite;
+}
 
-  .loading-mark__left,
-  .loading-mark__right {
-    animation: none;
-  }
+:root[data-motion='reduce'] .loading-mark__left,
+:root[data-motion='reduce'] .loading-mark__right {
+  animation: none;
+}
 
-  .loading-mark__lens,
-  .loading-mark__star {
-    animation: loading-fade 2.4s ease-in-out infinite;
-  }
+:root[data-motion='reduce'] .loading-mark__lens,
+:root[data-motion='reduce'] .loading-mark__star {
+  animation: loading-fade 2.4s ease-in-out infinite;
 }
 
 @keyframes loading-fade {
@@ -1052,4 +1433,194 @@ kbd {
   50% {
     opacity: 0.2;
   }
+}
+
+/* 日本語を語の途中で折らない（components/Phrase.tsx が語の間にだけ wbr を置く）。1語が収まらないときだけ、どこででも折る */
+.phrase {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+/* 作品の要点（放送時期・形式・放送中・全◯話・一気見の目安）。項目の途中では折らず、項目の間で折る */
+.fact {
+  white-space: nowrap;
+}
+
+/* 区切りの点は前の項目の後ろに付ける（折り返したとき、行頭に点だけが来ないように） */
+.fact:not(:last-child)::after {
+  content: '·';
+  margin: 0 0.45em;
+  opacity: 0.6;
+}
+
+/* ── 見出しの右上: 知らせの鈴と使い方の「?」（components/ControlCenter.tsx） ── */
+.headactions {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.headactions .helpbtn {
+  margin-left: 0;
+}
+
+.bell {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink-raised) 80%, transparent);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.bell .icon {
+  width: 19px;
+  height: 19px;
+}
+
+.bell__count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--fg);
+  color: var(--bg-bot);
+  font-size: 0.65rem;
+  line-height: 17px;
+  text-align: center;
+}
+
+.bell__count--urgent {
+  background: var(--danger);
+  color: #fff;
+}
+
+/* コントロールセンター: 知らせのカードと、設定への近道 */
+.cc {
+  display: grid;
+  gap: 12px;
+}
+
+.cc__title {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.cc__empty {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.cc__cards {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cc__card {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: var(--ink-raised);
+}
+
+.cc__card--urgent {
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--line));
+}
+
+.cc__card b {
+  font-size: 0.9rem;
+}
+
+.cc__card p {
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.cc__sub {
+  margin-top: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+/* コントロールセンターのクイック設定（表示）。選んでいるものを文字の色で塗り、ひと目で今の状態が分かるように */
+.quick {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+}
+
+.quick__label {
+  margin-top: 6px;
+  color: var(--sub);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.quick__label:first-child {
+  margin-top: 0;
+}
+
+.quick .toggle,
+.settings--groups .toggle {
+  flex-wrap: wrap;
+}
+
+.quick .toggle button[aria-pressed='true'],
+.settings--groups .toggle button[aria-pressed='true'] {
+  background: var(--fg);
+  color: var(--bg-bot);
+  font-weight: 700;
+}
+
+.cc__all {
+  justify-self: start;
+  margin-top: 4px;
+  font-size: 0.85rem;
+}
+
+/* God モード（preview だけ）。本番には出ない */
+.cc__god {
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line-strong);
+}
+
+.cc__godactions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 端末の「動きを減らす」で止まっていることの一言 */
+.settings__lead--notice {
+  margin-top: 6px;
+  padding-left: 10px;
+  border-left: 3px solid var(--fg);
+  color: var(--fg);
+  font-size: 0.8rem;
+}
+
+/* 消す操作のリンク（押すと書いたものが消える。閉じる・やめるのリンクと見分ける） */
+.link--danger {
+  color: var(--danger);
 }

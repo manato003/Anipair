@@ -1,4 +1,5 @@
-import type { StatusState } from '../../lib/annict'
+import type { AnnictSeries, StatusState } from '../../lib/annict'
+import { compareSeasons, seasonOf, type SeasonName } from '../../lib/season'
 
 // ブラウズの詳細画面で使う純粋な関数
 
@@ -78,4 +79,26 @@ export function withCopyrightMark(text: string | null | undefined): string | nul
   const t = text?.trim()
   if (!t) return null
   return /[©Ⓒ]|\(c\)/i.test(t) ? t : `© ${t}`
+}
+
+// 「データで見る」のシリーズの行（2026-10-07、myanimecheck.com を参考に）: 何作目か、次の作品（まだ放送前なら「放送予定の続編」）。
+// Annict のシリーズ（利用者が整理したもの。作品は放送時期の順）のうち、開いた作品と同じ形式（TV なら TV）の作品だけで数える
+// （ミニアニメや特番が「次の作品」になると、次に見る1本の手がかりにならない。葬送のフリーレンで、次がミニアニメになっていた）。同じ形式が2作以上あるときだけ
+const SERIES_KIND: Record<string, string> = { TV: 'TVシリーズ', MOVIE: '劇場版', OVA: 'OVA', WEB: '配信作品' }
+export function seriesFacts(series: readonly AnnictSeries[] | null | undefined, annictId: number, now: Date = new Date()): [string, string][] {
+  const s = series?.find((x) => x.works.some((w) => w.annictId === annictId))
+  const self = s?.works.find((w) => w.annictId === annictId)
+  if (!s || !self) return []
+  const works = s.works.filter((w) => w.media === self.media)
+  if (works.length < 2) return []
+  const at = works.findIndex((w) => w.annictId === annictId)
+  const rows: [string, string][] = [['シリーズ', `${SERIES_KIND[self.media] ?? '作品'}の${at + 1}作目（全${works.length}作）`]]
+  const next = works[at + 1]
+  if (next) {
+    const season = workMeta({ seasonYear: next.seasonYear, seasonName: next.seasonName })
+    const name = next.seasonName?.toLowerCase() as SeasonName | undefined
+    const upcoming = !!next.seasonYear && !!name && compareSeasons({ year: next.seasonYear, name }, seasonOf(now)) > 0
+    rows.push(upcoming ? ['放送予定の続編', `『${next.title}』${season}`] : ['次の作品', `『${next.title}』${season ? `（${season}）` : ''}`])
+  }
+  return rows
 }

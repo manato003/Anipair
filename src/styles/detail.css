@@ -1,14 +1,16 @@
 /* 作品の詳細のシートと「Anipair の使い方」のシートの中身 */
 
+/* 表紙と題名。表紙を大きく、題名の欄は表紙の下端にそろえる（中身を開く1枚の顔） */
 .detail__head {
   display: grid;
-  grid-template-columns: 112px 1fr;
-  gap: 16px;
-  align-items: start;
+  grid-template-columns: 40% minmax(0, 1fr);
+  gap: 14px;
+  align-items: end;
+  margin-top: 4px;
 }
 
 .detail__cover {
-  aspect-ratio: 2 / 3;
+  aspect-ratio: var(--cover-ratio);
   overflow: hidden;
   border-radius: var(--radius-s);
   background: var(--ink-raised);
@@ -21,9 +23,9 @@
   object-fit: cover;
 }
 
-/* Annict の画像は公式サイトの横長のもの。詳細では切らずに、そのままの比率で出す */
+/* Annict の画像は公式サイトの横長のもの。詳細では切らずに、そのままの比率で、狭い画面では幅いっぱいに出す */
 .detail__head:has(.detail__cover--landscape) {
-  grid-template-columns: 176px 1fr;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .detail__cover--landscape {
@@ -41,7 +43,8 @@ img.cover--contain {
 }
 
 .detail__copyright {
-  margin-top: 6px;
+  grid-column: 1 / -1;
+  margin-top: -6px;
   color: var(--muted);
   font-size: 0.7rem;
   line-height: 1.4;
@@ -53,9 +56,9 @@ img.cover--contain {
 }
 
 .detail__title {
-  font-size: 1.15rem;
+  font-size: 1.375rem;
   font-weight: 700;
-  line-height: 1.4;
+  line-height: 1.3;
 }
 
 /* 「Anipair の使い方」のシート。3つの手順を、番号の丸つきで並べる */
@@ -117,20 +120,73 @@ img.cover--contain {
 }
 
 .detail__label {
-  color: var(--muted);
+  color: var(--sub);
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: 700;
+}
+
+/* 中身の塊（あなたの記録・作品について・スタッフ・キャスト・ほかのサイトで見る）。塊は板で囲んで見出しを大きく、
+   塊のあいだは広く、塊の中の項目のあいだは狭く空けて、どこまでが何の情報かを分かるようにする。
+   板は XMB の情報の板のように、上がわずかに明るい半透明で、上端に細い光の線。見出しは分類の帯と同じく、アイコンと名前を並べる */
+.group {
+  margin-top: 16px;
+  padding: 16px 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: var(--panel);
+  box-shadow: var(--panel-edge);
+}
+
+.detail__head + .detail__body .group:first-of-type,
+.detail__body > .detail__late > .group:first-child {
+  margin-top: 24px;
+}
+
+.group__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--fg);
+  font-size: 1.06rem;
+  font-weight: 700;
+}
+
+.group__title .icon {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  color: var(--sub);
+}
+
+.group > .detail__section {
+  margin-top: 16px;
+}
+
+.group > .group__title + .detail__section {
+  margin-top: 10px;
+}
+
+/* ジャンル: 押せない小さな札（押せる丸いボタンと形を分ける） */
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tag {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--paper) 9%, transparent);
+  font-size: 0.78rem;
 }
 
 .state-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-}
-
-.detail__genres {
-  font-size: 0.85rem;
-  font-weight: 500;
 }
 
 .detail__section > .link {
@@ -218,11 +274,6 @@ img.cover--contain {
     color: var(--brand-blue);
     text-decoration-style: solid;
   }
-}
-
-/* 参加作品の一覧（CreditWorks） */
-.creditworks__tabs {
-  margin-top: 14px;
 }
 
 .creditworks {
@@ -319,7 +370,7 @@ img.cover--contain {
   font-size: 0.85rem;
 }
 
-/* 配信サービスで探す（検索ページへのリンクを、状態の選択と同じ丸い札で並べる） */
+/* 配信サービスで探す（検索ページへのリンク）。外のサイトを開くので ↗ を添え、記録のボタンと見分ける */
 .vods {
   display: flex;
   flex-wrap: wrap;
@@ -327,8 +378,16 @@ img.cover--contain {
 }
 
 .chip--link {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   text-decoration: none;
+}
+
+.chip--link .icon {
+  width: 13px;
+  height: 13px;
+  opacity: 0.7;
 }
 
 .chip--link:hover,
@@ -426,21 +485,34 @@ a.related__title {
 
 @media (min-width: 960px) {
   .detail__head {
-    grid-template-columns: 220px 1fr;
-    gap: 24px;
+    grid-template-columns: 320px minmax(0, 1fr);
+    gap: 36px;
   }
 
   .detail__head:has(.detail__cover--landscape) {
-    grid-template-columns: 300px 1fr;
+    grid-template-columns: 440px minmax(0, 1fr);
+  }
+
+  .detail__copyright {
+    grid-column: 1;
   }
 
   .detail__title {
-    font-size: 1.5rem;
+    font-size: 2.125rem;
   }
 
-  /* 制作会社 → スタッフ → 声優を、上から順に1列で（左右に並べると順番が読み取れない） */
-  .detail__credits {
-    margin-top: 6px;
+  .detail__kana,
+  .detail__meta {
+    font-size: 0.85rem;
+  }
+
+  .group {
+    margin-top: 20px;
+    padding: 20px 24px 22px;
+  }
+
+  .group__title {
+    font-size: 1.2rem;
   }
 }
 
@@ -507,12 +579,11 @@ a.related__title {
   animation: pulse 1.2s ease-in-out infinite alternate;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .detail--ready .detail__late,
-  .detail--ready .detail__body > .detail__late,
-  .detail__loading {
-    animation: none;
-  }
+/* 動きを減らす（端末の設定か、設定の「動き」。lib/theme.ts が :root に data-motion を付ける） */
+:root[data-motion='reduce'] .detail--ready .detail__late,
+:root[data-motion='reduce'] .detail--ready .detail__body > .detail__late,
+:root[data-motion='reduce'] .detail__loading {
+  animation: none;
 }
 
 /* 関連作品の題名: アプリの中で詳細を開くボタン（見た目は今までのリンクと同じ） */
@@ -607,4 +678,91 @@ a.related__title {
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
+}
+
+/* 利用規約とプライバシーポリシーを、アプリの中で開いたとき（features/settings/LegalLinks.tsx）。見た目は public/legal.css と同じ */
+.legal h1 {
+  margin: 8px 0 4px;
+  font-size: 1.6rem;
+  line-height: 1.3;
+}
+
+.legal .date,
+.legal .note {
+  color: var(--sub);
+  font-size: 0.8rem;
+}
+
+.legal .lead {
+  margin-top: 16px;
+  font-size: 0.9rem;
+  line-height: 1.85;
+}
+
+.legal section.item {
+  margin-top: 14px;
+  padding: 16px 18px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: var(--panel);
+  box-shadow: var(--panel-edge);
+  font-size: 0.88rem;
+  line-height: 1.85;
+}
+
+.legal h2 {
+  margin-bottom: 6px;
+  font-size: 1.02rem;
+}
+
+.legal ul {
+  padding-left: 1.2em;
+}
+
+.legal li + li {
+  margin-top: 4px;
+}
+
+.legal p + p,
+.legal p + ul,
+.legal ul + p {
+  margin-top: 6px;
+}
+
+.legal a {
+  color: var(--fg);
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+}
+
+.legal .after {
+  margin-top: 20px;
+}
+
+.legal .en {
+  margin-top: 48px;
+  padding-top: 8px;
+  border-top: 2px solid var(--line);
+}
+
+.legal .en h1 {
+  margin-top: 28px;
+  font-size: 1.35rem;
+}
+
+@media (min-width: 960px) {
+  .legal h1 {
+    font-size: 2.1rem;
+  }
+}
+
+/* いつ記録したか（状態を付けた日時・評価や感想を付けた日時） */
+.detail__when {
+  color: var(--sub);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.detail__when time {
+  margin-left: 4px;
 }

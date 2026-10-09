@@ -28,26 +28,21 @@
   font-size: 0.9rem;
 }
 
-.filter select {
-  padding: 8px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-s);
-  background: var(--ink-raised);
-  font-family: inherit;
-  color: inherit;
-}
-
 .card__step {
   flex: none;
   color: var(--muted);
   font-size: 0.85rem;
 }
 
-.card__meta {
-  flex: none;
-  margin-top: -8px;
+/* 時間がかかるときの案内（初めて調べる作品が多いとき） */
+.card__note {
+  max-width: 28em;
+  margin: 0 auto;
+  padding: 0 16px;
   color: var(--muted);
   font-size: 0.8rem;
+  line-height: 1.6;
+  text-align: center;
 }
 
 .reasons {
@@ -66,33 +61,8 @@
   color: var(--muted);
 }
 
-/* パス・スルー・見たい の3つ。左から否定 → 保留 → 肯定 */
-.answers__unseen--three {
-  grid-template-columns: 1fr 1fr 1.3fr;
-}
-
-/* さかのぼりで、見てる も出せるクール: 見てない・見てる・視聴中止・見たい */
-.answers__unseen--four {
-  grid-template-columns: 1fr 1fr 1fr 1.2fr;
-}
-
-/* スルーは「今は決めない」。点線の枠で、決めていないことを見せる */
-.unseen--later {
-  border-style: dashed;
-  color: var(--muted);
-}
-
-.answers__unseen--tall .unseen {
-  min-height: 56px;
-  font-size: 0.95rem;
-}
-
 /* ── 広い画面（幅 960px 以上） ── */
 @media (min-width: 960px) {
-  .card__meta {
-    margin-top: 0;
-    font-size: 0.9rem;
-  }
 
   .reasons {
     max-width: none;

@@ -6,6 +6,8 @@
   height: calc(100dvh / var(--zoom));
   /* 大きな画面では、アプリ全体を段階的に拡大する（下の --zoom） */
   zoom: var(--zoom);
+  /* 選んだ分類の拡大や、横から入る動きで、ページが横に流れないように（clip は流せる箱を作らないので、帯の貼りつけが効く） */
+  overflow-x: clip;
 }
 
 /* 4K を等倍で表示するような大きな画面で、中身が画面の一部に固まらないよう、アプリ全体を段階的に拡大する。
@@ -117,6 +119,28 @@
   text-align: left;
 }
 
+/* ページ全体で流す画面（記録・ブラウズ・設定。App.tsx の data-page）。高さを画面に合わせず、中身の分だけ伸ばす。
+   分類の帯は画面の下（PC は上）に貼りつける */
+.app[data-page] {
+  height: auto;
+  min-height: calc(100dvh / var(--zoom));
+}
+
+.app[data-page] .app__main {
+  flex: 1 0 auto;
+  overflow: visible;
+}
+
+.app[data-page] .app__screen,
+.app[data-page] .app__settings {
+  height: auto;
+}
+
+.app[data-page] .tabs {
+  position: sticky;
+  bottom: 0;
+}
+
 /* 隠したタブの画面。中の画面は height: 100% なので、ここも 100% にして以前と同じ寸法にする */
 .app__screen {
   height: 100%;
@@ -126,17 +150,64 @@
   display: none;
 }
 
+.app__settings {
+  height: 100%;
+}
+
+/* 分類を替えたとき、新しい画面が替えた向きから入る（払った向き・押した分類の並び。XMB の横の動き） */
+.app__screen[data-enter='next'],
+.app__settings[data-enter='next'] {
+  animation: enter-next 0.32s cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+
+.app__screen[data-enter='prev'],
+.app__settings[data-enter='prev'] {
+  animation: enter-prev 0.32s cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+
+@keyframes enter-next {
+  from {
+    opacity: 0;
+    transform: translateX(24%);
+  }
+}
+
+@keyframes enter-prev {
+  from {
+    opacity: 0;
+    transform: translateX(-24%);
+  }
+}
+
+/* 動きを減らす（端末の設定か、設定の「動き」。lib/theme.ts が :root に data-motion を付ける） */
+:root[data-motion='reduce'] .app__screen[data-enter],
+:root[data-motion='reduce'] .app__settings[data-enter] {
+  animation: none;
+}
+
+/* 縦か横かは、指の動き始めで lib/useSwipeNav.ts が決める（横に決まったら縦の流しを止める）。ダブルタップの拡大は止める */
+.app__main {
+  touch-action: manipulation;
+}
+
+/* 画像の上から払っても、ブラウザの画像のドラッグが始まらないように（始まると払いが取り消される） */
+img {
+  -webkit-user-drag: none;
+}
+
+/* 分類の帯（XMB の分類の並び）。スマホは下、広い画面は上。地は塗らず、季節の地の上に置く。
+   選んでいる分類だけ名前を出し、少し大きく濃く。ほかはアイコンだけを薄く（名前は読み上げには残す） */
 .tabs {
-  /* 塗ったアイコンの抜く部分は、この地の色で描く（Icons.tsx の TabIcon） */
-  --tabs-bg: #1b2038;
+  --tabs-bg: var(--bg-bot);
   position: relative;
   z-index: 2;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   width: 100%;
   margin: 0 auto;
-  padding: 0 max(0px, calc((100% - var(--col)) / 2)) env(safe-area-inset-bottom);
-  border-top: 1px solid var(--line-strong);
+  padding: 2px max(0px, calc((100% - var(--col)) / 2)) calc(4px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  /* 流した中身が下に潜るので、地の色で塗る（帯のある所の地の色と同じなので、流していなければ塗りは見えない） */
   background: var(--tabs-bg);
 }
 
@@ -145,7 +216,6 @@
   display: none;
 }
 
-/* 下のタブ: アイコンの下に名前。選んでいないタブは灰色の線のアイコン、選んでいるタブは差し色で塗ったアイコンと太字 */
 .tabs__item {
   position: relative;
   display: flex;
@@ -154,37 +224,26 @@
   justify-content: center;
   gap: 2px;
   min-width: 0;
-  padding: 8px 2px 8px;
+  padding: 8px 2px 6px;
   border: 0;
   background: none;
-  color: var(--muted);
+  color: var(--fg);
   font-size: 0.7rem;
-  font-weight: 500;
+  font-weight: 700;
   line-height: 1.3;
   white-space: nowrap;
+  opacity: 0.5;
   cursor: pointer;
   touch-action: manipulation;
-}
-
-/* タブの区切り。帯の高さの半分ほどの縦線 */
-.tabs__item + .tabs__item::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 28%;
-  bottom: 28%;
-  width: 1px;
-  background: var(--line);
+  transition:
+    opacity 0.2s ease,
+    transform 0.25s cubic-bezier(0.3, 0.7, 0.2, 1);
 }
 
 .tabs__icon {
   flex: none;
-  box-sizing: content-box;
-  width: 22px;
-  height: 22px;
-  padding: 3px 16px;
-  border-radius: 999px;
-  transition: background 0.15s ease;
+  width: 26px;
+  height: 26px;
 }
 
 .tabs__cut {
@@ -192,23 +251,29 @@
   fill: var(--tabs-bg);
 }
 
+.tabs__label {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
 .tabs__item[aria-current='page'] {
-  color: var(--brand-blue);
-  font-weight: 700;
+  opacity: 1;
+  transform: scale(1.12);
 }
 
-/* 選んでいるタブは、アイコンの後ろに淡い差し色の丸を敷く */
-.tabs__item[aria-current='page'] .tabs__icon {
-  background: color-mix(in srgb, var(--brand-blue) 20%, transparent);
-}
-
-.tabs__item:active:not(:disabled) .tabs__icon {
-  background: color-mix(in srgb, var(--brand-blue) 12%, transparent);
+.tabs__item[aria-current='page'] .tabs__label {
+  opacity: 1;
 }
 
 .tabs__item:disabled {
-  opacity: 0.35;
+  opacity: 0.2;
   cursor: default;
+}
+
+/* 動きを減らす（端末の設定か、設定の「動き」。lib/theme.ts が :root に data-motion を付ける） */
+:root[data-motion='reduce'] .tabs__item,
+:root[data-motion='reduce'] .tabs__label {
+  transition: none;
 }
 
 .crash {
@@ -236,7 +301,7 @@
    600〜960px は、狭い画面の作りを中央に寄せたまま使う */
 @media (min-width: 960px) {
   :root {
-    --topbar: 60px;
+    --topbar: 68px;
     --wide: 1200px;
   }
 
@@ -251,71 +316,88 @@
     justify-content: center;
   }
 
-  /* 上の帯。Anipair の字を左、タブを右に置き、中身の左右の端にそろえる */
+  /* 上の帯。Anipair の字を左、分類を真ん中に並べる */
   .tabs {
+    --tabs-bg: var(--bg-top);
     order: -1;
     display: flex;
     align-items: center;
-    gap: 4px;
+    justify-content: center;
+    gap: 28px;
     max-width: none;
     height: var(--topbar);
     margin: 0;
     padding: 0 max(24px, calc((100% - var(--wide)) / 2 + 24px));
     border-top: 0;
-    border-bottom: 1px solid var(--line);
-    --tabs-bg: var(--ink);
-    background: color-mix(in srgb, var(--ink) 55%, transparent);
-    backdrop-filter: blur(10px);
+  }
+
+  .app[data-page] .tabs {
+    top: 0;
+    bottom: auto;
   }
 
   .tabs__brand {
+    position: absolute;
+    left: max(24px, calc((100% - var(--wide)) / 2 + 24px));
     display: block;
-    margin-right: auto;
   }
 
-  /* 上の帯では、アイコンを名前の左に小さく置く。区切りの線と丸の地は出さず、下線で示す */
   .tabs__item {
-    flex-direction: row;
-    gap: 6px;
-    height: 100%;
-    padding: 0 16px;
-    font-size: 0.9rem;
-  }
-
-  .tabs__item + .tabs__item::before {
-    display: none;
-  }
-
-  .tabs__icon,
-  .tabs__item[aria-current='page'] .tabs__icon {
-    width: 18px;
-    height: 18px;
-    padding: 0;
-    background: none;
+    min-width: 64px;
+    padding: 6px 4px;
   }
 
   @media (hover: hover) {
     .tabs__item:not(:disabled):not([aria-current='page']):hover {
-      color: var(--paper);
+      opacity: 0.8;
     }
   }
 
   .tabs__item:focus-visible {
-    outline-offset: -6px;
+    outline-offset: -2px;
     border-radius: var(--radius-s);
   }
+}
 
-  /* 現在のタブには下線 */
-  .tabs__item[aria-current='page']::after {
-    content: '';
-    position: absolute;
-    background: var(--brand-gradient);
-    left: 16px;
-    right: 16px;
-    bottom: -1px;
-    width: auto;
-    height: 2px;
-    margin: 0;
-    border-radius: 2px;
+/* スマホの下の帯: 帯の下にすき間があると、流した中身（表紙）が透けて見える（Safari と PWA。ツールバーの出入りや端数の位置で出る）。
+   帯の地の色を、影で帯の下へ延ばしてふさぐ（影は流せる長さを増やさない） */
+@media (max-width: 959px) {
+  .tabs {
+    box-shadow: 0 48px 0 var(--tabs-bg);
+  }
+}
+
+/* いちばん上へ戻るボタン（長い一覧を流したとき）。帯のすぐ上、親指の側（片手操作が左手なら左） */
+.totop {
+  position: fixed;
+  right: 16px;
+  bottom: calc(80px + env(safe-area-inset-bottom));
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--float);
+  color: var(--fg);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.18);
+  cursor: pointer;
+}
+
+.totop .icon {
+  width: 22px;
+  height: 22px;
+}
+
+:root[data-hand='left'] .totop {
+  right: auto;
+  left: 16px;
+}
+
+@media (min-width: 960px) {
+  .totop {
+    right: 24px;
+    bottom: 24px;
   }
 }

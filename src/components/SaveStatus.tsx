@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
+import { useNotice } from '../lib/notices'
 import type { FailedWrite } from '../lib/useWriteQueue'
 import { Spinner } from './Loading'
 
@@ -19,11 +20,24 @@ function useLingering(on: boolean): boolean {
   return on && shown
 }
 
-// 送信の状態。保存中は画面の下に浮かぶ小さな札（画面の流れに入れないので、出ても消えても一覧が動かない。2026-10-06 利用者の指摘）。
+// 送信の状態。保存中は画面の下に浮かぶ小さな札（画面の流れに入れないので、出ても消えても一覧が動かない）。
 // 保存できなかったときは、押してもらう必要があるので、置かれた場所にそのまま出す
 export function SaveStatus(props: { pending: number; failed: FailedWrite[]; onRetry: () => void; onDismiss?: () => void }) {
   const first = props.failed[0]
   const pendingShown = useLingering(props.pending > 0)
+  // コントロールセンターにも並べる（画面を移っても、保存できなかったことが分かるように）
+  const id = useId()
+  useNotice(
+    first
+      ? {
+          id: `save${id}`,
+          title: `${props.failed.length}件を保存できませんでした`,
+          body: first.message,
+          action: first.links?.length ? undefined : { label: 'もう一度', run: props.onRetry },
+          urgent: true,
+        }
+      : null,
+  )
   if (first) {
     return (
       <div className="save save--error" role="alert">

@@ -1,15 +1,17 @@
 import { fetchLibrary, type LibraryEntry, type RatingState } from '../../lib/annict'
 import { refreshMyReviews } from '../../lib/myReviews'
-import { fetchMedia, fetchSimilarMany, type FetchOptions, type Media } from '../../lib/shikimori'
+import { fetchMedia, fetchSimilarMany, isSimilarCached, type FetchOptions, type Media } from '../../lib/shikimori'
 import { buildProfile, buildSeeds, type Seed } from './taste'
 
 // 好みを調べる作品の上限（Shikimori 2回ぶん）
 export const MAX_SEEDS = 100
 
-// 「似た作品」を調べる作品の上限。1作品につき1回の問い合わせ（端末に30日控えるので、初めてのときだけ時間がかかる）。
-// 好きな作品を多く、苦手な作品を少し（苦手な作品に似たものを減点するため）
-export const MAX_SIMILAR_LIKED = 32
-export const MAX_SIMILAR_DISLIKED = 8
+// 「似た作品」は、好きな作品と苦手な作品のすべてについて調べる（1作品につき1回の問い合わせ。端末に30日控えるので、初めてのときだけ時間がかかる）。
+// 以前は好き32件・苦手8件までにしていたが、利用者の記録で測ると、上限を外すと隠した好きな作品が候補に入る割合が 0.61 → 0.73 に上がった
+// （2026-10-07、scripts/match_eval.ts。上限があると、評価を増やしても33件目からの好きな作品が候補を広げなかった）。
+// 控えていない作品がこの数を超えるときは、待ち時間の案内を出す
+export const LONG_WAIT_UNCACHED = 30
+export const LONG_WAIT_NOTE = '初めて調べる作品が多いので、数分かかります（記録が多いほど長くなります）。次からは端末の控えを使うので速くなります。待つあいだ、ほかのページを見ていても大丈夫です。'
 
 // 好きな作品がこの件数に届くと、好みの推定が安定する目安
 export const ENOUGH_LIKED = 10
@@ -27,12 +29,10 @@ export interface Taste {
   profile: Map<string, number>
 }
 
-// 「似た作品」を調べる作品を選ぶ: 好きな作品の上位 MAX_SIMILAR_LIKED 件と、苦手な作品の上位 MAX_SIMILAR_DISLIKED 件
+// 「似た作品」を調べる作品を選ぶ: 好きな作品すべて（重みの大きい順）のあとに、苦手な作品すべて
 export function pickSimilarSeeds(seeds: Seed[]): Seed[] {
   const byWeight = (a: Seed, b: Seed) => Math.abs(b.weight) - Math.abs(a.weight)
-  const liked = seeds.filter((s) => s.weight > 0).sort(byWeight).slice(0, MAX_SIMILAR_LIKED)
-  const disliked = seeds.filter((s) => s.weight < 0).sort(byWeight).slice(0, MAX_SIMILAR_DISLIKED)
-  return [...liked, ...disliked]
+  return [...seeds.filter((s) => s.weight > 0).sort(byWeight), ...seeds.filter((s) => s.weight < 0).sort(byWeight)]
 }
 
 // 感想から総合評価だけを取り出す（作品の annictId → 評価）
@@ -46,7 +46,11 @@ function ratingsOf(reviews: ReadonlyMap<number, { ratingOverallState: RatingStat
 // 好きな作品の「似た作品」を Shikimori から集める。好きな作品が1件も無いときは Shikimori を呼ばない。
 // 評価は共有の感想の控え（myReviews.ts）から。ここで差分だけ読み直すので、全部を辿り直すことは無い。
 // shikimori は Shikimori への問い合わせの優先度（先読みのときは裏の優先度にして、画面の問い合わせを遅らせない）
-async function load(token: string, onStep?: (step: string) => void, shikimori: FetchOptions = {}): Promise<Taste> {
+// onStep の note は、時間がかかるときの案内（画面の読み込み中の下に出す）。
+// work は、端末に控えの無い（問い合わせて待つ）作品の進み具合。画面が残り時間を見積もるのに使う（控えのある作品はすぐ終わるので数えない）
+export type StepHandler = (step: string, note?: string, work?: { done: number; total: number }) => void
+
+async function load(token: string, onStep?: StepHandler, shikimori: FetchOptions = {}): Promise<Taste> {
   onStep?.('Annict の記録を読み込み中')
   const library = await fetchLibrary(token)
   const ratings = ratingsOf(await refreshMyReviews(token))
@@ -55,10 +59,16 @@ async function load(token: string, onStep?: (step: string) => void, shikimori: F
   const hasLikes = seeds.some((s) => s.weight > 0)
   onStep?.('好みを分析しています')
   const seedMedia = hasLikes ? await fetchMedia(topSeeds.map((s) => s.malId), shikimori) : new Map<number, Media>()
-  const similarSeeds = hasLikes ? pickSimilarSeeds(topSeeds) : []
+  const similarSeeds = hasLikes ? pickSimilarSeeds(seeds) : []
+  const uncached = new Set(similarSeeds.filter((s) => !isSimilarCached(s.malId)).map((s) => s.malId))
+  const note = uncached.size > LONG_WAIT_UNCACHED ? LONG_WAIT_NOTE : undefined
+  let fetched = 0
   const similar = await fetchSimilarMany(
     similarSeeds.map((s) => s.malId),
-    (done, total) => onStep?.(`似た作品を検索中（${done}/${total}）`),
+    (done, total, malId) => {
+      if (uncached.has(malId)) fetched += 1
+      onStep?.(`似た作品を検索中（${done}/${total}）`, note, uncached.size > 0 ? { done: fetched, total: uncached.size } : undefined)
+    },
     shikimori,
   )
   return { library, ratings, seeds, topSeeds, seedMedia, similarSeeds, similar, profile: buildProfile(topSeeds, seedMedia) }
@@ -69,7 +79,7 @@ async function load(token: string, onStep?: (step: string) => void, shikimori: F
 let cache: { token: string; promise: Promise<Taste> } | null = null
 
 // onStep は、実際に読み込むときだけ呼ばれる（使い回すときは呼ばれない）
-export function loadTaste(token: string, onStep?: (step: string) => void): Promise<Taste> {
+export function loadTaste(token: string, onStep?: StepHandler): Promise<Taste> {
   if (cache && cache.token === token) return cache.promise
   const promise = load(token, onStep)
   const entry = { token, promise }

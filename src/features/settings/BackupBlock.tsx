@@ -55,7 +55,7 @@ export function BackupBlock(props: { annictToken: string; github: GithubConnecti
     <Section
       id="settings-backup"
       title="バックアップ"
-      summary="すべての記録を JSON ファイルとして保存できます。視聴状況とその日時、評価（5項目と本文）、パス・スルー・見てないを含みます。"
+      summary="すべての記録を JSON ファイルとして保存できます。視聴状況とその日時、評価（5項目と本文）、興味なし・保留・見てないを含みます。"
       status={
         props.github ? (
           <StatusChip tone={status.error ? 'off' : 'ok'}>

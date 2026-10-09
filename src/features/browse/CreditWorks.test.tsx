@@ -25,11 +25,13 @@ function media(id: number, year: number | null, extra: Partial<Media> = {}): Med
 
 const findPerson = vi.fn()
 const fetchPersonWorks = vi.fn()
+const fetchCharacterNames = vi.fn()
 const fetchStudioWorks = vi.fn()
 const fetchMedia = vi.fn()
 vi.mock('../../lib/shikimori', () => ({
   findPerson: (...a: unknown[]) => findPerson(...a),
   fetchPersonWorks: (...a: unknown[]) => fetchPersonWorks(...a),
+  fetchCharacterNames: (...a: unknown[]) => fetchCharacterNames(...a),
   fetchStudioWorks: (...a: unknown[]) => fetchStudioWorks(...a),
   fetchMedia: (...a: unknown[]) => fetchMedia(...a),
 }))
@@ -48,15 +50,26 @@ afterEach(() => {
 })
 
 describe('CreditWorks', () => {
-  it('finds the person, lists voice roles and staff work together with role tags, newest first, marks my records, and opens a work', async () => {
+  it('finds the person, lists voice roles (with the character names) and staff work together with role tags, newest first, marks my records, and opens a work', async () => {
     findPerson.mockResolvedValue({ id: 14441, name: 'Sumire Uesaka', japanese: '上坂 すみれ' })
     fetchPersonWorks.mockResolvedValue({
-      cast: [1, 2, 3, 4],
+      cast: [
+        { id: 1, characters: [{ id: 11, name: 'Frieren' }] },
+        { id: 2, characters: [] },
+        { id: 3, characters: [{ id: 31, name: 'Alpha' }, { id: 32, name: null }, { id: 33, name: 'Gamma' }] },
+        { id: 4, characters: [] },
+      ],
       staff: [
         { id: 2, roles: ['主題歌'] },
         { id: 5, roles: ['主題歌'] },
       ],
     })
+    fetchCharacterNames.mockResolvedValue(
+      new Map([
+        [11, 'フリーレン'],
+        [31, 'アルファ'],
+      ]),
+    )
     fetchMedia.mockResolvedValue(
       new Map([
         [1, media(1, 2010, { popularity: 900 })],
@@ -78,6 +91,10 @@ describe('CreditWorks', () => {
     expect(within(second).getByText('出演・主題歌')).toBeTruthy()
     expect(within(second).getByText('見た')).toBeTruthy()
     expect(within(screen.getByRole('button', { name: /作品5/ })).getByText('主題歌')).toBeTruthy()
+    // 声の出演は役名（分からなければ「出演」）
+    expect(within(screen.getByRole('button', { name: /作品1/ })).getByText('フリーレン役')).toBeTruthy()
+    // 日本語名が無ければローマ字、名前がどちらも無いキャラクターは省く
+    expect(within(screen.getByRole('button', { name: /作品3/ })).getByText('アルファ、Gamma役')).toBeTruthy()
     // 人気順
     fireEvent.click(screen.getByRole('button', { name: '人気順' }))
     expect(titles()).toEqual(['作品1', '作品5', '作品2', '作品3'])

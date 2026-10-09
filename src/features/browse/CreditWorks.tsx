@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { CoverImage } from '../../components/CoverImage'
 import { Sheet } from '../../components/Sheet'
 import { annictCreditUrl, peekLibrary, type Credit } from '../../lib/annict'
-import { fetchMedia, fetchPersonWorks, fetchStudioWorks, findPerson, type Media } from '../../lib/shikimori'
+import { fetchCharacterNames, fetchMedia, fetchPersonWorks, fetchStudioWorks, findPerson, type Media } from '../../lib/shikimori'
 import { messageOf } from '../../lib/useWriteQueue'
 import { STATUS_LABEL } from './detail'
 import { RelatedDetail } from './RelatedDetail'
@@ -21,7 +21,7 @@ export interface CreditTarget {
   studio: { id: number; name: string } | null
 }
 
-// 一覧の1作品と、その人の役割（「出演」「主題歌」「監督」など）
+// 一覧の1作品と、その人の役割（「フリーレン役」「出演」「主題歌」「監督」など）
 interface CreditWork {
   media: Media
   roles: string[]
@@ -59,10 +59,17 @@ async function load(target: CreditTarget): Promise<Found> {
   const person = await findPerson(target.credit.name)
   if (!person) return { kind: 'missing' }
   const { cast, staff } = await fetchPersonWorks(person.id)
-  const media = await fetchMedia([...cast, ...staff.map((s) => s.id)])
-  // 作品ごとに役割をまとめる（声の出演は「出演」を先頭に）
+  // 作品の情報と、役名（キャラクターの日本語名）を一緒に引く。日本語名が引けなければローマ字の名前、それも無ければ「出演」
+  const [media, japanese] = await Promise.all([
+    fetchMedia([...cast.map((c) => c.id), ...staff.map((s) => s.id)]),
+    fetchCharacterNames(cast.flatMap((c) => c.characters.map((ch) => ch.id))).catch(() => new Map<number, string>()),
+  ])
+  // 作品ごとに役割をまとめる（声の出演は役名を先頭に。「フリーレン役」）
   const roles = new Map<number, string[]>()
-  for (const id of cast) roles.set(id, ['出演'])
+  for (const c of cast) {
+    const names = [...new Set(c.characters.flatMap((ch) => japanese.get(ch.id) ?? ch.name ?? []))]
+    roles.set(c.id, [names.length > 0 ? `${names.join('、')}役` : '出演'])
+  }
   for (const s of staff) roles.set(s.id, [...new Set([...(roles.get(s.id) ?? []), ...s.roles])])
   const works = [...roles].flatMap(([id, r]) => {
     const m = media.get(id)
@@ -114,7 +121,7 @@ export function CreditWorks(
 
   return (
     <>
-      <Sheet label={name} size="large" active={props.active && open === null} onClose={props.onClose}>
+      <Sheet label={name} size="page" active={props.active && open === null} onClose={props.onClose}>
         <h2 className="detail__title">{name}</h2>
         <p className="detail__meta">
           {target.credit.kind === 'org' ? '制作した作品' : '参加した作品'}

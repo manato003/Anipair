@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { BrowseWork } from '../../lib/annict'
-import { nextSeason, seasonOf, type Season } from '../../lib/season'
+import { nextSeason, previousSeason, seasonOf, type Season } from '../../lib/season'
 import type { BrowsePeriod } from './browseFilter'
 import type { BrowseSort } from './browseSort'
 
@@ -28,6 +28,7 @@ let state: {
   searching: boolean
   period: BrowsePeriod
   sort: BrowseSort
+  dir: 'desc' | 'asc'
   sortNote: string | null
   reasons: Map<number, string>
   works: BrowseWork[] | null
@@ -39,6 +40,7 @@ function base() {
     searching: false,
     period: { yearFrom: null, yearTo: null, seasons: [] } as BrowsePeriod,
     sort: 'popular' as BrowseSort,
+    dir: 'desc' as 'desc' | 'asc',
     sortNote: null,
     reasons: new Map<number, string>(),
     works: [w(1), w(2)],
@@ -82,10 +84,10 @@ afterEach(() => {
   state = base()
 })
 
-const sortButtons = () => [...screen.getByRole('group', { name: '並べ替え' }).querySelectorAll('button')].map((b) => b.textContent)
+const sortButtons = () => [...screen.getByRole('group', { name: '並べ替え' }).querySelectorAll('button')].map((b) => b.textContent?.replace(/[↓↑]/, ''))
 
 describe('Browse sort options', () => {
-  it('offers おすすめ順 for the season list but not 新しい順', () => {
+  it('offers おすすめ順 for the season list but not 放送日順', () => {
     render(<Browse token="t" />)
     expect(sortButtons()).toEqual(['人気順', '評価順', 'おすすめ順'])
     fireEvent.click(screen.getByRole('button', { name: 'おすすめ順' }))
@@ -98,26 +100,35 @@ describe('Browse sort options', () => {
     unmount()
     state = { ...base(), sort: 'score' }
     render(<Browse token="t" />)
-    expect(screen.getByText(/^評判の高い順です。Annict の満足度、無ければ Shikimori の点数/)).toBeTruthy()
+    expect(screen.getByText(/^ほかの人の評価が高い順です。評価した人の少ない作品は、点数を平均に寄せて並べます/)).toBeTruthy()
     expect(screen.queryByText('Annict でこの作品を記録した人の多い順です。')).toBeNull()
   })
 
-  it('offers 新しい順 but not おすすめ順 while searching by title', () => {
+  it('offers 放送日順 but not おすすめ順 while searching by title', () => {
     state = { ...base(), searching: true }
     render(<Browse token="t" />)
-    expect(sortButtons()).toEqual(['人気順', '評価順', '新しい順'])
+    expect(sortButtons()).toEqual(['人気順', '評価順', '放送日順'])
   })
 
   it('shows the reason on the second line only in おすすめ順', () => {
     state = { ...base(), sort: 'taste', reasons: new Map([[1, '好きなジャンル: 音楽']]) }
     const { unmount } = render(<Browse token="t" />)
-    expect(screen.getByText('好きなジャンル: 音楽').className).toContain('row__reason')
+    expect(screen.getByText('好きなジャンル: 音楽').className).toContain('shelf__reason')
     expect(screen.getByText(/好みに合いそうな順/)).toBeTruthy()
     unmount()
 
     state = { ...base(), sort: 'popular', reasons: new Map([[1, '好きなジャンル: 音楽']]) }
     render(<Browse token="t" />)
     expect(screen.queryByText('好きなジャンル: 音楽')).toBeNull()
+  })
+
+  it('pressing the chosen order again asks for the other direction, and the line says which way', () => {
+    state = { ...base(), dir: 'asc' }
+    render(<Browse token="t" />)
+    expect(screen.getByText('Annict でこの作品を記録した人の少ない順です。')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /^人気順/ }).textContent).toContain('↑')
+    fireEvent.click(screen.getByRole('button', { name: /^人気順/ }))
+    expect(setSort).toHaveBeenCalledWith('popular')
   })
 
   it('shows the note instead of the explanation when the taste could not be used', () => {
@@ -128,7 +139,7 @@ describe('Browse sort options', () => {
   })
 })
 
-describe('Browse 来期 shortcut', () => {
+describe('Browse 前期・今期・来期', () => {
   it('jumps to next season from the current one', () => {
     render(<Browse token="t" />)
     fireEvent.click(screen.getByRole('button', { name: '来期' }))
@@ -142,10 +153,13 @@ describe('Browse 来期 shortcut', () => {
     expect(setSeason).toHaveBeenCalledWith(nextSeason(seasonOf(new Date())))
   })
 
-  it('is not shown when already on next season, or while searching by title', () => {
+  it('stays in place and marks the one being looked at (pressing does not make it disappear); hidden while searching by title', () => {
     state = { ...base(), season: nextSeason(seasonOf(new Date())) }
     const { unmount } = render(<Browse token="t" />)
-    expect(screen.queryByRole('button', { name: '来期' })).toBeNull()
+    expect(screen.getByRole('button', { name: '来期' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: '今期' }).getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(screen.getByRole('button', { name: '前期' }))
+    expect(setSeason).toHaveBeenCalledWith(previousSeason(seasonOf(new Date())))
     unmount()
     state = { ...base(), searching: true }
     render(<Browse token="t" />)
@@ -161,9 +175,9 @@ describe('Browse filter', () => {
     const sheet = screen.getByRole('dialog', { name: '絞り込み' })
     fireEvent.click(within(sheet).getByRole('button', { name: /^見たs*1$/ }))
     fireEvent.click(within(sheet).getByRole('button', { name: '1件を表示' }))
-    expect([...document.querySelectorAll('.row__title')].map((e) => e.textContent)).toEqual(['作品2'])
+    expect([...document.querySelectorAll('.shelf__title')].map((e) => e.textContent)).toEqual(['作品2'])
     fireEvent.click(screen.getByRole('button', { name: '自分の記録: 見た の条件を外す' }))
-    expect([...document.querySelectorAll('.row__title')].map((e) => e.textContent)).toEqual(['作品1', '作品2'])
+    expect([...document.querySelectorAll('.shelf__title')].map((e) => e.textContent)).toEqual(['作品1', '作品2'])
   })
 })
 
@@ -182,7 +196,7 @@ describe('Browse period', () => {
     render(<Browse token="t" />)
     expect(screen.queryByRole('button', { name: '来期' })).toBeNull()
     expect(screen.getByText('2018〜2020年 春')).toBeTruthy()
-    expect(sortButtons()).toEqual(['人気順', '評価順', 'おすすめ順', '新しい順'])
+    expect(sortButtons()).toEqual(['人気順', '評価順', 'おすすめ順', '放送日順'])
     fireEvent.click(screen.getByRole('button', { name: '1つのクールで選ぶ' }))
     expect(setPeriod).toHaveBeenCalledWith({ yearFrom: null, yearTo: null, seasons: [] })
   })

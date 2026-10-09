@@ -1,4 +1,5 @@
-import type { Rarity } from '../achievements/titles'
+import { RARITY_LABEL, type Rarity } from '../achievements/titles'
+export { RARITY_LABEL }
 import { genreName } from '../match/taste'
 import { AXIS_LABEL } from '../../lib/reviewOps'
 import type { Affinity, AxisWeight, GenreAxis, Summary, YearReview } from '../records/trends'
@@ -8,15 +9,6 @@ import type { Affinity, AxisWeight, GenreAxis, Summary, YearReview } from '../re
 
 export const SHARE_URL = 'https://anipair.vercel.app/'
 
-export const RARITY_LABEL: Record<Rarity, string> = {
-  bronze: '銅',
-  silver: '銀',
-  gold: '金',
-  amethyst: '紫晶',
-  crimson: '紅',
-  radiant: '虹',
-  origin: '特別',
-}
 
 export interface ShareCard {
   headline: string

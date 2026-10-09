@@ -2,32 +2,10 @@
 
 .records {
   display: grid;
-  grid-template-rows: auto auto 1fr;
-  height: 100%;
+  align-content: start;
   max-width: var(--col);
   margin: 0 auto;
   padding: 12px 16px 0;
-}
-
-.records__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.records__actions {
-  display: flex;
-  gap: 8px;
-}
-
-.records__buttons {
-  display: flex;
-  gap: 8px;
-}
-
-.records__head .btn {
-  padding: 6px 16px;
-  font-size: 0.85rem;
 }
 
 .records__controls {
@@ -120,15 +98,9 @@
   gap: 10px;
 }
 
-/* マッチングの条件の選択欄（match.css の .filter select）と同じ見た目 */
+/* 見た目は base.css の選択欄と同じ。ここでは幅だけ */
 .filtersheet__years select {
   flex: 1;
-  padding: 8px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-s);
-  background: var(--ink-raised);
-  font-family: inherit;
-  color: inherit;
 }
 
 .filtersheet__more {
@@ -162,8 +134,6 @@
 }
 
 .records__list {
-  min-height: 0;
-  overflow-y: auto;
   padding-bottom: 16px;
 }
 
@@ -239,13 +209,6 @@
   }
 }
 
-/* おすすめ順で添える理由。マッチングの理由と同じ控えめな見た目 */
-.row__reason {
-  color: var(--brand-lavender);
-  font-size: 0.75rem;
-  opacity: 0.85;
-}
-
 /* 見たいの「優先して見る」とメモ。メモは1行で切る（押すと全部を書き直せる） */
 .row__wanna {
   position: relative;
@@ -278,16 +241,6 @@
   min-width: 0;
   font-size: 0.78rem;
   text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* 見てる作品の「次は 第5話「題名」」。長い題名は1行で切る */
-.row__next {
-  overflow: hidden;
-  color: var(--paper);
-  font-size: 0.78rem;
-  font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -372,8 +325,10 @@
   display: grid;
   gap: 2px;
   padding: 10px 6px;
+  border: 1px solid var(--line);
   border-radius: var(--radius-m);
-  background: var(--ink-raised);
+  background: var(--panel);
+  box-shadow: var(--panel-edge);
   text-align: center;
 }
 
@@ -1137,17 +1092,15 @@
     border-bottom: 0;
   }
 
-  .rows:not(.rows--edit) .row__thumb,
-  .row__hit .row__thumb {
+  .rows:not(.rows--edit) .row__thumb {
     width: 100%;
     height: auto;
-    aspect-ratio: 2 / 3;
+    aspect-ratio: var(--cover-ratio);
     border-radius: var(--radius-s);
   }
 
   /* 評価・状態の印は表紙の隅に重ねる */
-  .rows:not(.rows--edit) .row > .badge,
-  .row__hit > .badge {
+  .rows:not(.rows--edit) .row > .badge {
     position: absolute;
     top: 8px;
     right: 8px;
@@ -1175,14 +1128,6 @@
     outline-offset: 2px;
   }
 
-  .rows:not(.rows--edit) .row__reason {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    font-size: 0.72rem;
-  }
-
   /* 編集モードは操作に幅が要るので、これまでどおりの行。サムネイルは少し大きく */
   .rows--edit {
     max-width: 880px;
@@ -1203,25 +1148,9 @@
   }
 }
 
-/* 傾向の見出しの横のボタン（年間のふり返り・画像で共有） */
-.trend__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
 /* 年間のふり返りの年の選び */
 .yearreview__years {
   margin-top: 12px;
-}
-
-/* 傾向の見出しと「画像で共有」 */
-.trend__head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px 12px;
 }
 
 /* 共有のシート（ShareSheet） */
@@ -1253,4 +1182,620 @@
 .profile__share {
   margin-top: 6px;
   font-size: 0.8rem;
+}
+
+/* ── 記録の項目（XMB の「フォルダ」）──
+   スマホ: 上に作品の4つ（見てる・見た・見たい・視聴中断）＋まとめ。流すと上に貼りつく。
+   PC: 右端の縦の列（ブラウザの縦タブの形）。箱で囲まず、文字の濃さと大きさで分ける */
+.records--items {
+  display: block;
+  padding: 0 16px;
+}
+
+.rtabs {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin: 0 -16px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-top);
+}
+
+.rtabs__tab {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 10px 0 7px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  /* 選んでいないタブは補足の色（半透明にすると、細い字のコントラストが 4.5:1 を割る） */
+  color: var(--sub);
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.rtabs__tab .icon,
+.rtabs__tab .bookmark {
+  width: 20px;
+  height: 20px;
+}
+
+.rtabs__tab[aria-selected='true'] {
+  border-bottom-color: var(--fg);
+  color: var(--fg);
+}
+
+/* 作品の4つと、まとめを分ける細い線 */
+.rtabs__tab--summary::before {
+  content: '';
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 0;
+  border-left: 1px solid var(--line);
+}
+
+.rtabs__tab .viewswitch__dot,
+.rrail__item .viewswitch__dot {
+  position: absolute;
+  top: 8px;
+  right: calc(50% - 16px);
+}
+
+/* 項目の見出し: 名前と件数、右に編集・知らせ・使い方 */
+.rhead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 16px 0 4px;
+}
+
+/* 一覧に戻る（スマホのまとめ・設定）。親指の届く右側に、ほかの操作の手前に置く。片手操作が左手なら、見出しの左。
+   左上は右手持ちでいちばん遠い（詳細の閉じるボタンと同じ考え方）。左へ払っても戻る */
+.rhead__title {
+  order: 0;
+}
+
+.rhead__back {
+  display: inline-flex;
+  order: 1;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  padding: 6px 12px 6px 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: none;
+  color: var(--fg);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rhead__back ~ .rhead__actions {
+  order: 2;
+  margin-left: 0;
+}
+
+:root[data-hand='left'] .rhead__back {
+  order: -1;
+  margin-left: 0;
+}
+
+:root[data-hand='left'] .rhead__back ~ .rhead__actions {
+  margin-left: auto;
+}
+
+.rhead__back .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.rhead__title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.rhead__count {
+  color: var(--sub);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.rhead__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.rhead__edit {
+  padding: 6px 16px;
+  font-size: 0.85rem;
+}
+
+/* 並べ替え: 文字だけの切り替え。選んでいる並べ方を濃く */
+.rsort {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+}
+
+.rsort button {
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--sub);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.rsort button[aria-pressed='true'] {
+  color: var(--fg);
+  font-weight: 700;
+}
+
+.records--items .records__controls,
+.records--browse .records__controls {
+  gap: 8px;
+}
+
+.records--items .records__sortnote {
+  margin-top: -4px;
+  font-size: 0.75rem;
+}
+
+.records--items .records__list,
+.records--browse .records__list {
+  padding: 14px 0 24px;
+}
+
+/* ブラウズ: 見出し・探す・クール・並べ替え・棚を1列に */
+.records.records--browse {
+  display: block;
+  padding: 0 16px;
+}
+
+.shelf__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 8px;
+  color: var(--sub);
+  font-size: 0.7rem;
+  line-height: 1.5;
+}
+
+.shelf__score {
+  font-weight: 700;
+}
+
+/* 自分の記録ではない印（評価の画面で「見てない」にした作品）は、塗らずに線だけ */
+.shelf__badge--quiet {
+  border: 1px solid var(--fg);
+  background: color-mix(in oklab, var(--bg-bot) 80%, transparent);
+  color: var(--fg);
+}
+
+/* 棚（表紙の格子）。題名は2行まで。見たは評価を表紙の隅に、見たいは優先の印とメモを題名の下に */
+.shelf {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px 12px;
+  list-style: none;
+}
+
+.shelf__item {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  min-width: 0;
+}
+
+.shelf__open {
+  display: grid;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.shelf__cover {
+  display: grid;
+  place-items: center;
+  aspect-ratio: var(--cover-ratio);
+  overflow: hidden;
+  border-radius: 4px;
+  background: color-mix(in oklab, var(--fg) 7%, transparent);
+}
+
+.shelf__cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.shelf__noimage {
+  padding: 8px;
+  color: var(--sub);
+  font-size: 0.7rem;
+  text-align: center;
+}
+
+.shelf__title {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.shelf__badge {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  padding: 1px 7px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--fg);
+  color: var(--bg-bot);
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+/* 見たいの優先の印: 表紙の右上に、上端から下がるしおり（中に☆。付けたら塗って★）。押せる範囲は 44px 四方 */
+.shelf__star {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.shelf__ribbon {
+  display: flex;
+  justify-content: center;
+  width: 24px;
+  height: 32px;
+  padding-top: 5px;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 76%, 0 100%);
+  background: color-mix(in oklab, var(--bg-bot) 88%, transparent);
+  color: var(--fg);
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.shelf__star[aria-pressed='true'] .shelf__ribbon {
+  background: var(--fg);
+  color: var(--bg-bot);
+}
+
+/* 詳細の「優先とメモ」 */
+.wannanote {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.wannanote__memo {
+  margin-top: 8px;
+  color: var(--sub);
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+}
+
+.shelf__memo,
+.shelf__reason {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--sub);
+  font-size: 0.7rem;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* 見てる作品のカード */
+.watchcards {
+  display: grid;
+  list-style: none;
+}
+
+.watchcard {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.watchcard__cover {
+  align-self: start;
+  aspect-ratio: var(--cover-ratio);
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 4px;
+  background: color-mix(in oklab, var(--fg) 7%, transparent);
+  cursor: pointer;
+}
+
+.watchcard__cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.watchcard__body {
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  min-width: 0;
+}
+
+.watchcard__title {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+}
+
+.watchcard__next {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.watchcard__left {
+  color: var(--sub);
+  font-size: 0.75rem;
+}
+
+.watchcard__bar {
+  display: block;
+  height: 4px;
+  margin-top: 6px;
+  border-radius: 2px;
+  background: var(--line);
+}
+
+.watchcard__bar i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--fg);
+}
+
+.watchcard__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-top: 10px;
+}
+
+.watchcard__actions .btn {
+  padding: 8px 16px;
+  font-size: 0.85rem;
+}
+
+/* スマホの「まとめ」の一覧（設定の一覧と同じ形） */
+.folders {
+  list-style: none;
+  padding: 4px 0 24px;
+}
+
+.folder {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  column-gap: 14px;
+  align-items: center;
+  width: 100%;
+  padding: 14px 4px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.folder > .icon {
+  grid-row: span 2;
+  width: 26px;
+  height: 26px;
+}
+
+.folder b {
+  position: relative;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.folder b .viewswitch__dot {
+  position: relative;
+  top: -6px;
+  margin-left: 4px;
+}
+
+.folder small {
+  color: var(--sub);
+  font-size: 0.75rem;
+}
+
+.summary {
+  padding-bottom: 24px;
+}
+
+@media (min-width: 960px) {
+  /* 項目の列は左。本文も見出しも左から始まり、目もそこから読み始めるので、中身を選ぶ列はその読み始めの位置に置く */
+  .records.records--items {
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr);
+    column-gap: 28px;
+    align-items: start;
+    padding: 0 24px;
+  }
+
+  .records.records--browse {
+    max-width: var(--wide);
+    padding: 0 24px;
+  }
+
+  .records--items .records__body {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  /* 左端の縦の列（記録と設定）。流しても上の帯の下に貼りつく */
+  .rrail {
+    position: sticky;
+    top: var(--topbar);
+    grid-column: 1;
+    grid-row: 1;
+    display: grid;
+    gap: 2px;
+    padding: 16px 0;
+    border-right: 1px solid var(--line);
+  }
+
+  .rrail__item {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    gap: 3px;
+    margin-right: 8px;
+    padding: 10px 2px;
+    border: 0;
+    border-radius: var(--radius-m);
+    background: none;
+    color: var(--fg);
+    font-size: 0.72rem;
+    font-weight: 700;
+    opacity: 0.55;
+    cursor: pointer;
+  }
+
+  .rrail__item .icon,
+  .rrail__item .bookmark {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* 作品の4つと、まとめの3つのあいだを空ける */
+  .records--items .rrail__item:nth-child(5) {
+    margin-top: 14px;
+  }
+
+  .rrail__item[aria-current='true'] {
+    background: color-mix(in oklab, var(--fg) 9%, transparent);
+    opacity: 1;
+  }
+
+  .rrail__item:hover {
+    opacity: 1;
+  }
+
+  .rhead {
+    padding-top: 22px;
+  }
+
+  .rhead__title {
+    font-size: 1.6rem;
+  }
+
+  .shelf {
+    grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+    gap: 26px 18px;
+  }
+
+  .shelf__title {
+    font-size: 0.82rem;
+  }
+
+  .watchcards {
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    column-gap: 32px;
+  }
+}
+
+/* 傾向・ふり返りの「画像で共有」の置き場（中身だけを並びに入れる） */
+.rhead__slot {
+  display: contents;
+}
+
+/* 見てるのカードの、次の話を評価して記録する欄（詳細の話ごとの記録と同じ4段階のボタン） */
+.watchcard__rate {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.watchcard__ratelabel {
+  color: var(--sub);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.watchcard__rate .mini-ratings {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+/* 並べ替えの向きの矢印。どの並べ方にも幅を空けておき、選び直しても文字が揺れないように */
+.rsort .sortdir {
+  display: inline-block;
+  width: 1em;
+  margin-left: 2px;
+  text-align: center;
+}
+
+.watchcard__rate .mini-rating {
+  padding-inline: 0;
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+/* メモのシート: 「メモを消す」は入力欄のすぐ下に（閉じる・保存と並べない）。下の帯は保存だけ */
+.wannanote__clear {
+  justify-self: start;
+  margin: -4px 0 8px;
+  font-size: 0.8rem;
+}
+
+.filtersheet__foot--end {
+  justify-content: flex-end;
 }

@@ -14,7 +14,7 @@ async function verifyAnnictToken(token: string): Promise<string> {
 // ログインする前の最初の画面
 export function Welcome(props: { clientId: string | null; busy: boolean; error: string | null; onAnnictTokenChange: (token: string | null) => void }) {
   return (
-    <div className="settings__block">
+    <div className="settings__block welcome">
       <h1 className="welcome__logo">
         <Logo size="large" />
       </h1>

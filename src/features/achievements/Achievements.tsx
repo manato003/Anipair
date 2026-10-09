@@ -9,9 +9,9 @@ import { HIDDEN_COUNT, RARITIES, type Coverage, type Title } from './titles'
 import { profileShare, type ShareCard } from '../share/shareCard'
 import { ShareSheet } from '../share/ShareSheet'
 import { useAchievements } from './useAchievements'
-import { Elapsed } from '../../components/Loading'
+import { Remaining } from '../../components/Loading'
 
-// 記録タブの「実績」。称号の一覧・クールの紋章・隠し称号。方針は docs/concept.md「進み具合と称号」。
+// 記録タブの「実績」。称号の一覧・クールの紋章・隠し称号。
 // 初めて開いたときは、材料（記録・Annict の数値・クールの一覧）がそろうのを待って、解放された称号を「覚醒」でまとめて見せる
 export function Achievements(props: { token: string; rows: RecordRow[] | null; loadError: string | null; onReload: () => void; active: boolean }) {
   const a = useAchievements(props.token, props.rows, props.active)
@@ -73,7 +73,7 @@ export function Achievements(props: { token: string; rows: RecordRow[] | null; l
         <p className="awaken-wait__title">Annict での歩みを読み解いています</p>
         <p className="awaken-wait__note">
           {a.scan ? `クールの記録を照らし合わせています（${a.scan.done} / ${a.scan.total}）` : 'あなたの記録を整理しています'}
-          <Elapsed />
+          {a.scan && <Remaining done={a.scan.done} total={a.scan.total} />}
         </p>
       </div>
     )

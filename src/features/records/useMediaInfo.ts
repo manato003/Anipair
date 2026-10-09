@@ -23,7 +23,7 @@ export function useMediaInfo(works: readonly { malAnimeId: string | null }[] | n
       (media) => {
         if (cancelled) return
         const info = new Map<number, MediaInfo>()
-        for (const [id, m] of media) info.set(id, { genres: [...m.genres, ...m.themes], studios: m.studios })
+        for (const [id, m] of media) info.set(id, { genres: [...m.genres, ...m.themes], studios: m.studios, minutes: m.duration ?? null, episodes: m.episodes || null, airing: m.status === 'RELEASING' })
         setState({ key, info, error: null })
       },
       (e: unknown) => !cancelled && setState({ key, info: null, error: e instanceof Error ? e.message : String(e) }),

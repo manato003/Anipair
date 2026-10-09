@@ -23,35 +23,41 @@ function contrast(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05)
 }
 
-describe('brand colours', () => {
-  it('has the three brand tokens and a gradient through them', () => {
-    expect(token('brand-blue')).toBe('#7b9dff')
-    expect(token('brand-lavender')).toBe('#c5b8ff')
-    expect(token('brand-pink')).toBe('#ffb8d9')
-    expect(css).toMatch(/--brand-gradient:\s*linear-gradient\(135deg,\s*var\(--brand-blue\),\s*var\(--brand-lavender\) 50%,\s*var\(--brand-pink\)\)/)
-  })
+// 季節の色。:root[data-season=…] と :root[data-scheme='dark'][data-season=…] の上と下の2色
+function seasonPair(season: string, dark: boolean): [string, string] {
+  const sel = dark ? `:root\\[data-scheme='dark'\\]\\[data-season='${season}'\\]` : `:root\\[data-season='${season}'\\]`
+  const m = css.match(new RegExp(`${sel}\\s*\\{\\s*--s-top:\\s*(#[0-9a-fA-F]{6});\\s*--s-bot:\\s*(#[0-9a-fA-F]{6});`))
+  if (!m) throw new Error(`${season} の色が見つかりません`)
+  return [m[1].toLowerCase(), m[2].toLowerCase()]
+}
 
-  it('the primary button puts dark text on the gradient at 4.5:1 or better on every stop', () => {
-    expect(css).toMatch(/\.btn--primary\s*\{[^}]*background:\s*var\(--brand-gradient\)/)
-    const ink = token('ink')
-    for (const stop of ['brand-blue', 'brand-lavender', 'brand-pink']) {
-      expect(contrast(ink, token(stop))).toBeGreaterThanOrEqual(4.5)
+describe('season colours', () => {
+  const seasons = ['spring', 'summer', 'autumn', 'winter']
+
+  it('has a light and a dark pair for every season', () => {
+    for (const s of seasons) {
+      expect(seasonPair(s, false)).toHaveLength(2)
+      expect(seasonPair(s, true)).toHaveLength(2)
     }
   })
 
-  it('links and the accents on the dark background stay readable (4.5:1 or better)', () => {
-    const ink = token('ink')
-    for (const c of ['brand-blue', 'brand-lavender']) expect(contrast(token(c), ink)).toBeGreaterThanOrEqual(4.5)
+  it('keeps the text and the secondary text at 4.5:1 or better on both ends of every background', () => {
+    for (const s of seasons) {
+      for (const bg of seasonPair(s, false)) {
+        expect(contrast('#1c1b1f', bg)).toBeGreaterThanOrEqual(4.5)
+        expect(contrast('#4a4650', bg)).toBeGreaterThanOrEqual(4.5)
+      }
+      for (const bg of seasonPair(s, true)) {
+        expect(contrast('#ffffff', bg)).toBeGreaterThanOrEqual(4.5)
+        expect(contrast('#e0dcd8', bg)).toBeGreaterThanOrEqual(4.5)
+      }
+    }
   })
 
-  it('does not touch the colours that carry meaning (rating, wanna, danger)', () => {
-    expect(token('r-bad')).toBe('#8e97b8')
-    expect(token('r-average')).toBe('#d9c48f')
-    expect(token('r-good')).toBe('#74d6b6')
-    expect(token('r-great')).toBe('#ff9ec0')
-    expect(token('wanna')).toBe('#b9a2ff')
-    expect(token('danger')).toBe('#ff7a7a')
-    expect(token('ink')).toBe('#161a2e')
+  it('names the text colours the contrast check uses', () => {
+    expect(token('fg')).toBe('#1c1b1f')
+    expect(token('sub')).toBe('#4a4650')
+    expect(css).toMatch(/:root\[data-scheme='dark'\]\s*\{\s*--fg:\s*#ffffff;\s*--sub:\s*#e0dcd8;/)
   })
 })
 

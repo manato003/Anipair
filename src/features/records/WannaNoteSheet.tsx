@@ -7,7 +7,8 @@ export function WannaNoteSheet(props: {
   title: string
   priority: boolean
   memo: string
-  github: boolean
+  // 連携している GitHub のリポジトリ（無ければ null）。共有するかの説明に、保存先を名前で出す
+  githubRepo: string | null
   active: boolean
   onSave: (value: { priority: boolean; memo: string }) => void
   onClose: () => void
@@ -37,21 +38,19 @@ export function WannaNoteSheet(props: {
           onChange={(e) => setMemo(e.target.value)}
         />
       </label>
-      <p className="note">
-        {MEMO_MAX}字まで。メモは Anipair の中だけに残し、Annict には送りません
-        {props.github ? '（GitHub と連携しているので、PC とスマホで共有します）。' : '（この端末だけ。設定で GitHub と連携すると、PC とスマホで共有できます）。'}
-      </p>
-      <div className="filtersheet__foot">
-        <button
-          type="button"
-          className="link"
-          onClick={() => {
-            setPriority(false)
-            setMemo('')
-          }}
-        >
-          消す
+      {/* 消すのはメモの文だけ（シートを閉じるのではない）。入力欄のすぐ下に、消す操作と分かる色で置く */}
+      {memo && (
+        <button type="button" className="link link--danger wannanote__clear" onClick={() => setMemo('')}>
+          メモを消す
         </button>
+      )}
+      <p className="note">
+        {MEMO_MAX}字まで。メモは Anipair の中だけに残し、Annict には送りません。
+        {props.githubRepo
+          ? `GitHub（${props.githubRepo}）に保存して、ほかの端末と共有します。`
+          : 'この端末だけに残ります（設定で GitHub と連携すると、ほかの端末と共有できます）。'}
+      </p>
+      <div className="filtersheet__foot filtersheet__foot--end">
         <button type="button" className="btn btn--primary" onClick={save}>
           保存
         </button>

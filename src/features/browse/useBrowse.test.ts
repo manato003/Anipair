@@ -3,7 +3,7 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BrowseWork } from '../../lib/annict'
 
-const calls: { filter: unknown; after: string | null; first: number; order: string }[] = []
+const calls: { filter: unknown; after: string | null; first: number; order: string; direction?: string }[] = []
 
 function w(annictId: number, watchers: number): BrowseWork {
   return {
@@ -29,9 +29,9 @@ vi.mock('../../lib/annict', async (orig) => ({
   ...(await orig<typeof import('../../lib/annict')>()),
   // ほかの画面で W2 を「見たい」にした
   fetchLibrary: vi.fn(async () => [{ annictId: 2, state: 'WANNA_WATCH' }]),
-  browseWorks: vi.fn(async (_t: string, filter: unknown, opts: { after?: string | null; first?: number; order?: string } = {}) => {
-    const { after = null, first = 30, order = 'WATCHERS_COUNT' } = opts
-    calls.push({ filter, after, first, order })
+  browseWorks: vi.fn(async (_t: string, filter: unknown, opts: { after?: string | null; first?: number; order?: string; direction?: string } = {}) => {
+    const { after = null, first = 30, order = 'WATCHERS_COUNT', direction } = opts
+    calls.push({ filter, after, first, order, direction })
     return pages[after ?? 'first']
   }),
 }))
@@ -59,7 +59,7 @@ describe('useBrowse sorting', () => {
     const hook = await setup()
     expect(hook.result.current.works!.map((x) => x.annictId)).toEqual([1, 2])
     expect(hook.result.current.hasMore).toBe(true)
-    expect(calls).toEqual([{ filter: { seasons: [expect.any(String)] }, after: null, first: 30, order: 'WATCHERS_COUNT' }])
+    expect(calls).toEqual([{ filter: { seasons: [expect.any(String)] }, after: null, first: 30, order: 'WATCHERS_COUNT', direction: 'DESC' }])
   })
 
   it('period: reads every cour of the period instead of one, offers 新しい順, and goes back to the cour', async () => {
@@ -78,10 +78,12 @@ describe('useBrowse sorting', () => {
   })
 
   // 2026-10-06 の点検: 実際の並べ方が変わらないのに一覧を空にして、読み込み中のまま戻らなかった
-  it('pressing the sort that is already in effect keeps the list', async () => {
+  it('pressing the sort in effect turns its direction around and reads again; an unavailable sort keeps the list', async () => {
     const hook = await setup()
     act(() => hook.result.current.setSort('popular'))
-    expect(hook.result.current.works).not.toBeNull()
+    expect(hook.result.current.dir).toBe('asc')
+    await waitFor(() => expect(hook.result.current.works).not.toBeNull())
+    expect(calls.at(-1)?.direction).toBe('ASC')
     // クールで選べない並び（新しい順）は人気順のまま。押しても一覧は消えない
     act(() => hook.result.current.setSort('newest'))
     expect(hook.result.current.sort).toBe('popular')

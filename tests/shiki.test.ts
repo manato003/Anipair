@@ -22,6 +22,9 @@ const RAW = {
   rating: 'pg_13',
   status: 'released',
   score: 9.25,
+  episodes: 28,
+  episodesAired: 28,
+  duration: 24,
   airedOn: { year: 2023 },
   poster: { originalUrl: 'https://shikimori.io/uploads/poster/animes/52991/o.jpeg', mainUrl: 'https://shikimori.io/uploads/poster/animes/52991/main-m.webp' },
   genres: [
@@ -75,6 +78,9 @@ describe('handleShiki animes', () => {
         rating: 'pg_13',
         status: 'released',
         score: 9.25,
+        eps: 28,
+        aired: 28,
+        dur: 24,
         year: 2023,
         poster: { o: 'https://shikimori.io/uploads/poster/animes/52991/o.jpeg', m: 'https://shikimori.io/uploads/poster/animes/52991/main-m.webp' },
         genres: [
@@ -91,6 +97,8 @@ describe('handleShiki animes', () => {
         ],
         // リストに入れている人の数の合計
         pop: 120,
+        // 点数を付けた人の数の合計（RAW に scoresStats が無ければ 0）
+        sc: 0,
       },
     ])
   })
@@ -101,6 +109,13 @@ describe('handleShiki animes', () => {
     const { animes } = (await json(res)) as { animes: Record<string, unknown>[] }
     expect(animes.map((a) => a.id)).toEqual([52991, 2])
     expect(animes[0]).toMatchObject({ score: null, poster: null, year: null })
+  })
+
+  it('turns unknown episode counts and lengths into 0', async () => {
+    const raw = { ...RAW, episodes: null, episodesAired: 'x', duration: undefined }
+    const res = await handleShiki(req('?op=animes&ids=1'), upstream(200, { data: { animes: [raw] } }))
+    const { animes } = (await json(res)) as { animes: Record<string, unknown>[] }
+    expect(animes[0]).toMatchObject({ eps: 0, aired: 0, dur: 0 })
   })
 
   it.each([
@@ -309,11 +324,72 @@ describe('handleShiki person (the works of a person)', () => {
     })
   })
 
+  it('from v=4, adds the characters (id and romaji name) to each voice role, with no extra lookups', async () => {
+    const person = {
+      roles: [
+        { characters: [{ id: 184947, name: 'Frieren' }], animes: [{ id: 52991 }, { id: 59978 }] },
+        { characters: [{ id: 7, name: 'Somebody' }, { id: 8 }], animes: [{ id: 52991 }] },
+      ],
+      works: [],
+    }
+    const fetchFn = upstream(200, person)
+    const res = await handleShiki(req('?op=person&id=17215&v=4'), fetchFn)
+    // 1回の問い合わせで Shikimori へ出るのは1回だけ（日本語名は画面が op=characters で引く）
+    expect(fetchFn).toHaveBeenCalledTimes(1)
+    expect(await json(res)).toEqual({
+      cast: [
+        {
+          id: 52991,
+          ch: [
+            { i: 184947, n: 'Frieren' },
+            { i: 7, n: 'Somebody' },
+            { i: 8, n: null },
+          ],
+        },
+        { id: 59978, ch: [{ i: 184947, n: 'Frieren' }] },
+      ],
+      staff: [],
+    })
+  })
+
+  it('accepts only the versions in use for a person, so changing v cannot skip the CDN cache', async () => {
+    const fetchFn = upstream(200, { roles: [], works: [] })
+    for (const v of ['3', '5', '99', '04', '0']) expect((await handleShiki(req(`?op=person&id=17215&v=${v}`), fetchFn)).status).toBe(400)
+    expect(fetchFn).not.toHaveBeenCalled()
+    expect((await handleShiki(req('?op=person&id=17215&v=2'), fetchFn)).status).toBe(200)
+    expect((await handleShiki(req('?op=person&id=17215&v=4'), fetchFn)).status).toBe(200)
+  })
+
   it('answers empty lists (cached) for a person Shikimori does not know, and rejects a bad id', async () => {
     const res = await handleShiki(req('?op=person&id=999999'), upstream(404, {}))
     expect(res.status).toBe(200)
     expect(await json(res)).toEqual({ cast: [], staff: [] })
     expect((await handleShiki(req('?op=person&id=abc'), upstream(200, {}))).status).toBe(400)
+  })
+})
+
+describe('handleShiki characters (Japanese names of characters)', () => {
+  it('asks GraphQL once for up to 50 characters and returns the Japanese names with the space between family and given name removed', async () => {
+    const fetchFn = upstream(200, { data: { characters: [{ id: '184947', japanese: 'フリーレン' }, { id: '8', japanese: '竈門 炭治郎' }, { id: '9', japanese: null }] } })
+    const res = await handleShiki(req('?op=characters&ids=8,9,184947'), fetchFn)
+    expect(fetchFn).toHaveBeenCalledTimes(1)
+    expect(JSON.parse(fetchFn.mock.calls[0][1].body as string).variables).toEqual({ ids: '8,9,184947' })
+    expect(res.headers.get('Cache-Control')).toContain('s-maxage=604800')
+    expect(await json(res)).toEqual({
+      characters: [
+        { id: 184947, ja: 'フリーレン' },
+        { id: 8, ja: '竈門炭治郎' },
+      ],
+    })
+  })
+
+  it('sends a differently ordered list to the sorted URL (one cache entry per set), and rejects extra parameters', async () => {
+    const fetchFn = upstream(200, { data: { characters: [] } })
+    const res = await handleShiki(req('?op=characters&ids=9,8,8'), fetchFn)
+    expect(res.status).toBe(308)
+    expect(res.headers.get('Location')).toBe('/api/shiki?op=characters&ids=8%2C9')
+    expect((await handleShiki(req('?op=characters&ids=8&v=1'), fetchFn)).status).toBe(400)
+    expect(fetchFn).not.toHaveBeenCalled()
   })
 })
 

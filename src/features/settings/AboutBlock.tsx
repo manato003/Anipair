@@ -6,12 +6,12 @@ import { LegalLinks } from './LegalLinks'
 import { Section } from './Section'
 
 // 設定の先頭（ログイン前の最初の画面では末尾）。何のアプリで、何が外に出て、何が出ないか。要点だけ出して、通信先・画像の細かい説明は畳む
-// showTagline: ログイン前の最初の画面では、すぐ上にキャッチコピーがあるので出さない
-export function AboutBlock({ showTagline = true }: { showTagline?: boolean }) {
+// showTagline: ログイン前の最初の画面では、すぐ上にキャッチコピーがあるので出さない。welcome: ログイン前の最初の画面（見出しの段を1つ上げる）
+export function AboutBlock({ showTagline = true, welcome = false }: { showTagline?: boolean; welcome?: boolean }) {
   // 初めての人に出す使い方のシートを、ここからいつでも見直せる
   const [guideOpen, setGuideOpen] = useState(false)
   return (
-    <Section id="settings-about" title="このアプリについて">
+    <Section id="settings-about" title="このアプリについて" level={welcome ? 2 : 3}>
       {showTagline && <p className="settings__lead">{TAGLINE}</p>}
       <p className="settings__about-foot">
         <button type="button" className="link" onClick={() => setGuideOpen(true)}>

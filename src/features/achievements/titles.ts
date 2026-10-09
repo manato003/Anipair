@@ -1,11 +1,11 @@
 import type { ViewerStats } from '../../lib/annict'
 import { compareSeasons, nextSeason, parseSlug, SEASON_NAMES, seasonNameLabel, seasonOf, toSlug, type Season, type SeasonName } from '../../lib/season'
 
-// 称号の一覧と、その条件の判定。方針は docs/concept.md「進み具合と称号」。
-// 数えるのは「答えた数」（網羅）で、評価の数では与えない。見た作品の数は見える系列にする（2026-10-06 利用者の決定）。
+// 称号の一覧と、その条件の判定。
+// 数えるのは「答えた数」（網羅）で、評価の数では与えない。見た作品の数は見える系列にする。
 // 隠し称号は Annict での積み重ね（Anipair の中の連打では増えない数）から与える。
 // 名前を変えるときはここだけ直せばよい（id は保存に使うので変えない）。
-// 名前は数字をそのまま書かず、少し考えると「なるほど」となる元ネタを仕込む（2026-10-06 利用者の希望。例: 100クール＝四半世紀、10年＝一昔）
+// 名前は数字をそのまま書かず、少し考えると「なるほど」となる元ネタを仕込む（例: 100クール＝四半世紀、10年＝一昔）
 
 // クールの人気作のうち、答えた数（Annict に記録があるか「見てない」にした作品）
 export interface Coverage {
@@ -42,6 +42,17 @@ export type TitleGroup = 'season' | 'watched' | 'year' | 'decade' | 'hidden' | '
 // origin は特別な称号（Annict を創った人だけ）専用
 export const RARITIES = ['bronze', 'silver', 'gold', 'amethyst', 'crimson', 'radiant', 'origin'] as const
 export type Rarity = (typeof RARITIES)[number]
+
+// レア度の呼び名（共有の画像と、God モードの試しの知らせ）
+export const RARITY_LABEL: Record<Rarity, string> = {
+  bronze: '銅',
+  silver: '銀',
+  gold: '金',
+  amethyst: '紫晶',
+  crimson: '紅',
+  radiant: '虹',
+  origin: '特別',
+}
 
 export interface Title {
   id: string
@@ -126,6 +137,14 @@ const DECADES: readonly { from: number; name: string }[] = [
   { from: 2020, name: '配信の海を渡る者' },
 ]
 
+// 出来事（その場で起きること）で付く称号。起きたときに、右上に知らせる
+const FEAT_TITLE: Record<keyof Feats, string> = { lateNight: 'hidden-midnight', oneNightCastle: 'hidden-castle', earlyMorning: 'hidden-dawn-hour', newYear: 'hidden-new-year' }
+
+export function featTitle(feat: keyof Feats): { id: string; name: string; rarity: Rarity } {
+  const t = HIDDEN.find((x) => x.id === FEAT_TITLE[feat])!
+  return { id: t.id, name: t.name, rarity: t.rarity }
+}
+
 // 隠し称号。条件は解放するまで見せない
 const HIDDEN: readonly { id: string; name: string; condition: string; rarity: Rarity; test: (f: Facts) => boolean }[] = [
   { id: 'hidden-dawn', name: '黎明より記す者', condition: '2016年までに Annict に登録した', rarity: 'gold', test: (f) => !!f.stats && new Date(f.stats.createdAt).getFullYear() <= 2016 },
@@ -154,11 +173,11 @@ const HIDDEN: readonly { id: string; name: string; condition: string; rarity: Ra
 export const HIDDEN_COUNT = HIDDEN.length
 
 // 特別な称号: 持てる人が決まっているもの。手に入れた人にだけ見せ、数にも伏せ字の枠にも入れない（ほかの人には取れないので）。
-// Annict を創った shimbaco さんへの敬意として（2026-10-04 利用者）。ユーザー名は Annict の API が返すログイン中の本人のもの
+// Annict を創った shimbaco さんへの敬意として。ユーザー名は Annict の API が返すログイン中の本人のもの
 const SPECIAL: readonly { id: string; name: string; condition: string; rarity: Rarity; test: (f: Facts) => boolean }[] = [
   { id: 'special-creator', name: '記録の世界を創りし者', condition: 'Annict を創った人だけが持つ称号', rarity: 'origin', test: (f) => f.stats?.username === 'shimbaco' },
   // Annict サポーターの称号も考えたが、サポーターかは API に無い（プロフィールページにしか出ない）ので入れない。
-  // Annict は API で取れるものだけを使う（docs/concept.md の設計の原則）。編集者も外から見分ける方法が無い
+  // Annict は API で取れるものだけを使う（設計の原則）。編集者も外から見分ける方法が無い
 ]
 
 // その年の干支（2026年＝丙午）。年の称号の名前に使う（年の数字は条件の欄に出す）

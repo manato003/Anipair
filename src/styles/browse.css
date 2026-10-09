@@ -1,11 +1,4 @@
-/* ブラウズ（来期へのリンク・一覧の行ボタン） */
 
-/* ブラウズ: クールの選択の下にある、来期へ移るリンク（右寄せで控えめに） */
-.browse__jump {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: -4px;
-}
 
 /* 期間で絞っているときに、クール選びの代わりに出す1行 */
 .browse__period {
@@ -20,60 +13,165 @@
   font-size: 0.9rem;
 }
 
-/* 一覧の行全体を押せるボタンにする。見た目は記録ページの行と同じ */
-.row--button {
-  display: block;
-  padding: 0;
+/* クールを選ぶまとまり。スマホは近道（前期・今期・来期）を上に、PC は前後の矢印と年・季節の左隣に並べる。
+   どれもクールを替える操作なので離さない。近道はいつも出しておき、見ているクールを塗る（押して消えると並びがずれる） */
+.cournav {
+  display: grid;
+  gap: 8px;
 }
 
-.row__hit {
+.cournav__near {
   display: grid;
-  grid-template-columns: 56px 1fr auto;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 10px 0;
-  border: 0;
-  background: none;
-  text-align: left;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+/* 矢印・年・季節の選択と同じ高さ（PC では同じ行に並ぶ）。地も同じ */
+.cournav__near button {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--control);
+  color: var(--fg);
+  font-size: 0.8rem;
+  font-weight: 700;
   cursor: pointer;
 }
 
-.row__hit .row__thumb,
-.row__hit .row__body {
+.cournav__near button[aria-pressed='true'] {
+  border-color: var(--fg);
+  background: var(--fg);
+  color: var(--bg-bot);
+}
+
+/* いま見ているもの（クールか期間）と並べ替えの帯。スマホは縦に積む */
+.browse__bar {
   display: grid;
+  gap: 8px;
+  padding-top: 8px;
 }
 
-@media (hover: hover) {
-  .row__hit:hover .row__title {
-    color: var(--brand-blue);
-  }
+/* 帯の下の、いまの並べ方の1行とかけている条件 */
+.records__controls--notes {
+  padding-top: 6px;
 }
 
-.row__score {
-  margin-left: 10px;
-  color: var(--paper);
-  font-variant-numeric: tabular-nums;
-}
-
-/* ── 広い画面（幅 960px 以上） ── */
+/* PC: 帯を1行に。クールの選択（前後の矢印・年・季節）を中央、近道（前期・今期・来期）をその左隣、並べ替えを右端に。
+   流しても上の帯のすぐ下に残し、下まで流してもどのクールの一覧かが分かるようにする */
 @media (min-width: 960px) {
-  .row__hit {
-    position: relative;
+  /* 記録と共通の、操作を横に流す並び（records.css）をやめ、1行ずつ（探す・帯・並べ方の1行） */
+  .records--browse .records__controls {
+    display: grid;
+  }
+
+  .browse__bar {
+    position: sticky;
+    top: var(--topbar);
+    z-index: 3;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: 20px;
+    /* 画面の端から端まで（一覧の幅の箱に見えないように）。中身は一覧の幅にそろえる */
+    margin-inline: calc((100% - 100vw) / 2);
+    padding: 10px calc((100vw - 100%) / 2);
+    border-bottom: 1px solid var(--line);
+    background: var(--bg-top);
+  }
+
+  .browse__bar > * {
+    grid-column: 1 / span 2;
+  }
+
+  .browse__bar > .cournav {
+    display: contents;
+  }
+
+  .cournav__near {
     display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-    padding: 0;
-    border-radius: var(--radius-m);
+    grid-column: 1;
+    justify-self: end;
   }
 
-  .row__hit > span:empty {
+  .cournav .stepper {
+    grid-column: 2;
+  }
+
+  .browse__bar > .rsort {
+    grid-column: 3;
+    justify-self: end;
+  }
+
+  /* タイトルで探しているとき（クールも期間も無い）は、並べ替えを左から */
+  .browse__bar:not(:has(> .cournav, > .browse__period)) > .rsort {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
+
+/* 前後の矢印は、年と季節のすぐ隣に寄せて中央に（離れていると、何を前後に動かすのか分かりにくい） */
+.cournav .stepper {
+  justify-content: center;
+  gap: 8px;
+}
+
+/* 記録の「すべて」を含む近道は4つを等分に。「すべて」のあいだは、矢印の枠を点線にして地を抜き、クールの文字を補足の色に（いまは絞っていない。触るとそのクールで絞る）。
+   薄くすると文字のコントラストが 4.5:1 を割るので、透明にはしない */
+.cournav__near--all {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.cournav--all .stepper__btn {
+  border-style: dashed;
+  background: none;
+}
+
+.cournav--all .stepper__current {
+  color: var(--sub);
+}
+
+/* 記録の帯（PC）: 左の項目の列の右側、本文の幅に収める（ブラウズのように画面の端までは広げない） */
+@media (min-width: 960px) {
+  .records--items .records__bar {
+    /* 一覧は左右に 6px はみ出している（records.css の .records__list）ので、帯も同じだけ広げて表紙の縁を隠す */
+    margin-inline: -6px;
+    padding-inline: 6px;
+  }
+}
+
+/* スマホで帯が上へ流れたときの細い1行（PinnedLine）。押すと帯まで戻る */
+.pinline {
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 16px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-top);
+  color: var(--fg);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pinline--top {
+  padding-top: calc(7px + env(safe-area-inset-top));
+}
+
+.pinline__hint {
+  color: var(--sub);
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+@media (min-width: 960px) {
+  .pinline {
     display: none;
-  }
-
-  .row__score {
-    display: block;
-    margin-left: 0;
   }
 }

@@ -116,15 +116,15 @@ describe('sortRows with a direction', () => {
 
 describe('sortOptions and sortNote', () => {
   it('offers rating only for watched, the taste order only for wanna, and popularity everywhere', () => {
-    expect(sortOptions('watched').map((o) => o.label)).toEqual(['評価順', '人気順', '記録順', '放送日順'])
+    expect(sortOptions('watched').map((o) => o.label)).toEqual(['好きな順', '人気順', '記録順', '放送日順'])
     expect(sortOptions('wanna').map((o) => o.label)).toEqual(['記録順', '人気順', '放送日順', 'おすすめ順'])
     expect(sortOptions('watching').map((o) => o.label)).toEqual(['記録順', '人気順', '放送日順'])
     expect(sortOptions('other').map((o) => o.label)).toEqual(['記録順', '人気順', '放送日順'])
   })
 
   it('says in words which way the list runs', () => {
-    expect(sortNote({ key: 'rating', dir: 'desc' })).toMatch(/^評価の高い順/)
-    expect(sortNote({ key: 'rating', dir: 'asc' })).toMatch(/^評価の低い順/)
+    expect(sortNote({ key: 'rating', dir: 'desc' })).toMatch(/^あなたの評価の高い順/)
+    expect(sortNote({ key: 'rating', dir: 'asc' })).toMatch(/^あなたの評価の低い順/)
     expect(sortNote({ key: 'recorded', dir: 'asc' })).toBe('Annict に記録した日の古い順です。')
     expect(sortNote({ key: 'popular', dir: 'desc' })).toBe('Annict でこの作品を記録した人の多い順です。')
     expect(sortNote({ key: 'aired', dir: 'desc' })).toMatch(/^放送の新しい順/)
@@ -164,6 +164,13 @@ describe('applyFilter', () => {
     const f = { ...EMPTY_FILTER, media: ['tv' as const], ratings: ['GREAT' as const] }
     expect(activeFilterCount(f)).toBe(2)
     expect(ids(applyFilter(list, f, null))).toEqual([1])
+  })
+
+  it('filters by one broadcast cour (chosen above the list, so not counted with the sheet conditions)', () => {
+    const f = { ...EMPTY_FILTER, cour: { year: 2015, name: 'autumn' as const } }
+    expect(activeFilterCount(f)).toBe(0)
+    expect(ids(applyFilter(list, f, null))).toEqual([2])
+    expect(ids(applyFilter(list, { ...EMPTY_FILTER, cour: { year: 2015, name: 'spring' as const } }, null))).toEqual([])
   })
 
   it('filters by genre and studio from the work data; works without data do not match', () => {

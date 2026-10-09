@@ -41,15 +41,16 @@ vi.mock('../../lib/myReviews', () => ({
 vi.mock('../../lib/shikimori', () => ({
   fetchMedia: vi.fn(async (ids: number[]) => new Map(ids.map((i) => [i, media(i)]))),
   // 似た作品は、作品 N に対して N+100, N+200 を返す偽物
+  isSimilarCached: vi.fn(() => false),
   fetchSimilarMany: vi.fn(async (ids: number[], onProgress?: (done: number, total: number) => void) => {
     ids.forEach((_id, i) => onProgress?.(i + 1, ids.length))
     return new Map(ids.map((i) => [i, [i + 100, i + 200]]))
   }),
 }))
 
-const { loadTaste, forgetTaste, prefetchTaste, resetPrefetchedTaste, pickSimilarSeeds, MAX_SEEDS, MAX_SIMILAR_LIKED, MAX_SIMILAR_DISLIKED } = await import('./tasteLoader')
+const { loadTaste, forgetTaste, prefetchTaste, resetPrefetchedTaste, pickSimilarSeeds, MAX_SEEDS, LONG_WAIT_NOTE, LONG_WAIT_UNCACHED } = await import('./tasteLoader')
 const { fetchLibrary } = await import('../../lib/annict')
-const { fetchMedia, fetchSimilarMany } = await import('../../lib/shikimori')
+const { fetchMedia, fetchSimilarMany, isSimilarCached } = await import('../../lib/shikimori')
 const { refreshMyReviews } = await import('../../lib/myReviews')
 
 const entry = (annictId: number, state: LibraryEntry['state']): LibraryEntry => ({
@@ -93,17 +94,31 @@ describe('loadTaste', () => {
     ])
   })
 
-  it('looks up similar works for at most 32 liked and 8 disliked seeds, the strongest first', async () => {
-    library = Array.from({ length: 60 }, (_, i) => entry(i + 1, 'WATCHED'))
-    // 1〜40 は好き（GREAT=2 が先、そのあと GOOD=1）、41〜60 は苦手
-    ratings = new Map(library.map((e) => [e.annictId, e.annictId <= 20 ? 'GREAT' : e.annictId <= 40 ? 'GOOD' : 'BAD']))
+  it('looks up similar works for every liked and disliked seed (even beyond the top seeds), liked first and the strongest first', async () => {
+    library = Array.from({ length: MAX_SEEDS + 40 }, (_, i) => entry(i + 1, 'WATCHED'))
+    // 1〜20 はとても良い、21〜40 は良い、41〜60 は良くない、そのあとは評価なしの見た（好き 0.5）
+    ratings = new Map(library.slice(0, 60).map((e) => [e.annictId, e.annictId <= 20 ? 'GREAT' : e.annictId <= 40 ? 'GOOD' : 'BAD']))
     const taste = await loadTaste('t')
     const ids = taste.similarSeeds.map((s) => s.malId)
-    expect(ids).toHaveLength(MAX_SIMILAR_LIKED + MAX_SIMILAR_DISLIKED)
+    expect(ids).toHaveLength(MAX_SEEDS + 40)
     expect(ids.slice(0, 20).sort((a, b) => a - b)).toEqual(Array.from({ length: 20 }, (_, i) => i + 1))
-    expect(ids.slice(0, MAX_SIMILAR_LIKED).every((id) => id <= 40)).toBe(true)
-    expect(ids.slice(MAX_SIMILAR_LIKED).every((id) => id > 40)).toBe(true)
+    expect(ids.slice(-20).every((id) => id > 40 && id <= 60)).toBe(true)
     expect(fetchSimilarMany).toHaveBeenCalledTimes(1)
+  })
+
+  it('adds a note about the wait only when many similar lists are not on the device yet', async () => {
+    library = Array.from({ length: LONG_WAIT_UNCACHED + 5 }, (_, i) => entry(i + 1, 'WATCHED'))
+    ratings = new Map()
+    const notes: (string | undefined)[] = []
+    await loadTaste('t', (_step, note) => notes.push(note))
+    expect(notes.at(-1)).toBe(LONG_WAIT_NOTE)
+
+    forgetTaste()
+    vi.mocked(isSimilarCached).mockImplementation((id) => id > 10)
+    const later: (string | undefined)[] = []
+    await loadTaste('t', (_step, note) => later.push(note))
+    expect(later.every((n) => n === undefined)).toBe(true)
+    vi.mocked(isSimilarCached).mockImplementation(() => false)
   })
 
   it('keeps at most MAX_SEEDS seeds', async () => {
@@ -215,18 +230,17 @@ describe('prefetchTaste', () => {
 })
 
 describe('pickSimilarSeeds', () => {
-  it('takes the strongest liked seeds and a few disliked ones, liked first', () => {
+  it('takes every liked seed (strongest first) and then every disliked one, without the zero-weight ones', () => {
     const seeds = [
       ...Array.from({ length: 40 }, (_, i) => ({ malId: i + 1, title: `L${i}`, weight: 1 + (i % 2) })),
       ...Array.from({ length: 12 }, (_, i) => ({ malId: 100 + i, title: `D${i}`, weight: -1 })),
       { malId: 500, title: 'zero', weight: 0 },
     ]
     const picked = pickSimilarSeeds(seeds)
-    expect(picked.filter((s) => s.weight > 0)).toHaveLength(32)
-    expect(picked.filter((s) => s.weight < 0)).toHaveLength(8)
+    expect(picked.filter((s) => s.weight > 0)).toHaveLength(40)
+    expect(picked.filter((s) => s.weight < 0)).toHaveLength(12)
     expect(picked.some((s) => s.weight === 0)).toBe(false)
-    // 重み 2 の作品（20件）は全部入る
-    expect(picked.filter((s) => s.weight === 2)).toHaveLength(20)
-    expect(picked.findIndex((s) => s.weight < 0)).toBe(32)
+    expect(picked.slice(0, 20).every((s) => s.weight === 2)).toBe(true)
+    expect(picked.findIndex((s) => s.weight < 0)).toBe(40)
   })
 })

@@ -33,6 +33,6 @@ export function syncPasses(conn: GithubConnection): Promise<Passes> {
     serialize: serializePasses,
     loadLocal: loadLocalPasses,
     saveLocal,
-    message: (merged) => `パスの記録を更新（${merged.size}件）`,
+    message: (merged) => `興味なし・保留の記録を更新（${merged.size}件）`,
   })
 }

@@ -149,7 +149,7 @@ describe('Sheet on touch devices', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
-  it('hides the small close link (still there for screen readers), shows the tap hint prominently until the first close, then quietly', () => {
+  it('shows the round close button and the grabber, and explains how to close only the first time (as plain text, not a button-like label)', () => {
     asTouch(true)
     localStorage.clear()
     const onClose = vi.fn()
@@ -158,20 +158,43 @@ describe('Sheet on touch devices', () => {
         <Body />
       </Sheet>,
     )
-    expect(screen.getByText('シートのどこかをタップすると閉じます')).toBeTruthy()
-    expect(screen.getByRole('button', { name: '閉じる' }).className).toContain('visually-hidden')
+    expect(screen.getByText('下へ払うか、空いている所をタップしても閉じます')).toBeTruthy()
+    expect(document.querySelector('.sheet__grab')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '閉じる' }).className).toBe('sheet__close')
     fireEvent.click(screen.getByText('あらすじの文'))
     expect(onClose).toHaveBeenCalledTimes(1)
     unmount()
-    // 2回目からは、控えめな1行で出し続ける
+    // 2回目からは、つまみの線だけ（文字は出さない）
     render(
       <Sheet label="詳細" onClose={onClose}>
         <Body />
       </Sheet>,
     )
-    expect(screen.queryByText('シートのどこかをタップすると閉じます')).toBeNull()
-    expect(screen.getByText('タップで閉じます').className).toContain('sheet__hint--quiet')
+    expect(screen.queryByText('下へ払うか、空いている所をタップしても閉じます')).toBeNull()
+    expect(document.querySelector('.sheet__grab')).toBeTruthy()
     localStorage.clear()
+  })
+
+  it('closes when pulled down from the top, and springs back on a short pull', () => {
+    asTouch(true)
+    const onClose = vi.fn()
+    render(
+      <Sheet label="詳細" onClose={onClose}>
+        <Body />
+      </Sheet>,
+    )
+    const sheet = screen.getByRole('dialog')
+    const pull = (to: number) => {
+      fireEvent.touchStart(sheet, { touches: [{ clientX: 100, clientY: 100 }] })
+      fireEvent.touchMove(sheet, { touches: [{ clientX: 100, clientY: 110 }] })
+      fireEvent.touchMove(sheet, { touches: [{ clientX: 100, clientY: to }] })
+      fireEvent.touchEnd(sheet)
+    }
+    pull(140)
+    expect(onClose).not.toHaveBeenCalled()
+    expect(sheet.style.transform).toBe('')
+    pull(260)
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 
   it('with a mouse, tapping content does not close', () => {
@@ -184,9 +207,54 @@ describe('Sheet on touch devices', () => {
     )
     fireEvent.click(screen.getByText('あらすじの文'))
     expect(onClose).not.toHaveBeenCalled()
-    // マウスでは右上の「閉じる」がそのまま見え、案内は出ない
-    expect(screen.getByRole('button', { name: '閉じる' }).className).not.toContain('visually-hidden')
-    expect(screen.queryByText('シートのどこかをタップすると閉じます')).toBeNull()
-    expect(screen.queryByText('タップで閉じます')).toBeNull()
+    // マウスでは右上の「閉じる」だけで、案内とつまみは出ない
+    expect(screen.getByRole('button', { name: '閉じる' })).toBeTruthy()
+    expect(screen.queryByText('下へ払うか、空いている所をタップしても閉じます')).toBeNull()
+    expect(document.querySelector('.sheet__grab')).toBeNull()
+  })
+
+  it('a full page (the work detail) closes on a swipe to the right from the middle, but not on a tap or a swipe from the edge', () => {
+    asTouch(true)
+    const onClose = vi.fn()
+    render(
+      <Sheet label="詳細" size="page" onClose={onClose}>
+        <Body />
+      </Sheet>,
+    )
+    const sheet = screen.getByRole('dialog')
+    const swipe = (from: number, to: number) => {
+      fireEvent.touchStart(sheet, { touches: [{ clientX: from, clientY: 300 }] })
+      fireEvent.touchMove(sheet, { touches: [{ clientX: from + 12, clientY: 302 }] })
+      fireEvent.touchMove(sheet, { touches: [{ clientX: to, clientY: 305 }] })
+      fireEvent.touchEnd(sheet)
+    }
+    // 画面いっぱいで「外」が無いので、中身をタップしても閉じない
+    fireEvent.click(screen.getByText('あらすじの文'))
+    expect(onClose).not.toHaveBeenCalled()
+    // 端から始めた払いはブラウザの「戻る」に任せる
+    swipe(10, 200)
+    expect(onClose).not.toHaveBeenCalled()
+    // 短い払いは戻る（速く払っても 40px までは閉じない）
+    swipe(150, 180)
+    expect(onClose).not.toHaveBeenCalled()
+    expect(sheet.style.transform).toBe('')
+    swipe(150, 300)
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('a bottom sheet does not close on a swipe to the right (only the full page does)', () => {
+    asTouch(true)
+    const onClose = vi.fn()
+    render(
+      <Sheet label="絞り込み" onClose={onClose}>
+        <Body />
+      </Sheet>,
+    )
+    const sheet = screen.getByRole('dialog')
+    fireEvent.touchStart(sheet, { touches: [{ clientX: 150, clientY: 300 }] })
+    fireEvent.touchMove(sheet, { touches: [{ clientX: 170, clientY: 302 }] })
+    fireEvent.touchMove(sheet, { touches: [{ clientX: 330, clientY: 305 }] })
+    fireEvent.touchEnd(sheet)
+    expect(onClose).not.toHaveBeenCalled()
   })
 })

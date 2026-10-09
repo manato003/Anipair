@@ -7,8 +7,9 @@ import { SHARE_URL, type ShareCard } from './shareCard'
 const W = 1080
 const H = 1350
 const PAD = 72
-const UI = "'Zen Kaku Gothic New', system-ui, sans-serif"
-const DISPLAY = "'Dela Gothic One', 'Zen Kaku Gothic New', sans-serif"
+const UI = "'Zen Maru Gothic', system-ui, sans-serif"
+// 見出しも本文と同じ書体の太字（見出し用の書体は持たない）
+const DISPLAY = "'Zen Maru Gothic', sans-serif"
 const INK = '#12152a'
 const PAPER = '#f4f2ff'
 const MUTED = '#a3a6c4'
@@ -31,9 +32,8 @@ async function loadFonts(card: ShareCard): Promise<void> {
   const all = [card.headline, card.footer, card.title?.name ?? '', ...card.kpis.flatMap((k) => [k.label, k.value]), ...card.facts.flatMap((f) => [f.label, f.value]), ...(card.radar ?? []).map((r) => r.label), '0123456789/%〜年本あなたの傾向も']
   const text = [...new Set(all.join(''))].join('')
   await Promise.allSettled([
-    document.fonts.load(`72px 'Dela Gothic One'`, text),
-    document.fonts.load(`400 28px 'Zen Kaku Gothic New'`, text),
-    document.fonts.load(`700 28px 'Zen Kaku Gothic New'`, text),
+    document.fonts.load(`400 28px 'Zen Maru Gothic'`, text),
+    document.fonts.load(`700 28px 'Zen Maru Gothic'`, text),
     document.fonts.load(`700 40px 'Quicksand'`, 'Anipair'),
   ])
 }
@@ -167,7 +167,7 @@ export async function drawShareCard(card: ShareCard, now = new Date()): Promise<
   ctx.textAlign = 'left'
   ctx.textBaseline = 'alphabetic'
   ctx.fillStyle = PAPER
-  ctx.font = `72px ${DISPLAY}`
+  ctx.font = `700 72px ${DISPLAY}`
   ctx.fillText(card.headline, PAD, 210)
   let y = 240
   if (card.title) {
@@ -199,7 +199,7 @@ export async function drawShareCard(card: ShareCard, now = new Date()): Promise<
     ctx.textAlign = 'center'
     ctx.textBaseline = 'alphabetic'
     ctx.fillStyle = PAPER
-    ctx.font = `56px ${DISPLAY}`
+    ctx.font = `700 56px ${DISPLAY}`
     ctx.fillText(k.value, x + boxW / 2, y + 78, boxW - 24)
     ctx.fillStyle = MUTED
     ctx.font = `400 26px ${UI}`

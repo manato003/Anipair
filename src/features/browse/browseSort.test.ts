@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { BrowseWork } from '../../lib/annict'
 import type { Media } from '../../lib/shikimori'
-import { rankByTaste, sortByScore } from './browseSort'
+import { bayesScores, rankByTaste, reverseScored, sortByScore } from './browseSort'
 
 function w(annictId: number, mal: number | null, watchers: number): BrowseWork {
   return {
@@ -28,6 +28,31 @@ it('orders by score, puts unscored works last, and breaks ties by watchers', () 
     // 107 は問い合わせても返ってこなかった
   ])
   expect(sortByScore(works, scores).map((x) => x.annictId)).toEqual([2, 6, 4, 1, 3, 7, 5])
+})
+
+it('pulls the score of a work rated by few people toward the average (Bayesian average), so a handful of high scores does not come first', () => {
+  // 作品1: 9.0 を 30人、作品2: 8.6 を 5万人、作品3: 7.0 を 4万人、作品4: 6.0 を 3万人
+  const works = [w(1, 101, 10), w(2, 102, 9000), w(3, 103, 8000), w(4, 104, 7000)]
+  const scores = new Map<number, number | null>([
+    [101, 9.0],
+    [102, 8.6],
+    [103, 7.0],
+    [104, 6.0],
+  ])
+  const counts = new Map<number, number | null>([
+    [101, 30],
+    [102, 50000],
+    [103, 40000],
+    [104, 30000],
+  ])
+  expect(sortByScore(works, scores, counts).map((x) => x.annictId)).toEqual([2, 1, 3, 4])
+  const bayes = bayesScores(works, scores, counts)
+  // 大勢が付けた点数は、平均よりはっきり上に残る（k は一覧の人数の中央値なので、少しは平均に寄る）
+  expect(bayes.get(2)).toBeGreaterThan(80)
+  // 数人だけの 9.0 は、一覧の平均（76.5）の近くまで寄る
+  expect(bayes.get(1)).toBeLessThan(77)
+  // 人数が分からなければ、今までどおり点数の高い順
+  expect(sortByScore(works, scores).map((x) => x.annictId)).toEqual([1, 2, 3, 4])
 })
 
 it('does not change the input array', () => {
@@ -92,10 +117,16 @@ describe('rankByTaste', () => {
     const copy = [...works]
     expect(rankByTaste(works, details, taste).works).toHaveLength(works.length)
     expect(works).toEqual(copy)
-    expect(rankByTaste([], new Map(), taste)).toEqual({ works: [], reasons: new Map() })
+    expect(rankByTaste([], new Map(), taste)).toEqual({ works: [], reasons: new Map(), scored: new Set() })
   })
 
   it('leaves the original order when nothing has data', () => {
     expect(rankByTaste(works, new Map(), taste).works.map((x) => x.annictId)).toEqual([1, 2, 3, 4, 5, 6])
+  })
+})
+
+describe('reverseScored', () => {
+  it('reverses only the scored ones and keeps the unscored ones last, in either direction', () => {
+    expect(reverseScored([1, 2, 3, 9, 8], (n) => n < 5)).toEqual([3, 2, 1, 9, 8])
   })
 })

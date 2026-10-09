@@ -51,7 +51,7 @@ const RATE_LIMIT_DEFAULT_WAIT_MS = 2_000
 const RATE_LIMIT_MAX_WAIT_MS = 30_000
 // 読み込みの答えを待つ上限。過ぎたら諦めて知らせる（自動では送り直さない。混んでいる Annict に上乗せしないため）。
 // 本当に止まった問い合わせだけを切る長さにする（Annict の手前の Cloudflare は 100 秒で切る）。
-// 初めは 20 秒にしていたが、Annict が重い日にはライブラリの1ページに 24.6 秒かかり、遅くても出ていたものが出なくなった（2026-10-06、Issue #1）。
+// 初めは 20 秒にしていたが、Annict が重い日にはライブラリの1ページに 24.6 秒かかり、遅くても出ていたものが出なくなった（2026-10-06）。
 // 書き込みには付けない（途中で切ると、反映されたか分からなくなる）
 const READ_TIMEOUT_MS = 90_000
 const isMutation = (query: string) => /^\s*mutation\b/.test(query)
@@ -652,7 +652,7 @@ export interface ReviewScan {
 // 注意: 感想のアクティビティは作ったときだけ増える。Annict のサイトで感想を直した・消した変更は、差分の読み込みでは見えない
 //
 // 1ページの件数: 最後まで読むときは500件、差分はふつう1ページで済むので100件。
-// 2026-10-06 に記録の多い利用者（アクティビティ約8,000件）で実測。100件だと81ページ・24秒、500件だと17ページ・6.4秒（1ページ約0.4秒）。
+// アクティビティが数千件あるアカウントで実測（2026-10-06）。100件だと81ページ・24秒、500件だと17ページ・6.4秒（1ページ約0.4秒）。
 // 時間の大半は問い合わせの間隔（300ms）で決まるので、件数を増やすほど速く、Annict への問い合わせの回数も減る。1000件は5.7秒で伸びが小さく、1回が1秒を超える
 const FULL_SCAN_PAGE = 500
 const DIFF_SCAN_PAGE = 100
@@ -806,6 +806,8 @@ export interface BrowseWork {
   imageUrl?: string | null
   // Annict の満足度（0〜100。計算されていない作品は null。最近の作品はほとんど null）
   satisfactionRate?: number | null
+  // 感想の数（満足度で並べるときの、点数を付けた人の数の代わり）
+  reviewsCount?: number
 }
 
 export interface BrowsePage {
@@ -821,9 +823,11 @@ export type BrowseOrder = 'WATCHERS_COUNT' | 'SEASON'
 export async function browseWorks(
   token: string,
   filter: { titles?: string[]; seasons?: string[] },
-  opts: { after?: string | null; first?: number; order?: BrowseOrder } = {},
+  opts: { after?: string | null; first?: number; order?: BrowseOrder; direction?: 'DESC' | 'ASC' } = {},
 ): Promise<BrowsePage> {
   const { after = null, first = 30, order = 'WATCHERS_COUNT' } = opts
+  // 向きは2つの決まった値だけなので、問い合わせに直接書く
+  const direction = opts.direction === 'ASC' ? 'ASC' : 'DESC'
   const data = await gql<{
     searchWorks: {
       pageInfo: { hasNextPage: boolean; endCursor: string | null }
@@ -832,9 +836,9 @@ export async function browseWorks(
   }>(
     token,
     `query($titles: [String!], $seasons: [String!], $after: String, $first: Int, $order: WorkOrderField!) {
-      searchWorks(titles: $titles, seasons: $seasons, first: $first, after: $after, orderBy: {field: $order, direction: DESC}) {
+      searchWorks(titles: $titles, seasons: $seasons, first: $first, after: $after, orderBy: {field: $order, direction: ${direction}}) {
         pageInfo { hasNextPage endCursor }
-        nodes { id annictId title media seasonYear seasonName malAnimeId watchersCount viewerStatusState satisfactionRate image { recommendedImageUrl facebookOgImageUrl } }
+        nodes { id annictId title media seasonYear seasonName malAnimeId watchersCount viewerStatusState satisfactionRate reviewsCount image { recommendedImageUrl facebookOgImageUrl } }
       }
     }`,
     { titles: filter.titles ?? null, seasons: filter.seasons ?? null, after, first, order },

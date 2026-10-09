@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { nextSeason, previousSeason, type Season } from '../../lib/season'
-import { mainStaff, studioFor, withCopyrightMark, safeHttpUrl, workMeta, xUrl } from './detail'
+import { mainStaff, seriesFacts, studioFor, withCopyrightMark, safeHttpUrl, workMeta, xUrl } from './detail'
 
 describe('mainStaff', () => {
   it('drops "その他", groups repeated roles in order and dedupes names', () => {
@@ -98,3 +98,31 @@ describe('studioFor', () => {
   })
 })
 
+describe('seriesFacts', () => {
+  const work = (annictId: number, title: string, seasonYear: number, seasonName: string, media = 'TV') => ({ id: `W${annictId}`, annictId, title, seasonYear, seasonName, media, malAnimeId: null, viewerStatusState: null, summary: null })
+  // ミニアニメ（配信）は同じ形式でないので数えない
+  const series = [{ name: '葬送のフリーレン', works: [work(1, '葬送のフリーレン', 2023, 'AUTUMN'), work(5, 'ミニアニメ', 2023, 'AUTUMN', 'WEB'), work(2, '第2期', 2026, 'WINTER'), work(3, '第3期', 2027, 'AUTUMN')] }]
+  const now = new Date('2026-10-07T00:00:00+09:00')
+
+  it('tells which entry in the series it is, and the next one', () => {
+    expect(seriesFacts(series, 1, now)).toEqual([
+      ['シリーズ', 'TVシリーズの1作目（全3作）'],
+      ['次の作品', '『第2期』（2026年冬）'],
+    ])
+  })
+
+  it('calls the next one an upcoming sequel when it has not started yet', () => {
+    expect(seriesFacts(series, 2, now)).toEqual([
+      ['シリーズ', 'TVシリーズの2作目（全3作）'],
+      ['放送予定の続編', '『第3期』2027年秋'],
+    ])
+    expect(seriesFacts(series, 3, now)).toEqual([['シリーズ', 'TVシリーズの3作目（全3作）']])
+  })
+
+  it('shows nothing for a work that is not in a series of two or more of the same format', () => {
+    expect(seriesFacts(series, 5, now)).toEqual([])
+    expect(seriesFacts([], 1, now)).toEqual([])
+    expect(seriesFacts([{ name: 'x', works: [work(9, 'x', 2020, 'SPRING')] }], 9, now)).toEqual([])
+    expect(seriesFacts(null, 1, now)).toEqual([])
+  })
+})

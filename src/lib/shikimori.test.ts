@@ -12,7 +12,7 @@ vi.mock('./throttle', () => ({
     },
 }))
 
-const { fetchMedia, fetchPersonWorks, fetchRelated, fetchSimilar, fetchSimilarMany, fetchStudioWorks, findPerson, normalize, peekMedia, personKey, resetShikimoriMemory, shikimoriUrl, workData } = await import('./shikimori')
+const { fetchCharacterNames, fetchMedia, fetchPersonWorks, fetchRelated, fetchSimilar, fetchSimilarMany, fetchStudioWorks, findPerson, normalize, peekMedia, personKey, resetShikimoriMemory, shikimoriUrl, workData } = await import('./shikimori')
 
 const fetchMock = vi.fn<(url: string) => Promise<Response>>()
 
@@ -72,6 +72,9 @@ describe('normalize', () => {
       demographics: ['Seinen'],
       studios: ['Madhouse'],
       popularity: 0,
+      episodes: 0,
+      episodesAired: 0,
+      duration: 0,
       studioRefs: [],
       cover: { url: 'https://s.example/5.jpg', thumb: 'https://s.example/5-m.webp', landscape: false },
       score: 8.1,
@@ -134,7 +137,7 @@ describe('fetchMedia', () => {
   it('asks the proxy (not Shikimori directly) with sorted ids, and returns the works found', async () => {
     fetchMock.mockResolvedValue(reply({ animes: [raw(2), raw(9)] }))
     const got = await fetchMedia([9, 2, 2, 404])
-    expect(fetchMock.mock.calls[0][0]).toBe('/api/shiki?op=animes&ids=2,9,404&v=4')
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/shiki?op=animes&ids=2,9,404&v=6')
     expect([...got.keys()]).toEqual([9, 2])
     expect(got.get(2)?.title.native).toBe('作品2')
   })
@@ -330,10 +333,10 @@ describe('people and studios', () => {
     expect(await findPerson('上坂すみれ')).toBeNull()
   })
 
-  it('fetchPersonWorks returns the ids and rejects a malformed answer', async () => {
+  it('fetchPersonWorks returns the ids with the character names and rejects a malformed answer', async () => {
     fetchMock.mockResolvedValueOnce(
       reply({
-        cast: [10, 11],
+        cast: [{ id: 10, ch: [{ i: 184947, n: 'Frieren' }, { i: 'x' }, { i: 8, n: null }] }, { id: 11 }, { id: 'x' }],
         staff: [
           { id: 20, r: ['Исполнение гл. муз. темы', 'Режиссёр'] },
           { id: 21, r: ['Неизвестная роль'] },
@@ -343,16 +346,44 @@ describe('people and studios', () => {
     )
     // 役割は日本語に。知らない役割と、役割の無いものは「スタッフ」
     expect(await fetchPersonWorks(14441)).toEqual({
-      cast: [10, 11],
+      cast: [
+        {
+          id: 10,
+          characters: [
+            { id: 184947, name: 'Frieren' },
+            { id: 8, name: null },
+          ],
+        },
+        { id: 11, characters: [] },
+      ],
       staff: [
         { id: 20, roles: ['主題歌', '監督'] },
         { id: 21, roles: ['スタッフ'] },
         { id: 22, roles: ['スタッフ'] },
       ],
     })
-    expect(fetchMock.mock.calls[0][0]).toBe('/api/shiki?op=person&id=14441&v=2')
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/shiki?op=person&id=14441&v=4')
     fetchMock.mockResolvedValueOnce(reply({ cast: 'x' }))
     await expect(fetchPersonWorks(14441)).rejects.toThrow('Shikimori の応答を読めませんでした')
+  })
+
+  it('fetchCharacterNames asks 50 at a time in sorted order, remembers names (and missing ones) for later', async () => {
+    const ids = Array.from({ length: 60 }, (_, i) => 60 - i)
+    fetchMock.mockResolvedValueOnce(reply({ characters: [{ id: 1, ja: 'フリーレン' }] })).mockResolvedValueOnce(reply({ characters: [{ id: 51, ja: 'フェルン' }] }))
+    const names = await fetchCharacterNames(ids)
+    expect(fetchMock.mock.calls.map((c) => c[0])).toEqual([
+      `/api/shiki?op=characters&ids=${Array.from({ length: 50 }, (_, i) => i + 1).join(',')}`,
+      `/api/shiki?op=characters&ids=${Array.from({ length: 10 }, (_, i) => i + 51).join(',')}`,
+    ])
+    expect(names).toEqual(
+      new Map([
+        [51, 'フェルン'],
+        [1, 'フリーレン'],
+      ]),
+    )
+    // 2回目は問い合わせない（日本語名の無かったキャラクターも）
+    expect(await fetchCharacterNames([1, 2])).toEqual(new Map([[1, 'フリーレン']]))
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
   it('fetchStudioWorks reads pages until a short one and keeps the works for later (no refetch)', async () => {
@@ -361,7 +392,7 @@ describe('people and studios', () => {
     const works = await fetchStudioWorks(11)
     expect(works).toHaveLength(51)
     expect(works[0].studioRefs).toEqual([{ id: 11, name: 'Madhouse' }])
-    expect(fetchMock.mock.calls.map((c) => c[0])).toEqual(['/api/shiki?op=studio&id=11&page=1&v=4', '/api/shiki?op=studio&id=11&page=2&v=4'])
+    expect(fetchMock.mock.calls.map((c) => c[0])).toEqual(['/api/shiki?op=studio&id=11&page=1&v=6', '/api/shiki?op=studio&id=11&page=2&v=6'])
     expect(peekMedia(5)?.idMal).toBe(5)
   })
 })

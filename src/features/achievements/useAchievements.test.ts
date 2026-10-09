@@ -46,7 +46,7 @@ describe('useAchievements', () => {
     expect(unlocked(hook.result.current.titles, 'watched-10')).toBe(true)
   })
 
-  // 一度手に入れた称号は、条件から外れても取り上げない（利用者と合意）
+  // 一度手に入れた称号は、条件から外れても取り上げない
   it('keeps a title once earned, even when its condition no longer holds', async () => {
     const hook = renderHook(({ rows }) => useAchievements('t', rows, true), { initialProps: { rows: watched(10) } })
     await waitFor(() => expect(unlocked(hook.result.current.titles, 'watched-10')).toBe(true))

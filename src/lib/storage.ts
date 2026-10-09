@@ -50,6 +50,10 @@ const KEYS = {
   feats: 'animax.feats.v1',
   // 演出の強さ（ふつう・控えめ・なし）。端末ごと
   effects: 'animax.effects.v1',
+  // 評価とマッチングの答えのボタンの表示（アイコンと名前・アイコンだけ・名前だけ）。端末ごと
+  buttonLabels: 'animax.buttonLabels.v1',
+  // 画面の色（テーマの色・明るさ・時刻・片手操作）。端末ごと。読み書きは lib/theme.ts
+  theme: 'animax.theme.v1',
   // 下の「人ごとの記録」がいま誰のものか（Annict のユーザー名）
   owner: 'animax.owner.v1',
   // ログアウト・アカウントの切り替えで退避した、人ごとの記録（ユーザー名 → 鍵 → 値）。同じ人がログインし直したら戻す
@@ -564,6 +568,27 @@ export function applyEffectLevel(level: EffectLevel): void {
   if (typeof document === 'undefined') return
   if (level === 'full') delete document.documentElement.dataset.effects
   else document.documentElement.dataset.effects = level
+}
+
+export type ButtonLabels = 'both' | 'icon' | 'text'
+
+export function parseButtonLabels(value: unknown): ButtonLabels {
+  return value === 'icon' || value === 'text' ? value : 'both'
+}
+
+export function loadButtonLabels(): ButtonLabels {
+  return parseButtonLabels(readJson(KEYS.buttonLabels))
+}
+
+export function saveButtonLabels(value: ButtonLabels): void {
+  write(KEYS.buttonLabels, JSON.stringify(value))
+}
+
+// ページの一番外の要素に印を付ける（styles/base.css の [data-buttons] が、これを見てアイコンか名前を隠す）
+export function applyButtonLabels(value: ButtonLabels): void {
+  if (typeof document === 'undefined') return
+  if (value === 'both') delete document.documentElement.dataset.buttons
+  else document.documentElement.dataset.buttons = value
 }
 
 export function loadKeymapRaw(): unknown {

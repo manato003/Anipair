@@ -1,4 +1,4 @@
-import { Fragment, lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
+import { Fragment, lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { AuthExpiredBanner } from './components/AuthExpiredBanner'
 import { TabIcon } from './components/Icons'
 import { Logo } from './components/Logo'
@@ -27,6 +27,14 @@ import {
   switchAccount,
 } from './lib/storage'
 import { hasPendingWrites } from './lib/useWriteQueue'
+import { useArrowNav } from './lib/useArrowNav'
+import { useSwipeNav, type SwipeDir } from './lib/useSwipeNav'
+import { TitleToastView } from './features/achievements/TitleToastView'
+import { SheetLayer } from './components/sheetLayer'
+import { setNavigator } from './lib/navigate'
+import type { SettingsRequest } from './features/settings/Settings'
+import { rememberScroll, restoreScroll, scrollToTop } from './lib/pageScroll'
+import { ToTop } from './components/ToTop'
 
 type Tab = 'rate' | 'match' | 'records' | 'browse' | 'settings'
 
@@ -61,10 +69,16 @@ const TABS: { id: Tab; label: string }[] = [
 
 // 一度開いた画面は隠すだけで残す。作り直すと、マッチングの候補や取り消し、ブラウズの検索、記録の一覧が消えてしまうため。
 // 高さは中の画面（height: 100%）に受け渡す
-function Screen(props: { active: boolean; children: ReactNode }) {
+// enter: 直前に分類を替えた向き。隠していた画面が出るとき、その向きから入る（styles/app.css。display を戻すと動きが毎回始まる）
+// 画面ごとに、シートを描く層を持つ（components/sheetLayer.ts。画面と一緒に隠れる）
+function Screen(props: { active: boolean; enter: SwipeDir | null; children: ReactNode; className?: string }) {
+  const [layer, setLayer] = useState<HTMLDivElement | null>(null)
   return (
-    <div className="app__screen" hidden={!props.active}>
-      <Suspense fallback={<Loading block label="画面を読み込み中" />}>{props.children}</Suspense>
+    <div className={props.className ?? 'app__screen'} hidden={!props.active} data-enter={props.enter ?? undefined}>
+      <SheetLayer.Provider value={layer}>
+        <Suspense fallback={<Loading block label="画面を読み込み中" />}>{props.children}</Suspense>
+      </SheetLayer.Provider>
+      <div className="app__layer" ref={setLayer} />
     </div>
   )
 }
@@ -80,9 +94,19 @@ export default function App() {
   // 開いたことのあるタブ（画面を作るのは初めて開いたとき）。設定はいつも作り直すので入れない
   const [visited, setVisited] = useState<ReadonlySet<Tab>>(() => new Set(token ? ['rate'] : []))
 
+  // 画面の外（コントロールセンターの近道など）から頼まれた設定の欄
+  const [settingsRequest, setSettingsRequest] = useState<SettingsRequest | null>(null)
+  // 直前に分類を替えた向き（新しい画面が入ってくる向き）
+  const [enter, setEnter] = useState<SwipeDir | null>(null)
   function go(next: Tab) {
+    rememberScroll(tab)
+    const from = TABS.findIndex((t) => t.id === tab)
+    const to = TABS.findIndex((t) => t.id === next)
+    setEnter(to > from ? 'next' : to < from ? 'prev' : null)
     setTab(next)
     setVisited((v) => (v.has(next) ? v : new Set(v).add(next)))
+    // 近道で開いた欄は、設定を離れたら忘れる（次に設定を開いたときは一覧から）
+    if (next !== 'settings') setSettingsRequest(null)
   }
 
   // ログイン・ログアウト・アカウントの切り替えの最中（送信待ちを送り切るのを待っている）
@@ -91,7 +115,7 @@ export default function App() {
   // ログイン・ログアウト（next が null）。手順（2026-10-06 のセキュリティの点検で作り直した）:
   // 1. 送信待ちを送り切る（前の人の答えを失わない。ログアウトのあとに前の人のトークンで書かない）
   // 2. 新しいトークンの持ち主を Annict に聞く（数字の ID。ユーザー名は変えられるので使わない）
-  // 3. トークンの保存と、人ごとの記録（パス・見てない・称号・GitHub のつなぎなど）の入れ替えを一度にして、それ以降は端末に何も書かない
+  // 3. トークンの保存と、人ごとの記録（興味なし・見てない・称号・GitHub のつなぎなど）の入れ替えを一度にして、それ以降は端末に何も書かない
   // 4. ページを読み込み直す（前の人の画面で走っていた同期・バックアップ・読み込みを止め、次の人の記録に混ぜない）
   // forget: 「ログアウトして、この端末の記録も消す」（送り切ってから消す。先に消すと、待つあいだに届いた書き込みが残る）
   // 切り替えの最中（起動時の確かめが、進めているログアウトを打ち消さないように）
@@ -197,13 +221,37 @@ export default function App() {
   const showSettings = tab === 'settings' || !token
   // 表示中の画面（設定のときは null）
   const shown = showSettings ? null : tab
+  // 記録・ブラウズ・設定は、ページ全体で流す（Safari の下のバーが縮むように）。評価・マッチングは1画面に収める
+  const pageScroll = shown !== 'rate' && shown !== 'match'
+  // 分類を替えたら、その画面で前に流した位置に戻す（初めては先頭）
+  useLayoutEffect(() => restoreScroll(tab), [tab])
   // 評価の画面を出して少したったら、好みの先読みを裏で1回だけ始める（マッチングや記録の初回を速くする）
   usePrefetchTaste(token, shown === 'rate')
   // 最初の画面が出て手が空いたら、ほかの画面の JS を裏で読んでおく
   useEffect(() => preloadScreens(), [])
 
+  // 画面の外（コントロールセンターの近道など）からの移動。設定の欄へは、設定がその欄のまとまりを開いて送る
+  useEffect(() => {
+    setNavigator((d) => {
+      go(d.tab)
+      const section = d.anchor
+      if (d.tab === 'settings' && section) setSettingsRequest((cur) => ({ section, n: (cur?.n ?? 0) + 1 }))
+    })
+    return () => setNavigator(null)
+  })
+
+  // 中身を左右に払うか、PC の ← → で分類を替える（ログインしていないあいだは設定だけなので替えない）
+  const mainRef = useRef<HTMLElement>(null)
+  const step = (dir: SwipeDir) => {
+    const i = TABS.findIndex((t) => t.id === tab)
+    const next = TABS[i + (dir === 'next' ? 1 : -1)]
+    if (next) go(next.id)
+  }
+  useSwipeNav(mainRef, step, token !== null && !switching)
+  useArrowNav(step, token !== null && !switching)
+
   return (
-    <div className="app">
+    <div className="app" data-page={pageScroll || undefined}>
       {/* 帯を主な画面の上に出すための枠（広い画面では上の帯のタブのすぐ下になる） */}
       <div className="app__body">
         {switching && (
@@ -214,7 +262,7 @@ export default function App() {
         {unclaimed && !switching && (
           <div className="auth-banner" role="alert">
             <p className="auth-banner__text">
-              この端末に、持ち主を確かめられなかった以前の記録（パス・見てない・称号など）があります。あなたの記録なら、いまの記録と合わせます。
+              この端末に、持ち主を確かめられなかった以前の記録（興味なし・見てない・称号など）があります。あなたの記録なら、いまの記録と合わせます。
             </p>
             <div className="auth-banner__actions">
               <button type="button" className="btn btn--primary" onClick={() => settle(true)}>
@@ -229,9 +277,9 @@ export default function App() {
         {authExpired && <AuthExpiredBanner onOpenSettings={() => go('settings')} onDismiss={() => setExpiredToken(null)} />}
         {/* 前回送れなかった記録（送る前に閉じた・失敗したまま閉じた）。送るかどうかを聞く */}
         {token && !authExpired && <UnsentWrites key={token} token={token} />}
-        <main className="app__main">
+        <main className="app__main" ref={mainRef}>
           {showSettings && (
-            <Suspense fallback={<Loading block label="画面を読み込み中" />}>
+            <Screen className="app__settings" active enter={enter}>
               <Settings
                 annictToken={token}
                 github={github}
@@ -239,28 +287,30 @@ export default function App() {
                 onGithubChange={setGithub}
                 loginBusy={login.busy}
                 loginError={login.error}
+                request={settingsRequest}
+                active={showSettings}
               />
-            </Suspense>
+            </Screen>
           )}
           {token && (
             <Fragment key={token}>
               {visited.has('rate') && (
-                <Screen active={shown === 'rate'}>
+                <Screen active={shown === 'rate'} enter={enter}>
                   <Backfill token={token} github={github} active={shown === 'rate'} />
                 </Screen>
               )}
               {visited.has('match') && (
-                <Screen active={shown === 'match'}>
+                <Screen active={shown === 'match'} enter={enter}>
                   <Matching annictToken={token} github={github} active={shown === 'match'} />
                 </Screen>
               )}
               {visited.has('records') && (
-                <Screen active={shown === 'records'}>
+                <Screen active={shown === 'records'} enter={enter}>
                   <Records token={token} github={github} active={shown === 'records'} />
                 </Screen>
               )}
               {visited.has('browse') && (
-                <Screen active={shown === 'browse'}>
+                <Screen active={shown === 'browse'} enter={enter}>
                   <Browse token={token} active={shown === 'browse'} />
                 </Screen>
               )}
@@ -268,25 +318,31 @@ export default function App() {
           )}
         </main>
       </div>
-      <nav className="tabs" aria-label="画面の切り替え">
-        {/* 広い画面だけ、上の帯の左に出す */}
-        <span className="tabs__brand" aria-hidden>
-          <Logo size="small" />
-        </span>
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            className="tabs__item"
-            aria-current={tab === t.id ? 'page' : undefined}
-            disabled={!token && t.id !== 'settings'}
-            onClick={() => go(t.id)}
-          >
-            <TabIcon name={t.id} active={tab === t.id} />
-            <span className="tabs__label">{t.label}</span>
-          </button>
-        ))}
-      </nav>
+      <ToTop enabled={pageScroll} />
+      {/* 称号を手に入れたときの右上の知らせ */}
+      {token && <TitleToastView />}
+      {/* ログインする前は、最初の画面（設定のログイン）しか使えないので、分類の帯を出さない */}
+      {token && (
+        <nav className="tabs" aria-label="画面の切り替え">
+          {/* 広い画面だけ、上の帯の左に出す */}
+          <span className="tabs__brand" aria-hidden>
+            <Logo size="small" />
+          </span>
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              className="tabs__item"
+              aria-current={tab === t.id ? 'page' : undefined}
+              // いまの分類をもう一度押したら、いちばん上へ
+              onClick={() => (t.id === tab ? scrollToTop() : go(t.id))}
+            >
+              <TabIcon name={t.id} active={tab === t.id} />
+              <span className="tabs__label">{t.label}</span>
+            </button>
+          ))}
+        </nav>
+      )}
     </div>
   )
 }

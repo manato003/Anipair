@@ -1,10 +1,11 @@
 import { compareSeasons, sameSeason, seasonOf, type Season, type SeasonName } from '../../lib/season'
 import { loadStillWatchingRaw, saveStillWatchingRaw } from '../../lib/storage'
 
-// 評価の画面の「見てる」の山に、いつ作品を出すか（2026-10-06、利用者と合意）。
+// 評価の画面の「見てる」の山に、いつ作品を出すか。
 // この山は「見終わりましたか」を聞くためのもの。放送中に聞いても答えはほぼ「まだ見てる」なので、
 // - 放送中（と、まだ始まっていない）クールの作品は出さない。放送のクールが終わってから聞く
 // - 「まだ見てる」と答えたら、答えたクールが終わるまで出さない（分割2クールの作品や昔の作品の見返しでも、聞くのはクールの変わり目に1回）
+// - このクールに「見てる」にした作品も、そのクールが終わるまで出さない（評価の画面で昔の作品に「見てる」を押すと、すぐ山に戻ってきて押し直しになっていた）
 // 「まだ見てる」は何も送らない答えなので、端末に覚えておく（Annict の状態は「見てる」のまま）。キーは Annict の作品 ID、値は答えた時刻
 
 type StillWatching = Map<number, number>
@@ -62,8 +63,15 @@ export function stillAiring(w: { seasonYear?: number | null; seasonName?: string
   return s !== null && compareSeasons(s, seasonOf(new Date(now))) >= 0
 }
 
+// このクールに「見てる」にした作品（昔のクールの作品を、いま見始めたなど）。見始めたばかりで「見終わりましたか」とは聞かない。
+// 「まだ見てる」と同じく、そのクールが終わってから聞く
+export function startedThisCour(e: { stateAt?: string | null }, now = Date.now()): boolean {
+  const at = e.stateAt ? Date.parse(e.stateAt) : NaN
+  return !Number.isNaN(at) && sameCour(at, now)
+}
+
 // 「見てる」の山に出す作品だけを残す
-export function askableWatching<T extends { annictId: number; seasonYear?: number | null; seasonName?: string | null }>(entries: T[], now = Date.now()): T[] {
+export function askableWatching<T extends { annictId: number; seasonYear?: number | null; seasonName?: string | null; stateAt?: string | null }>(entries: T[], now = Date.now()): T[] {
   const snoozed = snoozedWatching(now)
-  return entries.filter((e) => !stillAiring(e, now) && !snoozed.has(e.annictId))
+  return entries.filter((e) => !stillAiring(e, now) && !snoozed.has(e.annictId) && !startedThisCour(e, now))
 }

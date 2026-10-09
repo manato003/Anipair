@@ -58,6 +58,12 @@ export interface Media {
   related: { kind: string; malId: number }[]
   // 人気（Shikimori でリストに入れている人の数）。参加作品の一覧の人気順に使う。分からなければ 0
   popularity?: number
+  // 点数を付けた人の数（ブラウズの評価順のベイズ平均に使う）。分からなければ undefined
+  scoreCount?: number
+  // 全話数・放送済みの話数・1話の長さ（分）。分からなければ 0（作品の要点の「全◯話」「放送中」「一気見の目安」に使う）
+  episodes?: number
+  episodesAired?: number
+  duration?: number
 }
 
 // 中継が返す、画面が使う項目だけの形（api/shiki.ts の trim と同じ）
@@ -70,12 +76,16 @@ interface RawAnime {
   rating: string | null
   status: string | null
   score: number | null
+  eps?: number
+  aired?: number
+  dur?: number
   year: number | null
   poster: { o: string; m: string } | null
   genres: { n: string; k: string }[]
   studios: string[]
   st?: { i: number; n: string }[]
   pop?: number
+  sc?: number
   prequels: number[]
   related?: { k: string; id: number }[]
 }
@@ -98,6 +108,8 @@ const STATUSES: Record<string, string> = { released: 'FINISHED', ongoing: 'RELEA
 // r_plus（軽い裸の表現。お色気のある一般の作品も多い）は成人向けとしない。前の版（成人向けの旗だけを見ていた）と同じ扱い
 const ADULT_GENRES = new Set(['Hentai', 'Erotica'])
 
+const positive = (n: unknown): number => (typeof n === 'number' && Number.isFinite(n) && n > 0 ? Math.round(n) : 0)
+
 export function normalize(raw: RawAnime): Media | null {
   if (!raw || !Number.isInteger(raw.id) || raw.id <= 0) return null
   const genres = Array.isArray(raw.genres) ? raw.genres : []
@@ -115,6 +127,10 @@ export function normalize(raw: RawAnime): Media | null {
     demographics: names('demographic'),
     studios: Array.isArray(raw.studios) ? raw.studios : [],
     popularity: typeof raw.pop === 'number' && raw.pop > 0 ? raw.pop : 0,
+    scoreCount: typeof raw.sc === 'number' && raw.sc > 0 ? raw.sc : undefined,
+    episodes: positive(raw.eps),
+    episodesAired: positive(raw.aired),
+    duration: positive(raw.dur),
     studioRefs: Array.isArray(raw.st) ? raw.st.flatMap((x) => (x && Number.isInteger(x.i) && x.i > 0 && typeof x.n === 'string' ? [{ id: x.i, name: x.n }] : [])) : [],
     cover: poster ? { url: poster.o, thumb: poster.m, landscape: false } : null,
     score: typeof raw.score === 'number' && raw.score > 0 ? raw.score : null,
@@ -175,8 +191,9 @@ export async function fetchMedia(malIds: readonly number[], opts: FetchOptions =
   const missing = [...new Set(malIds)].filter((id) => Number.isInteger(id) && id > 0 && !mediaCache.has(id)).sort((a, b) => a - b)
   for (let i = 0; i < missing.length; i += BATCH) {
     const chunk = missing.slice(i, i + BATCH)
-    // v=4: 中継の応答に人気（pop）が加わった版。CDN に1週間残る前の形の控えを使わないよう、問い合わせの URL を変える
-    const body = (await call(`op=animes&ids=${chunk.join(',')}&v=4`, opts)) as { animes?: RawAnime[] }
+    // v=6: 中継の応答に点数を付けた人の数（sc）が加わった版（v=5 は話数など、v=4 は人気 pop）。
+    // CDN に1週間残る前の形の控えを使わないよう、問い合わせの URL を変える
+    const body = (await call(`op=animes&ids=${chunk.join(',')}&v=6`, opts)) as { animes?: RawAnime[] }
     if (!body || !Array.isArray(body.animes)) throw new Error('Shikimori の応答を読めませんでした')
     for (const id of chunk) mediaCache.set(id, null)
     for (const raw of body.animes) {
@@ -260,12 +277,22 @@ export function roleJa(role: string): string | null {
 }
 
 // 人物の参加作品（MyAnimeList の ID）。cast は声の出演、staff はスタッフとしての作品と役割（日本語。知らない役割は「スタッフ」）
-export async function fetchPersonWorks(id: number, opts: FetchOptions = {}): Promise<{ cast: number[]; staff: { id: number; roles: string[] }[] }> {
-  // v=2: スタッフに役割が加わった版
-  const body = (await call(`op=person&id=${id}&v=2`, opts)) as { cast?: unknown; staff?: unknown }
-  const cast = Array.isArray(body?.cast) ? body.cast.filter((n): n is number => Number.isInteger(n) && n > 0) : null
+export async function fetchPersonWorks(
+  id: number,
+  opts: FetchOptions = {},
+): Promise<{ cast: { id: number; characters: { id: number; name: string | null }[] }[]; staff: { id: number; roles: string[] }[] }> {
+  // v=2: スタッフに役割が加わった版。v=4: 声の出演に演じたキャラクター（ID とローマ字の名前）が加わった版。日本語名は fetchCharacterNames で引く
+  const body = (await call(`op=person&id=${id}&v=4`, opts)) as { cast?: unknown; staff?: unknown }
+  const castRaw = Array.isArray(body?.cast) ? (body.cast as { id?: unknown; ch?: unknown }[]) : null
   const staffRaw = Array.isArray(body?.staff) ? (body.staff as { id?: unknown; r?: unknown }[]) : null
-  if (!cast || !staffRaw) throw new Error('Shikimori の応答を読めませんでした')
+  if (!castRaw || !staffRaw) throw new Error('Shikimori の応答を読めませんでした')
+  const cast = castRaw.flatMap((x) => {
+    if (!x || !Number.isInteger(x.id) || (x.id as number) <= 0) return []
+    const characters = (Array.isArray(x.ch) ? (x.ch as { i?: unknown; n?: unknown }[]) : []).flatMap((c) =>
+      c && Number.isInteger(c.i) && (c.i as number) > 0 ? [{ id: c.i as number, name: typeof c.n === 'string' && c.n ? c.n : null }] : [],
+    )
+    return [{ id: x.id as number, characters }]
+  })
   const staff = staffRaw.flatMap((x) => {
     if (!x || !Number.isInteger(x.id) || (x.id as number) <= 0) return []
     const roles = [...new Set((Array.isArray(x.r) ? x.r : []).filter((r): r is string => typeof r === 'string').map((r) => roleJa(r) ?? 'スタッフ'))]
@@ -274,13 +301,34 @@ export async function fetchPersonWorks(id: number, opts: FetchOptions = {}): Pro
   return { cast, staff }
 }
 
+// キャラクターの日本語名（起動中はメモリに控える。日本語名の無いキャラクターも「無い」と控えて、問い合わせ直さない）
+const characterCache = new Map<number, string | null>()
+
+// キャラクターの日本語名を50人ずつ引く。引けなかった分は返さない（呼ぶ側はローマ字の名前を使う）
+export async function fetchCharacterNames(ids: readonly number[], opts: FetchOptions = {}): Promise<Map<number, string>> {
+  const missing = [...new Set(ids)].filter((id) => Number.isInteger(id) && id > 0 && !characterCache.has(id)).sort((a, b) => a - b)
+  for (let i = 0; i < missing.length; i += BATCH) {
+    const chunk = missing.slice(i, i + BATCH)
+    const body = (await call(`op=characters&ids=${chunk.join(',')}`, opts)) as { characters?: { id?: unknown; ja?: unknown }[] }
+    if (!body || !Array.isArray(body.characters)) throw new Error('Shikimori の応答を読めませんでした')
+    for (const id of chunk) characterCache.set(id, null)
+    for (const c of body.characters) if (Number.isInteger(c?.id) && typeof c.ja === 'string' && c.ja) characterCache.set(c.id as number, c.ja)
+  }
+  const out = new Map<number, string>()
+  for (const id of ids) {
+    const name = characterCache.get(id)
+    if (name) out.set(id, name)
+  }
+  return out
+}
+
 const STUDIO_PAGES = 4
 
 // 制作会社の作品（新しい順。50件ずつ、最大4ページ）。作品の情報は控えにも入れる（一覧から詳細を開くときに読み直さない）
 export async function fetchStudioWorks(id: number, opts: FetchOptions = {}): Promise<Media[]> {
   const out: Media[] = []
   for (let page = 1; page <= STUDIO_PAGES; page++) {
-    const body = (await call(`op=studio&id=${id}&page=${page}&v=4`, opts)) as { animes?: RawAnime[] }
+    const body = (await call(`op=studio&id=${id}&page=${page}&v=6`, opts)) as { animes?: RawAnime[] }
     if (!body || !Array.isArray(body.animes)) throw new Error('Shikimori の応答を読めませんでした')
     for (const raw of body.animes) {
       const m = normalize(raw)
@@ -300,6 +348,11 @@ function store(): Map<number, SimilarEntry> {
   return (similarStore ??= loadSimilar())
 }
 
+// その作品の似た作品が端末に控えてあるか（控えていない作品が多いときに、待ち時間の案内を出すのに使う）
+export function isSimilarCached(malId: number): boolean {
+  return store().has(malId)
+}
+
 export async function fetchSimilar(malId: number, opts: FetchOptions = {}): Promise<number[]> {
   const hit = store().get(malId)
   if (hit) return hit.ids
@@ -316,7 +369,7 @@ export async function fetchSimilar(malId: number, opts: FetchOptions = {}): Prom
 // 1つ失敗したらそこで止めて例外にする（端末に控えた分は次に使える）
 export async function fetchSimilarMany(
   malIds: readonly number[],
-  onProgress?: (done: number, total: number) => void,
+  onProgress?: (done: number, total: number, malId: number) => void,
   opts: FetchOptions = {},
 ): Promise<Map<number, number[]>> {
   const out = new Map<number, number[]>()
@@ -324,7 +377,7 @@ export async function fetchSimilarMany(
   let done = 0
   for (const id of unique) {
     out.set(id, await fetchSimilar(id, opts))
-    onProgress?.(++done, unique.length)
+    onProgress?.(++done, unique.length, id)
   }
   return out
 }
@@ -332,6 +385,7 @@ export async function fetchSimilarMany(
 // テスト用: 起動中の控えを捨てる
 export function resetShikimoriMemory(): void {
   mediaCache.clear()
+  characterCache.clear()
   similarStore = null
 }
 

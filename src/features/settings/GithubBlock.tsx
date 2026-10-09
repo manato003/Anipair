@@ -66,7 +66,7 @@ export function GithubBlock(props: { github: GithubConnection | null; onChange: 
     >
       {/* なぜ GitHub なのかを、連携していてもいなくても見せる */}
       <p className="settings__lead">
-        パス・スルー・見てないは Anipair 独自の記録で、Annict には保存できません。Anipair は運営サーバーを持たないため、これらはあなた自身の GitHub リポジトリに保存します。連携しない場合は、この端末の中にだけ保存されます。
+        興味なし・保留・見てないは Anipair 独自の記録で、Annict には保存できません。Anipair は運営サーバーを持たないため、これらはあなた自身の GitHub リポジトリに保存します。連携しない場合は、この端末の中にだけ保存されます。
       </p>
       {props.github ? (
         <div className="settings__actions">
@@ -78,7 +78,7 @@ export function GithubBlock(props: { github: GithubConnection | null; onChange: 
         <>
           <p className="settings__lead">連携すると、次のことができます。</p>
           <ul className="settings__list settings__lead">
-            <li>パス・スルー・見てないを、PC とスマホで共有する</li>
+            <li>興味なし・保留・見てないを、PC とスマホで共有する</li>
             <li>すべての記録を、毎日自動でバックアップする（変更履歴つき）</li>
           </ul>
           <details className="settings__fold" open>

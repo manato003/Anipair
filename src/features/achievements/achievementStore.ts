@@ -70,7 +70,7 @@ export interface TitlesState {
   // 初回の「覚醒」を見たか
   awakened: boolean
   // 一度でも手に入れた称号。条件から外れても（クールの人気作の顔ぶれが変わって踏破でなくなった・新しいクールが始まったなど）取り上げない。
-  // 称号は答えを数えるもので、他人の視聴者数の変動で消えるのは筋が違う（2026-10-06 の点検のあと、利用者と合意）
+  // 称号は答えを数えるもので、他人の視聴者数の変動で消えるのは筋が違う
   earned?: string[]
 }
 
@@ -119,11 +119,12 @@ export function loadFeats(): Feats {
   return parseFeats(loadFeatsRaw())
 }
 
-// 初めてのときだけ日時を残す
-export function recordFeat(name: keyof Feats, now: Date = new Date()): void {
+// 初めてのときだけ日時を残す。初めてだったら true（称号の知らせを出す）
+export function recordFeat(name: keyof Feats, now: Date = new Date()): boolean {
   const feats = loadFeats()
-  if (feats[name]) return
+  if (feats[name]) return false
   saveFeatsRaw({ ...feats, [name]: now.toISOString() })
+  return true
 }
 
 // 深夜2時から4時のあいだか（端末の時刻で）
@@ -144,8 +145,11 @@ export function isNewYearsDay(now: Date): boolean {
 }
 
 // 答えた時刻で付く出来事をまとめて記録する（深夜・朝・元日）
-export function recordTimeFeats(now: Date = new Date()): void {
-  if (isLateNight(now)) recordFeat('lateNight', now)
-  if (isEarlyMorning(now)) recordFeat('earlyMorning', now)
-  if (isNewYearsDay(now)) recordFeat('newYear', now)
+// 初めて記録した出来事を返す
+export function recordTimeFeats(now: Date = new Date()): (keyof Feats)[] {
+  const out: (keyof Feats)[] = []
+  if (isLateNight(now) && recordFeat('lateNight', now)) out.push('lateNight')
+  if (isEarlyMorning(now) && recordFeat('earlyMorning', now)) out.push('earlyMorning')
+  if (isNewYearsDay(now) && recordFeat('newYear', now)) out.push('newYear')
+  return out
 }
