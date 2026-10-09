@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { UsageGuide } from '../../components/UsageGuide'
+import { MascotProfile } from './MascotProfile'
 import { TAGLINE } from '../../lib/brand'
 import { saveOnboardingSeen } from '../../lib/storage'
 import { LegalLinks } from './LegalLinks'
@@ -10,6 +11,7 @@ import { Section } from './Section'
 export function AboutBlock({ showTagline = true, welcome = false }: { showTagline?: boolean; welcome?: boolean }) {
   // 初めての人に出す使い方のシートを、ここからいつでも見直せる
   const [guideOpen, setGuideOpen] = useState(false)
+  const [mascotOpen, setMascotOpen] = useState(false)
   return (
     <Section id="settings-about" title="このアプリについて" level={welcome ? 2 : 3}>
       {showTagline && <p className="settings__lead">{TAGLINE}</p>}
@@ -17,7 +19,11 @@ export function AboutBlock({ showTagline = true, welcome = false }: { showTaglin
         <button type="button" className="link" onClick={() => setGuideOpen(true)}>
           使い方を見る
         </button>
+        <button type="button" className="link" onClick={() => setMascotOpen(true)}>
+          アニとペアのこと
+        </button>
       </p>
+      {mascotOpen && <MascotProfile onClose={() => setMascotOpen(false)} />}
       {guideOpen && (
         <UsageGuide
           onClose={() => {

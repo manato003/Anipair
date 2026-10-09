@@ -34,6 +34,7 @@ import { SheetLayer } from './components/sheetLayer'
 import { setNavigator } from './lib/navigate'
 import type { SettingsRequest } from './features/settings/Settings'
 import { rememberScroll, restoreScroll, scrollToTop } from './lib/pageScroll'
+import { MascotPeek } from './components/MascotPeek'
 import { ToTop } from './components/ToTop'
 
 type Tab = 'rate' | 'match' | 'records' | 'browse' | 'settings'
@@ -319,6 +320,8 @@ export default function App() {
         </main>
       </div>
       <ToTop enabled={pageScroll} />
+      {/* アニとペアが、ときどき下の帯の陰から顔を出す（記録・ブラウズ・設定だけ。答える画面には出さない） */}
+      {token && <MascotPeek enabled={pageScroll && !switching} />}
       {/* 称号を手に入れたときの右上の知らせ */}
       {token && <TitleToastView />}
       {/* ログインする前は、最初の画面（設定のログイン）しか使えないので、分類の帯を出さない */}

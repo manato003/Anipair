@@ -1,5 +1,6 @@
 import { fetchViewer } from '../../lib/annict'
 import { Logo } from '../../components/Logo'
+import { WatchingScene } from '../../components/Mascot'
 import { startLogin } from '../../lib/annictLogin'
 import { TAGLINE_PHRASES } from '../../lib/brand'
 import { LegalLinks } from './LegalLinks'
@@ -18,6 +19,7 @@ export function Welcome(props: { clientId: string | null; busy: boolean; error: 
       <h1 className="welcome__logo">
         <Logo size="large" />
       </h1>
+      <WatchingScene className="scene-art welcome__art" />
       <p className="welcome__tagline">
         {TAGLINE_PHRASES.map((phrase) => (
           <span key={phrase}>{phrase}</span>

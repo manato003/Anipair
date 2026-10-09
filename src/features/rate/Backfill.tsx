@@ -289,9 +289,9 @@ export function Backfill({ token, github, active }: { token: string; github: Git
   const placeholder = !watchReady ? (
     loadingCard
   ) : b.finished ? (
-    <Empty title={`${OLDEST_YEAR}年までさかのぼりました`} body="ここより前のクールは出しません。お疲れさまでした。" />
+    <Empty mood="done" title={`${OLDEST_YEAR}年までさかのぼりました`} body="ここより前のクールは出しません。お疲れさまでした。" />
   ) : b.loadError ? (
-    <Empty title="作品を読み込めませんでした" body={b.loadError}>
+    <Empty mood="trouble" title="作品を読み込めませんでした" body={b.loadError}>
       <button type="button" className="btn" onClick={b.reload}>
         もう一度読み込む
       </button>
@@ -312,6 +312,7 @@ export function Backfill({ token, github, active }: { token: string; github: Git
     </div>
   ) : (
     <Empty
+      mood="done"
       title={b.reviewing ? `${seasonLabel(b.season)}の見直しはここまで` : `${seasonLabel(b.season)}はここまで`}
       body={b.reviewing ? '「見てない」にした作品を、すべて見直しました。' : 'このクールの人気作をすべて見ました。'}
     >

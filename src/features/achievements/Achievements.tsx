@@ -57,7 +57,7 @@ export function Achievements(props: { token: string; rows: RecordRow[] | null; l
 
   if (props.loadError) {
     return (
-      <Empty title="記録を読み込めませんでした" body={props.loadError}>
+      <Empty mood="trouble" title="記録を読み込めませんでした" body={props.loadError}>
         <button type="button" className="btn" onClick={props.onReload}>
           もう一度読み込む
         </button>

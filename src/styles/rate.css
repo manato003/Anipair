@@ -1067,6 +1067,15 @@
   grid-area: ans;
 }
 
+/* 作品の無いあいだ（読み込み中・提案の前・空・踏破）は、押せない答えのボタンを出さず、案内を下まで広げる（案内の絵と文がボタンに重ならないように） */
+.flow:has(> .flow__placeholder) > .flow__answers {
+  display: none;
+}
+
+.flow > .flow__placeholder {
+  grid-row: 2 / -1;
+}
+
 .flow__answers .answers {
   padding-top: 8px;
 }
@@ -1126,10 +1135,10 @@
     align-self: end;
   }
 
-  /* 作品の無いあいだ（読み込み中・空・踏破・提案の前）は、上の2段を左右の列いっぱいに使って中央に。右下の答えの欄には重ねない */
-  .flow__placeholder {
+  /* 作品の無いあいだ（読み込み中・空・踏破・提案の前）は、答えの欄を出さないので、左右の列と上下いっぱいを使って中央に */
+  .flow > .flow__placeholder {
     grid-column: 1 / -1;
-    grid-row: 1 / span 2;
+    grid-row: 1 / -1;
   }
 
   /* 押すと詳しく見られる印。広い画面だけ、表紙の隅に */

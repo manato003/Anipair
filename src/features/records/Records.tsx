@@ -391,7 +391,7 @@ export function Records({ token, github = null, active }: { token: string; githu
 
             <div className="records__list">
               {r.loadError ? (
-                <Empty title="記録を読み込めませんでした" body={r.loadError}>
+                <Empty mood="trouble" title="記録を読み込めませんでした" body={r.loadError}>
                   <button type="button" className="btn" onClick={r.reload}>
                     もう一度読み込む
                   </button>
@@ -401,6 +401,7 @@ export function Records({ token, github = null, active }: { token: string; githu
               ) : visible.length === 0 ? (
                 query || filterCount > 0 || filter.cour ? (
                   <Empty
+                    mood="empty"
                     title="当てはまる作品がありません"
                     body={filterCount > 0 ? '絞り込みの条件をゆるめてください。' : filter.cour ? `${seasonLabel(filter.cour)}の作品は、ここにはありません。` : '別の言葉で絞り込んでください。'}
                   >
@@ -416,7 +417,7 @@ export function Records({ token, github = null, active }: { token: string; githu
                     )}
                   </Empty>
                 ) : (
-                  <Empty title="まだありません" body="評価画面やマッチングで記録すると、ここに並びます。" />
+                  <Empty mood="empty" title="まだありません" body="評価画面やマッチングで記録すると、ここに並びます。" />
                 )
               ) : editing ? (
                 // 編集は1行ずつの形（評価・状態・記録から外す・見たいのメモを、その場で変える）
@@ -501,7 +502,7 @@ export function Records({ token, github = null, active }: { token: string; githu
           </ul>
         ) : !r.rows ? (
           r.loadError ? (
-            <Empty title="記録を読み込めませんでした" body={r.loadError}>
+            <Empty mood="trouble" title="記録を読み込めませんでした" body={r.loadError}>
               <button type="button" className="btn" onClick={r.reload}>
                 もう一度読み込む
               </button>

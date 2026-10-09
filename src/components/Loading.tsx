@@ -1,4 +1,5 @@
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { Ani } from './Mascot'
 import { formatRemaining, useRemaining } from '../lib/useRemaining'
 
 // 読み込み中の表示。止まっている（固まった）のではなく動いていると分かるように、動くロゴを出し、長くかかったら一言添える（このまま待てば続くこと）。
@@ -30,34 +31,9 @@ function useShown(delay: number): boolean {
   return shown
 }
 
-// 動くロゴ（public/logo-mark.svg と同じ形）。2つの円が離れては寄り添い、重なったところに星が光る。
-// 大きさは CSS の幅で決める（.loading-mark）。グラデーションの ID は画面に複数あってもぶつからないよう useId で作る
+// 読み込み中の印: アニのアンテナが揺れて、受信している（components/Mascot.tsx）。大きさは CSS の幅で決める（.loading-mark）
 export function LoadingMark(props: { className?: string }) {
-  const id = useId().replace(/:/g, '')
-  return (
-    <svg className={['loading-mark', props.className ?? ''].filter(Boolean).join(' ')} viewBox="-20 0 451 276" aria-hidden>
-      <defs>
-        <radialGradient id={`${id}l`} cx="0.66" cy="0.45" r="0.75">
-          <stop offset="0" stopColor="#FFFFFF" />
-          <stop offset="0.5" stopColor="#E6F0FF" />
-          <stop offset="1" stopColor="#9FC0FF" />
-        </radialGradient>
-        <radialGradient id={`${id}r`} cx="0.34" cy="0.45" r="0.75">
-          <stop offset="0" stopColor="#FFFFFF" />
-          <stop offset="0.5" stopColor="#FFE8F2" />
-          <stop offset="1" stopColor="#FFA3CC" />
-        </radialGradient>
-        <linearGradient id={`${id}m`} x1="0.2" y1="0" x2="0.8" y2="1">
-          <stop offset="0" stopColor="#6483F6" />
-          <stop offset="1" stopColor="#B07CF0" />
-        </linearGradient>
-      </defs>
-      <circle className="loading-mark__left" cx="138" cy="138" r="138" fill={`url(#${id}l)`} />
-      <circle className="loading-mark__right" cx="273" cy="138" r="138" fill={`url(#${id}r)`} />
-      <path className="loading-mark__lens" d="M205.5 17.63 A138 138 0 0 1 205.5 258.37 A138 138 0 0 1 205.5 17.63 Z" fill={`url(#${id}m)`} />
-      <path className="loading-mark__star" d="M205.5 86 Q212.5 131 257.5 138 Q212.5 145 205.5 190 Q198.5 145 153.5 138 Q198.5 131 205.5 86 Z" fill="#fff" />
-    </svg>
-  )
+  return <Ani wiggle expr="think" className={['loading-mark', props.className ?? ''].filter(Boolean).join(' ')} />
 }
 
 // 回る輪（ボタンの中など、小さく色の上に置くところ）

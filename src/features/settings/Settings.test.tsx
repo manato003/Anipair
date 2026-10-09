@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TAGLINE } from '../../lib/brand'
 import { GitHubError, type GithubConnection } from '../../lib/github'
@@ -279,8 +279,10 @@ describe('Settings first screen (no Annict token)', () => {
   it('puts the logo and the tagline at the top of the welcome', () => {
     show({ annictToken: null, clientId: 'cid' })
     const heading = screen.getByRole('heading', { name: 'Anipair' })
-    expect(heading.querySelector('img[src="/logo-mark.svg"]')).toBeTruthy()
-    expect(heading.nextElementSibling?.textContent).toBe(TAGLINE)
+    expect(heading.querySelector('svg.logo__mark')).toBeTruthy()
+    // ロゴの次に、2人で並んでアニメを見ている絵、その次にキャッチコピー
+    expect(heading.nextElementSibling?.getAttribute('aria-label')).toBe('アニとペアが並んでアニメを見ている')
+    expect(heading.nextElementSibling?.nextElementSibling?.textContent).toBe(TAGLINE)
   })
 
   it('shows only the welcome and the about block (no GitHub, backup or keys yet)', () => {
@@ -472,9 +474,21 @@ describe('Settings 使い方を見る', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: '使い方を見る' }))
     expect(screen.getByRole('dialog', { name: 'Anipair の使い方' })).toBeTruthy()
+    for (let i = 0; i < 6; i++) fireEvent.click(screen.getByRole('button', { name: '次へ' }))
     fireEvent.click(screen.getByRole('button', { name: 'はじめる' }))
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(localStorage.getItem('animax.onboarding.v1')).toContain('"v":1')
+  })
+
+  it('opens 「アニとペアのこと」 with where they came from, their habits, likes, and the season sprouts', () => {
+    show({ section: 'settings-about' })
+    fireEvent.click(screen.getByRole('button', { name: 'アニとペアのこと' }))
+    const dialog = screen.getByRole('dialog', { name: 'アニとペアのこと' })
+    expect(within(dialog).getByRole('heading', { name: 'アニ' })).toBeTruthy()
+    expect(within(dialog).getByRole('heading', { name: 'ペア' })).toBeTruthy()
+    expect(within(dialog).getAllByText('生まれ')).toHaveLength(2)
+    expect(within(dialog).getAllByText('好きなもの')).toHaveLength(2)
+    expect(within(dialog).getByText('冬')).toBeTruthy()
   })
 
   it('is also there on the signed-out first screen', () => {

@@ -1,6 +1,6 @@
 /* 最初の読み込み中の表示（index.html の #root の中。React が描き始めると消える）。
    アプリの JS と CSS を読み終えるまでの数秒、真っ白にしないためのもの。CSP で HTML の中のスタイルは使えないので、ここに分ける。
-   ロゴの2つの円が離れては寄り添う（components/Loading.tsx の LoadingMark と同じ動き）。動きを減らす設定では明るさだけ変える */
+   アンテナの揺れるアニを出す。動きを減らす設定では、アンテナの先の明るさだけ変える */
 /* 設定を読む前なので、端末の明暗だけで決める（季節の色は秋。アプリが描き始めると、設定の色に替わる） */
 html,
 body {
@@ -37,52 +37,49 @@ body {
   overflow: visible;
 }
 
-.splash__left,
-.splash__right,
-.splash__lens {
+/* アニの色（src/styles/mascot.css と同じ。アプリの CSS はまだ読んでいない） */
+.splash .m-ink { fill: #1c1b1f; }
+.splash .m-hi { fill: #fff; }
+.splash .m-line,
+.splash .m-wire { fill: none; stroke: #1c1b1f; stroke-linecap: round; stroke-linejoin: round; }
+.splash .m-body { fill: #fffaf3; stroke: #1c1b1f; stroke-linejoin: round; }
+.splash .m-belly { fill: none; stroke: #f6e6da; stroke-linecap: round; }
+.splash .m-accent { fill: #c8643c; stroke: #1c1b1f; stroke-linejoin: round; }
+.splash .m-cheek { fill: #c8643c; opacity: 0.32; }
+
+@media (prefers-color-scheme: dark) {
+  .splash .m-wire { stroke: #fffaf3; }
+}
+
+/* アンテナが揺れて受信している（components/Loading.tsx の LoadingMark と同じ動き）。動きを減らす設定では、アンテナの先がゆっくり明滅するだけ */
+.splash .m-antenna--wiggle {
   transform-box: fill-box;
-  transform-origin: center;
-  animation: 1.6s ease-in-out infinite;
+  transform-origin: 50% 100%;
+  animation: splash-wiggle 0.9s ease-in-out infinite;
 }
 
-.splash__left {
-  animation-name: splash-left;
-}
-
-.splash__right {
-  animation-name: splash-right;
-}
-
-.splash__lens {
-  animation-name: splash-lens;
-}
-
-@keyframes splash-left {
+@keyframes splash-wiggle {
+  0%,
+  100% {
+    transform: rotate(-9deg);
+  }
   50% {
-    transform: translateX(-20px);
+    transform: rotate(9deg);
   }
 }
 
-@keyframes splash-right {
+@keyframes splash-fade {
   50% {
-    transform: translateX(20px);
-  }
-}
-
-@keyframes splash-lens {
-  35%,
-  65% {
-    opacity: 0;
+    opacity: 0.25;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .splash__left,
-  .splash__right {
+  .splash .m-antenna--wiggle {
     animation: none;
   }
 
-  .splash__lens {
-    animation: splash-lens 2.4s ease-in-out infinite;
+  .splash .m-tip {
+    animation: splash-fade 1.6s ease-in-out infinite;
   }
 }

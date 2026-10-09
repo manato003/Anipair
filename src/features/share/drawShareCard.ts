@@ -10,11 +10,12 @@ const PAD = 72
 const UI = "'Zen Maru Gothic', system-ui, sans-serif"
 // 見出しも本文と同じ書体の太字（見出し用の書体は持たない）
 const DISPLAY = "'Zen Maru Gothic', sans-serif"
-const INK = '#12152a'
-const PAPER = '#f4f2ff'
-const MUTED = '#a3a6c4'
-const LINE = 'rgba(197, 184, 255, 0.22)'
-const LAVENDER = '#c5b8ff'
+// 地は暖かい暗色（称号の光の色が映えるよう暗くする）。差し色はアプリの既定の秋の色（アニとペアのアンテナの玉・芽と同じ）
+const INK = '#1d1b22'
+const PAPER = '#fffaf3'
+const MUTED = '#c9c0b6'
+const LINE = 'rgba(255, 250, 243, 0.18)'
+const ACCENT_SOFT = '#f0b48f'
 
 // 称号の光の色（styles/achievements.css の --tint）
 const TINT: Record<Rarity, string> = {
@@ -116,7 +117,7 @@ function drawRadar(ctx: CanvasRenderingContext2D, axes: NonNullable<ShareCard['r
   ctx.closePath()
   ctx.fillStyle = 'rgba(197, 184, 255, 0.22)'
   ctx.fill()
-  ctx.strokeStyle = LAVENDER
+  ctx.strokeStyle = ACCENT_SOFT
   ctx.lineWidth = 4
   ctx.stroke()
   ctx.font = `700 26px ${UI}`
@@ -131,33 +132,33 @@ function drawRadar(ctx: CanvasRenderingContext2D, axes: NonNullable<ShareCard['r
 
 export async function drawShareCard(card: ShareCard, now = new Date()): Promise<Blob> {
   await loadFonts(card)
-  const logo = await loadImage('/logo-mark.svg')
+  const logo = await loadImage('/logo-mark-on-dark.svg')
   const canvas = document.createElement('canvas')
   canvas.width = W
   canvas.height = H
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('この端末では画像を作れませんでした')
 
-  // 地: 濃い紺に、ロゴの色の光をにじませる
+  // 地: 暖かい暗色に、差し色の光をにじませる
   ctx.fillStyle = INK
   ctx.fillRect(0, 0, W, H)
   const glow = (x: number, y: number, r: number, color: string) => {
     const g = ctx.createRadialGradient(x, y, 0, x, y, r)
     g.addColorStop(0, color)
-    g.addColorStop(1, 'rgba(18, 21, 42, 0)')
+    g.addColorStop(1, 'rgba(29, 27, 34, 0)')
     ctx.fillStyle = g
     ctx.fillRect(0, 0, W, H)
   }
-  glow(120, 80, 620, 'rgba(123, 157, 255, 0.22)')
-  glow(W - 80, H - 120, 640, 'rgba(255, 184, 217, 0.16)')
+  glow(120, 80, 620, 'rgba(200, 100, 60, 0.24)')
+  glow(W - 80, H - 120, 640, 'rgba(255, 250, 243, 0.08)')
 
   // 上: ロゴと日付
-  if (logo) ctx.drawImage(logo, PAD, 64, 72, 48)
+  if (logo) ctx.drawImage(logo, PAD, 60, 60, 60)
   ctx.textBaseline = 'middle'
   ctx.textAlign = 'left'
   ctx.fillStyle = PAPER
   ctx.font = `700 40px 'Quicksand', ${UI}`
-  ctx.fillText('Anipair', PAD + 88, 90)
+  ctx.fillText('Anipair', PAD + 76, 90)
   ctx.textAlign = 'right'
   ctx.fillStyle = MUTED
   ctx.font = `400 26px ${UI}`

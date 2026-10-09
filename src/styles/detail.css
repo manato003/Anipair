@@ -61,51 +61,6 @@ img.cover--contain {
   line-height: 1.3;
 }
 
-/* 「Anipair の使い方」のシート。3つの手順を、番号の丸つきで並べる */
-.guide__steps {
-  display: grid;
-  gap: 14px;
-  margin-top: 16px;
-  list-style: none;
-  counter-reset: guide;
-}
-
-.guide__steps li {
-  position: relative;
-  min-height: 28px;
-  padding-left: 40px;
-  font-size: 0.9rem;
-  line-height: 1.7;
-  counter-increment: guide;
-}
-
-.guide__steps li::before {
-  content: counter(guide);
-  position: absolute;
-  left: 0;
-  top: 0;
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  background: var(--brand-gradient);
-  color: var(--ink);
-  font-size: 0.85rem;
-  font-weight: 700;
-}
-
-.guide__steps strong {
-  display: block;
-  font-weight: 700;
-}
-
-.guide__actions {
-  display: flex;
-  justify-content: center;
-  margin-top: 22px;
-}
-
 .detail__kana,
 .detail__meta,
 .detail__hint {

@@ -180,7 +180,7 @@ kbd {
   font-family: inherit;
 }
 
-/* ロゴ: 印の画像と「Anipair」の字。字は index.html で読む Quicksand（丸みのある幾何学的な書体） */
+/* ロゴ: 印（アニとペアの頭）と「Anipair」の字。字は index.html で読む Quicksand（丸みのある幾何学的な書体） */
 .logo {
   display: inline-flex;
   align-items: center;
@@ -191,8 +191,8 @@ kbd {
 }
 
 .logo__mark {
-  height: 1em;
-  width: auto;
+  width: 1.3em;
+  height: 1.3em;
 }
 
 .logo__text {
@@ -1123,7 +1123,7 @@ kbd {
 /* 動きを減らす（端末の設定か、設定の「動き」。lib/theme.ts が :root に data-motion を付ける） */
 /* 受け皿: 部品ごとに止め忘れても、動きと移ろいは一瞬で終える（終わった形で止まる。終わりの合図は届く）。
    わざと残すもの（読み込み中の印・称号の知らせ・保存中の札。明るさだけをゆっくり変える）は除く。それぞれの止め方は部品の近くに書く */
-:root[data-motion='reduce'] *:not(.loading__spinner, .loading-mark__lens, .loading-mark__star, .titletoast, .save-toast),
+:root[data-motion='reduce'] *:not(.loading__spinner, .m-tip, .titletoast, .save-toast),
 :root[data-motion='reduce'] *::before,
 :root[data-motion='reduce'] *::after {
   animation-duration: 1ms !important;
@@ -1318,88 +1318,15 @@ input[type='radio'] {
   font-size: 0.75rem;
 }
 
-/* 動くロゴ: 2つの円が離れては寄り添い、重なると真ん中のレンズと星が光る（1周 1.6 秒） */
+/* 読み込み中の印（アニ。揺れは styles/mascot.css） */
 .loading-mark {
   flex: none;
-  width: 28px;
+  width: 30px;
   height: auto;
-  overflow: visible;
 }
 
 .loading--block .loading-mark {
-  width: 76px;
-}
-
-.loading-mark__left,
-.loading-mark__right,
-.loading-mark__lens,
-.loading-mark__star {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: 1.6s ease-in-out infinite;
-}
-
-.loading-mark__left {
-  animation-name: mark-left;
-}
-
-.loading-mark__right {
-  animation-name: mark-right;
-}
-
-.loading-mark__lens {
-  animation-name: mark-lens;
-}
-
-.loading-mark__star {
-  animation-name: mark-star;
-}
-
-@keyframes mark-left {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  50% {
-    transform: translateX(-20px);
-  }
-}
-
-@keyframes mark-right {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  50% {
-    transform: translateX(20px);
-  }
-}
-
-@keyframes mark-lens {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  35%,
-  65% {
-    opacity: 0;
-  }
-}
-
-@keyframes mark-star {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1) rotate(0deg);
-  }
-  12% {
-    transform: scale(1.3) rotate(45deg);
-  }
-  35%,
-  65% {
-    opacity: 0;
-    transform: scale(0.3) rotate(90deg);
-  }
+  width: 84px;
 }
 
 @keyframes loading-spin {
@@ -1413,16 +1340,6 @@ input[type='radio'] {
 /* 動きを減らす（端末の設定か、設定の「動き」。lib/theme.ts が :root に data-motion を付ける） */
 :root[data-motion='reduce'] .loading__spinner {
   animation: loading-fade 1.6s ease-in-out infinite;
-}
-
-:root[data-motion='reduce'] .loading-mark__left,
-:root[data-motion='reduce'] .loading-mark__right {
-  animation: none;
-}
-
-:root[data-motion='reduce'] .loading-mark__lens,
-:root[data-motion='reduce'] .loading-mark__star {
-  animation: loading-fade 2.4s ease-in-out infinite;
 }
 
 @keyframes loading-fade {

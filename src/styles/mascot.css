@@ -1,0 +1,612 @@
+/* マスコットの「アニ」と「ペア」（components/Mascot.tsx・MascotPeek.tsx）。
+   線は濃い色、体は温かい白、差し色は季節の色を1つだけ。体の外に出る線（アンテナ・芽の茎・腕）は地の文字の色にして、暗い地でも見えるようにする */
+
+:root {
+  --m-ink: #1c1b1f;
+  --m-body: #fffaf3;
+  --m-accent: #c8643c;
+}
+
+:root[data-season='spring'] { --m-accent: #d9507d; }
+:root[data-season='summer'] { --m-accent: #2a8fa6; }
+:root[data-season='autumn'] { --m-accent: #c8643c; }
+:root[data-season='winter'] { --m-accent: #5a74b8; }
+
+.mascot {
+  display: block;
+  overflow: visible;
+}
+
+.mascot .m-ink {
+  fill: var(--m-ink);
+}
+
+.mascot .m-hi {
+  fill: #fff;
+}
+
+.mascot .m-line,
+.mascot .m-wire {
+  fill: none;
+  stroke: var(--m-ink);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mascot .m-wire {
+  stroke: var(--fg);
+}
+
+.mascot .m-body {
+  fill: var(--m-body);
+  stroke: var(--m-ink);
+  stroke-linejoin: round;
+}
+
+.mascot .m-belly {
+  fill: none;
+  stroke: color-mix(in oklab, var(--m-accent) 12%, var(--m-body));
+  stroke-linecap: round;
+}
+
+.mascot .m-accent {
+  fill: var(--m-accent);
+  stroke: var(--m-ink);
+  stroke-linejoin: round;
+}
+
+.mascot .m-cheek {
+  fill: var(--m-accent);
+  opacity: 0.32;
+}
+
+.mascot .m-drop {
+  fill: #9fc6e6;
+  stroke: var(--m-ink);
+}
+
+.mascot .m-dash {
+  fill: none;
+  stroke: var(--fg);
+  stroke-dasharray: 7 7;
+}
+
+.mascot .m-cel-face {
+  fill: var(--m-body);
+  opacity: 0.55;
+}
+
+.mascot .m-tv {
+  fill: var(--m-ink);
+}
+
+.mascot .m-screen {
+  fill: var(--m-accent);
+  opacity: 0.6;
+}
+
+.mascot .m-play {
+  fill: var(--m-body);
+}
+
+/* ペアの芽: いまの季節の1つだけ */
+.mascot .m-sprout {
+  display: none;
+}
+
+.mascot .m-sprout--show,
+:root:not([data-season]) .mascot .m-sprout--autumn,
+:root[data-season='spring'] .mascot .m-sprout--spring,
+:root[data-season='summer'] .mascot .m-sprout--summer,
+:root[data-season='autumn'] .mascot .m-sprout--autumn,
+:root[data-season='winter'] .mascot .m-sprout--winter {
+  display: inline;
+}
+
+/* 読み込み中: アニのアンテナが揺れて受信している（動きを減らす設定では、アンテナの先の玉がゆっくり明滅するだけ） */
+.mascot .m-antenna--wiggle {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: m-wiggle 0.9s ease-in-out infinite;
+}
+
+@keyframes m-wiggle {
+  0%,
+  100% {
+    transform: rotate(-9deg);
+  }
+  50% {
+    transform: rotate(9deg);
+  }
+}
+
+:root[data-motion='reduce'] .mascot .m-antenna--wiggle {
+  animation: none;
+}
+
+:root[data-motion='reduce'] .mascot .m-antenna--wiggle .m-tip {
+  animation: loading-fade 1.6s ease-in-out infinite;
+}
+
+/* 場面の絵（ログイン前・提案の前・空の一覧・困った・うれしい） */
+.scene-art {
+  width: min(100%, 280px);
+  height: auto;
+  margin: 0 auto;
+}
+
+.scene-art--small {
+  width: min(100%, 200px);
+}
+
+/* ログイン前の画面: ロゴとキャッチコピーのあいだ */
+.welcome__art {
+  width: min(100%, 300px);
+  margin: 24px auto 0;
+}
+
+/* 空・うまくいかなかった・やりきった・これから見つける（components/Empty.tsx） */
+.empty__art {
+  width: min(100%, 220px);
+  margin-bottom: 4px;
+}
+
+/* 評価・マッチングの画面は高さが決まっているので、絵は画面の高さに合わせて小さくする（下の答えのボタンに重ならないように） */
+.flow__placeholder .empty__art {
+  width: auto;
+  max-width: 100%;
+  height: clamp(72px, 16dvh, 150px);
+  aspect-ratio: 300 / 170;
+}
+
+/* ── うろうろ（components/MascotPeek.tsx）──
+   のぞく: 帯の上端で切り抜いた箱の中を下から上がり、触れられるまで居続けて、ときどききょろきょろする。触れると下がる。
+   散歩: 帯の上を、ゆっくり弾みながら端から端まで通り過ぎる（2人のときは、アニが先を歩き、ペアがついていく）。体だけが押せる */
+.peek {
+  position: fixed;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.peek__body {
+  width: 60px;
+  height: 60px;
+  pointer-events: auto;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.peek--peek {
+  height: 52px;
+  overflow: hidden;
+  transform: translateX(-50%);
+}
+
+.peek--peek .peek__walker {
+  transform-origin: 50% 100%;
+  animation:
+    peek-rise 0.6s cubic-bezier(0.3, 0.7, 0.2, 1) both,
+    peek-look 5s 0.8s ease-in-out infinite;
+}
+
+@keyframes peek-rise {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(14%);
+  }
+}
+
+/* きょろきょろ（左を見て、右を見て、しばらく止まる） */
+@keyframes peek-look {
+  0%,
+  100% {
+    transform: translateY(14%) rotate(0deg);
+  }
+  12% {
+    transform: translateY(14%) rotate(-9deg);
+  }
+  28% {
+    transform: translateY(14%) rotate(9deg);
+  }
+  40%,
+  90% {
+    transform: translateY(14%) rotate(0deg);
+  }
+}
+
+/* 触れられたら、跳ねて喜ぶ */
+.peek--peek.peek--cheer .peek__walker {
+  animation: peek-cheer 0.9s cubic-bezier(0.3, 0.7, 0.2, 1) both;
+}
+
+@keyframes peek-cheer {
+  0%,
+  100% {
+    transform: translateY(14%);
+  }
+  35% {
+    transform: translateY(-6%);
+  }
+}
+
+/* 引っ込む */
+.peek--peek.peek--leave .peek__walker {
+  animation: peek-sink 0.6s cubic-bezier(0.5, 0, 0.75, 0) both;
+}
+
+@keyframes peek-sink {
+  from {
+    transform: translateY(14%);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+
+.peek--walk {
+  left: 0;
+  right: 0;
+  height: 64px;
+  overflow: hidden;
+}
+
+/* 2人のときは、アニが進む向きの先頭（左から右へは右側、右から左へは左側） */
+.peek--walk .peek__walker {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: flex-end;
+  gap: 10px;
+  animation: peek-walk var(--walk-ms, 14s) linear both;
+}
+
+.peek--walk.peek--rtl .peek__walker {
+  flex-direction: row;
+  animation-name: peek-walk-rtl;
+}
+
+.peek--walk .peek__body {
+  animation: peek-step 0.7s ease-in-out infinite alternate;
+}
+
+.peek--walk .peek__body--pair {
+  width: 54px;
+  height: 54px;
+}
+
+.peek--walk.peek--rtl .peek__body {
+  scale: -1 1;
+}
+
+/* 触れた子は、ぴょんと跳ねる（歩くのはやめない） */
+.peek--walk .peek__body--hop {
+  animation: peek-hop 0.45s ease-in-out 2 alternate;
+}
+
+@keyframes peek-walk {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100vw);
+  }
+}
+
+@keyframes peek-walk-rtl {
+  from {
+    transform: translateX(100vw);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+/* ゆっくり散歩: 小さく弾みながら、少し左右に揺れる */
+@keyframes peek-step {
+  from {
+    transform: translateY(1px) rotate(-2.5deg);
+  }
+  to {
+    transform: translateY(-3px) rotate(2.5deg);
+  }
+}
+
+@keyframes peek-hop {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-12px);
+  }
+}
+
+/* 動きを減らす設定と演出「なし」では出さない（部品の側でも出さないが、設定を途中で変えたときのため） */
+:root[data-motion='reduce'] .peek,
+:root[data-effects='off'] .peek {
+  display: none;
+}
+
+/* 称号を手に入れたときの知らせ（features/achievements/TitleToastView.tsx）: 喜ぶペア。体の外の線は知らせの文字の色 */
+.titletoast__mascot {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  margin: -6px 0;
+}
+
+.titletoast__mascot .m-wire {
+  stroke: currentColor;
+}
+
+/* ── 「Anipair の使い方」（components/UsageGuide.tsx）──
+   ページごとに、画面を簡単にした図（説明する場所を差し色で光らせる）と、横に立つアニかペア。下に見出しと説明、点と「戻る」「次へ」 */
+/* 画面の高さいっぱいに広げ、「戻る」「次へ」を下に置く（スマホで親指の届く所） */
+.guide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  max-width: 34rem;
+  min-height: calc(100dvh - 120px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  margin: 0 auto;
+  padding: 8px 0 12px;
+  text-align: center;
+}
+
+.guide__dots {
+  margin-top: auto;
+}
+
+.guide__count {
+  color: var(--sub);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.guide__art {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 210px;
+  animation: guide-in 0.32s cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+
+@keyframes guide-in {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+}
+
+.guide-scene {
+  width: min(100%, 300px);
+}
+
+.guide-art {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4px;
+}
+
+.guide-art__mascot {
+  width: 96px;
+  height: auto;
+  margin-bottom: -4px;
+}
+
+.guide-art__mascot[viewBox='0 0 200 120'] {
+  width: 150px;
+}
+
+.guide-wire {
+  width: 128px;
+  height: auto;
+}
+
+.guide-wire__frame {
+  fill: var(--control);
+  stroke: var(--fg);
+  stroke-width: 3;
+}
+
+.guide-wire__ink {
+  fill: var(--fg);
+}
+
+.guide-wire__soft,
+.guide-wire__bar {
+  fill: color-mix(in oklab, var(--fg) 14%, transparent);
+}
+
+.guide-wire__cover {
+  fill: color-mix(in oklab, var(--fg) 28%, transparent);
+}
+
+.guide-wire__dot {
+  fill: color-mix(in oklab, var(--fg) 35%, transparent);
+}
+
+/* 説明している場所。差し色でゆっくり明滅する */
+.guide-wire__hl {
+  fill: var(--m-accent);
+  animation: guide-hl 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes guide-hl {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.guide-wire__arrow {
+  fill: none;
+  stroke: var(--m-accent);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.guide__title {
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.guide__body {
+  max-width: 30em;
+  color: var(--sub);
+  font-size: 0.92rem;
+  line-height: 1.85;
+  text-align: left;
+}
+
+.guide__dots {
+  display: flex;
+  gap: 8px;
+  padding-top: 8px;
+}
+
+.guide__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--fg) 22%, transparent);
+}
+
+.guide__dot--on {
+  width: 22px;
+  background: var(--fg);
+}
+
+.guide__nav {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 10px;
+  width: min(100%, 22rem);
+}
+
+.guide__nav .btn {
+  min-height: 46px;
+}
+
+@media (min-width: 960px) {
+  .guide {
+    min-height: 0;
+    padding-top: 24px;
+  }
+
+  .guide__dots {
+    margin-top: 8px;
+  }
+
+  .mascotprofile__card {
+    grid-template-columns: 140px minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  .mascotprofile__figure {
+    width: 140px;
+  }
+
+  .guide__title {
+    font-size: 1.6rem;
+  }
+}
+
+/* ── 「アニとペアのこと」（features/settings/MascotProfile.tsx）── */
+.mascotprofile__title {
+  margin-top: 8px;
+  font-size: 1.6rem;
+}
+
+.mascotprofile__lead {
+  margin-top: 8px;
+  color: var(--sub);
+  font-size: 0.92rem;
+  line-height: 1.85;
+}
+
+.mascotprofile__card {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.mascotprofile__figure {
+  width: 96px;
+  height: auto;
+}
+
+.mascotprofile__list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 0.88rem;
+  line-height: 1.75;
+}
+
+.mascotprofile__row {
+  display: grid;
+  grid-template-columns: 5.5em minmax(0, 1fr);
+  gap: 8px;
+}
+
+.mascotprofile__row dt {
+  color: var(--sub);
+  font-weight: 700;
+}
+
+.mascotprofile__seasons {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+  list-style: none;
+  text-align: center;
+}
+
+.mascotprofile__seasons svg {
+  width: 100%;
+  max-width: 96px;
+  height: auto;
+  margin: 0 auto;
+}
+
+.mascotprofile__seasons span {
+  display: block;
+  margin-top: 2px;
+  color: var(--sub);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.mascotprofile__note,
+.mascotprofile__foot {
+  margin-top: 10px;
+  color: var(--sub);
+  font-size: 0.85rem;
+  line-height: 1.8;
+}
+
+.mascotprofile__foot {
+  margin: 24px 0 8px;
+}
+
+@media (max-width: 420px) {
+  .mascotprofile__card {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .mascotprofile__card > div {
+    width: 100%;
+  }
+}

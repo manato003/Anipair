@@ -135,6 +135,7 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
           placeholder={
             m.phase.kind === 'idle' ? (
             <Empty
+              mood="propose"
               title="次に見る作品を探す"
               body="Annict の記録から好みを調べて、まだ記録していない作品を提案します。「見たい」を押すと Annict の見たいリストに入ります。"
             >
@@ -151,19 +152,19 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
               {m.phase.note && <p className="card__note">{m.phase.note}</p>}
             </div>
           ) : m.phase.kind === 'error' ? (
-            <Empty title="提案を作れませんでした" body={m.phase.message}>
+            <Empty mood="trouble" title="提案を作れませんでした" body={m.phase.message}>
               <button type="button" className="btn" onClick={run}>
                 もう一度試す
               </button>
             </Empty>
           ) : m.phase.kind === 'empty' ? (
-            <Empty title="まだ提案できません" body={m.phase.message}>
+            <Empty mood="empty" title="まだ提案できません" body={m.phase.message}>
               <button type="button" className="btn" onClick={run}>
                 もう一度試す
               </button>
             </Empty>
           ) : m.done || !m.current ? (
-            <Empty title="候補はここまで" body="「見たい」にした作品は Annict の見たいリストに入っています。保留にした作品は1週間後に、興味なしにした作品は3ヶ月後に、また候補に出てきます。">
+            <Empty mood="done" title="候補はここまで" body="「見たい」にした作品は Annict の見たいリストに入っています。保留にした作品は1週間後に、興味なしにした作品は3ヶ月後に、また候補に出てきます。">
               <button type="button" className="btn btn--primary" onClick={run}>
                 もう一度提案してもらう
               </button>

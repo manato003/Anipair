@@ -139,7 +139,7 @@ export function Browse({ token, active = true }: { token: string; active?: boole
 
       <div className="records__list">
         {b.error ? (
-          <Empty title="作品を読み込めませんでした" body={b.error}>
+          <Empty mood="trouble" title="作品を読み込めませんでした" body={b.error}>
             <button type="button" className="btn" onClick={b.retry}>
               もう一度読み込む
             </button>
@@ -148,6 +148,7 @@ export function Browse({ token, active = true }: { token: string; active?: boole
           <Loading block label={b.progress ?? (b.searching ? '検索中' : `${hasPeriod ? periodLabel(b.period) : seasonLabel(b.season)}の作品を読み込み中`)} remaining={b.progressWork} />
         ) : b.works.length === 0 ? (
           <Empty
+            mood="empty"
             title="見つかりませんでした"
             body={
               hasPeriod
@@ -160,7 +161,7 @@ export function Browse({ token, active = true }: { token: string; active?: boole
             }
           />
         ) : works && works.length === 0 ? (
-          <Empty title="当てはまる作品がありません" body={b.hasMore ? '絞り込みの条件をゆるめるか、「もっと見る」で作品を増やしてください。' : '絞り込みの条件をゆるめてください。'}>
+          <Empty mood="empty" title="当てはまる作品がありません" body={b.hasMore ? '絞り込みの条件をゆるめるか、「もっと見る」で作品を増やしてください。' : '絞り込みの条件をゆるめてください。'}>
             <button type="button" className="btn" onClick={() => setFilter(EMPTY_BROWSE_FILTER)}>
               絞り込みを解除する
             </button>

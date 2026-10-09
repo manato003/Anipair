@@ -1,8 +1,8 @@
 import { useEffect } from 'react'
-import { TrophyIcon } from '../../components/Icons'
+import { Pair } from '../../components/Mascot'
 import { dismissTitleToast, useTitleToast } from './titleToast'
 
-// 称号を手に入れたときの知らせ。右上から降りて、約3秒で戻る（styles/achievements.css）。押すと閉じる
+// 称号を手に入れたときの知らせ。右上から降りて、約3秒で戻る（styles/achievements.css）。押すと閉じる。ペアが両手を上げて喜ぶ
 const SHOW_MS = 3200
 
 export function TitleToastView() {
@@ -16,7 +16,7 @@ export function TitleToastView() {
     <div className="titletoast__live" role="status" aria-live="polite">
       {toast && (
         <button key={toast.key} type="button" className={`titletoast rarity--${toast.rarity}`} onClick={() => dismissTitleToast(toast.key)}>
-          <TrophyIcon />
+          <Pair expr="happy" arms="up" className="titletoast__mascot" />
           <span className="titletoast__body">
             <b>称号を手に入れた</b>
             <span>

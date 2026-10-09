@@ -231,7 +231,8 @@ describe('Backfill first-run guide', () => {
     localStorage.clear()
     const { unmount } = render(<Backfill token="t" github={null} active />)
     expect(screen.getByRole('dialog', { name: 'Anipair の使い方' })).toBeTruthy()
-    expect(screen.getByText('Anipair の使い方')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'ようこそ、Anipair へ' })).toBeTruthy()
+    for (let i = 0; i < 6; i++) fireEvent.click(screen.getByRole('button', { name: '次へ' }))
     fireEvent.click(screen.getByRole('button', { name: 'はじめる' }))
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(localStorage.getItem('animax.onboarding.v1')).toContain('"v":1')
@@ -260,6 +261,7 @@ describe('Backfill first-run guide', () => {
     expect(answer).not.toHaveBeenCalled()
     expect(screen.queryByTestId('sheet')).toBeNull()
 
+    for (let i = 0; i < 6; i++) fireEvent.click(screen.getByRole('button', { name: '次へ' }))
     fireEvent.click(screen.getByRole('button', { name: 'はじめる' }))
     press('3')
     expect(answer).toHaveBeenCalledTimes(1)
