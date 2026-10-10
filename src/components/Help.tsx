@@ -63,7 +63,7 @@ const TOURS: Record<HelpTopic, readonly TourStep[]> = {
     { target: '#settings-theme', title: '表示', body: 'テーマの色・明るさ・時刻で色を変えるか・片手操作（よく押すボタンを左右どちらに寄せるか）・画面の動きを選べます。' },
     { target: '#settings-account', title: 'Annict 連携', body: 'ログインとログアウトです。記録はすべて、あなたの Annict に保存されます。Annict の調子（緑は正常、黄は混み合い、赤は応答なし）もここで見られます。' },
     { target: '#settings-github', title: 'GitHub 連携（任意）', body: '連携すると、興味なし・保留・見てないを PC とスマホで共有でき、毎日自動でバックアップされます。' },
-    { target: '#settings-backup', title: 'バックアップ', body: '連携しなくても、すべての記録をファイルに書き出せます。' },
+    { target: '#settings-backup', title: 'バックアップ', body: '連携しなくても、作品ごとの記録をファイルに書き出せます。' },
     { target: '#settings-buttons', title: 'ボタンの表示', body: '評価とマッチングのボタンを、アイコンと名前・アイコンだけ・名前だけから選べます。' },
     { target: '#settings-effects', title: '演出', body: '10件ごとや踏破の演出の強さを選べます。' },
   ],

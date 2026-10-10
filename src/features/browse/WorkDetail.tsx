@@ -22,6 +22,7 @@ import { CreditWorks, type CreditTarget } from './CreditWorks'
 import { STATUS_LABEL, mainStaff, seriesFacts, studioFor, withCopyrightMark, safeHttpUrl, workMeta, xUrl } from './detail'
 import { RelatedDetail, type RelatedTarget } from './RelatedDetail'
 import { RelatedWorks } from './RelatedWorks'
+import { SimilarWorks } from './SimilarWorks'
 import { Loading } from '../../components/Loading'
 import { ExternalIcon, InfoIcon, PeopleIcon, UserIcon } from '../../components/Icons'
 import { ReviewEditor } from './ReviewEditor'
@@ -266,8 +267,8 @@ export function WorkDetail(
   const settled = waitedLong || (error !== null && shikiDone) || (detail !== null && wiki !== undefined && shikiDone)
   const rootRef = useRef<HTMLDivElement>(null)
   const ready = useFontsReady(settled, rootRef)
-  // 「作品について」の塊に出すものがあるか（無ければ塊ごと出さない）
-  const hasAbout = genres.length > 0 || dataRows.length > 0 || !!wiki || (detail?.series?.length ?? 0) > 0 || (shiki?.related?.length ?? 0) > 0
+  // 「作品について」の塊に出すものがあるか（無ければ塊ごと出さない。MyAnimeList の ID があれば、似た作品の棚が出うる）
+  const hasAbout = genres.length > 0 || dataRows.length > 0 || !!wiki || (detail?.series?.length ?? 0) > 0 || (shiki?.related?.length ?? 0) > 0 || !!malIdOf(work)
   // 待つのをやめて出したあとも、まだ届いていない部分。届くまで、何を読んでいるかを添えて読み込み中を出し続ける
   // （出ている分だけで全部だと思わせない）。あらすじは Annict の詳細が届いてから Wikipedia を読む
   const detailPending = detail === null && error === null
@@ -497,6 +498,9 @@ export function WorkDetail(
                   states={relatedStates}
                   onOpen={setRelated}
                 />
+
+                {/* 似た作品: Shikimori の似た作品を表紙の棚で（棚が画面に近づいてから読む） */}
+                <SimilarWorks malId={malIdOf(work)} onOpen={setRelated} />
               </section>
             )}
 

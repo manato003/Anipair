@@ -202,6 +202,28 @@ describe('runBackup', () => {
     expect(fetchLibrary).toHaveBeenCalledTimes(2)
   })
 
+  it('does not hand a running backup to another account or repository: the new one runs after it, with its own token and repository', async () => {
+    let open!: () => void
+    libraryGate = new Promise<void>((r) => (open = r))
+    const other = { token: 'g2', repo: 'me/other-data' }
+    const first = runBackup('a', conn)
+    const second = runBackup('b', other)
+    expect(second).not.toBe(first)
+    // 前のが終わるまでは、新しい相手の読み込みを始めない
+    await Promise.resolve()
+    expect(fetchLibrary).toHaveBeenCalledTimes(1)
+    open()
+    await Promise.all([first, second])
+    expect(vi.mocked(fetchLibrary).mock.calls.map((c) => c[0])).toEqual(['a', 'b'])
+    expect(vi.mocked(readJson).mock.calls.map((c) => c[0])).toEqual([conn, other])
+    // 新しい相手で動いている最中の頼みは、そちらと同じ結果
+    libraryGate = new Promise<void>((r) => (open = r))
+    const third = runBackup('b', other)
+    expect(runBackup('b', other)).toBe(third)
+    open()
+    await third
+  })
+
   it('allows a new run after a failed one', async () => {
     vi.mocked(fetchLibrary).mockRejectedValueOnce(new Error('boom'))
     await expect(runBackup('a', conn)).rejects.toThrow('boom')

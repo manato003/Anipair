@@ -54,16 +54,22 @@ export function isBackupDue(now: Date): boolean {
   return lastAt === null || now.getTime() - Date.parse(lastAt) >= BACKUP_INTERVAL_MS
 }
 
-let running: Promise<BackupResult> | null = null
+// 動いているバックアップと、その相手（Annict のアカウントと GitHub の接続先）
+let running: { key: string; promise: Promise<BackupResult> } | null = null
 
-// 同時には1つだけ動かす。動いている最中にもう一度頼まれたら、同じ結果を返す
-// （自動と「今すぐ」が重なっても、Annict の読み込みと GitHub への書き込みが二重にならない）
+// 同時には1つだけ動かす。同じアカウント・同じ接続先で動いている最中にもう一度頼まれたら、同じ結果を返す
+// （自動と「今すぐ」が重なっても、Annict の読み込みと GitHub への書き込みが二重にならない）。
+// 相手が違えば（途中でアカウントや接続先を替えた）、前のが終わってから新しい相手で動かす（前の結果を新しい相手の結果として返さない）
 export function runBackup(annictToken: string, conn: GithubConnection, opts: { force?: boolean; now?: Date } = {}): Promise<BackupResult> {
-  if (running) return running
-  const promise = backup(annictToken, conn, opts).finally(() => {
-    running = null
-  })
-  running = promise
+  const key = JSON.stringify([annictToken, conn.token, conn.repo])
+  if (running?.key === key) return running.promise
+  const before = running ? running.promise.catch(() => undefined) : Promise.resolve()
+  const promise: Promise<BackupResult> = before
+    .then(() => backup(annictToken, conn, opts))
+    .finally(() => {
+      if (running?.promise === promise) running = null
+    })
+  running = { key, promise }
   return promise
 }
 

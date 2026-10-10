@@ -16,8 +16,9 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
-/* 中身の段は、それぞれ重なりの層を作る（下の段ほど後ろ。10件ごとの演出や浮かぶ札は、この下で前に出す） */
-.rate > * {
+/* 中身の段は、それぞれ重なりの層を作る（下の段ほど後ろ。10件ごとの演出や浮かぶ札は、この下で前に出す）。
+   読み上げだけの見出し（.visually-hidden）は除く。position を上書きすると、グリッドの1行を取って、表紙に回る高さを奪う */
+.rate > :not(.visually-hidden) {
   position: relative;
   z-index: 1;
 }
@@ -1229,5 +1230,41 @@
   .rate.rate--flow .rate__head--stepper > .headactions {
     grid-column: 3;
     justify-self: end;
+  }
+}
+
+/* 縦長の広い画面（縦置きの PC のモニター・縦にしたタブレット）: 左右に並べると、表紙が横幅で抑えられて上半分が空く。
+   スマホと同じ縦の流れ（上から 直前の答え・表紙・題名・次の作品・答え）にして、表紙を大きくする。
+   表紙の高さは、列の幅から決まる高さと 900px（画像は縦 600〜1000px ほどなので、引き伸ばしてぼやけない大きさ）の小さいほうまで。
+   余った高さは、表紙から答えまでをひとまとまりにして上下に分ける（表紙と題名のあいだを空けない） */
+@media (min-width: 600px) and (max-aspect-ratio: 4/5) {
+  .rate.rate--flow {
+    --flow-w: min(760px, 100vw / var(--zoom)) - 80px;
+    max-width: 760px;
+    padding-inline: 40px;
+  }
+
+  .flow {
+    grid-template-areas: 'prev' 'art' 'text' 'next' 'ans';
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, min(calc((var(--flow-w)) / var(--cover-ratio)), calc(900px / var(--zoom)))) auto auto auto;
+    align-content: center;
+    column-gap: 0;
+    row-gap: 12px;
+  }
+
+  .flow__row {
+    justify-self: center;
+    width: min(100%, 560px);
+  }
+
+  .flow__text {
+    align-self: start;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .flow__answers {
+    align-self: auto;
   }
 }

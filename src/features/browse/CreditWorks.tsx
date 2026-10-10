@@ -4,7 +4,7 @@ import { Sheet } from '../../components/Sheet'
 import { annictCreditUrl, peekLibrary, type Credit } from '../../lib/annict'
 import { fetchCharacterNames, fetchMedia, fetchPersonWorks, fetchStudioWorks, findPerson, type Media } from '../../lib/shikimori'
 import { messageOf } from '../../lib/useWriteQueue'
-import { STATUS_LABEL } from './detail'
+import { FORMAT_LABEL, marksByMal } from './detail'
 import { RelatedDetail } from './RelatedDetail'
 import type { Enqueue, RelatedChange } from './WorkDetail'
 import { Loading } from '../../components/Loading'
@@ -35,8 +35,6 @@ type Order = 'newest' | 'popular'
 const HIDDEN_FORMATS = new Set(['PV', 'CM'])
 // 最初に出す件数（多い人は数百ある）
 const FIRST = 60
-
-const FORMAT_LABEL: Record<string, string> = { TV: 'TV', MOVIE: '劇場版', OVA: 'OVA', ONA: '配信', TV_SPECIAL: 'TVスペシャル', SPECIAL: 'スペシャル', MUSIC: 'MV' }
 
 // 新着順: 放送年の新しい順（年の分からない作品は最後）。人気順: Shikimori でリストに入れている人の多い順
 function orderWorks(works: readonly CreditWork[], order: Order): CreditWork[] {
@@ -105,15 +103,7 @@ export function CreditWorks(
   }, [target])
 
   // 自分の記録の印（アプリが最後に読んだライブラリ。MyAnimeList の ID ごと）
-  const mine = useMemo(() => {
-    const out = new Map<number, string>()
-    for (const e of peekLibrary() ?? []) {
-      const mal = Number(e.malAnimeId)
-      const label = STATUS_LABEL[e.state]
-      if (Number.isInteger(mal) && mal > 0 && label) out.set(mal, label)
-    }
-    return out
-  }, [])
+  const mine = useMemo(() => marksByMal(peekLibrary()), [])
 
   const list = useMemo(() => (found.kind === 'found' ? orderWorks(found.works, order) : []), [found, order])
   const visible = more ? list : list.slice(0, FIRST)

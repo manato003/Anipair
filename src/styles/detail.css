@@ -438,6 +438,105 @@ a.related__title {
   font-size: 0.8rem;
 }
 
+/* 似た作品（SimilarWorks）。表紙の棚。スマホは横に流し、広い画面は折り返して並べる。
+   読み込む前は、位置を測るための高さ 1px の箱だけ */
+.similar__probe {
+  height: 1px;
+}
+
+.similar__list {
+  display: grid;
+  grid-auto-columns: 104px;
+  grid-auto-flow: column;
+  gap: 12px;
+  margin-inline: -4px;
+  padding: 2px 4px 8px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+  list-style: none;
+}
+
+.similar__list > li {
+  scroll-snap-align: start;
+}
+
+.similar__item {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.similar__cover {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  aspect-ratio: var(--cover-ratio);
+  border-radius: var(--radius-s);
+  background: var(--ink-raised);
+  box-shadow: 0 0 0 1px var(--line);
+}
+
+.similar__cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 自分の記録（見た・見たいなど）の印。表紙の左下に */
+.similar__mine {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.62);
+  color: #fff;
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.similar__title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--paper);
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.similar__meta {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+@media (hover: hover) {
+  .similar__item:hover .similar__title {
+    color: var(--brand-blue);
+  }
+}
+
+@media (min-width: 960px) {
+  .similar__list {
+    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+    grid-auto-columns: auto;
+    grid-auto-flow: row;
+    row-gap: 16px;
+    overflow: visible;
+  }
+}
+
 @media (min-width: 960px) {
   .detail__head {
     grid-template-columns: 320px minmax(0, 1fr);

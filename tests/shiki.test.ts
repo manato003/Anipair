@@ -163,6 +163,17 @@ describe('handleShiki keeps one URL per answer', () => {
     }
     expect(fetchFn).not.toHaveBeenCalled()
   })
+
+  it('accepts only the versions the app uses for anime and studio lookups (other versions would bypass the CDN copy)', async () => {
+    const fetchFn = upstream(200, { data: { animes: [RAW] } })
+    for (const v of ['1', '3', '7', '99', '06', '0']) {
+      expect((await handleShiki(req(`?op=animes&ids=1&v=${v}`), fetchFn)).status).toBe(400)
+      expect((await handleShiki(req(`?op=studio&id=1&page=1&v=${v}`), fetchFn)).status).toBe(400)
+    }
+    expect(fetchFn).not.toHaveBeenCalled()
+    for (const v of ['4', '5', '6']) expect((await handleShiki(req(`?op=animes&ids=1&v=${v}`), fetchFn)).status).toBe(200)
+    expect((await handleShiki(req('?op=animes&ids=1'), fetchFn)).status).toBe(200)
+  })
 })
 
 describe('handleShiki similar', () => {

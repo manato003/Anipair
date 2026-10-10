@@ -64,6 +64,33 @@ describe('writeJournal', () => {
     expect(stored().map((e) => e.key)).toEqual(['status:W1'])
   })
 
+  it('drops entries whose wish is missing fields or has values the app never writes, and keeps the well-formed ones', () => {
+    const axes = { ratingOverallState: 'GOOD', ratingStoryState: null, ratingAnimationState: null, ratingMusicState: null, ratingCharacterState: null }
+    const good: WriteIntent[] = [
+      status('W1'),
+      { kind: 'rating', workId: 'W2', annictId: 2, rating: null },
+      { kind: 'review', workId: 'W3', annictId: 3, content: { axes: axes as never, body: 'よかった' } },
+      { kind: 'episode', episodeId: 'E1', recorded: true, rating: 'GREAT', since: 1, comment: 'x' },
+      { kind: 'episodeComment', episodeId: 'E2', comment: 'y', rating: null, since: 1 },
+      { kind: 'match', idMal: 5, title: { native: 'x', romaji: null, english: null }, state: 'WANNA_WATCH' },
+    ]
+    const bad = [
+      { kind: 'status', workId: 'W9', state: 'LOVED' },
+      { kind: 'status', workId: '', state: 'WATCHED' },
+      { kind: 'rating', workId: 'W9', annictId: '9', rating: null },
+      { kind: 'review', workId: 'W9', annictId: 9, content: { axes: { ...axes, ratingStoryState: 'SUPER' }, body: '' } },
+      { kind: 'review', workId: 'W9', annictId: 9, content: { body: '' } },
+      { kind: 'episode', episodeId: 'E9', recorded: 'yes', rating: null, since: 1 },
+      { kind: 'episodeComment', episodeId: 'E9', comment: 3, rating: null, since: 1 },
+      { kind: 'match', idMal: 9, title: 'x', state: 'WANNA_WATCH' },
+      { kind: 'match', idMal: 0, title: { native: 'x', romaji: null, english: null }, state: 'WANNA_WATCH' },
+    ]
+    // 壊れた控えも、キーはその中身から作ったもの（キーの食い違いでは落ちない形）にして、中身の確かめで落ちることを見る
+    const keyFor = (i: Record<string, unknown>) => `${i.kind === 'episode' || i.kind === 'episodeComment' ? `${i.kind}:${i.episodeId}` : i.kind === 'match' ? `match:${i.idMal}` : `${i.kind}:${i.workId}`}`
+    fromLastVisit([...good, ...(bad as never[])].map((intent, i) => ({ key: keyFor(intent as Record<string, unknown>), label: 'x', intent, at: 1, seq: i + 1 })))
+    expect(leftoverEntries().map((e) => e.intent)).toEqual(good)
+  })
+
   it('keys every kind of wish', () => {
     expect(keyOf({ kind: 'review', workId: 'W1', annictId: 1, content: { axes: { ratingOverallState: null, ratingStoryState: null, ratingAnimationState: null, ratingMusicState: null, ratingCharacterState: null }, body: '' } })).toBe('review:W1')
     expect(keyOf({ kind: 'episode', episodeId: 'E1', recorded: true, rating: null, since: 0 })).toBe('episode:E1')

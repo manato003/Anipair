@@ -1,4 +1,4 @@
-import type { AnnictSeries, StatusState } from '../../lib/annict'
+import type { AnnictSeries, LibraryEntry, StatusState } from '../../lib/annict'
 import { compareSeasons, seasonOf, type SeasonName } from '../../lib/season'
 
 // ブラウズの詳細画面で使う純粋な関数
@@ -72,6 +72,20 @@ export const STATUS_LABEL: Partial<Record<StatusState, string>> = {
   WANNA_WATCH: '見たい',
   ON_HOLD: '視聴中断',
   STOP_WATCHING: '視聴中断',
+}
+
+// Shikimori の作品の形式の日本語（参加作品・似た作品の一覧）
+export const FORMAT_LABEL: Record<string, string> = { TV: 'TV', MOVIE: '劇場版', OVA: 'OVA', ONA: '配信', TV_SPECIAL: 'TVスペシャル', SPECIAL: 'スペシャル', MUSIC: 'MV' }
+
+// 自分の記録の印（見た・見たいなど）を、MyAnimeList の ID ごとに引けるようにする（参加作品・似た作品の一覧に添える）
+export function marksByMal(entries: readonly Pick<LibraryEntry, 'malAnimeId' | 'state'>[] | null): Map<number, string> {
+  const out = new Map<number, string>()
+  for (const e of entries ?? []) {
+    const mal = Number(e.malAnimeId)
+    const label = STATUS_LABEL[e.state]
+    if (Number.isInteger(mal) && mal > 0 && label) out.set(mal, label)
+  }
+  return out
 }
 
 // 権利表記には先頭に ©。Annict の文字に © や (c) がもう入っていれば、そのまま出す

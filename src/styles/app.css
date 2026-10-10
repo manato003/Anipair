@@ -296,6 +296,21 @@ img {
   font-size: 0.85rem;
 }
 
+/* 画面ごとの囲い（ScreenBoundary）。案内の絵と文は .empty（幅は 30ch まで）に任せて中央に置き、ボタンを横に並べる */
+.crash--screen {
+  justify-items: center;
+  width: 100%;
+  padding-top: 12vh;
+}
+
+.crash__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
 /* ── 広い画面（幅 960px 以上） ──
    上の帯にタブを移し、評価・マッチングは表紙と操作を左右に並べ、記録・ブラウズは表紙のグリッドにする。
    600〜960px は、狭い画面の作りを中央に寄せたまま使う */

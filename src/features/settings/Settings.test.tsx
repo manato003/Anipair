@@ -154,7 +154,7 @@ describe('Settings GitHub block', () => {
     show({ section: 'settings-github', github: null })
     expect(screen.getByRole('heading', { name: 'GitHub 連携（任意）' })).toBeTruthy()
     expect(screen.getByText('興味なし・保留・見てないを、PC とスマホで共有する')).toBeTruthy()
-    expect(screen.getByText('すべての記録を、毎日自動でバックアップする（変更履歴つき）')).toBeTruthy()
+    expect(screen.getByText('作品ごとの記録を、毎日自動でバックアップする（変更履歴つき）')).toBeTruthy()
     expect(screen.getByText(/連携しなくても、すべての機能を使えます/)).toBeTruthy()
   })
 

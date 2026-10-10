@@ -3,6 +3,7 @@ import { AuthExpiredBanner } from './components/AuthExpiredBanner'
 import { TabIcon } from './components/Icons'
 import { Logo } from './components/Logo'
 import { useAutoBackup } from './features/backup/useAutoBackup'
+import { ScreenBoundary } from './components/ErrorBoundary'
 import { Loading } from './components/Loading'
 import { usePrefetchTaste } from './features/match/usePrefetchTaste'
 import { Backfill } from './features/rate/Backfill'
@@ -77,7 +78,9 @@ function Screen(props: { active: boolean; enter: SwipeDir | null; children: Reac
   return (
     <div className={props.className ?? 'app__screen'} hidden={!props.active} data-enter={props.enter ?? undefined}>
       <SheetLayer.Provider value={layer}>
-        <Suspense fallback={<Loading block label="画面を読み込み中" />}>{props.children}</Suspense>
+        <ScreenBoundary>
+          <Suspense fallback={<Loading block label="画面を読み込み中" />}>{props.children}</Suspense>
+        </ScreenBoundary>
       </SheetLayer.Provider>
       <div className="app__layer" ref={setLayer} />
     </div>

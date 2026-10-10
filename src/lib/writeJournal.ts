@@ -51,21 +51,51 @@ export function keyOf(intent: WriteIntent): string {
   }
 }
 
-const KINDS = ['status', 'rating', 'review', 'episode', 'episodeComment', 'match']
+// 端末の控えは、壊れていたり古い版のものだったりしうる。送る前に、種類ごとに項目の型と値を確かめる（足りない・おかしいものは捨てる）
+const STATUSES: readonly unknown[] = ['WANNA_WATCH', 'WATCHING', 'WATCHED', 'ON_HOLD', 'STOP_WATCHING', 'NO_STATE']
+const RATINGS: readonly unknown[] = ['BAD', 'AVERAGE', 'GOOD', 'GREAT']
+const AXES = ['ratingOverallState', 'ratingStoryState', 'ratingAnimationState', 'ratingMusicState', 'ratingCharacterState'] as const
+
+const text = (v: unknown): v is string => typeof v === 'string' && v !== ''
+const id = (v: unknown): v is number => Number.isInteger(v) && (v as number) > 0
+const rating = (v: unknown): boolean => v === null || RATINGS.includes(v)
+const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
+const optionalText = (v: unknown): boolean => v === null || typeof v === 'string'
+
+function isIntent(v: unknown): v is WriteIntent {
+  if (!record(v)) return false
+  switch (v.kind) {
+    case 'status':
+      return text(v.workId) && STATUSES.includes(v.state)
+    case 'rating':
+      return text(v.workId) && id(v.annictId) && rating(v.rating)
+    case 'review': {
+      const c = v.content
+      return text(v.workId) && id(v.annictId) && record(c) && typeof c.body === 'string' && record(c.axes) && AXES.every((k) => rating((c.axes as Record<string, unknown>)[k]))
+    }
+    case 'episode':
+      return text(v.episodeId) && typeof v.recorded === 'boolean' && rating(v.rating) && typeof v.since === 'number' && (v.comment === undefined || typeof v.comment === 'string')
+    case 'episodeComment':
+      return text(v.episodeId) && typeof v.comment === 'string' && rating(v.rating) && typeof v.since === 'number'
+    case 'match': {
+      const t = v.title
+      return id(v.idMal) && record(t) && optionalText(t.native) && optionalText(t.romaji) && optionalText(t.english) && STATUSES.includes(v.state) && (v.rating === undefined || rating(v.rating))
+    }
+    default:
+      return false
+  }
+}
+
 function isEntry(v: unknown): v is JournalEntry {
-  if (!v || typeof v !== 'object') return false
-  const e = v as Record<string, unknown>
-  const intent = e.intent as Record<string, unknown> | null
+  if (!record(v)) return false
   return (
-    typeof e.key === 'string' &&
-    typeof e.label === 'string' &&
-    typeof e.at === 'number' &&
-    typeof e.seq === 'number' &&
-    typeof e.session === 'string' &&
-    !!intent &&
-    typeof intent === 'object' &&
-    KINDS.includes(intent.kind as string) &&
-    keyOf(intent as unknown as WriteIntent) === e.key
+    typeof v.key === 'string' &&
+    typeof v.label === 'string' &&
+    typeof v.at === 'number' &&
+    typeof v.seq === 'number' &&
+    typeof v.session === 'string' &&
+    isIntent(v.intent) &&
+    keyOf(v.intent) === v.key
   )
 }
 

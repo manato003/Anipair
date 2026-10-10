@@ -79,7 +79,7 @@ export function GithubBlock(props: { github: GithubConnection | null; onChange: 
           <p className="settings__lead">連携すると、次のことができます。</p>
           <ul className="settings__list settings__lead">
             <li>興味なし・保留・見てないを、PC とスマホで共有する</li>
-            <li>すべての記録を、毎日自動でバックアップする（変更履歴つき）</li>
+            <li>作品ごとの記録を、毎日自動でバックアップする（変更履歴つき）</li>
           </ul>
           <details className="settings__fold" open>
             <summary>連携の手順（3ステップ）</summary>

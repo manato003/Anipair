@@ -65,8 +65,14 @@ function fail(status: number, error: string, extra: Record<string, string> = {})
   return res
 }
 
-// 人物の問い合わせで受け付ける版（2: スタッフの役割、4: 声の出演のキャラクター）
-const PERSON_VERSIONS: readonly string[] = ['2', '4']
+// 問い合わせの種類ごとに受け付ける版。版を変えて控えを素通りさせる余地を小さくするため、使っている版だけにする。
+// 作品と制作会社は、いまの版（6: 点数を付けた人の数）と、開いたままの古い画面が送る直前の2つ（4: 人気、5: 話数）。
+// 人物は 2（スタッフの役割）と 4（声の出演のキャラクター）
+const VERSIONS: Record<string, readonly string[]> = {
+  animes: ['4', '5', '6'],
+  studio: ['4', '5', '6'],
+  person: ['2', '4'],
+}
 
 // 問い合わせの種類ごとに受け付ける引数（v は、応答の形を変えたときにクライアントが CDN の古い控えを避けるための版）
 const PARAMS: Record<string, readonly string[]> = {
@@ -170,11 +176,9 @@ export async function handleShiki(request: Request, fetchFn: FetchLike = fetch):
   const allowed = op ? PARAMS[op] : undefined
   const keys = [...q.keys()]
   if (!allowed || keys.some((k) => !allowed.includes(k)) || new Set(keys).size !== keys.length) return fail(400, 'bad_request')
-  // 版は頭に 0 を付けない形だけ（「05」と「5」を別の控えにさせない）。人物は使っている版だけを受け付ける
-  // （版を変えて控えを素通りさせる余地を小さくする）
+  // 版は、使っている版だけ（上の VERSIONS。「05」のような別の綴りも通さない）
   const v = q.get('v')
-  if (v !== null && !/^[1-9][0-9]?$/.test(v)) return fail(400, 'bad_request')
-  if (op === 'person' && v !== null && !PERSON_VERSIONS.includes(v)) return fail(400, 'bad_request')
+  if (v !== null && !(VERSIONS[op ?? ''] ?? []).includes(v)) return fail(400, 'bad_request')
   if (op === 'animes' || op === 'characters') {
     const ids = parseIds(q.get('ids'))
     if (ids && ids.join(',') !== q.get('ids')) {
