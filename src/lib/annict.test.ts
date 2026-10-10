@@ -13,7 +13,7 @@ vi.mock('./throttle', () => ({
     },
 }))
 
-const { AnnictError, fetchLibrary, fetchRecentActivity, fetchSeasonWorks, fetchViewer, fetchWorkDetail, forgetLibrary, forgetShortCaches, scanMyReviews, updateStatus } = await import('./annict')
+const { AnnictError, fetchLibrary, fetchRecentActivity, fetchWorkReviews, findMyEpisodeRecord, fetchSeasonWorks, fetchViewer, fetchWorkDetail, forgetLibrary, forgetShortCaches, scanMyReviews, updateStatus } = await import('./annict')
 const { onAnnictAuthFailed } = await import('./authEvents')
 const { annictHealthSamples, resetAnnictHealth } = await import('./annictHealth')
 
@@ -220,6 +220,58 @@ describe('fetchRecentActivity', () => {
   })
 })
 
+describe('fetchWorkReviews', () => {
+  it('asks for the reviews with a body, most liked first, drops ones without a writer or with a blank body, and does not read the same work again soon', async () => {
+    fetchMock.mockResolvedValue(
+      json({
+        data: {
+          node: {
+            satisfactionRate: 96.55,
+            reviewsCount: 140,
+            reviews: {
+              nodes: [
+                { annictId: 1, body: ' 良い ', createdAt: 'x', likesCount: 8, ratingOverallState: 'GREAT', user: { username: 'a', name: 'A' } },
+                { annictId: 2, body: '退会', createdAt: 'x', likesCount: 3, ratingOverallState: 'GOOD', user: null },
+                { annictId: 3, body: '   ', createdAt: 'x', likesCount: 1, ratingOverallState: null, user: { username: 'c', name: 'C' } },
+              ],
+            },
+          },
+        },
+      }),
+    )
+    const got = await fetchWorkReviews('t', 'W-reviews')
+    expect(got).toEqual({ satisfactionRate: 96.55, reviewsCount: 140, reviews: [{ annictId: 1, body: '良い', createdAt: 'x', likesCount: 8, rating: 'GREAT', user: { username: 'a', name: 'A' } }] })
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body))
+    expect(body.query).toContain('hasBody: true')
+    expect(body.query).toContain('LIKES_COUNT')
+    await fetchWorkReviews('t', 'W-reviews')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('findMyEpisodeRecord', () => {
+  const page = (nodes: { id: string; ratingState: string | null; episode: { id: string } | null }[], next: string | null) =>
+    json({ data: { viewer: { records: { pageInfo: { hasNextPage: next !== null, endCursor: next }, nodes } } } })
+
+  it('reads my records newest first, page by page, and returns the newest one of that episode with its rating', async () => {
+    fetchMock
+      .mockResolvedValueOnce(page([{ id: 'R9', ratingState: 'GOOD', episode: { id: 'E9' } }], 'c1'))
+      .mockResolvedValueOnce(page([{ id: 'R2', ratingState: 'GREAT', episode: { id: 'E2' } }, { id: 'R1', ratingState: null, episode: { id: 'E2' } }], 'c2'))
+    expect(await findMyEpisodeRecord('t', 'E2')).toEqual({ id: 'R2', rating: 'GREAT' })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).variables).toEqual({ after: 'c1' })
+  })
+
+  it('gives up at the end of my records or after the page limit', async () => {
+    fetchMock.mockResolvedValueOnce(page([{ id: 'R9', ratingState: 'GOOD', episode: { id: 'E9' } }], null))
+    expect(await findMyEpisodeRecord('t', 'E2')).toBeNull()
+    fetchMock.mockReset()
+    fetchMock.mockImplementation(async () => page([{ id: 'R9', ratingState: 'GOOD', episode: { id: 'E9' } }], 'more'))
+    expect(await findMyEpisodeRecord('t', 'E2', 3)).toBeNull()
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+})
+
 describe('scanMyReviews', () => {
   const review = (id: string, annictId: number, createdAt: string) => ({
     item: {
@@ -303,8 +355,16 @@ describe('scanMyReviews', () => {
 
 describe('fetchLibrary: one read for screens that ask together', () => {
   const page = { data: { viewer: { libraryEntries: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [
-    { status: { state: 'WATCHED', createdAt: '2026-10-01T00:00:00Z' }, nextEpisode: null, work: { id: 'W1', annictId: 1, title: '作品1', malAnimeId: null, seasonYear: 2026, seasonName: 'AUTUMN', media: 'TV', watchersCount: 10, image: null } },
+    { status: { state: 'WATCHED', createdAt: '2026-10-01T00:00:00Z' }, note: ' 見返したい ', nextEpisode: null, work: { id: 'W1', annictId: 1, title: '作品1', malAnimeId: null, seasonYear: 2026, seasonName: 'AUTUMN', media: 'TV', watchersCount: 10, image: null } },
   ] } } } }
+
+  it('reads the Annict note of each entry with the library (trimmed; blank is no note)', async () => {
+    forgetLibrary()
+    fetchMock.mockResolvedValue(json(page))
+    const [e] = await fetchLibrary('note-token', { fresh: true })
+    expect(e.note).toBe('見返したい')
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).query).toContain('note')
+  })
 
   it('shares one read between callers at the same time and within a minute, and reads again after a status change or when asked fresh', async () => {
     forgetLibrary()

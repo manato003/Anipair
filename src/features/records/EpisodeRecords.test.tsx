@@ -12,10 +12,18 @@ afterEach(async () => {
 const ep = (n: number, tracked = false): Episode => ({ id: `E${n}`, annictId: n, number: n, numberText: `#${n}`, title: `題${n}`, viewerDidTrack: tracked, viewerRecordsCount: tracked ? 1 : 0 })
 const data = (episodes: Episode[]): WorkEpisodes => ({ workId: 'W1', noEpisodes: false, episodes })
 
-function recorder(d: WorkEpisodes | undefined, opts: { watching?: boolean; undoable?: string[]; error?: string | null } = {}) {
-  const h = { onRecord: vi.fn(), onUndo: vi.fn(), onFinish: vi.fn(), onRetry: vi.fn(), onComment: vi.fn() }
+function recorder(d: WorkEpisodes | undefined, opts: { watching?: boolean; airing?: boolean; undoable?: string[]; error?: string | null } = {}) {
+  const h = { onRecord: vi.fn(), onUndo: vi.fn(), onFinish: vi.fn(), onRetry: vi.fn(), onComment: vi.fn(), onCommentExisting: vi.fn() }
   const view = render(
-    <EpisodeRecorder data={d} error={opts.error ?? null} watching={opts.watching ?? true} undoable={new Set(opts.undoable ?? [])} commented={new Set()} {...h} />,
+    <EpisodeRecorder
+      data={d}
+      error={opts.error ?? null}
+      watching={opts.watching ?? true}
+      airing={opts.airing}
+      undoable={new Set(opts.undoable ?? [])}
+      commented={new Set()}
+      {...h}
+    />,
   )
   return { h, view }
 }
@@ -52,7 +60,8 @@ describe('EpisodeRecorder: a comment on an episode, only for those who want to w
     localStorage.setItem('animax.episodeDrafts.v1', JSON.stringify({ E1: '書きかけ' }))
     const { h } = recorder(data([ep(1), ep(2), ep(3)]), { undoable: ['E1', 'E2'] })
     fireEvent.click(within(ratings()).getByRole('button', { name: '普通' }))
-    fireEvent.click(screen.getByRole('button', { name: '感想を書く' }))
+    // 送っていない下書きがあることが、ボタンの名前で分かる
+    fireEvent.click(screen.getByRole('button', { name: '感想の下書きを開く' }))
     expect((screen.getByRole('textbox', { name: '#1の感想' }) as HTMLTextAreaElement).value).toBe('書きかけ')
     fireEvent.click(within(ratings()).getByRole('button', { name: '良い' }))
     expect(screen.getByRole('textbox', { name: '#1の感想' })).toBeTruthy()
@@ -76,10 +85,45 @@ describe('EpisodeRecorder: a comment on an episode, only for those who want to w
     expect(localStorage.getItem('animax.episodeDrafts.v1')).toBeNull()
   })
 
-  it('offers no comment for a record it did not make here (after recording it, the button is gone)', () => {
+  it('when the record could not be kept for undo, "感想を書く" goes on to the next episode (write, then rate)', () => {
     recorder(data([ep(1), ep(2)]))
     fireEvent.click(within(ratings()).getByRole('button', { name: '良い' }))
-    expect(screen.queryByRole('button', { name: '感想を書く' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '感想を書く' }))
+    expect(screen.getByRole('textbox', { name: /#2の感想/ })).toBeTruthy()
+  })
+
+  // 2026-10-10 利用者: 感想の欄を開いたまま別の話に移ると、欄は前の話のままで、評価を押しても感想が付かなかった
+  it('follows the episode chosen with the arrows or the list, keeping each draft, so the box and the rating buttons agree', () => {
+    const { h } = recorder(data([ep(1), ep(2), ep(3)]))
+    fireEvent.click(screen.getByRole('button', { name: '感想を書く' }))
+    fireEvent.change(screen.getByRole('textbox', { name: /#1の感想/ }), { target: { value: '1話の感想' } })
+    fireEvent.click(screen.getByRole('button', { name: '次の話' }))
+    expect(current()).toBe('#2')
+    const text = screen.getByRole('textbox', { name: /#2の感想/ }) as HTMLTextAreaElement
+    expect(text.value).toBe('')
+    fireEvent.change(text, { target: { value: '2話の感想' } })
+    fireEvent.click(within(ratings()).getByRole('button', { name: '良い' }))
+    expect(h.onRecord).toHaveBeenCalledWith(expect.objectContaining({ id: 'E2' }), 'GOOD', '2話の感想')
+    // 1話の書きかけは残っていて、戻れば開ける
+    fireEvent.click(within(screen.getByRole('list', { name: '話の一覧' })).getByRole('button', { name: /#1/ }))
+    fireEvent.click(screen.getByRole('button', { name: '感想の下書きを開く' }))
+    expect((screen.getByRole('textbox', { name: /#1の感想/ }) as HTMLTextAreaElement).value).toBe('1話の感想')
+  })
+
+  // 2026-10-10 利用者: 前に記録した話で書いた感想が、Annict に届いていなかった（評価を押すまで送られない形だった）
+  it('attaches a comment to an episode recorded before, and keeps the draft until it is sent', () => {
+    const { h } = recorder(data([ep(1, true), ep(2, true), ep(3, true)]), { watching: false })
+    expect(current()).toBe('#1')
+    fireEvent.click(screen.getByRole('button', { name: '感想を書く' }))
+    expect(screen.getByText('前に付けたこの話の記録に、感想を付けます')).toBeTruthy()
+    fireEvent.change(screen.getByRole('textbox', { name: /#1の感想/ }), { target: { value: ' あとから ' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    expect(h.onRecord).not.toHaveBeenCalled()
+    expect(h.onCommentExisting).toHaveBeenCalledWith(expect.objectContaining({ id: 'E1' }), 'あとから', expect.any(Function))
+    // 届くまでは下書きを残す
+    expect(JSON.parse(localStorage.getItem('animax.episodeDrafts.v1')!)).toEqual({ E1: ' あとから ' })
+    h.onCommentExisting.mock.calls[0][2]()
+    expect(localStorage.getItem('animax.episodeDrafts.v1')).toBeNull()
   })
 })
 
@@ -108,7 +152,7 @@ describe('EpisodeRecorder', () => {
 
   // 2026-10-06 の点検: 記録すると話の中身が新しいものに差し替わり、取り消すと第1話に飛んでいた
   it('undo goes back to the episode it recorded, after the list was updated by the record', () => {
-    const h = { onRecord: vi.fn(), onUndo: vi.fn(), onFinish: vi.fn(), onRetry: vi.fn(), onComment: vi.fn() }
+    const h = { onRecord: vi.fn(), onUndo: vi.fn(), onFinish: vi.fn(), onRetry: vi.fn(), onComment: vi.fn(), onCommentExisting: vi.fn() }
     const props = { error: null, watching: true, commented: new Set<string>(), ...h }
     const view = render(<EpisodeRecorder data={data([ep(1, true), ep(2), ep(3)])} undoable={new Set<string>()} {...props} />)
     expect(current()).toBe('#2')
@@ -139,6 +183,18 @@ describe('EpisodeRecorder', () => {
     expect(ratings().getAttribute('aria-label')).toBe('作品の評価')
     fireEvent.click(within(ratings()).getByRole('button', { name: '良い' }))
     expect(h.onFinish).toHaveBeenCalledWith('GOOD')
+  })
+
+  it('does not offer to mark an airing work watched after its latest registered episode', () => {
+    const { h } = recorder(data([ep(1, true), ep(2)]), { watching: true, airing: true })
+    fireEvent.click(within(ratings()).getByRole('button', { name: 'とても良い' }))
+    expect(current()).toBe('放送中の最新話まで記録しました')
+    expect(document.querySelector('.ep__box .mini-ratings')).toBeNull()
+    expect(h.onFinish).not.toHaveBeenCalled()
+    cleanup()
+    // 開き直したとき（直前の記録が無いとき）は、続きの案内を出す
+    recorder(data([ep(1, true), ep(2, true)]), { watching: true, airing: true })
+    expect(screen.getByText('次の話が Annict に登録されたら、ここで続けて記録できます。')).toBeTruthy()
   })
 
   it('lists the episodes under the recorder; picking one selects it in the recorder', () => {

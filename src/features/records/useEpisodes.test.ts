@@ -8,6 +8,7 @@ const createRecord = vi.fn()
 const deleteRecord = vi.fn()
 const fetchRecentActivity = vi.fn()
 const updateRecord = vi.fn()
+const findMyEpisodeRecord = vi.fn()
 vi.mock('../../lib/annict', async (orig) => ({
   ...(await orig<typeof import('../../lib/annict')>()),
   fetchEpisodes: (...a: unknown[]) => fetchEpisodes(...a),
@@ -15,6 +16,7 @@ vi.mock('../../lib/annict', async (orig) => ({
   deleteRecord: (...a: unknown[]) => deleteRecord(...a),
   fetchRecentActivity: (...a: unknown[]) => fetchRecentActivity(...a),
   updateRecord: (...a: unknown[]) => updateRecord(...a),
+  findMyEpisodeRecord: (...a: unknown[]) => findMyEpisodeRecord(...a),
 }))
 
 const { useEpisodes } = await import('./useEpisodes')
@@ -33,6 +35,36 @@ function queue() {
 afterEach(() => {
   vi.clearAllMocks()
   localStorage.clear()
+})
+
+describe('useEpisodes: a comment on an episode recorded before', () => {
+  it('finds my record of that episode and adds the comment with its rating kept, then reports it sent', async () => {
+    fetchEpisodes.mockResolvedValue(new Map([['W1', work()]]))
+    findMyEpisodeRecord.mockResolvedValue({ id: 'R_OLD', rating: 'GOOD' })
+    const q = queue()
+    const sent = vi.fn()
+    const { result } = renderHook(() => useEpisodes('t', ['W1'], q.enqueue))
+    await waitFor(() => expect(result.current.byWork.has('W1')).toBe(true))
+    act(() => result.current.commentExisting('作品', ep(1, true), 'あとから', sent))
+    expect(result.current.commented.has('E1')).toBe(true)
+    await q.tasks[0].run()
+    expect(findMyEpisodeRecord).toHaveBeenCalledWith('t', 'E1')
+    expect(updateRecord).toHaveBeenCalledWith('t', 'R_OLD', 'あとから', 'GOOD')
+    expect(sent).toHaveBeenCalled()
+  })
+
+  it('fails with a clear message (and keeps the draft) when my record cannot be found', async () => {
+    fetchEpisodes.mockResolvedValue(new Map([['W1', work()]]))
+    findMyEpisodeRecord.mockResolvedValue(null)
+    const q = queue()
+    const sent = vi.fn()
+    const { result } = renderHook(() => useEpisodes('t', ['W1'], q.enqueue))
+    await waitFor(() => expect(result.current.byWork.has('W1')).toBe(true))
+    act(() => result.current.commentExisting('作品', ep(1, true), 'あとから', sent))
+    await expect(q.tasks[0].run()).rejects.toThrow('記録が見つからず')
+    expect(updateRecord).not.toHaveBeenCalled()
+    expect(sent).not.toHaveBeenCalled()
+  })
 })
 
 describe('useEpisodes', () => {

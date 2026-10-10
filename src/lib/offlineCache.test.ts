@@ -37,6 +37,11 @@ describe('offlineCache', () => {
     expect(parseStoredLibrary({ v: 2 })).toBeNull()
   })
 
+  it('keeps the Annict note of each entry (and reads older copies without one as no note)', () => {
+    saveStoredLibrary([{ ...entry(1), note: 'メモ' }, entry(2)], new Date('2026-10-10T00:00:00.000Z'))
+    expect(loadStoredLibrary()!.value.map((e) => e.note)).toEqual(['メモ', null])
+  })
+
   it('follows a successful status change in both the library and the season works, so answered works do not come back', () => {
     saveStoredLibrary([entry(1), entry(2)])
     saveStoredSeasonWorks('2026-autumn', [work(1), work(2)])

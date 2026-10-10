@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchEpisodes, type Episode, type RatingState, type WorkEpisodes } from '../../lib/annict'
-import { updateRecord } from '../../lib/annict'
+import { findMyEpisodeRecord, updateRecord } from '../../lib/annict'
 import { createRecordGuarded, deleteRecordIfExists, findMyRecord, resolveUncertainRecord } from '../../lib/uncertainWrites'
 import { WriteError, messageOf } from '../../lib/useWriteQueue'
 import type { WriteIntent } from '../../lib/writeJournal'
@@ -147,6 +147,22 @@ export function useEpisodes(token: string, workIds: readonly string[], enqueue: 
     [token, enqueue],
   )
 
+  // 前に（別の機会に）記録した話に、感想を付ける。自分の記録を探して、その評価のまま感想を足す。
+  // 送り終えたら onSent（下書きを消す）。届かなければ下書きが残るので、書き込みの控え（ジャーナル）には載せない
+  const commentExisting = useCallback(
+    (title: string, episode: Episode, text: string, onSent: () => void) => {
+      setCommented((cur) => new Set(cur).add(episode.id))
+      const label = episodeLabel(episode)
+      enqueue(`「${title}」${label}の感想`, async () => {
+        const found = await findMyEpisodeRecord(token, episode.id)
+        if (!found) throw new WriteError(`${label}のあなたの記録が見つからず、感想を付けられませんでした（最近の 500 件まで探します）。下書きは残っています。`)
+        await updateRecord(token, found.id, text, found.rating)
+        onSent()
+      })
+    },
+    [token, enqueue],
+  )
+
   return {
     byWork,
     errors,
@@ -155,6 +171,7 @@ export function useEpisodes(token: string, workIds: readonly string[], enqueue: 
     record,
     undo,
     comment,
+    commentExisting,
     // 読めなかった作品を、もう一度読む
     retry: () => {
       setErrors(new Map())

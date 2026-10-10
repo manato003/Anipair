@@ -40,6 +40,7 @@ function parseEntry(v: unknown): LibraryEntry | null {
     imageUrl: str(e.imageUrl),
     nextEpisode: next && typeof next === 'object' ? { number: num(next.number), numberText: str(next.numberText), title: str(next.title) } : null,
     episodesCount: num(e.episodesCount),
+    note: str(e.note),
   }
 }
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { fetchViewer } from '../../lib/annict'
+import { annictCollectionsUrl, fetchViewer } from '../../lib/annict'
 import { AnnictHealth } from './AnnictHealth'
 import { Section, StatusChip } from './Section'
 
@@ -27,6 +27,15 @@ export function AccountBlock(props: { token: string; onChange: (token: string | 
     >
       {/* Anipair は Annict が無いと動かない。遅い・出ないときに、原因が Annict の側かを見分けられるように */}
       <AnnictHealth token={props.token} />
+      {/* コレクションは Annict の機能（API では読み書きできないので、Anipair では作らずに案内する） */}
+      {viewer && (
+        <p className="settings__lead">
+          作品をまとめるコレクションは、Annict で作れます。
+          <a href={annictCollectionsUrl(viewer.username)} target="_blank" rel="noreferrer">
+            Annict の自分のコレクション
+          </a>
+        </p>
+      )}
       <div className="settings__actions">
         <button
           type="button"

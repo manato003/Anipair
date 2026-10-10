@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { CoverImage } from '../../components/CoverImage'
 import { peekLibrary } from '../../lib/annict'
 import { fetchMedia, fetchSimilar, type Media } from '../../lib/shikimori'
+import { useNearScreen } from '../../lib/useNearScreen'
 import { FORMAT_LABEL, marksByMal } from './detail'
 import type { RelatedTarget } from './RelatedDetail'
 
@@ -18,20 +19,10 @@ type Shelf = { kind: 'idle' } | { kind: 'done'; works: Media[] } | { kind: 'erro
 
 export function SimilarWorks(props: { malId: number | null; onOpen: (target: RelatedTarget) => void }) {
   const { malId } = props
-  const ref = useRef<HTMLDivElement>(null)
-  // IntersectionObserver の無い環境は、すぐ読む
-  const [near, setNear] = useState(() => typeof IntersectionObserver === 'undefined')
+  // 棚の位置が画面の下 300px 以内に来たら読み込む
+  const [ref, near] = useNearScreen<HTMLDivElement>()
   const [shelf, setShelf] = useState<{ malId: number; shelf: Shelf } | null>(null)
   const mine = useMemo(() => marksByMal(peekLibrary()), [])
-
-  // 棚の位置が画面の下 300px 以内に来たら読み込む
-  useEffect(() => {
-    const el = ref.current
-    if (!el || near) return
-    const io = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && setNear(true), { rootMargin: '0px 0px 300px 0px' })
-    io.observe(el)
-    return () => io.disconnect()
-  }, [near])
 
   useEffect(() => {
     if (!near || !malId) return
@@ -54,7 +45,7 @@ export function SimilarWorks(props: { malId: number | null; onOpen: (target: Rel
   if (!malId) return null
   const current = shelf?.malId === malId ? shelf.shelf : { kind: 'idle' as const }
   // 読み込むまでは、位置を測るための空の箱だけ置く。似た作品が無い・読めないときは何も出さない
-  if (current.kind !== 'done' || current.works.length === 0) return <div ref={ref} className="similar__probe" aria-hidden />
+  if (current.kind !== 'done' || current.works.length === 0) return <div ref={ref} className="near-probe" aria-hidden />
   return (
     <section className="detail__section similar">
       <h3 className="detail__label">似た作品</h3>

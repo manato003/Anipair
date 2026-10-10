@@ -394,6 +394,29 @@ export async function updateRecord(token: string, recordId: string, comment: str
   )
 }
 
+// 前に付けた自分の記録のうち、その話のいちばん新しいもの（ID と評価）。Annict の API は自分の記録を話で絞れないので、
+// 新しい順に読んでいって探す。記録済みの話に、あとから感想を付けるときだけ使う（押したときに1回）。maxPages × 50 件まで探す
+export async function findMyEpisodeRecord(token: string, episodeId: string, maxPages = 10): Promise<{ id: string; rating: RatingState | null } | null> {
+  let after: string | null = null
+  for (let page = 0; page < maxPages; page++) {
+    const data: {
+      viewer: { records: { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: { id: string; ratingState: RatingState | null; episode: { id: string } | null }[] } }
+    } = await gql(
+      token,
+      `query($after: String) { viewer { records(first: 50, after: $after, orderBy: {field: CREATED_AT, direction: DESC}) {
+        pageInfo { hasNextPage endCursor }
+        nodes { id ratingState episode { id } }
+      } } }`,
+      { after },
+    )
+    const found = data.viewer.records.nodes.find((r) => r.episode?.id === episodeId)
+    if (found) return { id: found.id, rating: found.ratingState }
+    if (!data.viewer.records.pageInfo.hasNextPage) return null
+    after = data.viewer.records.pageInfo.endCursor
+  }
+  return null
+}
+
 export async function deleteRecord(token: string, recordId: string): Promise<void> {
   await gql(token, `mutation($recordId: ID!) { deleteRecord(input: {recordId: $recordId}) { clientMutationId } }`, { recordId })
   forgetLibrary()
@@ -482,6 +505,86 @@ export function annictWorkUrl(annictId: number): string {
   return `https://annict.com/works/${annictId}`
 }
 
+// Annict の作品の感想の一覧のページ（みんなの感想の「Annict で感想をすべて読む」）
+export function annictWorkReviewsUrl(annictId: number): string {
+  return `https://annict.com/works/${annictId}/records`
+}
+
+// Annict の利用者のページ・コレクションの一覧
+export function annictUserUrl(username: string): string {
+  return `https://annict.com/@${encodeURIComponent(username)}`
+}
+
+export function annictCollectionsUrl(username: string): string {
+  return `${annictUserUrl(username)}/collections`
+}
+
+// ほかの人の感想（作品の詳細の「みんなの感想」）
+export interface CommunityReview {
+  annictId: number
+  body: string
+  createdAt: string
+  likesCount: number
+  rating: RatingState | null
+  user: { username: string; name: string }
+}
+
+export interface WorkReviews {
+  // Annict の満足度（0〜100。感想の評価から Annict が出す）。無ければ null
+  satisfactionRate: number | null
+  reviewsCount: number
+  // 本文のある感想を、いいねの多い順に
+  reviews: CommunityReview[]
+}
+
+const reviewsCache = new Map<string, { at: number; value: Promise<WorkReviews> }>()
+const REVIEWS_TTL_MS = 10 * 60_000
+const REVIEWS_KEEP = 30
+
+// 作品のみんなの感想（満足度・件数と、いいねの多い本文つきの感想を first 件）。同じ作品は10分のあいだ読み直さない。失敗したものは控えない
+export function fetchWorkReviews(token: string, workId: string, first = 3): Promise<WorkReviews> {
+  const key = `${token}\u0000${workId}\u0000${first}`
+  const hit = reviewsCache.get(key)
+  if (hit && Date.now() - hit.at < REVIEWS_TTL_MS) return hit.value
+  const value = readWorkReviews(token, workId, first)
+  reviewsCache.delete(key)
+  reviewsCache.set(key, { at: Date.now(), value })
+  while (reviewsCache.size > REVIEWS_KEEP) reviewsCache.delete(reviewsCache.keys().next().value as string)
+  value.catch(() => {
+    if (reviewsCache.get(key)?.value === value) reviewsCache.delete(key)
+  })
+  return value
+}
+
+async function readWorkReviews(token: string, workId: string, first: number): Promise<WorkReviews> {
+  const data = await gql<{
+    node: {
+      satisfactionRate: number | null
+      reviewsCount: number
+      reviews: { nodes: { annictId: number; body: string; createdAt: string; likesCount: number; ratingOverallState: RatingState | null; user: { username: string; name: string } | null }[] }
+    } | null
+  }>(
+    token,
+    `query($id: ID!, $first: Int) { node(id: $id) { ... on Work {
+      satisfactionRate reviewsCount
+      reviews(first: $first, hasBody: true, orderBy: {field: LIKES_COUNT, direction: DESC}) {
+        nodes { annictId body createdAt likesCount ratingOverallState user { username name } }
+      }
+    } } }`,
+    { id: workId, first },
+  )
+  const n = data.node
+  if (!n) return { satisfactionRate: null, reviewsCount: 0, reviews: [] }
+  return {
+    satisfactionRate: typeof n.satisfactionRate === 'number' ? n.satisfactionRate : null,
+    reviewsCount: n.reviewsCount ?? 0,
+    // 退会した人の感想（user が無い）と、空白だけの本文は出さない
+    reviews: (n.reviews?.nodes ?? []).flatMap((r) =>
+      r.user && r.body.trim() ? [{ annictId: r.annictId, body: r.body.trim(), createdAt: r.createdAt, likesCount: r.likesCount, rating: r.ratingOverallState, user: r.user }] : [],
+    ),
+  }
+}
+
 export function annictSearchUrl(title: string): string {
   return `https://annict.com/search?q=${encodeURIComponent(title)}`
 }
@@ -518,6 +621,8 @@ export interface LibraryEntry {
   nextEpisode?: { number: number | null; numberText: string | null; title: string | null } | null
   // 全話数（Annict の Work.episodesCount。分からなければ null。評価の画面の見てるカードの「全12話」）
   episodesCount?: number | null
+  // Annict の作品ごとのメモ（LibraryEntry.note。API では読めるが書けない。作品の詳細に「Annict のメモ」として読んで出す）。無ければ null
+  note?: string | null
 }
 
 // 最後に読んだ自分のライブラリ（起動中だけ）。参加作品の一覧に、自分の記録の印を付けるのに使う（そのためだけに読み直さない）
@@ -575,6 +680,7 @@ async function readLibrary(token: string): Promise<LibraryEntry[]> {
           pageInfo: { hasNextPage: boolean; endCursor: string | null }
           nodes: {
             status: { state: StatusState; createdAt: string | null } | null
+            note: string | null
             nextEpisode: { number: number | null; numberText: string | null; title: string | null } | null
             work: {
               id: string
@@ -595,7 +701,7 @@ async function readLibrary(token: string): Promise<LibraryEntry[]> {
       token,
       `query($after: String) { viewer { libraryEntries(first: 100, after: $after) {
         pageInfo { hasNextPage endCursor }
-        nodes { status { state createdAt } nextEpisode { number numberText title } work { id annictId title malAnimeId seasonYear seasonName media watchersCount episodesCount image { recommendedImageUrl facebookOgImageUrl } } }
+        nodes { status { state createdAt } note nextEpisode { number numberText title } work { id annictId title malAnimeId seasonYear seasonName media watchersCount episodesCount image { recommendedImageUrl facebookOgImageUrl } } }
       } } }`,
       { after },
     )
@@ -617,6 +723,7 @@ async function readLibrary(token: string): Promise<LibraryEntry[]> {
         imageUrl: annictImageOf(n.work.image),
         nextEpisode: n.nextEpisode ?? null,
         episodesCount: n.work.episodesCount ?? null,
+        note: n.note?.trim() ? n.note.trim() : null,
       })
     }
     if (!conn.pageInfo.hasNextPage) return out

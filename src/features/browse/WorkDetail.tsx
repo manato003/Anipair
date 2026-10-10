@@ -23,6 +23,7 @@ import { STATUS_LABEL, mainStaff, seriesFacts, studioFor, withCopyrightMark, saf
 import { RelatedDetail, type RelatedTarget } from './RelatedDetail'
 import { RelatedWorks } from './RelatedWorks'
 import { SimilarWorks } from './SimilarWorks'
+import { CommunityReviews } from './CommunityReviews'
 import { Loading } from '../../components/Loading'
 import { ExternalIcon, InfoIcon, PeopleIcon, UserIcon } from '../../components/Icons'
 import { ReviewEditor } from './ReviewEditor'
@@ -119,6 +120,8 @@ export function WorkDetail(
     return entry && entry.state === work.viewerStatusState ? entry.stateAt : null
   })
   const [reviewAt, setReviewAt] = useState<{ at: string; withText: boolean } | null>(null)
+  // Annict に書いてあるこの作品のメモ（手元のライブラリの控えから。API では書けないので、読んで出すだけ）
+  const [annictNote] = useState<string | null>(() => peekLibrary()?.find((e) => e.annictId === work.annictId)?.note ?? null)
   const touched = useRef(false)
   // 状態をこのシートで変えたか（変えたら、あとから届いた詳細の状態で上書きしない）
   const stateTouched = useRef(false)
@@ -267,8 +270,10 @@ export function WorkDetail(
   const settled = waitedLong || (error !== null && shikiDone) || (detail !== null && wiki !== undefined && shikiDone)
   const rootRef = useRef<HTMLDivElement>(null)
   const ready = useFontsReady(settled, rootRef)
-  // 「作品について」の塊に出すものがあるか（無ければ塊ごと出さない。MyAnimeList の ID があれば、似た作品の棚が出うる）
-  const hasAbout = genres.length > 0 || dataRows.length > 0 || !!wiki || (detail?.series?.length ?? 0) > 0 || (shiki?.related?.length ?? 0) > 0 || !!malIdOf(work)
+  // 「作品について」の塊に出すものがあるか（無ければ塊ごと出さない。MyAnimeList の ID があれば似た作品の棚が、
+  // Annict の詳細が読めればみんなの感想（無ければ「まだ感想がありません」）が出る）
+  const hasAbout =
+    genres.length > 0 || dataRows.length > 0 || !!wiki || (detail?.series?.length ?? 0) > 0 || (shiki?.related?.length ?? 0) > 0 || !!malIdOf(work) || detail !== null
   // 待つのをやめて出したあとも、まだ届いていない部分。届くまで、何を読んでいるかを添えて読み込み中を出し続ける
   // （出ている分だけで全部だと思わせない）。あらすじは Annict の詳細が届いてから Wikipedia を読む
   const detailPending = detail === null && error === null
@@ -278,7 +283,9 @@ export function WorkDetail(
     detailPending && '制作会社・スタッフ・声優',
   ].filter((x): x is string => !!x)
 
-  // 話ごとの記録（書き込めるシートの「見た」「見てる」の作品だけ）
+  // 話ごとの記録（書き込めるシートの「見た」「見てる」の作品だけ）。全部の話を記録し終えたか（並び順に使う）
+  const workEpisodes = eps.byWork.get(work.id)?.episodes ?? []
+  const allTracked = workEpisodes.length > 0 && workEpisodes.every((e) => e.viewerDidTrack)
   const episodeSection = showEpisodes && (
     <section className="detail__section">
       <h3 className="detail__label">話ごとの記録</h3>
@@ -286,10 +293,12 @@ export function WorkDetail(
         data={eps.byWork.get(work.id)}
         error={eps.errors.get(work.id) ?? null}
         watching={state === 'WATCHING'}
+        airing={shiki?.status === 'RELEASING'}
         undoable={eps.undoable}
         commented={eps.commented}
         onRecord={(ep, r, comment) => eps.record(work.title, work.id, ep, r, comment)}
         onComment={(ep, r, text) => eps.comment(work.title, ep, r, text)}
+        onCommentExisting={(ep, text, onSent) => eps.commentExisting(work.title, ep, text, onSent)}
         onUndo={(ep) => eps.undo(work.title, work.id, ep)}
         onFinish={finish}
         onRetry={eps.retry}
@@ -378,8 +387,23 @@ export function WorkDetail(
                   </section>
                 )}
 
-                {/* 見てる作品は、話ごとの記録がいちばんの用事。作品の評価（最後に1回）より上に置く（同じ形のボタンが続いて押し間違えないように） */}
-                {state === 'WATCHING' && episodeSection}
+                {/* Annict のメモ: Annict の作品ページで書いたメモを読んで出す（書き直すのは Annict で。Anipair の見たいのメモとは別のもの） */}
+                {annictNote && (
+                  <section className="detail__section">
+                    <h3 className="detail__label">Annict のメモ</h3>
+                    <p className="wannanote__memo">{annictNote}</p>
+                    <p className="detail__hint">
+                      <a href={annictWorkUrl(work.annictId)} target="_blank" rel="noreferrer">
+                        Annict の作品ページ
+                      </a>
+                      の「記録する」で書き直せます。
+                    </p>
+                  </section>
+                )}
+
+                {/* 見てる作品は、話ごとの記録がいちばんの用事。作品の評価（最後に1回）より上に置く（同じ形のボタンが続いて押し間違えないように）。
+                    全部の話を記録し終えたら、作品の評価が次の用事なので、見た作品と同じく評価の下に回す */}
+                {state === 'WATCHING' && !allTracked && episodeSection}
 
                 <section className="detail__section">
                   <h3 className="detail__label">評価</h3>
@@ -404,7 +428,19 @@ export function WorkDetail(
                   <ReviewEditor token={token} workId={work.id} annictId={work.annictId} title={work.title} overall={rating} enqueue={props.enqueue} />
                 </section>
 
-                {state === 'WATCHED' && episodeSection}
+                {/* コレクションは Annict の機能（API では読み書きできない）。作り直さずに、Annict の作品ページへ案内する */}
+                <section className="detail__section">
+                  <h3 className="detail__label">コレクション</h3>
+                  <p className="detail__hint">
+                    コレクションは Annict の機能です。
+                    <a href={annictWorkUrl(work.annictId)} target="_blank" rel="noreferrer">
+                      Annict の作品ページ
+                    </a>
+                    の「記録する」から追加できます。
+                  </p>
+                </section>
+
+                {(state === 'WATCHED' || (state === 'WATCHING' && allTracked)) && episodeSection}
               </section>
             )}
 
@@ -489,6 +525,9 @@ export function WorkDetail(
                     </p>
                   </section>
                 )}
+
+                {/* みんなの感想: Annict の満足度・件数と、いいねの多い感想（まだ見ていない作品は、本文を押したときだけ。欄が画面に近づいてから読む） */}
+                <CommunityReviews token={token} workId={work.id} annictId={work.annictId} watched={state === 'WATCHED'} />
 
                 {/* 関連作品: Annict のシリーズ。無ければ Shikimori の関連作品（詳細を読み込むまでは出さない） */}
                 <RelatedWorks

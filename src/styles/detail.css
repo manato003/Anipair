@@ -438,11 +438,86 @@ a.related__title {
   font-size: 0.8rem;
 }
 
-/* 似た作品（SimilarWorks）。表紙の棚。スマホは横に流し、広い画面は折り返して並べる。
-   読み込む前は、位置を測るための高さ 1px の箱だけ */
-.similar__probe {
+/* みんなの感想（CommunityReviews）。上に満足度と件数、下にいいねの多い感想。長い感想は畳む */
+.community__summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.community__stat strong {
+  color: var(--paper);
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.community__list {
+  display: grid;
+  gap: 14px;
+  margin-top: 12px;
+  list-style: none;
+}
+
+.community__item {
+  display: grid;
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.community__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font-size: 0.8rem;
+}
+
+.community__who {
+  color: var(--paper);
+  font-weight: 700;
+}
+
+.community__rating {
+  padding: 1px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  font-size: 0.72rem;
+}
+
+.community__likes {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.community__body {
+  color: var(--paper);
+  font-size: 0.88rem;
+  line-height: 1.7;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.community__body--folded {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+}
+
+.community__more {
+  justify-self: end;
+  font-size: 0.8rem;
+}
+
+/* 画面に近づいてから読む欄（似た作品・みんなの感想。lib/useNearScreen.ts）の、読み込む前の位置を測る高さ 1px の箱 */
+.near-probe {
   height: 1px;
 }
+
+/* 似た作品（SimilarWorks）。表紙の棚。スマホは横に流し、広い画面は折り返して並べる */
 
 .similar__list {
   display: grid;
