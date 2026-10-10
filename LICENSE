@@ -19,3 +19,39 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---------------------------------------------------------------------------
+
+Exception: brand assets (Anipair name, logo, and the characters Ani and Pair)
+
+The MIT License above applies to the source code only. It does NOT apply to
+the following brand assets, which are Copyright (c) 2026 manato003,
+All rights reserved:
+
+  - the name "Anipair" and its logo (the logo mark and the logotype)
+  - the characters "Ani" (アニ) and "Pair" (ペア): their designs,
+    illustrations, names, and profiles
+
+These assets appear in, among others: src/components/Mascot.tsx,
+src/features/settings/MascotProfile.tsx, public/logo-mark.svg,
+public/logo-mark-on-dark.svg, public/favicon.svg, public/icon-*.png,
+public/apple-touch-icon.png, the illustration in index.html, and
+screenshots/.
+
+You may not use, copy, modify, or distribute these assets without prior
+written permission. If you publish a fork or a derived work, replace them
+with your own name, logo, and artwork.
+
+例外: ブランドの素材（Anipair の名前・ロゴ、キャラクターのアニとペア）
+
+上の MIT ライセンスは、ソースコードにだけ適用されます。次のものには適用されず、
+著作権は manato003 が保持します（無断の使用・複製・改変・再配布はできません）。
+
+  - 「Anipair」の名前とロゴ（印と文字）
+  - キャラクター「アニ」と「ペア」（デザイン・絵・名前・設定）
+
+これらは、src/components/Mascot.tsx、src/features/settings/MascotProfile.tsx、
+public/ のロゴとアイコン（logo-mark.svg・logo-mark-on-dark.svg・favicon.svg・
+icon-*.png・apple-touch-icon.png）、index.html の絵、screenshots/ などに含まれます。
+フォークや派生物を公開するときは、名前・ロゴ・キャラクターを差し替えてください。
+

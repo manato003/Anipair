@@ -101,7 +101,7 @@ npm run build
 
 ## ライセンス・規約
 
-[MIT](LICENSE)
+ソースコードは [MIT](LICENSE) です。ただし **Anipair の名前とロゴ、キャラクターのアニとペア（絵・名前・設定）は著作権を保持しており、MIT ライセンスの対象外です**（無断の使用・改変・再配布はできません。詳しくは [LICENSE](LICENSE) の「例外」）。フォークして公開するときは、名前・ロゴ・キャラクターを差し替えてください。
 
 - [利用規約](https://anipair.vercel.app/terms.html)
 - [プライバシーポリシー](https://anipair.vercel.app/privacy.html)

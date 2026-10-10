@@ -35,6 +35,7 @@ export function AboutBlock({ showTagline = true, welcome = false }: { showTaglin
       )}
       <ul className="settings__list settings__lead">
         <li>Anipair は個人が開発した Annict の非公式アプリで、Annict の運営とは関係ありません。</li>
+        <li>ソースコードは MIT ライセンスで公開しています。Anipair の名前とロゴ、アニとペア（絵・名前・設定）の著作権は運営者が保持しています。</li>
         <li>運営サーバーはなく、利用者の情報は保存しません。サーバーで動くのは、ログインの受け渡しと Shikimori への中継の2つの処理だけです。</li>
         <li>トークンは、この端末の中にだけ保存されます。</li>
         <li>

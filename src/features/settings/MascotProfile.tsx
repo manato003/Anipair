@@ -2,6 +2,8 @@ import { AniFigure, PairFigure } from '../../components/Mascot'
 import { Sheet } from '../../components/Sheet'
 import { seasonNameLabel, type SeasonName } from '../../lib/season'
 
+// © 2026 manato003. アニとペアのデザイン・絵・名前・設定は、MIT ライセンスの対象外です（著作権を保持。LICENSE の「例外」）。
+//
 // 「アニとペアのこと」。アプリのマスコット2人の、生まれ・生態・好きなもの（設定の「このアプリ」から開く）
 
 const SEASONS: SeasonName[] = ['spring', 'summer', 'autumn', 'winter']
