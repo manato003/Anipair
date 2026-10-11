@@ -204,7 +204,7 @@ export function TrendsView(props: { rows: readonly RecordRow[]; data: TrendsData
               }))}
             />
             <p className="trend__note">
-              項目の評価が総合評価とどれだけ連動しているかです（100 で完全に連動）。連動が強い項目ほど、その良し悪しで作品全体の評価が決まっています。項目を付けた作品が5本以上の項目だけ数えます。
+              項目の評価が総合評価とどれだけ連動しているかです（100で完全に連動）。連動が強い項目ほど、その良し悪しで作品全体の評価が決まっています。項目を付けた作品が5本以上の項目だけ数えます。
             </p>
           </>
         ) : (
@@ -265,7 +265,7 @@ export function TrendsView(props: { rows: readonly RecordRow[]; data: TrendsData
               <ContrastList items={vs.overrated} />
             </>
           )}
-          <p className="trend__note">世間の点数は Shikimori の10点満点です。</p>
+          <p className="trend__note">世間の点数はShikimoriの10点満点です。</p>
         </section>
       )}
 
@@ -275,7 +275,7 @@ export function TrendsView(props: { rows: readonly RecordRow[]; data: TrendsData
           <h3 className="trend__title">王道派か、発掘派か</h3>
           <p className="trend__hero">{major.label}</p>
           <p className="trend__note">
-            あなたが見た作品は、Annict でふつう {major.median.toLocaleString('ja-JP')}人が記録しています（中央値）。多いほど王道、少ないほど発掘です。
+            あなたが見た作品は、Annictでふつう {major.median.toLocaleString('ja-JP')}人が記録しています（中央値）。多いほど王道、少ないほど発掘です。
           </p>
         </section>
       )}

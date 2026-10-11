@@ -45,7 +45,7 @@ function review(id: string, rating: MyReview['ratingOverallState']): MyReview {
   return { id, body: '', createdAt: new Date().toISOString(), ratingOverallState: rating, ratingStoryState: null, ratingAnimationState: null, ratingMusicState: null, ratingCharacterState: null }
 }
 
-const bad502 = () => new AnnictError('Annict から応答を受け取れませんでした（HTTP 502）', 'api', 502)
+const bad502 = () => new AnnictError('Annictから応答を受け取れませんでした（HTTP 502）', 'api', 502)
 
 beforeEach(() => {
   calls.length = 0
@@ -62,7 +62,7 @@ describe('isUncertainFailure', () => {
     expect(isUncertainFailure(bad502())).toBe(true)
     expect(isUncertainFailure(new AnnictError('接続できません', 'network'))).toBe(true)
     expect(isUncertainFailure(new SyntaxError('Unexpected end of JSON input'))).toBe(true)
-    expect(isUncertainFailure(new AnnictError('Annict がエラーを返しました: invalid', 'api'))).toBe(false)
+    expect(isUncertainFailure(new AnnictError('Annictがエラーを返しました: invalid', 'api'))).toBe(false)
     expect(isUncertainFailure(new AnnictError('HTTP 400', 'api', 400))).toBe(false)
     expect(isUncertainFailure(new AnnictError('トークン', 'auth', 401))).toBe(false)
   })
@@ -105,7 +105,7 @@ describe('a review create that may have arrived (5xx / lost connection)', () => 
   it('a replace whose create arrived but whose delete failed does not create a second review on retry', async () => {
     const old = review('OLD', 'AVERAGE')
     onAnnict.set('OLD', old)
-    deleteFails = [new AnnictError('Annict が混み合っています。少し待ってから試してください', 'api')]
+    deleteFails = [new AnnictError('Annictが混み合っています。少し待ってから試してください', 'api')]
     await expect(changeRating('t', 'W1', old, 'GREAT')).rejects.toThrow('混み合っています')
     expect(hasUncertainReview('W1')).toBe(true)
     recent = [{ workId: 'W1', review: review('NEW1', 'GREAT') }]
@@ -123,7 +123,7 @@ describe('a review create that may have arrived (5xx / lost connection)', () => 
   })
 
   it('does not check when Annict clearly refused the create', async () => {
-    createFails = [new AnnictError('Annict がエラーを返しました: invalid', 'api')]
+    createFails = [new AnnictError('Annictがエラーを返しました: invalid', 'api')]
     await expect(changeRating('t', 'W1', null, 'GOOD')).rejects.toThrow()
     expect(hasUncertainReview('W1')).toBe(false)
     await changeRating('t', 'W1', null, 'GOOD')

@@ -110,12 +110,12 @@ export function Browse({ token, active = true }: { token: string; active?: boole
 
       <div className="records__controls records__controls--notes">
         {/* いまの並べ方が何の順かを、いつも1行で出す（人気順と評価順の違い、向きが分かるように） */}
-        {b.sort === 'popular' && <p className="note records__sortnote">{b.dir === 'desc' ? 'Annict でこの作品を記録した人の多い順です。' : 'Annict でこの作品を記録した人の少ない順です。'}</p>}
+        {b.sort === 'popular' && <p className="note records__sortnote">{b.dir === 'desc' ? 'Annictでこの作品を記録した人の多い順です。' : 'Annictでこの作品を記録した人の少ない順です。'}</p>}
         {b.sort === 'newest' && <p className="note records__sortnote">{b.dir === 'desc' ? '放送の新しい順です。' : '放送の古い順です。'}</p>}
         {b.sort === 'score' && (
           <p className="note records__sortnote">
             {b.sortNote ??
-              `ほかの人の評価が${b.dir === 'desc' ? '高い' : '低い'}順です。評価した人の少ない作品は、点数を平均に寄せて並べます（Shikimori の点数。Annict の満足度があればそちら）。点数の無い作品は最後に並びます。`}
+              `ほかの人の評価が${b.dir === 'desc' ? '高い' : '低い'}順です。評価した人の少ない作品は、点数を平均に寄せて並べます（Shikimoriの点数。Annictの満足度があればそちら）。点数の無い作品は最後に並びます。`}
           </p>
         )}
         {b.sort === 'taste' && b.works && (
@@ -154,10 +154,10 @@ export function Browse({ token, active = true }: { token: string; active?: boole
               hasPeriod
                 ? b.searching
                   ? '別の言葉で探すか、放送年と季節の条件をゆるめてください。'
-                  : 'この期間の作品は Annict にありません。放送年と季節の条件をゆるめてください。'
+                  : 'この期間の作品はAnnictにありません。放送年と季節の条件をゆるめてください。'
                 : b.searching
                   ? '別の言葉で探してください。一部だけでも探せます。'
-                  : 'このクールの作品は Annict にまだありません。'
+                  : 'このクールの作品はAnnictにまだありません。'
             }
           />
         ) : works && works.length === 0 ? (

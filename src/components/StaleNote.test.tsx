@@ -24,8 +24,8 @@ describe('StaleNote', () => {
 
   it('tells at once when the reread failed, with a retry', () => {
     const retry = vi.fn()
-    render(<StaleNote at={at} error="Annict に接続できませんでした" onRetry={retry} />)
-    expect(screen.getByRole('alert').textContent).toContain('Annict から読み直せませんでした（Annict に接続できませんでした）。前回（10/6 12:30）の内容を表示しています。')
+    render(<StaleNote at={at} error="Annictに接続できませんでした" onRetry={retry} />)
+    expect(screen.getByRole('alert').textContent).toContain('Annictから読み直せませんでした（Annictに接続できませんでした）。前回（10/6 12:30）の内容を表示しています。')
     fireEvent.click(screen.getByRole('button', { name: 'もう一度' }))
     expect(retry).toHaveBeenCalled()
   })

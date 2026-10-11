@@ -37,7 +37,7 @@ afterEach(() => {
 describe('gql: Annict server errors', () => {
   it('says in words that Annict seems busy or down on 5xx', async () => {
     fetchMock.mockResolvedValue(json({}, 502))
-    await expect(fetchViewer('t')).rejects.toMatchObject({ kind: 'api', message: expect.stringContaining('Annict から応答を受け取れませんでした（HTTP 502）') })
+    await expect(fetchViewer('t')).rejects.toMatchObject({ kind: 'api', message: expect.stringContaining('Annictから応答を受け取れませんでした（HTTP 502）') })
   })
 })
 

@@ -135,7 +135,7 @@ export function useBrowse(token: string, active = true) {
             if (lacking.length > 0) media = await fetchMedia(lacking)
           } catch (e) {
             if (cancelled) return
-            setSortNote(`Shikimori の点数を読み込めませんでした（${messageOf(e)}）。Annict の満足度だけで並べています。`)
+            setSortNote(`Shikimoriの点数を読み込めませんでした（${messageOf(e)}）。Annictの満足度だけで並べています。`)
           }
           if (cancelled) return
           const shikimori = new Map<number, number | null>([...media].map(([id, m]) => [id, m.score]))

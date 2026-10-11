@@ -163,7 +163,7 @@ function ShikimoriRelated({ shiki, onOpen }: { shiki: Media | null; onOpen: (tar
           )
         })}
       </ol>
-      <p className="detail__hint">Annict にこの作品のシリーズが登録されていないため、Shikimori の関連作品を表示しています。</p>
+      <p className="detail__hint">Annictにこの作品のシリーズが登録されていないため、Shikimoriの関連作品を表示しています。</p>
     </section>
   )
 }

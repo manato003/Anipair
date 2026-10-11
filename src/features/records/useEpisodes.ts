@@ -138,7 +138,7 @@ export function useEpisodes(token: string, workIds: readonly string[], enqueue: 
         async () => {
           // 記録の送信を待つ。送り直しで ID を受け取れなかったときは、自分の最近の記録から探す
           const id = (await pending) ?? (await resolveUncertainRecord(token, episode.id)) ?? (await findMyRecord(token, episode.id, since))
-          if (!id) throw new WriteError(`${label}の記録がまだ Annict に届いていないので、感想を付けられませんでした。記録を送り直してから、もう一度試してください。`)
+          if (!id) throw new WriteError(`${label}の記録がまだAnnictに届いていないので、感想を付けられませんでした。記録を送り直してから、もう一度試してください。`)
           await updateRecord(token, id, text, rating)
         },
         [{ kind: 'episodeComment', episodeId: episode.id, comment: text, rating, since }],
@@ -155,7 +155,7 @@ export function useEpisodes(token: string, workIds: readonly string[], enqueue: 
       const label = episodeLabel(episode)
       enqueue(`「${title}」${label}の感想`, async () => {
         const found = await findMyEpisodeRecord(token, episode.id)
-        if (!found) throw new WriteError(`${label}のあなたの記録が見つからず、感想を付けられませんでした（最近の 500 件まで探します）。下書きは残っています。`)
+        if (!found) throw new WriteError(`${label}のあなたの記録が見つからず、感想を付けられませんでした（最近の500件まで探します）。下書きは残っています。`)
         await updateRecord(token, found.id, text, found.rating)
         onSent()
       })

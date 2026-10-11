@@ -46,7 +46,7 @@ export async function sendFeedback(d: FeedbackDraft, fetchFn: typeof fetch = fet
     return '送れませんでした。通信の状態を確かめて、もう一度お試しください。'
   }
   if (res.ok) return null
-  if (res.status === 429) return '問い合わせが多く、いまは受け付けを止めています。しばらく待ってからお試しください。急ぎのときは X（@anipairAPP）からお知らせください。'
+  if (res.status === 429) return '問い合わせが多く、いまは受け付けを止めています。しばらく待ってからお試しください。急ぎのときはX（@anipairAPP）からお知らせください。'
   if (res.status === 503) return 'いまは問い合わせを受け付けていません。お手数ですが、X（@anipairAPP）からお知らせください。'
   if (res.status === 400) return `内容を読み取れませんでした。本文を${FEEDBACK_MIN}〜${FEEDBACK_MAX}字にして、もう一度お試しください。`
   return '送れませんでした。少し待ってから、もう一度お試しください。'

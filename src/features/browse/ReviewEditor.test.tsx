@@ -42,7 +42,7 @@ beforeEach(() => {
   localStorage.clear()
   saved.length = 0
   tasks.length = 0
-  onAnnict = { ...cached, body: 'Annict で書き直した本文', ratingMusicState: 'GREAT' }
+  onAnnict = { ...cached, body: 'Annictで書き直した本文', ratingMusicState: 'GREAT' }
 })
 
 afterEach(() => cleanup())
@@ -56,10 +56,10 @@ const open = async () => {
 describe('ReviewEditor', () => {
   it('is folded at first, and shows the latest review read again from Annict when opened', async () => {
     const box = await open()
-    expect(box.value).toBe('Annict で書き直した本文')
+    expect(box.value).toBe('Annictで書き直した本文')
     const music = screen.getByRole('group', { name: '音楽' })
     expect(music.querySelector('[aria-pressed="true"]')?.textContent).toBe('とても良い')
-    expect(screen.getByText(/Annict の作品ページなどで公開されます/)).toBeTruthy()
+    expect(screen.getByText(/Annictの作品ページなどで公開されます/)).toBeTruthy()
   })
 
   it('saves the four axes and the body with the current overall rating', async () => {
@@ -88,6 +88,6 @@ describe('ReviewEditor', () => {
     const again = await open()
     expect(again.value).toBe('書きかけ')
     fireEvent.click(screen.getByRole('button', { name: '下書きを捨てる' }))
-    await waitFor(() => expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe('Annict で書き直した本文'))
+    await waitFor(() => expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe('Annictで書き直した本文'))
   })
 })

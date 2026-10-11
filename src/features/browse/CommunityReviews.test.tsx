@@ -37,7 +37,7 @@ describe('CommunityReviews', () => {
     expect(screen.getByText('ネタバレを含むことがあります')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '感想を読む' }))
     expect(screen.getByText('短い感想')).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Annict で感想をすべて読む' }).getAttribute('href')).toBe('https://annict.com/works/11/records')
+    expect(screen.getByRole('link', { name: 'Annictで感想をすべて読む' }).getAttribute('href')).toBe('https://annict.com/works/11/records')
   })
 
   it('opens the bodies of a watched work, credits each writer with a link, and folds long ones', async () => {
@@ -58,8 +58,8 @@ describe('CommunityReviews', () => {
   it('says there are no reviews yet, and shows nothing when Annict cannot be read', async () => {
     fetchWorkReviews.mockResolvedValue({ satisfactionRate: null, reviewsCount: 0, reviews: [] })
     render(<CommunityReviews token="t" workId="W1" annictId={11} watched={false} />)
-    expect(await screen.findByText('まだ Annict に感想がありません。')).toBeTruthy()
-    expect(screen.queryByRole('link', { name: 'Annict で感想をすべて読む' })).toBeNull()
+    expect(await screen.findByText('まだAnnictに感想がありません。')).toBeTruthy()
+    expect(screen.queryByRole('link', { name: 'Annictで感想をすべて読む' })).toBeNull()
     cleanup()
     fetchWorkReviews.mockRejectedValue(new Error('down'))
     const { container } = render(<CommunityReviews token="t" workId="W2" annictId={12} watched={false} />)

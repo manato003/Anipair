@@ -118,7 +118,7 @@ export function clip(text: string): string {
 async function call<T>(params: Record<string, string>): Promise<T> {
   const q = new URLSearchParams({ ...params, format: 'json', formatversion: '2', origin: '*' })
   const res = await fetch(`${API}?${q.toString()}`, { credentials: 'omit' })
-  if (!res.ok) throw new Error(`Wikipedia を読めませんでした（HTTP ${res.status}）`)
+  if (!res.ok) throw new Error(`Wikipediaを読めませんでした（HTTP ${res.status}）`)
   return (await res.json()) as T
 }
 

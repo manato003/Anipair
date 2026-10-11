@@ -25,7 +25,7 @@ export function Welcome(props: { clientId: string | null; busy: boolean; error: 
           <span key={phrase}>{phrase}</span>
         ))}
       </p>
-      <p className="settings__lead">Annict の視聴記録を、タップだけで付けられるアプリです。見たアニメを評価していくと、好みに合う作品を提案します。</p>
+      <p className="settings__lead">Annictの視聴記録を、タップだけで付けられるアプリです。見たアニメを評価していくと、好みに合う作品を提案します。</p>
       {props.clientId && (
         <button
           type="button"
@@ -39,7 +39,7 @@ export function Welcome(props: { clientId: string | null; busy: boolean; error: 
               ログインしています…
             </>
           ) : (
-            'Annict でログイン'
+            'Annictでログイン'
           )}
         </button>
       )}
@@ -49,9 +49,9 @@ export function Welcome(props: { clientId: string | null; busy: boolean; error: 
         </p>
       )}
       <p className="settings__lead settings__need">
-        ご利用には Annict のアカウントが必要です。お持ちでない方は、
+        ご利用にはAnnictのアカウントが必要です。お持ちでない方は、
         <a href="https://annict.com/sign_up" target="_blank" rel="noreferrer">
-          Annict で新規登録
+          Annictで新規登録
         </a>
         してください。
       </p>
@@ -60,14 +60,14 @@ export function Welcome(props: { clientId: string | null; busy: boolean; error: 
       <details className="settings__dev" open={!props.clientId}>
         <summary>開発者向け: 個人用アクセストークンで使う</summary>
         <p className="settings__lead">
-          Annict の
+          Annictの
           <a href="https://annict.com/settings/apps" target="_blank" rel="noreferrer">
             アプリケーション設定
           </a>
           で、スコープを「読み込み + 書き込み」にして個人用アクセストークンを作成し、下の欄に貼り付けてください。
         </p>
         <TokenForm
-          label="Annict の個人用アクセストークン"
+          label="Annictの個人用アクセストークン"
           verify={verifyAnnictToken}
           save={(t) => props.onAnnictTokenChange(t)}
         />

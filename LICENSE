@@ -42,16 +42,16 @@ You may not use, copy, modify, or distribute these assets without prior
 written permission. If you publish a fork or a derived work, replace them
 with your own name, logo, and artwork.
 
-例外: ブランドの素材（Anipair の名前・ロゴ、キャラクターのアニとペア）
+例外: ブランドの素材（Anipairの名前・ロゴ、キャラクターのアニとペア）
 
-上の MIT ライセンスは、ソースコードにだけ適用されます。次のものには適用されず、
-著作権は manato003 が保持します（無断の使用・複製・改変・再配布はできません）。
+上のMITライセンスは、ソースコードにだけ適用されます。次のものには適用されず、
+著作権はmanato003が保持します（無断の使用・複製・改変・再配布はできません）。
 
   - 「Anipair」の名前とロゴ（印と文字）
   - キャラクター「アニ」と「ペア」（デザイン・絵・名前・設定）
 
 これらは、src/components/Mascot.tsx、src/features/settings/MascotProfile.tsx、
-public/ のロゴとアイコン（logo-mark.svg・logo-mark-on-dark.svg・favicon.svg・
-icon-*.png・apple-touch-icon.png）、index.html の絵、screenshots/ などに含まれます。
+public/のロゴとアイコン（logo-mark.svg・logo-mark-on-dark.svg・favicon.svg・
+icon-*.png・apple-touch-icon.png）、index.htmlの絵、screenshots/などに含まれます。
 フォークや派生物を公開するときは、名前・ロゴ・キャラクターを差し替えてください。
 

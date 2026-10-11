@@ -22,13 +22,13 @@ describe('NoticesBell (control center)', () => {
     render(
       <>
         <Source notice={{ id: 'a', title: '2件を保存できませんでした', body: '通信が切れました', action: { label: 'もう一度', run: retry }, urgent: true }} />
-        <Source notice={{ id: 'b', title: 'Annict から読み直せませんでした' }} />
+        <Source notice={{ id: 'b', title: 'Annictから読み直せませんでした' }} />
         <NoticesBell />
       </>,
     )
     fireEvent.click(screen.getByRole('button', { name: 'コントロールセンター（知らせ 2件）' }))
     expect(screen.getByText('2件を保存できませんでした')).toBeTruthy()
-    expect(screen.getByText('Annict から読み直せませんでした')).toBeTruthy()
+    expect(screen.getByText('Annictから読み直せませんでした')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'もう一度' }))
     expect(retry).toHaveBeenCalledTimes(1)
   })

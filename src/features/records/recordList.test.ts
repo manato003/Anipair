@@ -125,8 +125,8 @@ describe('sortOptions and sortNote', () => {
   it('says in words which way the list runs', () => {
     expect(sortNote({ key: 'rating', dir: 'desc' })).toMatch(/^あなたの評価の高い順/)
     expect(sortNote({ key: 'rating', dir: 'asc' })).toMatch(/^あなたの評価の低い順/)
-    expect(sortNote({ key: 'recorded', dir: 'asc' })).toBe('Annict に記録した日の古い順です。')
-    expect(sortNote({ key: 'popular', dir: 'desc' })).toBe('Annict でこの作品を記録した人の多い順です。')
+    expect(sortNote({ key: 'recorded', dir: 'asc' })).toBe('Annictに記録した日の古い順です。')
+    expect(sortNote({ key: 'popular', dir: 'desc' })).toBe('Annictでこの作品を記録した人の多い順です。')
     expect(sortNote({ key: 'aired', dir: 'desc' })).toMatch(/^放送の新しい順/)
   })
 })

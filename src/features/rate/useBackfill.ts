@@ -115,7 +115,7 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
             synced.current = github
             if (!cancelled) setSyncNote(null)
           } catch (e) {
-            if (!cancelled) setSyncNote(`GitHub と同期できませんでした（${messageOf(e)}）。この端末の記録だけで進めます。`)
+            if (!cancelled) setSyncNote(`GitHubと同期できませんでした（${messageOf(e)}）。この端末の記録だけで進めます。`)
           }
         }
         const all = await worksPromise
@@ -178,7 +178,7 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
         synced.current = github
         if (!cancelled) setSyncNote(null)
       },
-      (e: unknown) => !cancelled && setSyncNote(`GitHub と同期できませんでした（${messageOf(e)}）。この端末の記録だけで進めます。`),
+      (e: unknown) => !cancelled && setSyncNote(`GitHubと同期できませんでした（${messageOf(e)}）。この端末の記録だけで進めます。`),
     )
     return () => {
       cancelled = true
@@ -187,7 +187,7 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
 
   // 始まる前の同期はまとめる（詳しくは useCoalescedTask）
   const syncRun = useMemo(() => (github ? async () => void (await syncUnseen(github)) : null), [github])
-  const syncLater = useCoalescedTask(enqueue, '「見てない」の記録の GitHub への保存', syncRun)
+  const syncLater = useCoalescedTask(enqueue, '「見てない」の記録のGitHubへの保存', syncRun)
 
   const goToSeason = useCallback((next: Season, forward = false) => {
     if (next.year < OLDEST_YEAR) {

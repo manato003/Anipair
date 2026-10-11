@@ -36,7 +36,7 @@ describe('SaveStatus', () => {
 
   it('shows every link for a failure that the user fixes by hand, instead of a retry', () => {
     const links = [
-      { href: 'https://annict.com/search?q=x', text: 'Annict で探して登録する' },
+      { href: 'https://annict.com/search?q=x', text: 'Annictで探して登録する' },
       { href: 'https://annict.com/forum/posts/new', text: '無ければフォーラムで追加を頼む' },
     ]
     render(<SaveStatus pending={0} failed={[{ label: '見たい', message: '見つけられませんでした', links, task: async () => undefined }]} onRetry={noop} />)

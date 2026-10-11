@@ -96,12 +96,12 @@ describe('Browse sort options', () => {
 
   it('always says in one line what the current order is (so 人気順 and 評価順 can be told apart)', () => {
     const { unmount } = render(<Browse token="t" />)
-    expect(screen.getByText('Annict でこの作品を記録した人の多い順です。')).toBeTruthy()
+    expect(screen.getByText('Annictでこの作品を記録した人の多い順です。')).toBeTruthy()
     unmount()
     state = { ...base(), sort: 'score' }
     render(<Browse token="t" />)
     expect(screen.getByText(/^ほかの人の評価が高い順です。評価した人の少ない作品は、点数を平均に寄せて並べます/)).toBeTruthy()
-    expect(screen.queryByText('Annict でこの作品を記録した人の多い順です。')).toBeNull()
+    expect(screen.queryByText('Annictでこの作品を記録した人の多い順です。')).toBeNull()
   })
 
   it('offers 放送日順 but not おすすめ順 while searching by title', () => {
@@ -125,7 +125,7 @@ describe('Browse sort options', () => {
   it('pressing the chosen order again asks for the other direction, and the line says which way', () => {
     state = { ...base(), dir: 'asc' }
     render(<Browse token="t" />)
-    expect(screen.getByText('Annict でこの作品を記録した人の少ない順です。')).toBeTruthy()
+    expect(screen.getByText('Annictでこの作品を記録した人の少ない順です。')).toBeTruthy()
     expect(screen.getByRole('button', { name: /^人気順/ }).textContent).toContain('↑')
     fireEvent.click(screen.getByRole('button', { name: /^人気順/ }))
     expect(setSort).toHaveBeenCalledWith('popular')

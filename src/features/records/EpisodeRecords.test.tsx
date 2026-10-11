@@ -194,7 +194,7 @@ describe('EpisodeRecorder', () => {
     cleanup()
     // 開き直したとき（直前の記録が無いとき）は、続きの案内を出す
     recorder(data([ep(1, true), ep(2, true)]), { watching: true, airing: true })
-    expect(screen.getByText('次の話が Annict に登録されたら、ここで続けて記録できます。')).toBeTruthy()
+    expect(screen.getByText('次の話がAnnictに登録されたら、ここで続けて記録できます。')).toBeTruthy()
   })
 
   it('lists the episodes under the recorder; picking one selects it in the recorder', () => {

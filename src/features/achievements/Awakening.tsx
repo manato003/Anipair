@@ -27,7 +27,7 @@ export function Awakening({ titles, onClose }: { titles: Title[]; onClose: () =>
       <div className="awaken__body">
         {titles.length > 0 ? (
           <>
-            <p className="awaken__eyebrow">Annict での歩みを読み解いた</p>
+            <p className="awaken__eyebrow">Annictでの歩みを読み解いた</p>
             <h2 id="awaken-title" className="awaken__title">
               封印されし称号が、目覚めた
             </h2>
@@ -50,7 +50,7 @@ export function Awakening({ titles, onClose }: { titles: Title[]; onClose: () =>
           </>
         ) : (
           <>
-            <p className="awaken__eyebrow">Annict での歩みを読み解いた</p>
+            <p className="awaken__eyebrow">Annictでの歩みを読み解いた</p>
             <h2 id="awaken-title" className="awaken__title">
               称号は、まだ眠っている
             </h2>

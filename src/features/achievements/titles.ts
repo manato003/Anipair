@@ -147,23 +147,23 @@ export function featTitle(feat: keyof Feats): { id: string; name: string; rarity
 
 // 隠し称号。条件は解放するまで見せない
 const HIDDEN: readonly { id: string; name: string; condition: string; rarity: Rarity; test: (f: Facts) => boolean }[] = [
-  { id: 'hidden-dawn', name: '黎明より記す者', condition: '2016年までに Annict に登録した', rarity: 'gold', test: (f) => !!f.stats && new Date(f.stats.createdAt).getFullYear() <= 2016 },
-  { id: 'hidden-veteran', name: '歴戦の観測者', condition: 'Annict に登録して5年が経った', rarity: 'silver', test: (f) => !!f.stats && yearsBetween(new Date(f.stats.createdAt), f.now) >= 5 },
-  { id: 'hidden-records-1k', name: '千夜の語り部', condition: 'Annict でエピソードを1,000話記録した', rarity: 'gold', test: (f) => (f.stats?.recordsCount ?? 0) >= 1000 },
-  { id: 'hidden-records-10k', name: '万象の観測者', condition: 'Annict でエピソードを10,000話記録した', rarity: 'radiant', test: (f) => (f.stats?.recordsCount ?? 0) >= 10000 },
+  { id: 'hidden-dawn', name: '黎明より記す者', condition: '2016年までにAnnictに登録した', rarity: 'gold', test: (f) => !!f.stats && new Date(f.stats.createdAt).getFullYear() <= 2016 },
+  { id: 'hidden-veteran', name: '歴戦の観測者', condition: 'Annictに登録して5年が経った', rarity: 'silver', test: (f) => !!f.stats && yearsBetween(new Date(f.stats.createdAt), f.now) >= 5 },
+  { id: 'hidden-records-1k', name: '千夜の語り部', condition: 'Annictでエピソードを1,000話記録した', rarity: 'gold', test: (f) => (f.stats?.recordsCount ?? 0) >= 1000 },
+  { id: 'hidden-records-10k', name: '万象の観測者', condition: 'Annictでエピソードを10,000話記録した', rarity: 'radiant', test: (f) => (f.stats?.recordsCount ?? 0) >= 10000 },
   { id: 'hidden-showa', name: '昭和を識る者', condition: '1988年以前の作品を見た', rarity: 'gold', test: (f) => f.watchedYears.some((y) => y <= 1988) },
   { id: 'hidden-decades', name: '時空を越えし者', condition: '5つ以上の年代の作品を見た', rarity: 'amethyst', test: (f) => new Set(f.watchedYears.map((y) => Math.floor(y / 10))).size >= 5 },
   { id: 'hidden-wanna', name: '積みの魔王', condition: '見たい作品が300本を超えた', rarity: 'crimson', test: (f) => (f.stats?.wannaWatchCount ?? 0) >= 300 },
   { id: 'hidden-cut', name: '断ち切る者', condition: '視聴中断した作品が50本を超えた', rarity: 'crimson', test: (f) => (f.stats ? f.stats.stopWatchingCount + f.stats.onHoldCount : 0) >= 50 },
-  { id: 'hidden-guide', name: '導く者', condition: 'Annict のフォロワーが100人を超えた', rarity: 'amethyst', test: (f) => (f.stats?.followersCount ?? 0) >= 100 },
+  { id: 'hidden-guide', name: '導く者', condition: 'Annictのフォロワーが100人を超えた', rarity: 'amethyst', test: (f) => (f.stats?.followersCount ?? 0) >= 100 },
   { id: 'hidden-midnight', name: '丑三つ時の観測者', condition: '深夜2時から4時のあいだに記録した', rarity: 'crimson', test: (f) => !!f.feats.lateNight },
   { id: 'hidden-castle', name: '一夜城', condition: '一度に20本以上答えて、クールを踏破した', rarity: 'gold', test: (f) => !!f.feats.oneNightCastle },
   { id: 'hidden-wanna-1k', name: '積み山脈の主', condition: '見たい作品が1,000本を超えた', rarity: 'crimson', test: (f) => (f.stats?.wannaWatchCount ?? 0) >= 1000 },
   { id: 'hidden-watching', name: '並行世界の住人', condition: '見てる作品が20本を超えた', rarity: 'crimson', test: (f) => (f.stats?.watchingCount ?? 0) >= 20 },
-  { id: 'hidden-decade-friend', name: '十年来の盟友', condition: 'Annict に登録して10年が経った', rarity: 'gold', test: (f) => !!f.stats && yearsBetween(new Date(f.stats.createdAt), f.now) >= 10 },
-  { id: 'hidden-genesis', name: '創世記の民', condition: '2015年までに Annict に登録した', rarity: 'amethyst', test: (f) => !!f.stats && new Date(f.stats.createdAt).getFullYear() <= 2015 },
-  { id: 'hidden-stars', name: '星を導く者', condition: 'Annict のフォロワーが1,000人を超えた', rarity: 'radiant', test: (f) => (f.stats?.followersCount ?? 0) >= 1000 },
-  { id: 'hidden-bonds', name: '縁を結ぶ者', condition: 'Annict で100人をフォローした', rarity: 'silver', test: (f) => (f.stats?.followingsCount ?? 0) >= 100 },
+  { id: 'hidden-decade-friend', name: '十年来の盟友', condition: 'Annictに登録して10年が経った', rarity: 'gold', test: (f) => !!f.stats && yearsBetween(new Date(f.stats.createdAt), f.now) >= 10 },
+  { id: 'hidden-genesis', name: '創世記の民', condition: '2015年までにAnnictに登録した', rarity: 'amethyst', test: (f) => !!f.stats && new Date(f.stats.createdAt).getFullYear() <= 2015 },
+  { id: 'hidden-stars', name: '星を導く者', condition: 'Annictのフォロワーが1,000人を超えた', rarity: 'radiant', test: (f) => (f.stats?.followersCount ?? 0) >= 1000 },
+  { id: 'hidden-bonds', name: '縁を結ぶ者', condition: 'Annictで100人をフォローした', rarity: 'silver', test: (f) => (f.stats?.followingsCount ?? 0) >= 100 },
   { id: 'hidden-dawn-era', name: '黎明期の目撃者', condition: '1979年以前の作品を見た', rarity: 'amethyst', test: (f) => f.watchedYears.some((y) => y <= 1979) },
   { id: 'hidden-all-eras', name: '時の果てまで', condition: '7つの年代の作品を見た', rarity: 'radiant', test: (f) => new Set(f.watchedYears.map((y) => Math.floor(y / 10))).size >= 7 },
   { id: 'hidden-dawn-hour', name: '暁の観測者', condition: '朝5時から7時のあいだに記録した', rarity: 'bronze', test: (f) => !!f.feats.earlyMorning },
@@ -175,7 +175,7 @@ export const HIDDEN_COUNT = HIDDEN.length
 // 特別な称号: 持てる人が決まっているもの。手に入れた人にだけ見せ、数にも伏せ字の枠にも入れない（ほかの人には取れないので）。
 // Annict を創った shimbaco さんへの敬意として。ユーザー名は Annict の API が返すログイン中の本人のもの
 const SPECIAL: readonly { id: string; name: string; condition: string; rarity: Rarity; test: (f: Facts) => boolean }[] = [
-  { id: 'special-creator', name: '記録の世界を創りし者', condition: 'Annict を創った人だけが持つ称号', rarity: 'origin', test: (f) => f.stats?.username === 'shimbaco' },
+  { id: 'special-creator', name: '記録の世界を創りし者', condition: 'Annictを創った人だけが持つ称号', rarity: 'origin', test: (f) => f.stats?.username === 'shimbaco' },
   // Annict サポーターの称号も考えたが、サポーターかは API に無い（プロフィールページにしか出ない）ので入れない。
   // Annict は API で取れるものだけを使う（設計の原則）。編集者も外から見分ける方法が無い
 ]

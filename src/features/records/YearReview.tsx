@@ -72,7 +72,7 @@ export function YearReview(props: {
                   <span className="kpi__label">平均評価</span>
                 </div>
               </div>
-              <p className="trend__note">Annict で「見た」にした日で数えています（昔の作品をまとめて記録したときは、その日の年に入ります）。</p>
+              <p className="trend__note">Annictで「見た」にした日で数えています（昔の作品をまとめて記録したときは、その日の年に入ります）。</p>
             </section>
 
             <section className="trend">

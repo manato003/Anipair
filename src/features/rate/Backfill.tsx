@@ -199,7 +199,7 @@ export function Backfill({ token, github, active }: { token: string; github: Git
       facts: {
         malId: malIdOf(bCurrent.work),
         head: [seasonLabel(b.season), workMeta({ media: bCurrent.work.media })],
-        note: bCurrent.work.watchersCount > 0 ? `Annict で ${bCurrent.work.watchersCount.toLocaleString()}人が記録` : null,
+        note: bCurrent.work.watchersCount > 0 ? `Annictで ${bCurrent.work.watchersCount.toLocaleString()}人が記録` : null,
       },
     }
   }, [bCurrent, wCurrent, b.season])

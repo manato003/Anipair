@@ -89,7 +89,7 @@ function GodTools(props: { onClose: () => void }) {
     publishNotice({ id, title, body, urgent, action: { label: '消す', run: () => withdrawNotice(id) } })
   return (
     <div className="cc__god">
-      <h3 className="cc__sub">God モード（試し表示。preview だけ・何も保存しません）</h3>
+      <h3 className="cc__sub">Godモード（試し表示。previewだけ・何も保存しません）</h3>
       <div className="cc__godactions">
         <button
           type="button"

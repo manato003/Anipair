@@ -68,7 +68,7 @@ export function SimilarWorks(props: { malId: number | null; onOpen: (target: Rel
           )
         })}
       </ul>
-      <p className="detail__source">似た作品は Shikimori の情報です。</p>
+      <p className="detail__source">似た作品はShikimoriの情報です。</p>
     </section>
   )
 }

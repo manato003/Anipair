@@ -16,7 +16,7 @@ describe('LegalLinks', () => {
     const fetchMock = vi.fn(async (url: string) =>
       new Response(
         url === '/terms.html'
-          ? page('利用規約', '<p class="note"><a href="/privacy.html">プライバシーポリシー</a> <a href="https://annict.com/terms">Annict の利用規約</a></p>')
+          ? page('利用規約', '<p class="note"><a href="/privacy.html">プライバシーポリシー</a> <a href="https://annict.com/terms">Annictの利用規約</a></p>')
           : page('プライバシーポリシー', '<p>本文</p>'),
       ),
     )
@@ -30,7 +30,7 @@ describe('LegalLinks', () => {
     expect(await screen.findByRole('heading', { level: 1, name: '利用規約' })).toBeTruthy()
     expect(screen.queryByText('アプリを開く')).toBeNull()
     // 外のサイトへのリンクだけ新しいタブ
-    expect(screen.getByRole('link', { name: 'Annict の利用規約' }).getAttribute('target')).toBe('_blank')
+    expect(screen.getByRole('link', { name: 'Annictの利用規約' }).getAttribute('target')).toBe('_blank')
     fireEvent.click(screen.getAllByRole('link', { name: 'プライバシーポリシー' }).at(-1) as HTMLElement)
     await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'プライバシーポリシー' })).toBeTruthy())
     expect(fetchMock).toHaveBeenLastCalledWith('/privacy.html')

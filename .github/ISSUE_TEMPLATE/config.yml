@@ -1,5 +1,5 @@
 blank_issues_enabled: false
 contact_links:
-  - name: アプリから送る（GitHub のアカウントは要りません）
+  - name: アプリから送る（GitHubのアカウントは要りません）
     url: https://anipair.vercel.app/
     about: アプリの設定の「お問い合わせ」か、ヘルプ（各画面の右上の「?」→「文章で詳しく読む」）にある「質問・不具合・要望を送る」から送れます。送った内容は公開されません。

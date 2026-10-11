@@ -10,7 +10,7 @@ export function AuthExpiredBanner(props: {
   clientId?: string | null
 }) {
   const clientId = props.clientId === undefined ? annictClientId() : props.clientId
-  useNotice({ id: 'auth', title: 'Annict のログインが切れました', body: 'もう一度ログインすると、記録を続けられます。', action: { label: 'ログインし直す', run: relogin }, urgent: true })
+  useNotice({ id: 'auth', title: 'Annictのログインが切れました', body: 'もう一度ログインすると、記録を続けられます。', action: { label: 'ログインし直す', run: relogin }, urgent: true })
 
   function relogin() {
     if (clientId) startLogin({ clientId, origin: window.location.origin, assign: (url) => window.location.assign(url) })
@@ -19,7 +19,7 @@ export function AuthExpiredBanner(props: {
 
   return (
     <div className="auth-banner" role="alert">
-      <p className="auth-banner__text">Annict のログインが切れました。もう一度ログインしてください。</p>
+      <p className="auth-banner__text">Annictのログインが切れました。もう一度ログインしてください。</p>
       <div className="auth-banner__actions">
         <button type="button" className="btn btn--primary" onClick={relogin}>
           もう一度ログイン

@@ -230,8 +230,8 @@ describe('Backfill first-run guide', () => {
   it('opens once on the first visit; はじめる closes it and it does not come back', () => {
     localStorage.clear()
     const { unmount } = render(<Backfill token="t" github={null} active />)
-    expect(screen.getByRole('dialog', { name: 'Anipair の使い方' })).toBeTruthy()
-    expect(screen.getByRole('heading', { name: 'ようこそ、Anipair へ' })).toBeTruthy()
+    expect(screen.getByRole('dialog', { name: 'Anipairの使い方' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'ようこそ、Anipairへ' })).toBeTruthy()
     for (let i = 0; i < 6; i++) fireEvent.click(screen.getByRole('button', { name: '次へ' }))
     fireEvent.click(screen.getByRole('button', { name: 'はじめる' }))
     expect(screen.queryByRole('dialog')).toBeNull()
@@ -272,7 +272,7 @@ describe('Backfill first-run guide', () => {
     const { rerender } = render(<Backfill token="t" github={null} active={false} />)
     expect(screen.queryByRole('dialog')).toBeNull()
     rerender(<Backfill token="t" github={null} active />)
-    expect(screen.getByRole('dialog', { name: 'Anipair の使い方' })).toBeTruthy()
+    expect(screen.getByRole('dialog', { name: 'Anipairの使い方' })).toBeTruthy()
   })
 })
 

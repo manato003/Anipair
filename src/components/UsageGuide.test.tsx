@@ -13,8 +13,8 @@ const heading = () => screen.getByRole('heading', { level: 2 }).textContent
 describe('UsageGuide', () => {
   it('walks through the whole app in seven pages with Ani and Pair, a picture of each screen, and back and next', () => {
     render(<UsageGuide onClose={vi.fn()} />)
-    expect(screen.getByRole('dialog', { name: 'Anipair の使い方' })).toBeTruthy()
-    expect(heading()).toBe('ようこそ、Anipair へ')
+    expect(screen.getByRole('dialog', { name: 'Anipairの使い方' })).toBeTruthy()
+    expect(heading()).toBe('ようこそ、Anipairへ')
     expect(screen.getByText('1 / 7')).toBeTruthy()
     expect((screen.getByRole('button', { name: '戻る' }) as HTMLButtonElement).disabled).toBe(true)
     const titles = [heading()]
@@ -23,7 +23,7 @@ describe('UsageGuide', () => {
       titles.push(heading())
     }
     expect(titles).toEqual([
-      'ようこそ、Anipair へ',
+      'ようこそ、Anipairへ',
       '評価: 表紙を見て、答える',
       'マッチング: 次の好きを見つける',
       '記録: 見てる・見た・見たい',

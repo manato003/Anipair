@@ -107,8 +107,8 @@ function Figure({ screen, guide }: { screen: Screen; guide: 'ani' | 'pair' | 'bo
 const STEPS: { art: ReactNode; title: string; body: string }[] = [
   {
     art: <WatchingScene className="scene-art guide-scene" />,
-    title: 'ようこそ、Anipair へ',
-    body: '見たアニメを、タップで Annict に記録していくアプリです。記録が増えるほど、あなたの好みに合う「次の1本」を見つけてきます。案内は、アニメを見る係のアニと、次の好きを見つけてくる係のペアです。',
+    title: 'ようこそ、Anipairへ',
+    body: '見たアニメを、タップでAnnictに記録していくアプリです。記録が増えるほど、あなたの好みに合う「次の1本」を見つけてきます。案内は、アニメを見る係のアニと、次の好きを見つけてくる係のペアです。',
   },
   {
     art: <Figure screen="rate" guide="ani" />,
@@ -133,12 +133,12 @@ const STEPS: { art: ReactNode; title: string; body: string }[] = [
   {
     art: <Figure screen="nav" guide="both" />,
     title: '画面の行き来と、困ったとき',
-    body: '画面は下の帯で切り替えます（スマホは左右に払っても、PC は ← → でも替わります）。右上の「?」は、その画面のボタンを1つずつ指して説明します。となりのボタンは、知らせと表示の設定です。',
+    body: '画面は下の帯で切り替えます（スマホは左右に払っても、PCは ← → でも替わります）。右上の「?」は、その画面のボタンを1つずつ指して説明します。となりのボタンは、知らせと表示の設定です。',
   },
   {
     art: <CheerScene className="scene-art guide-scene" />,
     title: 'さあ、はじめよう',
-    body: '記録はすべて、あなたの Annict に保存されます。まずは評価の画面で、見たことのある作品に答えてみてください。',
+    body: '記録はすべて、あなたのAnnictに保存されます。まずは評価の画面で、見たことのある作品に答えてみてください。',
   },
 ]
 
@@ -147,7 +147,7 @@ export function UsageGuide(props: { active?: boolean; onClose: () => void }) {
   const step = STEPS[i]
   const last = i === STEPS.length - 1
   return (
-    <Sheet label="Anipair の使い方" size="page" active={props.active} onClose={props.onClose}>
+    <Sheet label="Anipairの使い方" size="page" active={props.active} onClose={props.onClose}>
       <div className="guide" aria-live="polite">
         <p className="guide__count">
           {i + 1} / {STEPS.length}

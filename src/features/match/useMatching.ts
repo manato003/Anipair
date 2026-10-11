@@ -87,7 +87,7 @@ export function useMatching(annictToken: string, github: GithubConnection | null
     const filter = filterRef.current
     // 提案を作るたびに好みを読み直す（評価が増えたあとでも、新しい好みで提案できるように）。読んだ好みは、記録ページの傾向などが使い回す
     forgetTaste()
-    setPhase({ kind: 'loading', step: 'Annict の記録を読み込み中' })
+    setPhase({ kind: 'loading', step: 'Annictの記録を読み込み中' })
     try {
       const { library, ratings, seeds, similarSeeds, similar, profile, pendingSimilar } = await loadTaste(annictToken, (step, note, work) => {
         if (alive()) setPhase({ kind: 'loading', step, note, work })
@@ -102,12 +102,12 @@ export function useMatching(annictToken: string, github: GithubConnection | null
 
       let passes = loadLocalPasses()
       if (github) {
-        setPhase({ kind: 'loading', step: '興味なし・保留の作品を GitHub から読み込み中' })
+        setPhase({ kind: 'loading', step: '興味なし・保留の作品をGitHubから読み込み中' })
         try {
           passes = await syncPasses(github)
           setSyncNote(null)
         } catch (e) {
-          setSyncNote(`GitHub と同期できませんでした（${messageOf(e)}）。この端末の記録だけで進めます。`)
+          setSyncNote(`GitHubと同期できませんでした（${messageOf(e)}）。この端末の記録だけで進めます。`)
         }
         if (!alive()) return
       }
@@ -167,7 +167,7 @@ export function useMatching(annictToken: string, github: GithubConnection | null
 
   // 始まる前の同期はまとめる（詳しくは useCoalescedTask）
   const syncRun = useMemo(() => (github ? async () => void (await syncPasses(github)) : null), [github])
-  const syncLater = useCoalescedTask(enqueue, '興味なし・保留の記録の GitHub への保存', syncRun)
+  const syncLater = useCoalescedTask(enqueue, '興味なし・保留の記録のGitHubへの保存', syncRun)
 
   const answer = useCallback(
     (a: MatchAnswer) => {
@@ -192,7 +192,7 @@ export function useMatching(annictToken: string, github: GithubConnection | null
         async () => {
           entry.ref ??= await resolveCard(card)
           if (!entry.ref) {
-            throw new WriteError(`「${title}」を Annict で見つけられませんでした。`, annictMissingLinks(title))
+            throw new WriteError(`「${title}」をAnnictで見つけられませんでした。`, annictMissingLinks(title))
           }
           await updateStatus(annictToken, entry.ref.id, state)
           if (a.kind === 'rate') {

@@ -1,12 +1,12 @@
 name: 不具合
-description: 思ったとおりに動かないところを知らせる（この Issue は公開されます）
+description: 思ったとおりに動かないところを知らせる（このIssueは公開されます）
 labels: ["不具合"]
 body:
   - type: markdown
     attributes:
       value: |
-        この Issue は公開されます。Annict のユーザー名やトークンなど、公開したくない情報は書かないでください。
-        公開せずに送りたいときは、アプリの「質問・不具合・要望を送る」をお使いください（GitHub のアカウントは要りません）。
+        このIssueは公開されます。Annictのユーザー名やトークンなど、公開したくない情報は書かないでください。
+        公開せずに送りたいときは、アプリの「質問・不具合・要望を送る」をお使いください（GitHubのアカウントは要りません）。
   - type: textarea
     id: what
     attributes:
@@ -22,9 +22,9 @@ body:
     id: device
     attributes:
       label: 端末とブラウザ
-      placeholder: 例: iPhone 16 / Safari、Windows 11 / Chrome
+      placeholder: "例: iPhone 16 / Safari、Windows 11 / Chrome"
   - type: input
     id: version
     attributes:
-      label: Anipair のバージョン
+      label: Anipairのバージョン
       description: 設定の「このアプリについて」の下にあります

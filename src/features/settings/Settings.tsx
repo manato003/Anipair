@@ -23,10 +23,10 @@ import { reducedMotion } from '../../lib/theme'
 type GroupId = 'account' | 'display' | 'backup' | 'keys' | 'contact' | 'about'
 
 const GROUPS: readonly { id: GroupId; label: string; sub: string; icon: ReactNode; sections: readonly string[] }[] = [
-  { id: 'account', label: 'アカウント', sub: 'Annict と GitHub の連携', icon: <UserIcon />, sections: ['settings-account', 'settings-github'] },
+  { id: 'account', label: 'アカウント', sub: 'AnnictとGitHubの連携', icon: <UserIcon />, sections: ['settings-account', 'settings-github'] },
   { id: 'display', label: '表示', sub: 'テーマの色・明るさ・片手操作・ボタン・演出', icon: <PaletteIcon />, sections: ['settings-theme', 'settings-buttons', 'settings-effects'] },
   { id: 'backup', label: 'バックアップ', sub: 'ファイルに書き出す・毎日のバックアップ', icon: <BoxIcon />, sections: ['settings-backup'] },
-  { id: 'keys', label: 'キー', sub: 'PC で答えるキーの割り当て', icon: <KeyIcon />, sections: ['settings-keys'] },
+  { id: 'keys', label: 'キー', sub: 'PCで答えるキーの割り当て', icon: <KeyIcon />, sections: ['settings-keys'] },
   { id: 'contact', label: 'お問い合わせ', sub: '質問・不具合・要望を送る・よくある質問', icon: <CommentIcon />, sections: ['settings-contact', 'settings-faq'] },
   { id: 'about', label: 'このアプリ', sub: '非公式であること・データの行き先・規約', icon: <InfoIcon />, sections: ['settings-about'] },
 ]

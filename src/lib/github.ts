@@ -42,19 +42,19 @@ async function isRateLimited(res: Response): Promise<boolean> {
 
 async function call(url: string, init: RequestInit): Promise<Response> {
   // アカウントを切り替えたあとの古いページからは、GitHub に読み書きしない（前の人のつなぎで、次の人の記録を送らない。2026-10-06 のセキュリティの点検）
-  if (!pageIsCurrent()) throw new GitHubError('アカウントが切り替わったので、GitHub と同期しませんでした', 'api')
+  if (!pageIsCurrent()) throw new GitHubError('アカウントが切り替わったので、GitHubと同期しませんでした', 'api')
   let res: Response
   try {
     res = await fetch(url, init)
   } catch {
-    throw new GitHubError('GitHub に接続できませんでした。通信を確認してください', 'network')
+    throw new GitHubError('GitHubに接続できませんでした。通信を確認してください', 'network')
   }
   // 403 は、利用制限（レート制限）でも返る。トークンの問題と分けないと、入れ直しを促してしまう
   if ((res.status === 403 || res.status === 429) && (await isRateLimited(res))) {
-    throw new GitHubError('GitHub の利用制限に達しました。しばらく待ってからもう一度試してください', 'api')
+    throw new GitHubError('GitHubの利用制限に達しました。しばらく待ってからもう一度試してください', 'api')
   }
   if (res.status === 401 || res.status === 403) {
-    throw new GitHubError('GitHub のトークンが使えません。設定で入れ直してください', 'auth')
+    throw new GitHubError('GitHubのトークンが使えません。設定で入れ直してください', 'auth')
   }
   // 409: 他の端末が先に書いた / 422: sha が古い
   if (res.status === 409 || res.status === 422) throw new GitHubError('他の端末と同時に書き込みました', 'conflict')
@@ -83,14 +83,14 @@ export async function readJson(conn: GithubConnection, path: string): Promise<Re
   const url = `https://api.github.com/repos/${conn.repo}/contents/${path}`
   const res = await call(url, { headers: headers(conn.token), cache: 'no-store' })
   if (res.status === 404) return { value: null, sha: null }
-  if (!res.ok) throw new GitHubError(`GitHub がエラーを返しました（HTTP ${res.status}）`, 'api')
+  if (!res.ok) throw new GitHubError(`GitHubがエラーを返しました（HTTP ${res.status}）`, 'api')
   const json = (await res.json()) as { content: string; sha: string; encoding?: string; size?: number }
   let text: string
   if (json.encoding === 'none' || (!json.content && (json.size ?? 0) > 0)) {
     // 1MB を超えるファイルは、中身（content）が空で返る。中身だけを別に読む（2026-10-06 の点検: 空と読んで「壊れている」扱いにし、
     // 記録の多い人のバックアップが毎回別物に見えて、毎日コミットしていた）
     const raw = await call(url, { headers: { ...headers(conn.token), Accept: 'application/vnd.github.raw+json' }, cache: 'no-store' })
-    if (!raw.ok) throw new GitHubError(`GitHub がエラーを返しました（HTTP ${raw.status}）`, 'api')
+    if (!raw.ok) throw new GitHubError(`GitHubがエラーを返しました（HTTP ${raw.status}）`, 'api')
     text = await raw.text()
   } else {
     text = fromBase64(json.content)
@@ -114,14 +114,14 @@ export async function writeJson(conn: GithubConnection, path: string, value: unk
     headers: { ...headers(conn.token), 'Content-Type': 'application/json' },
     body: JSON.stringify({ message, content: toBase64(formatJson(value)), ...(sha ? { sha } : {}) }),
   })
-  if (!res.ok) throw new GitHubError(`GitHub に保存できませんでした（HTTP ${res.status}）`, 'api')
+  if (!res.ok) throw new GitHubError(`GitHubに保存できませんでした（HTTP ${res.status}）`, 'api')
 }
 
 // トークンでデータのリポジトリに届くかを確かめる
 export async function checkAccess(conn: GithubConnection): Promise<void> {
   const res = await call(`https://api.github.com/repos/${conn.repo}`, { headers: headers(conn.token) })
   if (res.status === 404) {
-    throw new GitHubError(`このトークンでは ${conn.repo} が見えません。リポジトリ名と、トークンの対象リポジトリを確認してください`, 'auth')
+    throw new GitHubError(`このトークンでは${conn.repo}が見えません。リポジトリ名と、トークンの対象リポジトリを確認してください`, 'auth')
   }
-  if (!res.ok) throw new GitHubError(`GitHub がエラーを返しました（HTTP ${res.status}）`, 'api')
+  if (!res.ok) throw new GitHubError(`GitHubがエラーを返しました（HTTP ${res.status}）`, 'api')
 }

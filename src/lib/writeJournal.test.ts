@@ -40,7 +40,7 @@ describe('writeJournal', () => {
     expect(left.map((e) => e.label)).toEqual(['A', 'B'])
     expect(isStillPending(left[0])).toBe(true)
     // 今回、同じ作品の状態を頼み直した
-    journalPut('今回の W1', [status('W1', 'NO_STATE')])
+    journalPut('今回のW1', [status('W1', 'NO_STATE')])
     expect(isStillPending(left[0])).toBe(false)
     expect(leftoverEntries().map((e) => e.label)).toEqual(['B'])
   })

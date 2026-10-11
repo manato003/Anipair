@@ -73,7 +73,7 @@ async function gql<T>(token: string, query: string, variables: Record<string, un
         if (!pageIsCurrent()) throw new AnnictError('アカウントが切り替わったので、送りませんでした', 'api')
         return await send(abort?.signal)
       } catch (e) {
-        if (abort?.signal.aborted) throw new AnnictError('Annict から応答を受け取れませんでした。少し待ってからもう一度試してください', 'timeout')
+        if (abort?.signal.aborted) throw new AnnictError('Annictから応答を受け取れませんでした。少し待ってからもう一度試してください', 'timeout')
         throw e
       } finally {
         if (timer) clearTimeout(timer)
@@ -81,7 +81,7 @@ async function gql<T>(token: string, query: string, variables: Record<string, un
     }, { ...opts, exclusive: write })
     if ('data' in outcome) return outcome.data
     if (attempt >= RATE_LIMIT_RETRIES) {
-      throw new AnnictError('Annict の利用制限に達しました。しばらく待ってからもう一度試してください', 'api')
+      throw new AnnictError('Annictの利用制限に達しました。しばらく待ってからもう一度試してください', 'api')
     }
     await delay(outcome.retryAfterMs)
   }
@@ -100,7 +100,7 @@ async function gql<T>(token: string, query: string, variables: Record<string, un
     } catch (e) {
       recordAnnictHealth({ at: Date.now(), ms: Date.now() - start, ok: false, failure: signal?.aborted ? 'timeout' : 'network' })
       if (signal?.aborted) throw e
-      throw new AnnictError('Annict に接続できませんでした。通信を確認してください', 'network')
+      throw new AnnictError('Annictに接続できませんでした。通信を確認してください', 'network')
     }
     // 429（回数の制限）はこちらの送りすぎなので数えない。401・404 なども、サーバーは答えているので「答えた」に入れる
     if (res.status !== 429) {
@@ -110,17 +110,17 @@ async function gql<T>(token: string, query: string, variables: Record<string, un
     if (res.status === 401) {
       // 画面全体に知らせる（帯を出す）。呼び出し元には、今までどおり例外で返す
       emitAnnictAuthFailed(token)
-      throw new AnnictError('Annict のトークンが使えません。設定で入れ直してください', 'auth')
+      throw new AnnictError('Annictのトークンが使えません。設定で入れ直してください', 'auth')
     }
     if (res.status === 429) {
       return { retryAfterMs: parseRetryAfter(res.headers.get('Retry-After'), RATE_LIMIT_DEFAULT_WAIT_MS, RATE_LIMIT_MAX_WAIT_MS) }
     }
-    if (res.status === 404) throw new AnnictError('Annict に見つかりませんでした（HTTP 404）', 'notFound')
-    if (res.status >= 500) throw new AnnictError(`Annict から応答を受け取れませんでした（HTTP ${res.status}）。しばらく待ってからもう一度試してください`, 'api', res.status)
-    if (!res.ok) throw new AnnictError(`Annict がエラーを返しました（HTTP ${res.status}）`, 'api', res.status)
+    if (res.status === 404) throw new AnnictError('Annictに見つかりませんでした（HTTP 404）', 'notFound')
+    if (res.status >= 500) throw new AnnictError(`Annictから応答を受け取れませんでした（HTTP ${res.status}）。しばらく待ってからもう一度試してください`, 'api', res.status)
+    if (!res.ok) throw new AnnictError(`Annictがエラーを返しました（HTTP ${res.status}）`, 'api', res.status)
     const json = (await res.json()) as { data?: T; errors?: { message: string }[] }
-    if (json.errors?.length) throw new AnnictError(`Annict がエラーを返しました: ${json.errors[0].message}`, 'api')
-    if (!json.data) throw new AnnictError('Annict の応答が空でした', 'api')
+    if (json.errors?.length) throw new AnnictError(`Annictがエラーを返しました: ${json.errors[0].message}`, 'api')
+    if (!json.data) throw new AnnictError('Annictの応答が空でした', 'api')
     return { data: json.data }
   }
 }
@@ -595,7 +595,7 @@ export const ANNICT_FORUM_NEW_POST_URL = 'https://annict.com/forum/posts/new'
 // Annict で作品を特定できなかったときの、手で直すためのリンク。照合の外れなら検索で、Annict に無い作品ならフォーラムで
 export function annictMissingLinks(title: string): { href: string; text: string }[] {
   return [
-    { href: annictSearchUrl(title), text: 'Annict で探して登録する' },
+    { href: annictSearchUrl(title), text: 'Annictで探して登録する' },
     { href: ANNICT_FORUM_NEW_POST_URL, text: '無ければフォーラムで追加を頼む' },
   ]
 }

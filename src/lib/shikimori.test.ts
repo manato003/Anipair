@@ -364,7 +364,7 @@ describe('people and studios', () => {
     })
     expect(fetchMock.mock.calls[0][0]).toBe('/api/shiki?op=person&id=14441&v=4')
     fetchMock.mockResolvedValueOnce(reply({ cast: 'x' }))
-    await expect(fetchPersonWorks(14441)).rejects.toThrow('Shikimori の応答を読めませんでした')
+    await expect(fetchPersonWorks(14441)).rejects.toThrow('Shikimoriの応答を読めませんでした')
   })
 
   it('fetchCharacterNames asks 50 at a time in sorted order, remembers names (and missing ones) for later', async () => {

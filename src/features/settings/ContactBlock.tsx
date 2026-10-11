@@ -12,7 +12,7 @@ export function ContactBlock() {
       <Section
         id="settings-contact"
         title="質問・不具合・要望を送る"
-        summary="GitHub のアカウントは要りません。送った内容は開発者だけが読み、公開はされません。"
+        summary="GitHubのアカウントは要りません。送った内容は開発者だけが読み、公開はされません。"
       >
         <div className="settings__actions">
           <button type="button" className="btn btn--primary" onClick={() => setOpen(true)}>
@@ -20,9 +20,9 @@ export function ContactBlock() {
           </button>
         </div>
         <p className="settings__lead">
-          GitHub を使う方は、
+          GitHubを使う方は、
           <a href="https://github.com/manato003/anipair/issues" target="_blank" rel="noreferrer">
-            公開リポジトリの Issues
+            公開リポジトリのIssues
           </a>
           からも送れます（こちらは公開されます）。
         </p>

@@ -41,7 +41,7 @@ export function FeedbackSheet(props: { active?: boolean; onClose: () => void }) 
       ) : (
         <form className="feedback" onSubmit={submit}>
           <p className="note">
-            送った内容は開発者だけが読みます（公開はされません）。GitHub のアカウントは要りません。よくある質問は、設定の「お問い合わせ」とヘルプにあります。
+            送った内容は開発者だけが読みます（公開はされません）。GitHubのアカウントは要りません。よくある質問は、設定の「お問い合わせ」とヘルプにあります。
           </p>
           <fieldset className="feedback__kinds">
             <legend className="review__axis-name">種類</legend>
@@ -70,7 +70,7 @@ export function FeedbackSheet(props: { active?: boolean; onClose: () => void }) 
               type="text"
               value={draft.contact}
               maxLength={CONTACT_MAX}
-              placeholder="例: X のアカウント（お返事が要るときだけ）"
+              placeholder="例: Xのアカウント（お返事が要るときだけ）"
               autoComplete="off"
               onChange={(e) => set('contact', e.target.value)}
             />

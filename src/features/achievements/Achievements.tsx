@@ -70,7 +70,7 @@ export function Achievements(props: { token: string; rows: RecordRow[] | null; l
     return (
       <div className="awaken-wait" aria-busy>
         <span className="awaken-wait__sigil" aria-hidden />
-        <p className="awaken-wait__title">Annict での歩みを読み解いています</p>
+        <p className="awaken-wait__title">Annictでの歩みを読み解いています</p>
         <p className="awaken-wait__note">
           {a.scan ? `クールの記録を照らし合わせています（${a.scan.done} / ${a.scan.total}）` : 'あなたの記録を整理しています'}
           {a.scan && <Remaining done={a.scan.done} total={a.scan.total} />}
@@ -98,7 +98,7 @@ export function Achievements(props: { token: string; rows: RecordRow[] | null; l
     <div className="achievements">
       {god && (
         <div className="godbar" role="status">
-          <p className="godbar__text">God モード: すべての称号を手に入れた状態で並べています。何も保存しません。</p>
+          <p className="godbar__text">Godモード: すべての称号を手に入れた状態で並べています。何も保存しません。</p>
           <div className="godbar__actions">
             <button type="button" className="btn" onClick={() => setGodAwaken(true)}>
               覚醒をもう一度見る
@@ -191,7 +191,7 @@ export function Achievements(props: { token: string; rows: RecordRow[] | null; l
 
       {__GOD_MODE__ && !god && (
         <button type="button" className="godbutton" onClick={() => setGod(true)}>
-          God モード（すべての称号を試しに見る）
+          Godモード（すべての称号を試しに見る）
         </button>
       )}
 

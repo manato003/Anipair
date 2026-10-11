@@ -58,7 +58,7 @@ describe('App login-expired banner', () => {
     render(<App />)
     expect(banner()).toBeNull()
     act(() => emitAnnictAuthFailed('tok-1'))
-    expect(banner()?.textContent).toContain('Annict のログインが切れました')
+    expect(banner()?.textContent).toContain('Annictのログインが切れました')
   })
 
   it('ignores a failure of a token that is no longer the current one', () => {

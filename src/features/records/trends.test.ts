@@ -238,7 +238,7 @@ describe('castAffinity', () => {
 describe('titleHead', () => {
   it('joins split cours and films of the same title, but not different works', () => {
     expect(titleHead('グノーシア')).toBe(titleHead('グノーシア 第2クール'))
-    expect(titleHead('劇場版 PSYCHO-PASS サイコパス')).toBe(titleHead('PSYCHO-PASS サイコパス 2'))
+    expect(titleHead('劇場版PSYCHO-PASSサイコパス')).toBe(titleHead('PSYCHO-PASSサイコパス 2'))
     expect(titleHead('僕のヒーローアカデミア')).not.toBe(titleHead('僕の心のヤバイやつ'))
   })
 })

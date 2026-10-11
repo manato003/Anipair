@@ -157,7 +157,7 @@ describe('Records: 見たい sort', () => {
     expect(titles()).toEqual(['作品1', '作品2', '作品3'])
     expect(enabledLog.every((e) => !e)).toBe(true)
     expect(screen.getByRole('button', { name: /^記録順/ }).getAttribute('aria-pressed')).toBe('true')
-    expect(screen.getByText('Annict に記録した日の新しい順です。')).toBeTruthy()
+    expect(screen.getByText('Annictに記録した日の新しい順です。')).toBeTruthy()
   })
 
   it('pressing the chosen order again turns it around, and says so', () => {
@@ -165,7 +165,7 @@ describe('Records: 見たい sort', () => {
     openWanna()
     fireEvent.click(screen.getByRole('button', { name: /^記録順/ }))
     expect(titles()).toEqual(['作品3', '作品2', '作品1'])
-    expect(screen.getByText('Annict に記録した日の古い順です。')).toBeTruthy()
+    expect(screen.getByText('Annictに記録した日の古い順です。')).toBeTruthy()
     expect(screen.getByRole('button', { name: /^記録順/ }).textContent).toContain('↑')
     // ほかの並べ替えを選ぶと、降順から始まる
     fireEvent.click(screen.getByRole('button', { name: /^放送日順/ }))

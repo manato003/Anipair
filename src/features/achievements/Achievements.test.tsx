@@ -31,7 +31,7 @@ describe('Achievements', () => {
   it('reads the history first, then awakens the unlocked titles once', () => {
     data = { titles: null, coverage: null, stats: null, scan: { done: 3, total: 15 }, ready: false }
     const { rerender } = show()
-    expect(screen.getByText('Annict での歩みを読み解いています')).toBeTruthy()
+    expect(screen.getByText('Annictでの歩みを読み解いています')).toBeTruthy()
     expect(screen.getByText(/3 \/ 15/)).toBeTruthy()
 
     data = ready([title('season-full-1', '踏破者', true), title('hidden-dawn', '黎明より記す者', true, true), title('season-full-4', '四季を巡る者', false)])
@@ -89,7 +89,7 @@ describe('Achievements', () => {
     localStorage.setItem('animax.titles.v1', JSON.stringify({ equipped: null, seen: ['season-full-1'], awakened: true }))
     data = ready([title('season-full-1', '踏破者', true), title('season-full-4', '四季を巡る者', false), title('hidden-wanna', '積みの魔王', false, true)])
     show()
-    fireEvent.click(screen.getByRole('button', { name: /God モード/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Godモード/ }))
     expect(screen.getByRole('status').textContent).toContain('すべての称号を手に入れた状態')
     // まだの称号も、隠し称号も、押せる（手に入れた）名札で並ぶ
     fireEvent.click(screen.getByRole('button', { name: /^積みの魔王/ }))

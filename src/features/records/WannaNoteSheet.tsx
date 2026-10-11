@@ -45,10 +45,10 @@ export function WannaNoteSheet(props: {
         </button>
       )}
       <p className="note">
-        {MEMO_MAX}字まで。メモは Anipair の中だけに残し、Annict には送りません。
+        {MEMO_MAX}字まで。メモはAnipairの中だけに残し、Annictには送りません。
         {props.githubRepo
           ? `GitHub（${props.githubRepo}）に保存して、ほかの端末と共有します。`
-          : 'この端末だけに残ります（設定で GitHub と連携すると、ほかの端末と共有できます）。'}
+          : 'この端末だけに残ります（設定でGitHubと連携すると、ほかの端末と共有できます）。'}
       </p>
       <div className="filtersheet__foot filtersheet__foot--end">
         <button type="button" className="btn btn--primary" onClick={save}>

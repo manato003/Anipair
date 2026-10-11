@@ -31,7 +31,7 @@ export function GithubBlock(props: { github: GithubConnection | null; onChange: 
       props.onChange({ token, repo })
       setRepoDraft('')
       setTokenDraft('')
-      setMessage({ ok: true, text: `${repo} と連携しました` })
+      setMessage({ ok: true, text: `${repo}と連携しました` })
     } catch (err) {
       setMessage({ ok: false, text: messageOf(err) })
     } finally {
@@ -43,20 +43,20 @@ export function GithubBlock(props: { github: GithubConnection | null; onChange: 
     saveGithubToken(null)
     saveGithubRepo(null)
     props.onChange(null)
-    setMessage({ ok: true, text: 'GitHub との連携を解除しました。この端末からトークンとリポジトリ名を削除しました' })
+    setMessage({ ok: true, text: 'GitHubとの連携を解除しました。この端末からトークンとリポジトリ名を削除しました' })
   }
 
   return (
     <Section
       id="settings-github"
-      title="GitHub 連携（任意）"
+      title="GitHub連携（任意）"
       summary="連携しなくても、すべての機能を使えます。"
       status={
         props.github ? (
           <StatusChip>
             <a href={`https://github.com/${props.github.repo}`} target="_blank" rel="noreferrer">
               {props.github.repo}
-            </a>{' '}
+            </a>
             と連携中
           </StatusChip>
         ) : (
@@ -66,7 +66,7 @@ export function GithubBlock(props: { github: GithubConnection | null; onChange: 
     >
       {/* なぜ GitHub なのかを、連携していてもいなくても見せる */}
       <p className="settings__lead">
-        興味なし・保留・見てないは Anipair 独自の記録で、Annict には保存できません。Anipair は運営サーバーを持たないため、これらはあなた自身の GitHub リポジトリに保存します。連携しない場合は、この端末の中にだけ保存されます。
+        興味なし・保留・見てないはAnipair独自の記録で、Annictには保存できません。Anipairは運営サーバーを持たないため、これらはあなた自身のGitHubリポジトリに保存します。連携しない場合は、この端末の中にだけ保存されます。
       </p>
       {props.github ? (
         <div className="settings__actions">
@@ -78,25 +78,25 @@ export function GithubBlock(props: { github: GithubConnection | null; onChange: 
         <>
           <p className="settings__lead">連携すると、次のことができます。</p>
           <ul className="settings__list settings__lead">
-            <li>興味なし・保留・見てないを、PC とスマホで共有する</li>
+            <li>興味なし・保留・見てないを、PCとスマホで共有する</li>
             <li>作品ごとの記録を、毎日自動でバックアップする（変更履歴つき）</li>
           </ul>
           <details className="settings__fold" open>
             <summary>連携の手順（3ステップ）</summary>
             <ol className="settings__list settings__lead">
               <li>
-                GitHub で private リポジトリを作成します（
+                GitHubでprivateリポジトリを作成します（
                 <a href="https://github.com/new?name=anipair-data&visibility=private" target="_blank" rel="noreferrer">
                   リポジトリの作成画面を開く
                 </a>
-                ）。名前は anipair-data のままでかまいません。公開範囲は Private のままにしてください。
+                ）。名前はanipair-dataのままでかまいません。公開範囲はPrivateのままにしてください。
               </li>
               <li>
-                Fine-grained トークンを作成します（
+                Fine-grainedトークンを作成します（
                 <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noreferrer">
                   トークンの作成画面を開く
                 </a>
-                ）。Repository access は「Only select repositories」にして手順1のリポジトリだけを選び、Permissions の Contents を「Read and write」にします。
+                ）。Repository accessは「Only select repositories」にして手順1のリポジトリだけを選び、PermissionsのContentsを「Read and write」にします。
               </li>
               <li>下の欄にリポジトリ名（ユーザー名/anipair-data）とトークンを入力し、「連携する」を押します。</li>
             </ol>
@@ -110,7 +110,7 @@ export function GithubBlock(props: { github: GithubConnection | null; onChange: 
               placeholder="ユーザー名/anipair-data"
               value={repoDraft}
               onChange={(e) => setRepoDraft(e.target.value)}
-              aria-label="GitHub のリポジトリ名"
+              aria-label="GitHubのリポジトリ名"
             />
             <input
               type="password"
@@ -119,7 +119,7 @@ export function GithubBlock(props: { github: GithubConnection | null; onChange: 
               placeholder="トークン"
               value={tokenDraft}
               onChange={(e) => setTokenDraft(e.target.value)}
-              aria-label="GitHub の Fine-grained トークン"
+              aria-label="GitHubのFine-grainedトークン"
             />
             <button type="submit" className="btn btn--primary" disabled={checking || !repoDraft.trim() || !tokenDraft.trim()}>
               {checking ? (

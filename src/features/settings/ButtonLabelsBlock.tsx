@@ -17,7 +17,7 @@ export function ButtonLabelsBlock() {
   return (
     <Section id="settings-buttons" title="ボタンの表示" summary="評価とマッチングの画面で、答えのボタンに何を出すかです。">
       <Choices label="ボタンの表示" choices={BUTTON_LABELS} value={value} onChoose={choose} />
-      <p className="settings__lead">アイコンだけにすると、PC ではマウスを重ねたときに名前が出ます。</p>
+      <p className="settings__lead">アイコンだけにすると、PCではマウスを重ねたときに名前が出ます。</p>
     </Section>
   )
 }

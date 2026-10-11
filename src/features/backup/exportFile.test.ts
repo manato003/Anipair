@@ -141,7 +141,7 @@ describe('exportBackupFile', () => {
   })
 
   it('does not download anything when reading from Annict fails', async () => {
-    vi.mocked(fetchLibrary).mockRejectedValueOnce(new Error('Annict のトークンが使えません'))
+    vi.mocked(fetchLibrary).mockRejectedValueOnce(new Error('Annictのトークンが使えません'))
     await expect(exportBackupFile('a')).rejects.toThrow('Annict')
     expect(blobs).toHaveLength(0)
     expect(clicked).toHaveLength(0)

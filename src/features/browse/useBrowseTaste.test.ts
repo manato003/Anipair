@@ -146,13 +146,13 @@ describe('useBrowse おすすめ順', () => {
 
   it('when the taste cannot be loaded, still shows the list by popularity with a note', async () => {
     loadTaste.mockImplementation(async () => {
-      throw new Error('Shikimori が混み合っています')
+      throw new Error('Shikimoriが混み合っています')
     })
     const hook = await setup()
     act(() => hook.result.current.setSort('taste'))
     await waitFor(() => expect(hook.result.current.works?.length).toBe(3))
     expect(hook.result.current.works!.map((x) => x.annictId)).toEqual([1, 2, 3])
-    expect(hook.result.current.sortNote).toContain('Shikimori が混み合っています')
+    expect(hook.result.current.sortNote).toContain('Shikimoriが混み合っています')
     expect(hook.result.current.error).toBeNull()
   })
 

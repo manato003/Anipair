@@ -22,7 +22,7 @@ export function MascotProfile(props: { onClose: () => void }) {
     <Sheet label="アニとペアのこと" size="page" onClose={props.onClose}>
       <article className="mascotprofile">
         <h2 className="mascotprofile__title">アニとペアのこと</h2>
-        <p className="mascotprofile__lead">Anipair の名前を2つに割ると、アニとペア。アニが見て、ペアが見つける。2人でひとつの Anipair です。</p>
+        <p className="mascotprofile__lead">Anipairの名前を2つに割ると、アニとペア。アニが見て、ペアが見つける。2人でひとつのAnipairです。</p>
 
         <section className="group mascotprofile__card">
           <svg className="mascot mascotprofile__figure" viewBox="0 0 120 120" aria-hidden>
@@ -50,7 +50,7 @@ export function MascotProfile(props: { onClose: () => void }) {
             <h3 className="group__title">ペア</h3>
             <dl className="mascotprofile__list">
               <Row term="係">次の好きを見つけてくる係。</Row>
-              <Row term="生まれ">新しいクールが始まる日に、Anipair の棚のすき間から芽を出して生まれた。</Row>
+              <Row term="生まれ">新しいクールが始まる日に、Anipairの棚のすき間から芽を出して生まれた。</Row>
               <Row term="生態">頭の芽は、季節ごとに生え替わる。アニが受信した作品の中から、あなたが好きそうな1本を抱えて持ってくる。「見たい」が増えると、芽が少し元気になる。</Row>
               <Row term="好きなもの">新番組のチェック、あらすじを読むこと、日なたぼっこ。</Row>
               <Row term="苦手なもの">「興味なし」を続けて押されること（すぐ立ち直る）。</Row>

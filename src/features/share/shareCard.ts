@@ -59,7 +59,7 @@ export function trendsShare(i: TrendsShareInput): ShareCard {
     radar,
     facts: facts.slice(0, 6),
     footer: 'あなたの傾向も',
-    text: `Anipair で、私のアニメの傾向を図にしました。\n${SHARE_URL}\n#Anipair`,
+    text: `Anipairで、私のアニメの傾向を図にしました。\n${SHARE_URL}\n#Anipair`,
   }
 }
 
@@ -84,7 +84,7 @@ export function profileShare(i: ProfileShareInput): ShareCard {
     radar: null,
     facts: i.best.slice(0, 5).map((t) => ({ label: RARITY_LABEL[t.rarity], value: t.name, rarity: t.rarity })),
     footer: 'あなたも称号を',
-    text: `Anipair で手に入れた称号です。\n${SHARE_URL}\n#Anipair`,
+    text: `Anipairで手に入れた称号です。\n${SHARE_URL}\n#Anipair`,
   }
 }
 
@@ -106,6 +106,6 @@ export function yearShare(y: YearReview, title: { name: string; rarity: Rarity }
     radar: null,
     facts,
     footer: 'あなたの1年も',
-    text: `Anipair で、${y.year}年に見たアニメをふり返りました。\n${SHARE_URL}\n#Anipair`,
+    text: `Anipairで、${y.year}年に見たアニメをふり返りました。\n${SHARE_URL}\n#Anipair`,
   }
 }

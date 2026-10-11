@@ -85,7 +85,7 @@ describe('RelatedWorks', () => {
     onOpen.mockClear()
     fireEvent.click(screen.getByRole('button', { name: '題名3' }))
     expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ kind: 'shiki', media: expect.objectContaining({ idMal: 3 }) }))
-    expect(screen.getByText(/Shikimori の関連作品を表示しています/)).toBeTruthy()
+    expect(screen.getByText(/Shikimoriの関連作品を表示しています/)).toBeTruthy()
   })
 
   it('shows nothing when there is neither a series nor a relation', () => {

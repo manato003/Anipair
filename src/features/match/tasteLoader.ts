@@ -91,7 +91,7 @@ function ratingsOf(reviews: ReadonlyMap<number, { ratingOverallState: RatingStat
 export type StepHandler = (step: string, note?: string, work?: { done: number; total: number }) => void
 
 async function load(token: string, onStep?: StepHandler, shikimori: FetchOptions = {}): Promise<Taste> {
-  onStep?.('Annict の記録を読み込み中')
+  onStep?.('Annictの記録を読み込み中')
   const library = await fetchLibrary(token)
   const ratings = ratingsOf(await refreshMyReviews(token))
   const seeds = buildSeeds(library, ratings)

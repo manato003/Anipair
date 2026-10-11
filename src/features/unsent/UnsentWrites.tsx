@@ -14,7 +14,7 @@ export function UnsentWrites(props: { token: string }) {
   const [sent, setSent] = useState(false)
   const queue = useWriteQueue()
   // コントロールセンターにも並べる（画面の上の帯を閉じずに先へ進んでも、あとから送れるように）
-  useNotice(groups.length > 0 && !sent ? { id: 'unsent', title: `前回送れなかった記録 ${groups.length}件`, body: '送ると、Annict の今の内容と比べて足りない分だけを書きます。', action: { label: '送る', run: () => send() }, urgent: true } : null)
+  useNotice(groups.length > 0 && !sent ? { id: 'unsent', title: `前回送れなかった記録 ${groups.length}件`, body: '送ると、Annictの今の内容と比べて足りない分だけを書きます。', action: { label: '送る', run: () => send() }, urgent: true } : null)
 
   if (groups.length === 0) return null
 
@@ -82,7 +82,7 @@ export function UnsentWrites(props: { token: string }) {
     <div className="auth-banner unsent" role="alert">
       <div className="unsent__body">
         <p className="auth-banner__text">
-          前回（{storedAtLabel(new Date(oldest).toISOString())}〜）送れなかった記録が{groups.length}件あります。送ると、Annict の今の内容と比べて足りない分だけを書きます。
+          前回（{storedAtLabel(new Date(oldest).toISOString())}〜）送れなかった記録が{groups.length}件あります。送ると、Annictの今の内容と比べて足りない分だけを書きます。
         </p>
         <details className="unsent__list">
           <summary>内容を見る</summary>

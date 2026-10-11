@@ -196,7 +196,7 @@ export function EpisodeRecorder(props: {
                 )}
               </>
             ) : !current && props.watching && props.airing ? (
-              <>次の話が Annict に登録されたら、ここで続けて記録できます。</>
+              <>次の話がAnnictに登録されたら、ここで続けて記録できます。</>
             ) : !current && props.watching ? (
               <>
                 作品の評価を付けて「見た」にします。
@@ -227,7 +227,7 @@ export function EpisodeRecorder(props: {
             className="ep__comment-text"
             rows={3}
             value={text}
-            placeholder="この話の感想（Annict の記録に付きます）"
+            placeholder="この話の感想（Annictの記録に付きます）"
             onChange={(e) => {
               setText(e.target.value)
               saveEpisodeDraft(writing.episode.id, e.target.value)

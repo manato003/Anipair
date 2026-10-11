@@ -170,20 +170,20 @@ describe('runBackup', () => {
 
   it('records the error but keeps the last success, and clears the error on the next success', async () => {
     await runBackup('a', conn, { now: new Date('2026-10-01T12:00:00Z') })
-    writeError = new GitHubError('GitHub のトークンが使えません。設定で入れ直してください', 'auth')
+    writeError = new GitHubError('GitHubのトークンが使えません。設定で入れ直してください', 'auth')
     library = [entry(1, 'WATCHING')]
     await expect(runBackup('a', conn, { now: new Date('2026-10-02T12:00:00Z') })).rejects.toThrow('トークンが使えません')
-    expect(loadBackupStatus()).toEqual({ lastAt: '2026-10-01T12:00:00.000Z', written: true, error: 'GitHub のトークンが使えません。設定で入れ直してください' })
+    expect(loadBackupStatus()).toEqual({ lastAt: '2026-10-01T12:00:00.000Z', written: true, error: 'GitHubのトークンが使えません。設定で入れ直してください' })
     writeError = null
     await runBackup('a', conn, { now: new Date('2026-10-03T12:00:00Z') })
     expect(loadBackupStatus()).toEqual({ lastAt: '2026-10-03T12:00:00.000Z', written: true, error: null })
   })
 
   it('records an Annict read failure too, without writing', async () => {
-    vi.mocked(fetchLibrary).mockRejectedValueOnce(new Error('Annict に接続できませんでした'))
+    vi.mocked(fetchLibrary).mockRejectedValueOnce(new Error('Annictに接続できませんでした'))
     await expect(runBackup('a', conn)).rejects.toThrow('Annict')
     expect(writes).toHaveLength(0)
-    expect(loadBackupStatus()).toEqual({ lastAt: null, written: false, error: 'Annict に接続できませんでした' })
+    expect(loadBackupStatus()).toEqual({ lastAt: null, written: false, error: 'Annictに接続できませんでした' })
   })
 
   it('runs one at a time: a second call while running gets the same promise', async () => {

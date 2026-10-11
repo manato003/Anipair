@@ -126,7 +126,7 @@ export function CreditWorks(
           <div className="detail__section">
             <p className="detail__meta">参加作品を見つけられませんでした。</p>
             <a className="detail__source" href={annictCreditUrl(target.credit)} target="_blank" rel="noreferrer">
-              Annict で見る
+              Annictで見る
             </a>
           </div>
         )}
@@ -141,7 +141,7 @@ export function CreditWorks(
                 人気順
               </button>
             </div>
-            <p className="note">{order === 'newest' ? '放送の新しい順です。' : 'Shikimori でリストに入れている人の多い順です。'}</p>
+            <p className="note">{order === 'newest' ? '放送の新しい順です。' : 'Shikimoriでリストに入れている人の多い順です。'}</p>
           </>
         )}
 
@@ -171,7 +171,7 @@ export function CreditWorks(
             ほかの{list.length - FIRST}作品も見る
           </button>
         )}
-        {found.kind === 'found' && list.length > 0 && <p className="detail__source">作品の一覧は Shikimori の情報です。</p>}
+        {found.kind === 'found' && list.length > 0 && <p className="detail__source">作品の一覧はShikimoriの情報です。</p>}
       </Sheet>
 
       {open &&

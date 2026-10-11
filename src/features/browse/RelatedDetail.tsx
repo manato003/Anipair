@@ -95,10 +95,10 @@ export function RelatedDetail(
           <h2 className="detail__title">
             <Phrase text={title} />
           </h2>
-          {found.kind === 'loading' && <Loading className="detail__meta" label="Annict で作品を検索中" />}
+          {found.kind === 'loading' && <Loading className="detail__meta" label="Annictで作品を検索中" />}
           {found.kind === 'missing' && (
             <>
-              <p className="detail__meta">Annict で作品を見つけられませんでした。</p>
+              <p className="detail__meta">Annictで作品を見つけられませんでした。</p>
               {annictMissingLinks(title).map((l) => (
                 <a key={l.href} className="detail__source" href={l.href} target="_blank" rel="noreferrer">
                   {l.text}

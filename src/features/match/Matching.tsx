@@ -142,13 +142,13 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
             <Empty
               mood="propose"
               title="次に見る作品を探す"
-              body="Annict の記録から好みを調べて、まだ記録していない作品を提案します。「見たい」を押すと Annict の見たいリストに入ります。"
+              body="Annictの記録から好みを調べて、まだ記録していない作品を提案します。「見たい」を押すとAnnictの見たいリストに入ります。"
             >
               <MatchFilterControls filter={m.filter} onChange={m.setFilter} />
               <button type="button" className="btn btn--primary" onClick={run}>
                 提案してもらう
               </button>
-              {!props.github && <p className="note">興味なし・保留にした作品はこの端末だけに記録します。設定で GitHub と連携すると、PC とスマホで共有できます。</p>}
+              {!props.github && <p className="note">興味なし・保留にした作品はこの端末だけに記録します。設定でGitHubと連携すると、PCとスマホで共有できます。</p>}
             </Empty>
           ) : m.phase.kind === 'loading' ? (
             <div className="flow__loading" aria-busy>
@@ -169,7 +169,7 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
               </button>
             </Empty>
           ) : m.done || !m.current ? (
-            <Empty mood="done" title="候補はここまで" body="「見たい」にした作品は Annict の見たいリストに入っています。保留にした作品は1週間後に、興味なしにした作品は3ヶ月後に、また候補に出てきます。">
+            <Empty mood="done" title="候補はここまで" body="「見たい」にした作品はAnnictの見たいリストに入っています。保留にした作品は1週間後に、興味なしにした作品は3ヶ月後に、また候補に出てきます。">
               <button type="button" className="btn btn--primary" onClick={run}>
                 もう一度提案してもらう
               </button>
@@ -189,7 +189,7 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
             </button>
             {seenOpen ? (
               <>
-                <button type="button" className="sub" onClick={() => answer({ kind: 'watching' })} title="Annict で「見てる」にします">
+                <button type="button" className="sub" onClick={() => answer({ kind: 'watching' })} title="Annictで「見てる」にします">
                   <PlayIcon />
                   <ActLabel>見てる</ActLabel> <kbd className="hint">{keyLabel(keys.watching)}</kbd>
                 </button>

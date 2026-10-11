@@ -98,7 +98,7 @@ describe('CreditWorks', () => {
     // 人気順
     fireEvent.click(screen.getByRole('button', { name: '人気順' }))
     expect(titles()).toEqual(['作品1', '作品5', '作品2', '作品3'])
-    expect(screen.getByText('Shikimori でリストに入れている人の多い順です。')).toBeTruthy()
+    expect(screen.getByText('Shikimoriでリストに入れている人の多い順です。')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: /作品5/ }))
     expect(screen.getByTestId('opened').textContent).toBe('5')
   })
@@ -107,7 +107,7 @@ describe('CreditWorks', () => {
     findPerson.mockResolvedValue(null)
     render(<CreditWorks readOnly token="t" target={{ credit: { kind: 'person', annictId: 855, name: '誰か' }, studio: null }} active onClose={() => {}} />)
     await waitFor(() => expect(screen.getByText('参加作品を見つけられませんでした。')).toBeTruthy())
-    expect((screen.getByRole('link', { name: 'Annict で見る' }) as HTMLAnchorElement).href).toBe('https://annict.com/people/855')
+    expect((screen.getByRole('link', { name: 'Annictで見る' }) as HTMLAnchorElement).href).toBe('https://annict.com/people/855')
     expect(fetchPersonWorks).not.toHaveBeenCalled()
   })
 
@@ -122,12 +122,12 @@ describe('CreditWorks', () => {
     unmount()
 
     render(<CreditWorks readOnly token="t" target={{ credit: { kind: 'org', annictId: 50, name: '製作委員会' }, studio: null }} active onClose={() => {}} />)
-    await waitFor(() => expect((screen.getByRole('link', { name: 'Annict で見る' }) as HTMLAnchorElement).href).toBe('https://annict.com/organizations/50'))
+    await waitFor(() => expect((screen.getByRole('link', { name: 'Annictで見る' }) as HTMLAnchorElement).href).toBe('https://annict.com/organizations/50'))
   })
 
   it('shows the error when Shikimori cannot be read', async () => {
-    findPerson.mockRejectedValue(new Error('Shikimori に接続できませんでした'))
+    findPerson.mockRejectedValue(new Error('Shikimoriに接続できませんでした'))
     render(<CreditWorks readOnly token="t" target={{ credit: { kind: 'person', annictId: 1, name: 'x' }, studio: null }} active onClose={() => {}} />)
-    await waitFor(() => expect(screen.getByText('Shikimori に接続できませんでした')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Shikimoriに接続できませんでした')).toBeTruthy())
   })
 })

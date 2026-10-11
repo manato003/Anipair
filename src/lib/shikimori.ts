@@ -153,7 +153,7 @@ async function call(query: string, opts: FetchOptions = {}): Promise<unknown> {
       try {
         res = await fetch(`${ENDPOINT}?${query}`)
       } catch {
-        throw new Error('Shikimori に接続できませんでした。通信を確認してください')
+        throw new Error('Shikimoriに接続できませんでした。通信を確認してください')
       }
       if (res.status === 429) {
         return { retryAfterMs: parseRetryAfter(res.headers.get('Retry-After'), RATE_LIMIT_DEFAULT_WAIT_MS, RATE_LIMIT_MAX_WAIT_MS) }
@@ -163,16 +163,16 @@ async function call(query: string, opts: FetchOptions = {}): Promise<unknown> {
         body = await res.json()
       } catch {
         // 中継が無い（関数の動かない環境）と、JSON でない 404 が返る
-        throw new Error('Shikimori への中継が動いていません。ローカルでは npm run dev か vercel dev で起動してください')
+        throw new Error('Shikimoriへの中継が動いていません。ローカルでは「npm run dev」か「vercel dev」で起動してください')
       }
       if (!res.ok) {
         const code = body && typeof body === 'object' ? (body as { error?: unknown }).error : null
-        throw new Error(`Shikimori から読めませんでした（${typeof code === 'string' ? code : `HTTP ${res.status}`}）`)
+        throw new Error(`Shikimoriから読めませんでした（${typeof code === 'string' ? code : `HTTP ${res.status}`}）`)
       }
       return { body }
     }, opts)
     if ('body' in outcome) return outcome.body
-    if (attempt >= RATE_LIMIT_RETRIES) throw new Error('Shikimori の利用制限に達しました。1分ほど待ってからもう一度試してください')
+    if (attempt >= RATE_LIMIT_RETRIES) throw new Error('Shikimoriの利用制限に達しました。1分ほど待ってからもう一度試してください')
     await delay(outcome.retryAfterMs)
   }
 }
@@ -194,7 +194,7 @@ export async function fetchMedia(malIds: readonly number[], opts: FetchOptions =
     // v=6: 中継の応答に点数を付けた人の数（sc）が加わった版（v=5 は話数など、v=4 は人気 pop）。
     // CDN に1週間残る前の形の控えを使わないよう、問い合わせの URL を変える
     const body = (await call(`op=animes&ids=${chunk.join(',')}&v=6`, opts)) as { animes?: RawAnime[] }
-    if (!body || !Array.isArray(body.animes)) throw new Error('Shikimori の応答を読めませんでした')
+    if (!body || !Array.isArray(body.animes)) throw new Error('Shikimoriの応答を読めませんでした')
     for (const id of chunk) mediaCache.set(id, null)
     for (const raw of body.animes) {
       const m = normalize(raw)
@@ -226,7 +226,7 @@ export async function findPerson(name: string, opts: FetchOptions = {}): Promise
   const key = personKey(name)
   if (!key) return null
   const body = (await call(`op=people&q=${encodeURIComponent(name.trim())}`, opts)) as { people?: unknown }
-  if (!body || !Array.isArray(body.people)) throw new Error('Shikimori の応答を読めませんでした')
+  if (!body || !Array.isArray(body.people)) throw new Error('Shikimoriの応答を読めませんでした')
   for (const raw of body.people as ShikimoriPerson[]) {
     if (raw && Number.isInteger(raw.id) && typeof raw.japanese === 'string' && personKey(raw.japanese) === key) return raw
   }
@@ -285,7 +285,7 @@ export async function fetchPersonWorks(
   const body = (await call(`op=person&id=${id}&v=4`, opts)) as { cast?: unknown; staff?: unknown }
   const castRaw = Array.isArray(body?.cast) ? (body.cast as { id?: unknown; ch?: unknown }[]) : null
   const staffRaw = Array.isArray(body?.staff) ? (body.staff as { id?: unknown; r?: unknown }[]) : null
-  if (!castRaw || !staffRaw) throw new Error('Shikimori の応答を読めませんでした')
+  if (!castRaw || !staffRaw) throw new Error('Shikimoriの応答を読めませんでした')
   const cast = castRaw.flatMap((x) => {
     if (!x || !Number.isInteger(x.id) || (x.id as number) <= 0) return []
     const characters = (Array.isArray(x.ch) ? (x.ch as { i?: unknown; n?: unknown }[]) : []).flatMap((c) =>
@@ -310,7 +310,7 @@ export async function fetchCharacterNames(ids: readonly number[], opts: FetchOpt
   for (let i = 0; i < missing.length; i += BATCH) {
     const chunk = missing.slice(i, i + BATCH)
     const body = (await call(`op=characters&ids=${chunk.join(',')}`, opts)) as { characters?: { id?: unknown; ja?: unknown }[] }
-    if (!body || !Array.isArray(body.characters)) throw new Error('Shikimori の応答を読めませんでした')
+    if (!body || !Array.isArray(body.characters)) throw new Error('Shikimoriの応答を読めませんでした')
     for (const id of chunk) characterCache.set(id, null)
     for (const c of body.characters) if (Number.isInteger(c?.id) && typeof c.ja === 'string' && c.ja) characterCache.set(c.id as number, c.ja)
   }
@@ -329,7 +329,7 @@ export async function fetchStudioWorks(id: number, opts: FetchOptions = {}): Pro
   const out: Media[] = []
   for (let page = 1; page <= STUDIO_PAGES; page++) {
     const body = (await call(`op=studio&id=${id}&page=${page}&v=6`, opts)) as { animes?: RawAnime[] }
-    if (!body || !Array.isArray(body.animes)) throw new Error('Shikimori の応答を読めませんでした')
+    if (!body || !Array.isArray(body.animes)) throw new Error('Shikimoriの応答を読めませんでした')
     for (const raw of body.animes) {
       const m = normalize(raw)
       if (!m) continue
@@ -357,7 +357,7 @@ export async function fetchSimilar(malId: number, opts: FetchOptions = {}): Prom
   const hit = store().get(malId)
   if (hit) return hit.ids
   const body = (await call(`op=similar&id=${malId}`, opts)) as { ids?: unknown }
-  if (!body || !Array.isArray(body.ids) || !body.ids.every((n) => Number.isInteger(n) && n > 0)) throw new Error('Shikimori の応答を読めませんでした')
+  if (!body || !Array.isArray(body.ids) || !body.ids.every((n) => Number.isInteger(n) && n > 0)) throw new Error('Shikimoriの応答を読めませんでした')
   const ids = body.ids as number[]
   store().set(malId, { at: Date.now(), ids })
   saveSimilar(store())

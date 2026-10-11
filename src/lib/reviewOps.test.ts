@@ -110,10 +110,10 @@ describe('applyReviewPlan', () => {
 
 describe('changeRating and saveReview read the review again from Annict right before writing', () => {
   it('uses the body written on Annict, not the stale copy', async () => {
-    onAnnict = review({ body: 'Annict で書き直した' })
+    onAnnict = review({ body: 'Annictで書き直した' })
     const after = await changeRating('t', 'W1', review({ body: '古い控え' }), 'BAD')
-    expect(calls).toEqual(['read R1', 'create W1 BAD/null "Annict で書き直した"', 'delete R1'])
-    expect(after).toMatchObject({ id: 'NEW', body: 'Annict で書き直した', ratingOverallState: 'BAD' })
+    expect(calls).toEqual(['read R1', 'create W1 BAD/null "Annictで書き直した"', 'delete R1'])
+    expect(after).toMatchObject({ id: 'NEW', body: 'Annictで書き直した', ratingOverallState: 'BAD' })
   })
 
   it('creates a new review when the cached one was deleted on Annict', async () => {

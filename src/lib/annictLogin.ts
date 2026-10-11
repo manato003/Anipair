@@ -60,10 +60,10 @@ export function withoutCallback(pathname: string, search: string, hash: string):
 export type LoginResult = { kind: 'token'; token: string } | { kind: 'error'; message: string }
 
 const MESSAGES: Record<string, string> = {
-  denied: 'Annict でのログインがキャンセルされました。',
-  state: 'ログインの確認に失敗しました。もう一度「Annict でログイン」を押してください。',
-  invalid_grant: 'ログインの有効期限が切れたか、すでに使われています。もう一度「Annict でログイン」を押してください。',
-  server_not_configured: 'このサイトでは、Annict でのログインがまだ設定されていません。',
+  denied: 'Annictでのログインがキャンセルされました。',
+  state: 'ログインの確認に失敗しました。もう一度「Annictでログイン」を押してください。',
+  invalid_grant: 'ログインの有効期限が切れたか、すでに使われています。もう一度「Annictでログイン」を押してください。',
+  server_not_configured: 'このサイトでは、Annictでのログインがまだ設定されていません。',
   network: 'ログインの受け渡しに接続できませんでした。通信を確認して、もう一度試してください。',
   unavailable: 'ログインの受け渡しが動いていません。個人用アクセストークンを使うか、少し待ってからもう一度試してください。',
 }

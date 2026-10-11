@@ -120,7 +120,7 @@ export function useWriteQueue() {
         f.label,
         async () => {
           const token = loadAnnictToken()
-          if (!token) throw new Error('Annict にログインしていません')
+          if (!token) throw new Error('Annictにログインしていません')
           // reconcile は送信の列（このファイル）を使うので、読み込みの循環を避けて、使うときに読む
           const { reconcileIntent } = await import('../features/unsent/reconcile')
           for (const intent of live) await reconcileIntent(token, intent)

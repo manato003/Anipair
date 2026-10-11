@@ -21,18 +21,18 @@ export function AccountBlock(props: { token: string; onChange: (token: string | 
   return (
     <Section
       id="settings-account"
-      title="Annict 連携（必須）"
-      summary="評価や視聴状況は、すべてあなたの Annict アカウントに保存されます。"
-      status={<StatusChip>{viewer ? `${viewer.name}（@${viewer.username}）で連携中` : 'Annict と連携中'}</StatusChip>}
+      title="Annict連携（必須）"
+      summary="評価や視聴状況は、すべてあなたのAnnictアカウントに保存されます。"
+      status={<StatusChip>{viewer ? `${viewer.name}（@${viewer.username}）で連携中` : 'Annictと連携中'}</StatusChip>}
     >
       {/* Anipair は Annict とつながって動く。遅い・出ないときに、原因が通信のどこにあるかを見分けられるように */}
       <AnnictHealth token={props.token} />
       {/* コレクションは Annict の機能（API では読み書きできないので、Anipair では作らずに案内する） */}
       {viewer && (
         <p className="settings__lead">
-          作品をまとめるコレクションは、Annict で作れます。
+          作品をまとめるコレクションは、Annictで作れます。
           <a href={annictCollectionsUrl(viewer.username)} target="_blank" rel="noreferrer">
-            Annict の自分のコレクション
+            Annictの自分のコレクション
           </a>
         </p>
       )}
@@ -57,9 +57,9 @@ export function AccountBlock(props: { token: string; onChange: (token: string | 
         </button>
       </div>
       <p className="settings__lead">
-        {'この端末から Annict のログイン情報を削除します。Annict の記録は消えません。' +
+        {'この端末からAnnictのログイン情報を削除します。Annictの記録は消えません。' +
           'この端末に置いた記録（興味なし・見てない・称号など）は、同じアカウントでログインし直すと戻ります。ほかの人がログインしても、アプリには出ません。' +
-          'GitHub のトークンは消えるので、もう一度つなぐときに入れ直してください。'}
+          'GitHubのトークンは消えるので、もう一度つなぐときに入れ直してください。'}
       </p>
     </Section>
   )

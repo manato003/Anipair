@@ -68,9 +68,9 @@ export function sortNote({ key, dir }: SortChoice): string {
     case 'rating':
       return desc ? 'あなたの評価の高い順です。評価の無い作品は最後に並びます。' : 'あなたの評価の低い順です。評価の無い作品は最後に並びます。'
     case 'popular':
-      return desc ? 'Annict でこの作品を記録した人の多い順です。' : 'Annict でこの作品を記録した人の少ない順です。'
+      return desc ? 'Annictでこの作品を記録した人の多い順です。' : 'Annictでこの作品を記録した人の少ない順です。'
     case 'recorded':
-      return desc ? 'Annict に記録した日の新しい順です。' : 'Annict に記録した日の古い順です。'
+      return desc ? 'Annictに記録した日の新しい順です。' : 'Annictに記録した日の古い順です。'
     case 'aired':
       return desc ? '放送の新しい順です。放送時期の分からない作品は最後に並びます。' : '放送の古い順です。放送時期の分からない作品は最後に並びます。'
     case 'taste':

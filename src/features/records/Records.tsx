@@ -99,7 +99,7 @@ export function Records({ token, github = null, active }: { token: string; githu
   const [notes, setNotes] = useState(() => loadLocalWannaNotes())
   const [noteFor, setNoteFor] = useState<RecordRow | null>(null)
   const syncNotes = useMemo(() => (github ? async () => setNotes(await syncWannaNotes(github)) : null), [github])
-  const syncNotesLater = useCoalescedTask(r.enqueue, '見たいの印とメモの GitHub への保存', syncNotes)
+  const syncNotesLater = useCoalescedTask(r.enqueue, '見たいの印とメモのGitHubへの保存', syncNotes)
   const syncedWith = useRef<GithubConnection | null>(null)
   useEffect(() => {
     if (!active || !github || syncedWith.current === github) return
@@ -397,7 +397,7 @@ export function Records({ token, github = null, active }: { token: string; githu
                   </button>
                 </Empty>
               ) : !r.rows ? (
-                <Loading block label="Annict の記録を読み込み中" />
+                <Loading block label="Annictの記録を読み込み中" />
               ) : visible.length === 0 ? (
                 query || filterCount > 0 || filter.cour ? (
                   <Empty
@@ -507,7 +507,7 @@ export function Records({ token, github = null, active }: { token: string; githu
               </button>
             </Empty>
           ) : (
-            <Loading block label="Annict の記録を読み込み中" />
+            <Loading block label="Annictの記録を読み込み中" />
           )
         ) : (
           <Suspense fallback={<Loading block label="読み込み中" />}>
@@ -704,7 +704,7 @@ function WatchCard(props: {
             </button>
           </p>
         )}
-        {props.noEpisodes && <p className="watchcard__left">Annict に話の情報が無いので、ここでは記録できません。</p>}
+        {props.noEpisodes && <p className="watchcard__left">Annictに話の情報が無いので、ここでは記録できません。</p>}
         {next && (
           <div className="watchcard__rate">
             <p className="watchcard__ratelabel">{episodeLabel(next)}を評価して記録</p>
@@ -791,7 +791,7 @@ function RecordItem(props: {
               type="button"
               className="link"
               onClick={() => {
-                if (confirm(`「${entry.title}」を記録から外しますか？ 評価は Annict に残ります。`)) props.onState('NO_STATE')
+                if (confirm(`「${entry.title}」を記録から外しますか？ 評価はAnnictに残ります。`)) props.onState('NO_STATE')
               }}
             >
               記録から外す

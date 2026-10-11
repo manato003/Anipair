@@ -250,7 +250,7 @@ describe('useRecords: the list from the last visit', () => {
 
   it('keeps the stored list and tells when Annict cannot be read', async () => {
     localStorage.setItem('animax.library.v1', JSON.stringify(stored))
-    vi.mocked(fetchLibrary).mockRejectedValueOnce(new Error('Annict から応答を受け取れませんでした（HTTP 502）'))
+    vi.mocked(fetchLibrary).mockRejectedValueOnce(new Error('Annictから応答を受け取れませんでした（HTTP 502）'))
     const hook = renderHook(() => useRecords('t', true))
     await waitFor(() => expect(hook.result.current.refreshError).toContain('HTTP 502'))
     expect(hook.result.current.rows?.map((r) => r.entry.title)).toEqual(['前回の作品'])

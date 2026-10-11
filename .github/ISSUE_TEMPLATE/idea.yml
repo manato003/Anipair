@@ -1,11 +1,11 @@
 name: 要望
-description: あるとうれしい機能や、変えてほしいところを知らせる（この Issue は公開されます）
+description: あるとうれしい機能や、変えてほしいところを知らせる（このIssueは公開されます）
 labels: ["要望"]
 body:
   - type: markdown
     attributes:
       value: |
-        この Issue は公開されます。公開せずに送りたいときは、アプリの「質問・不具合・要望を送る」をお使いください。
+        このIssueは公開されます。公開せずに送りたいときは、アプリの「質問・不具合・要望を送る」をお使いください。
   - type: textarea
     id: idea
     attributes:

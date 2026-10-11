@@ -329,7 +329,7 @@ export function WorkDetail(
                   ))}
                 </p>
               )}
-              {watchers !== undefined && <p className="detail__meta">Annict で{watchers.toLocaleString()}人が記録</p>}
+              {watchers !== undefined && <p className="detail__meta">Annictで{watchers.toLocaleString()}人が記録</p>}
               {/* 待つのをやめて出したあとも届いていない部分を、何を読んでいるかと一緒に出す。広い画面でも開いてすぐ目に入るよう、題名の欄に置く */}
               {pending.length > 0 && <Loading className="detail__pending" label={`${pending.join('・')}を読み込み中`} since={openedAt} />}
             </div>
@@ -390,11 +390,11 @@ export function WorkDetail(
                 {/* Annict のメモ: Annict の作品ページで書いたメモを読んで出す（書き直すのは Annict で。Anipair の見たいのメモとは別のもの） */}
                 {annictNote && (
                   <section className="detail__section">
-                    <h3 className="detail__label">Annict のメモ</h3>
+                    <h3 className="detail__label">Annictのメモ</h3>
                     <p className="wannanote__memo">{annictNote}</p>
                     <p className="detail__hint">
                       <a href={annictWorkUrl(work.annictId)} target="_blank" rel="noreferrer">
-                        Annict の作品ページ
+                        Annictの作品ページ
                       </a>
                       の「記録する」で書き直せます。
                     </p>
@@ -432,9 +432,9 @@ export function WorkDetail(
                 <section className="detail__section">
                   <h3 className="detail__label">コレクション</h3>
                   <p className="detail__hint">
-                    コレクションは Annict の機能です。
+                    コレクションはAnnictの機能です。
                     <a href={annictWorkUrl(work.annictId)} target="_blank" rel="noreferrer">
-                      Annict の作品ページ
+                      Annictの作品ページ
                     </a>
                     の「記録する」から追加できます。
                   </p>
@@ -648,7 +648,7 @@ export function WorkDetail(
                   )}
                   {mal && (
                     <a href={shikimoriUrl(mal)} target="_blank" rel="noreferrer">
-                      Shikimori で見る
+                      Shikimoriで見る
                     </a>
                   )}
                 </div>

@@ -55,7 +55,7 @@ export function BackupBlock(props: { annictToken: string; github: GithubConnecti
     <Section
       id="settings-backup"
       title="バックアップ"
-      summary="作品ごとの記録を JSON ファイルとして保存できます。視聴状況とその日時、評価（5項目と本文）、興味なし・保留・見てない、見たいの優先とメモを含みます。話ごとの記録は含みません（Annict に残ります）。"
+      summary="作品ごとの記録をJSONファイルとして保存できます。視聴状況とその日時、評価（5項目と本文）、興味なし・保留・見てない、見たいの優先とメモを含みます。話ごとの記録は含みません（Annictに残ります）。"
       status={
         props.github ? (
           <StatusChip tone={status.error ? 'off' : 'ok'}>
@@ -90,19 +90,19 @@ export function BackupBlock(props: { annictToken: string; github: GithubConnecti
         )}
       </div>
       {exportError && <p className="settings__error">{exportError}</p>}
-      {exported && <p className="settings__ok">{`${exported.fileName} を保存しました（${describeCounts(exported.counts)}）`}</p>}
+      {exported && <p className="settings__ok">{`${exported.fileName}を保存しました（${describeCounts(exported.counts)}）`}</p>}
       {result && (
         <p className="settings__ok">
           {result.written ? `バックアップしました（${describeCounts(result.counts)}）` : '前回から変更がないため、保存しませんでした'}
         </p>
       )}
       {!props.github ? (
-        <p className="settings__status">GitHub と連携すると、毎日自動でバックアップされ、変更履歴も残ります。</p>
+        <p className="settings__status">GitHubと連携すると、毎日自動でバックアップされ、変更履歴も残ります。</p>
       ) : (
         <>
           <p className="settings__links">
             <a href={`https://github.com/${props.github.repo}/blob/main/backup.json`} target="_blank" rel="noreferrer">
-              GitHub で見る
+              GitHubで見る
             </a>
             <a href={`https://github.com/${props.github.repo}/commits/main/backup.json`} target="_blank" rel="noreferrer">
               変更履歴
@@ -111,7 +111,7 @@ export function BackupBlock(props: { annictToken: string; github: GithubConnecti
           <details className="settings__fold">
             <summary>自動バックアップについて</summary>
             <p className="settings__lead">
-              アプリを開いたとき、前回から1日以上たっていれば、{props.github.repo} の backup.json に自動で保存します。内容が変わったときだけ書き込むため、過去の版は GitHub の変更履歴から確認できます。
+              アプリを開いたとき、前回から1日以上たっていれば、{props.github.repo}のbackup.jsonに自動で保存します。内容が変わったときだけ書き込むため、過去の版はGitHubの変更履歴から確認できます。
             </p>
           </details>
         </>

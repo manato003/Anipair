@@ -107,7 +107,7 @@ describe('useEpisodes', () => {
   it('undoing before the record was sent waits for it, and deletes nothing when sending failed', async () => {
     fetchEpisodes.mockResolvedValue(new Map([['W1', work()]]))
     // Annict が断った（GraphQL のエラー）。届いていないことがはっきりしている
-    createRecord.mockRejectedValue(new AnnictError('Annict がエラーを返しました: invalid', 'api'))
+    createRecord.mockRejectedValue(new AnnictError('Annictがエラーを返しました: invalid', 'api'))
     const q = queue()
     const { result } = renderHook(() => useEpisodes('t', ['W1'], q.enqueue))
     await waitFor(() => expect(result.current.byWork.has('W1')).toBe(true))
@@ -121,7 +121,7 @@ describe('useEpisodes', () => {
 
   it('after a 502 on recording, sending again first checks Annict and does not record twice when it had arrived', async () => {
     fetchEpisodes.mockResolvedValue(new Map([['W1', work()]]))
-    createRecord.mockRejectedValueOnce(new AnnictError('Annict から応答を受け取れませんでした（HTTP 502）', 'api', 502))
+    createRecord.mockRejectedValueOnce(new AnnictError('Annictから応答を受け取れませんでした（HTTP 502）', 'api', 502))
     // 実は Annict には届いていた
     fetchRecentActivity.mockResolvedValue({ reviews: [], records: [{ id: 'REC1', episodeId: 'E3', createdAt: new Date().toISOString() }] })
     const q = queue()
@@ -137,7 +137,7 @@ describe('useEpisodes', () => {
 
   it('undoing a record that failed with a 502 deletes it if it had arrived after all', async () => {
     fetchEpisodes.mockResolvedValue(new Map([['W1', work()]]))
-    createRecord.mockRejectedValueOnce(new AnnictError('Annict に接続できませんでした', 'network'))
+    createRecord.mockRejectedValueOnce(new AnnictError('Annictに接続できませんでした', 'network'))
     fetchRecentActivity.mockResolvedValue({ reviews: [], records: [{ id: 'REC1', episodeId: 'E3', createdAt: new Date().toISOString() }] })
     const q = queue()
     const { result } = renderHook(() => useEpisodes('t', ['W1'], q.enqueue))
@@ -166,7 +166,7 @@ describe('useEpisodes', () => {
 
   it('finds the record among recent activity when its id was not received (sent again later)', async () => {
     fetchEpisodes.mockResolvedValue(new Map([['W1', work()]]))
-    createRecord.mockRejectedValueOnce(new AnnictError('Annict がエラーを返しました: busy', 'api'))
+    createRecord.mockRejectedValueOnce(new AnnictError('Annictがエラーを返しました: busy', 'api'))
     fetchRecentActivity.mockResolvedValue({ reviews: [], records: [{ id: 'REC9', episodeId: 'E3', createdAt: new Date().toISOString() }] })
     const q = queue()
     const { result } = renderHook(() => useEpisodes('t', ['W1'], q.enqueue))
@@ -189,10 +189,10 @@ describe('useEpisodes', () => {
   })
 
   it('reports a read error per work, and reads again on retry', async () => {
-    fetchEpisodes.mockRejectedValueOnce(new Error('Annict に接続できませんでした')).mockResolvedValueOnce(new Map([['W1', work()]]))
+    fetchEpisodes.mockRejectedValueOnce(new Error('Annictに接続できませんでした')).mockResolvedValueOnce(new Map([['W1', work()]]))
     const q = queue()
     const { result } = renderHook(() => useEpisodes('t', ['W1'], q.enqueue))
-    await waitFor(() => expect(result.current.errors.get('W1')).toBe('Annict に接続できませんでした'))
+    await waitFor(() => expect(result.current.errors.get('W1')).toBe('Annictに接続できませんでした'))
     act(() => result.current.retry())
     await waitFor(() => expect(result.current.byWork.has('W1')).toBe(true))
   })

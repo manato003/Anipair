@@ -9,7 +9,7 @@ vi.mock('./reconcile', () => ({
   reconcileIntent: vi.fn(async (_t: string, intent: WriteIntent) => {
     if (failNext) {
       failNext = false
-      throw new Error('Annict から応答を受け取れませんでした（HTTP 502）')
+      throw new Error('Annictから応答を受け取れませんでした（HTTP 502）')
     }
     sent.push(`${intent.kind}:${'workId' in intent ? intent.workId : ''}`)
   }),

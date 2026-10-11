@@ -119,15 +119,15 @@ describe('WorkDetail: the Annict note', () => {
   it('shows the note written on Annict, read only, with the way to rewrite it there', () => {
     library = [{ annictId: 1, note: '友達に勧められた' }]
     render(<WorkDetail token="t" work={work} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
-    const section = screen.getByRole('heading', { name: 'Annict のメモ' }).closest('section')!
+    const section = screen.getByRole('heading', { name: 'Annictのメモ' }).closest('section')!
     expect(within(section).getByText('友達に勧められた')).toBeTruthy()
-    expect(within(section).getByRole('link', { name: 'Annict の作品ページ' }).getAttribute('href')).toBe('https://annict.com/works/1')
+    expect(within(section).getByRole('link', { name: 'Annictの作品ページ' }).getAttribute('href')).toBe('https://annict.com/works/1')
   })
 
   it('shows nothing when there is no note on Annict', () => {
     library = [{ annictId: 1, note: null }]
     render(<WorkDetail token="t" work={work} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
-    expect(screen.queryByRole('heading', { name: 'Annict のメモ' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Annictのメモ' })).toBeNull()
   })
 })
 
@@ -240,7 +240,7 @@ describe('WorkDetail', () => {
     // 出典とライセンス
     expect(screen.getByRole('link', { name: '葬送のフリーレン' }).getAttribute('href')).toBe(wikiSynopsis.url)
     expect(screen.getByRole('link', { name: 'CC BY-SA 4.0' }).getAttribute('href')).toBe(wikiSynopsis.licenseUrl)
-    expect(screen.queryByRole('link', { name: /続きは Wikipedia/ })).toBeNull()
+    expect(screen.queryByRole('link', { name: /続きはWikipedia/ })).toBeNull()
   })
 
   it('shows the genres and themes from Shikimori in Japanese', async () => {
@@ -322,10 +322,10 @@ describe('WorkDetail', () => {
 
   it('links to Shikimori only when the work has a MyAnimeList id', () => {
     const { unmount } = render(<WorkDetail token="t" work={{ ...work, malAnimeId: '52991' }} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
-    expect(screen.getByRole('link', { name: 'Shikimori で見る' }).getAttribute('href')).toBe('https://shikimori.io/animes/52991')
+    expect(screen.getByRole('link', { name: 'Shikimoriで見る' }).getAttribute('href')).toBe('https://shikimori.io/animes/52991')
     unmount()
     render(<WorkDetail token="t" work={{ ...work, malAnimeId: null }} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
-    expect(screen.queryByRole('link', { name: 'Shikimori で見る' })).toBeNull()
+    expect(screen.queryByRole('link', { name: 'Shikimoriで見る' })).toBeNull()
   })
 
   it('shows a landscape (official-site) cover uncropped, and a poster as is', () => {

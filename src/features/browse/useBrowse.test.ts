@@ -148,12 +148,12 @@ describe('useBrowse sorting', () => {
   // 2026-10-06 の点検: Shikimori が読めないと、評価順の一覧ごと失敗していた
   it('score: when Shikimori cannot be read, still lists the works and says why the order is partial', async () => {
     const { fetchMedia } = await import('../../lib/shikimori')
-    vi.mocked(fetchMedia).mockRejectedValueOnce(new Error('Shikimori が混み合っています'))
+    vi.mocked(fetchMedia).mockRejectedValueOnce(new Error('Shikimoriが混み合っています'))
     const hook = await setup()
     act(() => hook.result.current.setSort('score'))
     await waitFor(() => expect(hook.result.current.works?.length).toBe(3))
     expect(hook.result.current.error).toBeNull()
-    expect(hook.result.current.sortNote).toContain('Annict の満足度だけで並べています')
+    expect(hook.result.current.sortNote).toContain('Annictの満足度だけで並べています')
     expect(hook.result.current.progress).toBeNull()
   })
 

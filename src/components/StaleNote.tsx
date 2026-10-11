@@ -21,7 +21,7 @@ export function StaleNote(props: { at: string | null; error: string | null; onRe
   // 読み直せなかったことは、コントロールセンターにも並べる
   useNotice(
     props.at && props.error
-      ? { id: 'stale', title: 'Annict から読み直せませんでした', body: `前回（${storedAtLabel(props.at)}）の内容を表示しています。${props.error}`, action: props.onRetry ? { label: 'もう一度', run: props.onRetry } : undefined }
+      ? { id: 'stale', title: 'Annictから読み直せませんでした', body: `前回（${storedAtLabel(props.at)}）の内容を表示しています。${props.error}`, action: props.onRetry ? { label: 'もう一度', run: props.onRetry } : undefined }
       : null,
   )
   if (!props.at) return null
@@ -29,7 +29,7 @@ export function StaleNote(props: { at: string | null; error: string | null; onRe
     return (
       <div className="stale-toast stale-toast--error" role="alert">
         <span>
-          Annict から読み直せませんでした（{props.error}）。前回（{storedAtLabel(props.at)}）の内容を表示しています。
+          Annictから読み直せませんでした（{props.error}）。前回（{storedAtLabel(props.at)}）の内容を表示しています。
         </span>
         {props.onRetry && (
           <button type="button" className="link" onClick={props.onRetry}>

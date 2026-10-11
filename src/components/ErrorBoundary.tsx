@@ -29,7 +29,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
         >
           この端末の保存データを消して再読み込み
         </button>
-        <p className="crash__note">Annict に保存した記録は消えません。消えるのはトークンと進み具合だけです。</p>
+        <p className="crash__note">Annictに保存した記録は消えません。消えるのはトークンと進み具合だけです。</p>
       </div>
     )
   }

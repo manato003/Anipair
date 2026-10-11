@@ -72,7 +72,7 @@ const shikimoriPoster: Resolver = async (works, onProgress) => {
     try {
       got = await fetchMedia(chunk)
     } catch (e) {
-      console.warn('Shikimori からポスターを取れませんでした', e)
+      console.warn('Shikimoriからポスターを取れませんでした', e)
       break
     }
     const step = new Set<number>()

@@ -43,7 +43,7 @@ export function CommunityReviews(props: { token: string; workId: string; annictI
     <section className="detail__section community">
       <h3 className="detail__label">みんなの感想</h3>
       {reviewsCount === 0 && satisfactionRate === null ? (
-        <p className="detail__hint">まだ Annict に感想がありません。</p>
+        <p className="detail__hint">まだAnnictに感想がありません。</p>
       ) : (
         <p className="community__summary">
           {satisfactionRate !== null && (
@@ -73,9 +73,9 @@ export function CommunityReviews(props: { token: string; workId: string; annictI
         ))}
       {reviewsCount > 0 && (
         <p className="detail__source">
-          Annict の利用者の感想です（
+          Annictの利用者の感想です（
           <a href={annictWorkReviewsUrl(props.annictId)} target="_blank" rel="noreferrer">
-            Annict で感想をすべて読む
+            Annictで感想をすべて読む
           </a>
           ）
         </p>
