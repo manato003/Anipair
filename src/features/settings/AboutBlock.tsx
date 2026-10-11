@@ -36,7 +36,7 @@ export function AboutBlock({ showTagline = true, welcome = false }: { showTaglin
       <ul className="settings__list settings__lead">
         <li>Anipair は個人が開発した Annict の非公式アプリで、Annict の運営とは関係ありません。</li>
         <li>ソースコードは MIT ライセンスで公開しています。Anipair の名前とロゴ、アニとペア（絵・名前・設定）の著作権は運営者が保持しています。</li>
-        <li>運営サーバーはなく、利用者の情報は保存しません。サーバーで動くのは、ログインの受け渡しと Shikimori への中継の2つの処理だけです。</li>
+        <li>運営サーバーはなく、利用者の記録は保存しません。サーバーで動くのは、ログインの受け渡し・Shikimori への中継・問い合わせの受け付けの3つの処理だけです。問い合わせの内容は、送ったときだけ開発者に届きます（公開はされません）。</li>
         <li>トークンは、この端末の中にだけ保存されます。</li>
         <li>
           作品データの一部（ジャンル・似た作品・一部の表紙・声優やスタッフの参加作品）は{' '}
@@ -49,7 +49,7 @@ export function AboutBlock({ showTagline = true, welcome = false }: { showTaglin
       <details className="settings__fold">
         <summary>通信先・画像について</summary>
         <ul className="settings__list settings__lead">
-          <li>通信先は Annict と Shikimori（このサイトの中継を経由）と Wikipedia です。GitHub と連携した場合は、GitHub にも送信します。</li>
+          <li>通信先は Annict と Shikimori（このサイトの中継を経由）と Wikipedia です。GitHub と連携した場合は、GitHub にも送信します。問い合わせを送ったときは、その内容だけが、このサイトの関数を通して運営者の非公開の GitHub リポジトリに届きます。</li>
           <li>作品の詳細のあらすじは、Wikipedia の記事の冒頭を、出典とライセンス（CC BY-SA 4.0）を添えて表示しています。</li>
           <li>表紙には、Shikimori のポスターと、Annict の API が返す各作品の公式サイトの画像を表示しています。権利は各権利者に帰属します。</li>
         </ul>

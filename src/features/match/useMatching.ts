@@ -61,7 +61,7 @@ export function useMatching(annictToken: string, github: GithubConnection | null
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' })
   const [cards, setCards] = useState<MatchCard[]>([])
   const [index, setIndex] = useState(0)
-  const [basis, setBasis] = useState<{ rated: number; liked: number } | null>(null)
+  const [basis, setBasis] = useState<{ rated: number; liked: number; pending: number } | null>(null)
   const [syncNote, setSyncNote] = useState<string | null>(null)
   const { pending, failed, enqueue, retryFailed, dismissFailed } = useWriteQueue()
   const undoStack = useRef<UndoEntry[]>([])
@@ -89,12 +89,12 @@ export function useMatching(annictToken: string, github: GithubConnection | null
     forgetTaste()
     setPhase({ kind: 'loading', step: 'Annict の記録を読み込み中' })
     try {
-      const { library, ratings, seeds, similarSeeds, similar, profile } = await loadTaste(annictToken, (step, note, work) => {
+      const { library, ratings, seeds, similarSeeds, similar, profile, pendingSimilar } = await loadTaste(annictToken, (step, note, work) => {
         if (alive()) setPhase({ kind: 'loading', step, note, work })
       })
       if (!alive()) return
       const liked = seeds.filter((s) => s.weight > 0).length
-      setBasis({ rated: ratings.size, liked })
+      setBasis({ rated: ratings.size, liked, pending: pendingSimilar })
       if (liked === 0) {
         setPhase({ kind: 'empty', message: '好きな作品の記録がまだありません。評価画面で、見た作品を「良い」か「とても良い」で評価してください。' })
         return

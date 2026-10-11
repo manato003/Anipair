@@ -20,18 +20,31 @@
       </div>
 
       <h1>プライバシーポリシー</h1>
-      <p class="date">制定日: 2026年10月2日 / 更新日: 2026年10月9日</p>
+      <p class="date">制定日: 2026年10月2日 / 更新日: 2026年10月11日</p>
 
       <p class="lead">
         Anipair（以下「本アプリ」）は、個人が開発・運営する、無料・非商用の非公式アプリです。
-        本アプリは、運営者のもとに利用者の情報を集めたり保存したりしません。このページでは、本アプリを使うときに、どの情報がどこに送られ、どこに置かれるかを説明します。
+        本アプリは、利用者が問い合わせを送ったときを除いて、運営者のもとに利用者の情報を集めたり保存したりしません。このページでは、本アプリを使うときに、どの情報がどこに送られ、どこに置かれるかを説明します。
       </p>
 
       <section class="item">
         <h2>1. 運営者が集める情報</h2>
         <p>
-          ありません。本アプリには、運営者が管理するデータベースや利用者の登録の仕組みはありません。
+          本アプリには、運営者が管理するデータベースや利用者の登録の仕組みはありません。
           アクセス解析、広告、Cookie による追跡も行っていません。
+        </p>
+        <p>
+          ただし、利用者が「質問・不具合・要望を送る」（ヘルプと設定にあります）から問い合わせを送ったときは、次のものを受け取ります。
+        </p>
+        <ul>
+          <li>問い合わせの種類と本文</li>
+          <li>返信先（利用者が任意で書いたとき）</li>
+          <li>本アプリのバージョンと、端末・ブラウザの種類（利用者が添えることを選んだとき）</li>
+        </ul>
+        <p>
+          受け取った内容は、運営者の非公開の GitHub リポジトリに Issue として保存し、運営者だけが読みます。公開はしません。
+          不具合の調査、改善、返信のためだけに使います。IP アドレスや、Annict・GitHub のトークンは含めません。
+          送った内容の削除を希望するときは、もう一度問い合わせからお知らせください。
         </p>
       </section>
 
@@ -78,17 +91,22 @@
           <li>
             <strong>Google Fonts</strong>: 画面の文字の表示のために、フォントを読み込みます。
           </li>
+          <li>
+            <strong>問い合わせの受け付け</strong>（利用者が問い合わせを送ったときだけ）:
+            送った内容を、本アプリの関数を通して、運営者の非公開の GitHub リポジトリに Issue として保存します（上の「1」）。
+          </li>
         </ul>
       </section>
 
       <section class="item">
         <h2>4. サーバーの関数とホスティング</h2>
         <p>
-          本アプリは Vercel で公開しています。サーバーで動く処理は、次の2つだけです。どちらも受け取った情報を保存せず、記録にも残しません。
+          本アプリは Vercel で公開しています。サーバーで動く処理は、次の3つだけです。問い合わせを Issue にすること（上の「1」）のほかは、受け取った情報を保存せず、記録にも残しません。
         </p>
         <ul>
           <li>「Annict でログイン」のとき、Annict から受け取った認可コードをアクセストークンに交換する処理</li>
           <li>作品情報の提供元に、公開データを問い合わせて中継する処理</li>
+          <li>利用者が送った問い合わせを、運営者の非公開の GitHub リポジトリの Issue にする処理</li>
         </ul>
         <p>
           ホスティングの事業者である Vercel は、通信の仕組みとして IP アドレスなどを記録することがあります。取り扱いは
@@ -98,7 +116,7 @@
 
       <section class="item">
         <h2>5. 第三者への提供</h2>
-        <p>運営者は利用者の情報を持たないため、第三者に提供することはありません。</p>
+        <p>問い合わせの内容は、保存先の GitHub（GitHub, Inc.）のほかには提供しません。それ以外の利用者の情報は運営者が持たないため、第三者に提供することはありません。</p>
       </section>
 
       <section class="item">
@@ -109,21 +127,21 @@
       <section class="item">
         <h2>7. お問い合わせ</h2>
         <p>
-          本アプリの公開リポジトリの Issue（<a href="https://github.com/manato003/anipair/issues" rel="noreferrer">github.com/manato003/anipair/issues</a>）からご連絡ください。
+          本アプリの「質問・不具合・要望を送る」（ヘルプと設定にあります。GitHub のアカウントは要りません）か、
+          公開リポジトリの Issue（<a href="https://github.com/manato003/anipair/issues" rel="noreferrer">github.com/manato003/anipair/issues</a>）からご連絡ください。
         </p>
 
-      
       </section>
 
       <section class="en" lang="en">
         <h1>Privacy Policy (English)</h1>
-        <p class="date">Effective date: October 2, 2026 / Last updated: October 9, 2026</p>
+        <p class="date">Effective date: October 2, 2026 / Last updated: October 11, 2026</p>
         <p>
-          Anipair is a free, non-commercial, unofficial app developed and run by an individual. The operator does not collect or store any user information.
+          Anipair is a free, non-commercial, unofficial app developed and run by an individual. The operator does not collect or store any user information, except what you send through the feedback form.
         </p>
         <section class="item">
           <h2>1. Information we collect</h2>
-          <p>None. Anipair has no operator-run database or user registration, and uses no analytics, advertising or tracking cookies.</p>
+          <p>Anipair has no operator-run database or user registration, and uses no analytics, advertising or tracking cookies. When you send feedback (questions, bug reports, requests) from the app, we receive its type and text, the reply address if you give one, and the app version and device/browser type if you choose to include them. It is saved as an issue in the operator's private GitHub repository, read only by the operator, and used only to investigate, improve and reply. It does not include your IP address or any tokens. To have it deleted, send another message through the form.</p>
         </section>
         <section class="item">
           <h2>2. Information kept on your device</h2>
@@ -144,19 +162,20 @@
             <li><strong>Wikipedia</strong>: when you open the details of an anime, its synopsis is read from the article through Wikipedia's public API, without any information that identifies you.</li>
             <li><strong>GitHub</strong>, only if you connect it: your pass, skip and "not watched" records, your priority marks and notes on "want to watch" anime, and backups are saved to your own repository.</li>
             <li><strong>Google Fonts</strong>: web fonts used to display the app.</li>
+            <li><strong>Feedback</strong>, only when you send it: what you send goes through Anipair's server function to an issue in the operator's private GitHub repository (see 1).</li>
           </ul>
         </section>
         <section class="item">
           <h2>4. Server functions and hosting</h2>
           <p>
-            Anipair is hosted on Vercel. Only two server functions run: one exchanges the Annict authorization code for an access token, and one relays requests
-            for public anime data. Neither stores or logs what it receives. Vercel may record technical information such as IP addresses as part of its service,
+            Anipair is hosted on Vercel. Three server functions run: one exchanges the Annict authorization code for an access token, one relays requests
+            for public anime data, and one turns feedback you send into an issue in the operator's private GitHub repository. Apart from that feedback, none of them stores or logs what it receives. Vercel may record technical information such as IP addresses as part of its service,
             under the <a href="https://vercel.com/legal/privacy-policy" rel="noreferrer">Vercel Privacy Policy</a>.
           </p>
         </section>
         <section class="item">
           <h2>5. Sharing with third parties</h2>
-          <p>The operator holds no user information and therefore shares none.</p>
+          <p>Feedback is shared only with GitHub, Inc., where it is stored. The operator holds no other user information and therefore shares none.</p>
         </section>
         <section class="item">
           <h2>6. Changes</h2>
@@ -164,7 +183,7 @@
         </section>
         <section class="item">
           <h2>7. Contact</h2>
-          <p>Please open an issue at <a href="https://github.com/manato003/anipair/issues" rel="noreferrer">github.com/manato003/anipair/issues</a>.</p>
+          <p>Use "質問・不具合・要望を送る" in the app's help or settings (no GitHub account needed), or open an issue at <a href="https://github.com/manato003/anipair/issues" rel="noreferrer">github.com/manato003/anipair/issues</a>.</p>
         </section>
       </section>
     </main>

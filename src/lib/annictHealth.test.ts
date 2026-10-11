@@ -15,17 +15,17 @@ describe('judgeAnnictHealth', () => {
   })
 
   it('is slow when the last answer took over 5 seconds (the slow day: 7 to 15 seconds for a tiny query)', () => {
-    expect(judgeAnnictHealth([ok(200), ok(15_300)], NOW)).toMatchObject({ level: 'slow', label: '混み合っています' })
+    expect(judgeAnnictHealth([ok(200), ok(15_300)], NOW)).toMatchObject({ level: 'slow', label: '応答に時間がかかっています' })
   })
 
   it('is down when the last ask failed, saying how', () => {
     expect(judgeAnnictHealth([ok(200), failed('server', 0, 502)], NOW).label).toBe('エラーを返しています（HTTP 502）')
-    expect(judgeAnnictHealth([failed('timeout')], NOW)).toMatchObject({ level: 'down', label: '応答がありません' })
+    expect(judgeAnnictHealth([failed('timeout')], NOW)).toMatchObject({ level: 'down', label: '応答を受け取れていません' })
     expect(judgeAnnictHealth([failed('network')], NOW).level).toBe('down')
   })
 
   it('stays shaky for 5 minutes after a failure or a slow answer, then turns ok', () => {
-    expect(judgeAnnictHealth([failed('server', 4 * 60_000, 502), ok(300)], NOW)).toMatchObject({ level: 'slow', label: expect.stringContaining('不安定') })
+    expect(judgeAnnictHealth([failed('server', 4 * 60_000, 502), ok(300)], NOW)).toMatchObject({ level: 'slow', label: expect.stringContaining('ときどき時間がかかっています') })
     expect(judgeAnnictHealth([ok(9_000, 6 * 60_000), ok(300)], NOW).level).toBe('ok')
   })
 })

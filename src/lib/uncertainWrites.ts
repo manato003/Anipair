@@ -1,7 +1,7 @@
 import { AnnictError, createRecord, deleteRecord, deleteReview, fetchRecentActivity, updateRecord, type MyReview, type RatingState } from './annict'
 import { loadUncertainWritesRaw, saveUncertainWritesRaw } from './storage'
 
-// 「届いたか分からない」作成の後始末。Annict が不調のときの 502 は、手前の Cloudflare が「返事が来なかった」と返すもので、
+// 「届いたか分からない」作成の後始末。応答が返らないときの 502 は、手前の Cloudflare が「返事が来なかった」と返すもので、
 // 本体では処理が済んでいることがある。そのまま送り直すと、感想や話の記録が2つできる（状態の変更は何度送っても同じなので要らない）。
 // そこで、作成が 5xx・つながらないで失敗したら印を残し、次にその作品（話）を書くときに、最近の自分のアクティビティを1回読んで、
 // 前回の作成が届いていたかを確かめてから進める。印は端末に置く（閉じて開き直したあとの送り直しでも効くように）

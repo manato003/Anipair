@@ -3,6 +3,7 @@ import type { ServerResponse } from 'node:http'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { Connect } from 'vite'
+import { loadEnv } from 'vite'
 import { defineConfig, type Plugin } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 
@@ -39,9 +40,40 @@ function shikiDevProxy(): Plugin {
   }
 }
 
+type FeedbackModule = { handleFeedback: (request: Request, env: Record<string, string | undefined>) => Promise<Response> }
+
+// `npm run dev` で /api/feedback を動かす（問い合わせのフォームの確かめ用）。本番の関数と同じ api/feedback.ts の handleFeedback を使う。
+// トークンは .env.local の FEEDBACK_GITHUB_TOKEN・FEEDBACK_REPO から読む（無ければ「まだ使えません」を返す）。ビルドの成果物には入らない
+function feedbackDevProxy(): Plugin {
+  return {
+    name: 'feedback-dev-proxy',
+    configureServer(server) {
+      const env = loadEnv(server.config.mode, process.cwd(), 'FEEDBACK_')
+      server.middlewares.use('/api/feedback', async (req, res, next) => {
+        try {
+          const { handleFeedback } = (await server.ssrLoadModule('/api/feedback.ts')) as FeedbackModule
+          const chunks: Buffer[] = []
+          for await (const chunk of req) chunks.push(chunk as Buffer)
+          const headers = new Headers()
+          for (const [k, v] of Object.entries(req.headers)) if (typeof v === 'string') headers.set(k, v)
+          const out = await handleFeedback(
+            new Request(`http://${req.headers.host}/api/feedback`, { method: req.method, headers, body: req.method === 'POST' ? Buffer.concat(chunks) : undefined }),
+            env,
+          )
+          res.statusCode = out.status
+          out.headers.forEach((value, key) => res.setHeader(key, value))
+          res.end(Buffer.from(await out.arrayBuffer()))
+        } catch (e) {
+          next(e)
+        }
+      })
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), shikiDevProxy()],
+  plugins: [react(), shikiDevProxy(), feedbackDevProxy()],
   define: {
     __APP_VERSION__: JSON.stringify(version),
     // 実績の「God モード」（すべての称号を手に入れた状態で並べる試し表示）を出すか。本番（Vercel の production）のビルドだけ出さない

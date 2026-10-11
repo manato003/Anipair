@@ -104,7 +104,8 @@ export function useBrowse(token: string, active = true) {
   // 表紙は Annict の作品 ID ごと。Annict の画像は手元にあるので先に出し、Shikimori のポスターは取れてから足す
   const addCovers = useCallback(async (list: BrowseWork[]) => {
     setCovers((cur) => new Map([...cur, ...quickCovers(list)]))
-    const got = await fetchCovers(list)
+    // 取れた分から足す（何年分もまとめて出すと作品が多く、全部を待つと長く表紙が出ない）
+    const got = await fetchCovers(list, { onProgress: (part) => setCovers((cur) => new Map([...cur, ...part])) })
     setCovers((cur) => new Map([...cur, ...got]))
   }, [])
 

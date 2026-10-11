@@ -314,28 +314,58 @@ export function CheerScene(props: { className?: string }) {
 
 // ── 印（ロゴ・アイコン）: 2人の頭。64 の枠 ──
 // faces: 顔を描くか（32px より小さいと潰れるので、ブラウザのタブでは描かない）。
-// ペアの芽は、季節に寄らない2枚葉（アイコンのファイルは季節で替えられないため）
-export function DuoMarkFigure({ faces = true }: { faces?: boolean }) {
-  return (
-    <g>
+// ペアの芽は、季節に寄らない2枚葉（アイコンのファイルは季節で替えられないため）。
+// peek: ペアをアニの肩の後ろへ回し、少し小さくして右上からのぞかせる（ホーム画面・タブ・X のアイコン。2026-10-12 #24）。
+// 絵の外形はおよそ x 0〜77・y 2〜62（真ん中 38.5, 32）
+export function DuoMarkFigure({ faces = true, peek = false }: { faces?: boolean; peek?: boolean }) {
+  const ani = (
+    <>
       <path className="m-wire" d="M21 22 14 8M31 22l5-14" strokeWidth="5" />
       <circle className="m-accent" cx="13.5" cy="7.5" r="4.5" strokeWidth="3" />
       <circle className="m-accent" cx="36.5" cy="7.5" r="4.5" strokeWidth="3" />
       <path className="m-body" d="M3 42c0-13 9-21 23-21s23 8 23 21c0 11-9 17-23 17S3 53 3 42Z" strokeWidth="5" />
+    </>
+  )
+  const pair = (
+    <>
       <g transform="translate(49 34) scale(0.7)">
         <path className="m-wire" d="M0 0v-9" strokeWidth="3.4" />
         <path className="m-accent" d="M0-8C-1-17-9-20-15-18c0 7 6 11 15 10Z" strokeWidth="2.6" />
         <path className="m-accent" d="M0-10C2-19 10-22 16-19c-1 7-7 10-16 9Z" strokeWidth="2.6" />
       </g>
       <path className="m-body" d="M34 48c0-10 7-15 15-15s15 5 15 15c0 7-6 11-15 11s-15-4-15-11Z" strokeWidth="5" />
-      {faces && (
-        <>
-          <circle className="m-ink" cx="19" cy="41" r="3" />
-          <circle className="m-ink" cx="32" cy="41" r="3" />
-          <circle className="m-ink" cx="45" cy="47" r="2.6" />
-          <circle className="m-ink" cx="54" cy="47" r="2.6" />
-        </>
-      )}
+    </>
+  )
+  const aniEyes = faces && (
+    <>
+      <circle className="m-ink" cx="19" cy="41" r="3" />
+      <circle className="m-ink" cx="32" cy="41" r="3" />
+    </>
+  )
+  const pairEyes = faces && (
+    <>
+      <circle className="m-ink" cx="45" cy="47" r="2.6" />
+      <circle className="m-ink" cx="54" cy="47" r="2.6" />
+    </>
+  )
+  if (peek)
+    return (
+      <g>
+        <g transform="translate(11 -9) translate(49 46) scale(0.92) translate(-49 -46)">
+          {pair}
+          {pairEyes}
+        </g>
+        {ani}
+        {aniEyes}
+      </g>
+    )
+  // アニの右目はペアの体に少しかかるので、目は2人の体のあとに描く
+  return (
+    <g>
+      {ani}
+      {pair}
+      {aniEyes}
+      {pairEyes}
     </g>
   )
 }

@@ -25,7 +25,7 @@ export function AccountBlock(props: { token: string; onChange: (token: string | 
       summary="評価や視聴状況は、すべてあなたの Annict アカウントに保存されます。"
       status={<StatusChip>{viewer ? `${viewer.name}（@${viewer.username}）で連携中` : 'Annict と連携中'}</StatusChip>}
     >
-      {/* Anipair は Annict が無いと動かない。遅い・出ないときに、原因が Annict の側かを見分けられるように */}
+      {/* Anipair は Annict とつながって動く。遅い・出ないときに、原因が通信のどこにあるかを見分けられるように */}
       <AnnictHealth token={props.token} />
       {/* コレクションは Annict の機能（API では読み書きできないので、Anipair では作らずに案内する） */}
       {viewer && (

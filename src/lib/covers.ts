@@ -23,7 +23,13 @@ export function annictImageOf(image: { recommendedImageUrl?: string | null; face
   return null
 }
 
-type Resolver = (works: CoverSource[]) => Promise<Map<number, Cover>>
+// 取れた分から画面に出すための知らせ。Shikimori に問い合わせるたびに、その回で取れた表紙を渡す
+export type CoverProgress = (got: ReadonlyMap<number, Cover>) => void
+
+type Resolver = (works: CoverSource[], onProgress?: CoverProgress) => Promise<Map<number, Cover>>
+
+// Shikimori に1回で問い合わせる作品の数（lib/shikimori.ts の BATCH と同じ）。1回ごとに画面へ出せるよう、ここで区切る
+const POSTER_STEP = 50
 
 function ogCover(url: string): Cover {
   return { url, thumb: url, landscape: true }
@@ -49,28 +55,42 @@ const annictOgImage: Resolver = async (works) => {
 }
 
 // Shikimori のポスター。MyAnimeList の ID の分だけ問い合わせて、端末に控える。
-// 表紙は見た目のためのものなので、取れなくても止めない（取れなかった作品は表紙なしで出る）
-const shikimoriPoster: Resolver = async (works) => {
+// 渡された順に50作品ずつ問い合わせ、1回ごとに onProgress で知らせる（作品の多い人でも、先頭の表紙から出る。
+// 全部を取り終えてから出すと、1,500作品で25秒ほど表紙が出なかった。2026-10-11 デモで実測）。
+// 表紙は見た目のためのものなので、取れなくても止めない（取れなかった作品は表紙なしで出る。それまでに取れた分は使う）
+const shikimoriPoster: Resolver = async (works, onProgress) => {
   const withMal = works.flatMap((w) => {
     const mal = Number(w.malAnimeId)
     return Number.isInteger(mal) && mal > 0 ? [{ annictId: w.annictId, mal }] : []
   })
   if (withMal.length === 0) return new Map()
   const posters = loadPosters()
-  const missing = withMal.map((w) => w.mal).filter((id) => !posters.has(id))
-  if (missing.length > 0) {
+  const missing = [...new Set(withMal.map((w) => w.mal).filter((id) => !posters.has(id)))]
+  for (let i = 0; i < missing.length; i += POSTER_STEP) {
+    const chunk = missing.slice(i, i + POSTER_STEP)
+    let got: Awaited<ReturnType<typeof fetchMedia>>
     try {
-      const got = await fetchMedia(missing)
-      let changed = false
-      for (const [mal, m] of got) {
-        if (m.cover) {
-          posters.set(mal, { o: m.cover.url, m: m.cover.thumb })
-          changed = true
-        }
-      }
-      if (changed) savePosters(posters)
+      got = await fetchMedia(chunk)
     } catch (e) {
       console.warn('Shikimori からポスターを取れませんでした', e)
+      break
+    }
+    const step = new Set<number>()
+    for (const [mal, m] of got) {
+      if (m.cover) {
+        posters.set(mal, { o: m.cover.url, m: m.cover.thumb })
+        step.add(mal)
+      }
+    }
+    if (step.size === 0) continue
+    savePosters(posters)
+    if (onProgress) {
+      const part = new Map<number, Cover>()
+      for (const { annictId, mal } of withMal) {
+        const p = step.has(mal) ? posters.get(mal) : undefined
+        if (p) part.set(annictId, { url: p.o, thumb: p.m, landscape: false })
+      }
+      onProgress(part)
     }
   }
   const out = new Map<number, Cover>()
@@ -83,14 +103,15 @@ const shikimoriPoster: Resolver = async (works) => {
 
 const RESOLVERS: readonly Resolver[] = [shikimoriPoster, annictOgImage]
 
-// 作品ごとの表紙（Annict の作品 ID → 表紙）。見つからなかった作品は入らない
-export async function fetchCovers(works: readonly CoverSource[]): Promise<Map<number, Cover>> {
+// 作品ごとの表紙（Annict の作品 ID → 表紙）。見つからなかった作品は入らない。
+// 作品は画面に出したい順に渡す（Shikimori にはその順に問い合わせる）。onProgress には、取れた分を途中で渡す
+export async function fetchCovers(works: readonly CoverSource[], opts: { onProgress?: CoverProgress } = {}): Promise<Map<number, Cover>> {
   clearLegacyCovers()
   const out = new Map<number, Cover>()
   let rest = [...works]
   for (const resolve of RESOLVERS) {
     if (rest.length === 0) break
-    const got = await resolve(rest)
+    const got = await resolve(rest, opts.onProgress)
     for (const [id, cover] of got) out.set(id, cover)
     rest = rest.filter((w) => !got.has(w.annictId))
   }

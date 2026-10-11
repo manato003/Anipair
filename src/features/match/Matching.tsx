@@ -113,6 +113,11 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
         <div className="notes">
           <SaveStatus pending={m.pending} failed={m.failed} onRetry={m.retryFailed} onDismiss={m.dismissFailed} />
           {m.syncNote && <p className="note">{m.syncNote}</p>}
+          {showDeck && m.basis && m.basis.pending > 0 && (
+            <p className="note">
+              記録が多いので、まず評価の高い作品から提案しています。残りの{m.basis.pending}件は裏で調べていて、あとで「提案し直す」を押すと、調べ終えた分も使って提案します。
+            </p>
+          )}
           {showDeck && m.basis && m.basis.liked < ENOUGH_LIKED && (
             <p className="note">
               好きな作品の記録がまだ{m.basis.liked}件なので、提案は大まかです。{ENOUGH_LIKED}件ほど評価すると好みに寄ってきます。

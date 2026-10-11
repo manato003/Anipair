@@ -353,7 +353,7 @@ export default function App() {
   )
 }
 
-// 送信待ちが無くなるまで待つ（長くても20秒。Annict が止まっていて送れないときは、控え（writeJournal）から次に開いたときに送り直せる）
+// 送信待ちが無くなるまで待つ（長くても20秒。Annict に届かず送れないときは、控え（writeJournal）から次に開いたときに送り直せる）
 async function untilWritesDone(): Promise<void> {
   const until = Date.now() + 20_000
   while (hasPendingWrites() && Date.now() < until) await new Promise((r) => setTimeout(r, 200))

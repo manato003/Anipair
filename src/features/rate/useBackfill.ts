@@ -87,7 +87,7 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      // まず端末にとっておいた前回のこのクールの作品で山を出す（Annict が重い日でもすぐ出す。2026-10-06）。
+      // まず端末にとっておいた前回のこのクールの作品で山を出す（応答に時間がかかる日でもすぐ出す。2026-10-06）。
       // 答える作品が無ければ出さない（空のクールを飛ばすかどうかは、読み直してから決める）
       const stored = loadStoredSeasonWorks(toSlug(season))
       if (stored) {

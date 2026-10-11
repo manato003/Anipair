@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { HelpButton } from './Help'
+import { FAQ } from './faq'
 
 afterEach(async () => {
   cleanup()
@@ -22,7 +23,9 @@ describe('HelpButton', () => {
     expect(within(dialog).getAllByRole('heading', { level: 3 })[0].textContent).toBe('この画面（マッチング）')
     expect(within(dialog).getByText('提案してもらう')).toBeTruthy()
     const folded = [...dialog.querySelectorAll('details summary')].map((s) => s.textContent)
-    expect(folded).toEqual(['評価', '記録', 'ブラウズ', '設定'])
+    expect(folded.slice(0, 4)).toEqual(['評価', '記録', 'ブラウズ', '設定'])
+    // そのあとに、よくある質問が畳んで並ぶ
+    expect(folded.slice(4)).toEqual(FAQ.map(([q]) => q))
 
     fireEvent.click(within(dialog).getByRole('button', { name: '閉じる' }))
     expect(screen.queryByRole('dialog')).toBeNull()

@@ -26,6 +26,7 @@ const details = new Map([
   [11, media(11, ['Horror'])],
 ])
 const taste: Taste = {
+  pendingSimilar: 0,
   library: [],
   ratings: new Map(),
   seeds: [{ malId: 1, title: '好きな作品', weight: 2 }],

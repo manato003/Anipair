@@ -51,7 +51,7 @@ const RATE_LIMIT_DEFAULT_WAIT_MS = 2_000
 const RATE_LIMIT_MAX_WAIT_MS = 30_000
 // 読み込みの答えを待つ上限。過ぎたら諦めて知らせる（自動では送り直さない。混んでいる Annict に上乗せしないため）。
 // 本当に止まった問い合わせだけを切る長さにする（Annict の手前の Cloudflare は 100 秒で切る）。
-// 初めは 20 秒にしていたが、Annict が重い日にはライブラリの1ページに 24.6 秒かかり、遅くても出ていたものが出なくなった（2026-10-06）。
+// 初めは 20 秒にしていたが、応答に時間がかかる日にはライブラリの1ページに 24.6 秒かかり、遅くても出ていたものが出なくなった（2026-10-06）。
 // 書き込みには付けない（途中で切ると、反映されたか分からなくなる）
 const READ_TIMEOUT_MS = 90_000
 const isMutation = (query: string) => /^\s*mutation\b/.test(query)
@@ -73,7 +73,7 @@ async function gql<T>(token: string, query: string, variables: Record<string, un
         if (!pageIsCurrent()) throw new AnnictError('アカウントが切り替わったので、送りませんでした', 'api')
         return await send(abort?.signal)
       } catch (e) {
-        if (abort?.signal.aborted) throw new AnnictError('Annict の応答がありません。混み合っているようです。少し待ってからもう一度試してください', 'timeout')
+        if (abort?.signal.aborted) throw new AnnictError('Annict から応答を受け取れませんでした。少し待ってからもう一度試してください', 'timeout')
         throw e
       } finally {
         if (timer) clearTimeout(timer)
@@ -87,7 +87,7 @@ async function gql<T>(token: string, query: string, variables: Record<string, un
   }
 
   async function send(signal: AbortSignal | undefined): Promise<GqlOutcome<T>> {
-    // Annict の調子（設定の画面に出す。lib/annictHealth.ts）。応答の頭が届くまでの時間と、サーバー側の失敗だけを数える
+    // Annict への接続の状態（設定の画面に出す。lib/annictHealth.ts）。応答の頭が届くまでの時間と、サーバー側の失敗だけを数える
     const start = Date.now()
     let res: Response
     try {
@@ -116,7 +116,7 @@ async function gql<T>(token: string, query: string, variables: Record<string, un
       return { retryAfterMs: parseRetryAfter(res.headers.get('Retry-After'), RATE_LIMIT_DEFAULT_WAIT_MS, RATE_LIMIT_MAX_WAIT_MS) }
     }
     if (res.status === 404) throw new AnnictError('Annict に見つかりませんでした（HTTP 404）', 'notFound')
-    if (res.status >= 500) throw new AnnictError(`Annict のサーバーが混み合っているか、止まっているようです（HTTP ${res.status}）。しばらく待ってからもう一度試してください`, 'api', res.status)
+    if (res.status >= 500) throw new AnnictError(`Annict から応答を受け取れませんでした（HTTP ${res.status}）。しばらく待ってからもう一度試してください`, 'api', res.status)
     if (!res.ok) throw new AnnictError(`Annict がエラーを返しました（HTTP ${res.status}）`, 'api', res.status)
     const json = (await res.json()) as { data?: T; errors?: { message: string }[] }
     if (json.errors?.length) throw new AnnictError(`Annict がエラーを返しました: ${json.errors[0].message}`, 'api')

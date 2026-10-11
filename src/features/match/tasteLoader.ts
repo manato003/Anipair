@@ -11,7 +11,14 @@ export const MAX_SEEDS = 100
 // （2026-10-07、scripts/match_eval.ts。上限があると、評価を増やしても33件目からの好きな作品が候補を広げなかった）。
 // 控えていない作品がこの数を超えるときは、待ち時間の案内を出す
 export const LONG_WAIT_UNCACHED = 30
+export const FIRST_PASS_NOTE = '記録が多いので、まず評価の高い作品から調べて提案します（1分ほど）。残りは裏で調べて、次に提案を作るときに使います。'
 export const LONG_WAIT_NOTE = '初めて調べる作品が多いので、数分かかります（記録が多いほど長くなります）。次からは端末の控えを使うので速くなります。待つあいだ、ほかのページを見ていても大丈夫です。'
+
+// 段階的な提案（2026-10-11）: 端末に控えの無い作品が多いときは、まず好きな作品（重みの大きい順）FIRST_PASS_LIKED 件と
+// 苦手な作品 FIRST_PASS_DISLIKED 件だけを調べて提案を作る（約1分）。残りは裏の優先度で調べ続けて端末に控え、次に提案を作るときに使う。
+// 1,400件の記録（ヘビーユーザーのデモ）では、全部を待つと初回の提案まで約17分かかった。控えのある作品は、件数に関係なくすべて使う
+export const FIRST_PASS_LIKED = 60
+export const FIRST_PASS_DISLIKED = 10
 
 // 好きな作品がこの件数に届くと、好みの推定が安定する目安
 export const ENOUGH_LIKED = 10
@@ -27,12 +34,45 @@ export interface Taste {
   similarSeeds: Seed[]
   similar: Map<number, number[]>
   profile: Map<string, number>
+  // まだ似た作品を調べていない作品の数（段階的な提案で後回しにした分。裏で調べている）。0 なら全部を使った
+  pendingSimilar: number
 }
 
 // 「似た作品」を調べる作品を選ぶ: 好きな作品すべて（重みの大きい順）のあとに、苦手な作品すべて
 export function pickSimilarSeeds(seeds: Seed[]): Seed[] {
   const byWeight = (a: Seed, b: Seed) => Math.abs(b.weight) - Math.abs(a.weight)
   return [...seeds.filter((s) => s.weight > 0).sort(byWeight), ...seeds.filter((s) => s.weight < 0).sort(byWeight)]
+}
+
+// 今すぐ調べる作品と、後回しにする作品に分ける（並びは pickSimilarSeeds の順のまま）。
+// 控えのある作品はすべて今すぐ。控えの無い作品は、好き・苦手それぞれ先頭から上限まで。
+// 控えの無い作品が上限の合計に収まるなら、分けずに全部を今すぐ調べる
+export function splitFirstPass(similarSeeds: readonly Seed[], cached: (malId: number) => boolean): { now: Seed[]; later: Seed[] } {
+  const uncached = similarSeeds.filter((s) => !cached(s.malId)).length
+  if (uncached <= FIRST_PASS_LIKED + FIRST_PASS_DISLIKED) return { now: [...similarSeeds], later: [] }
+  const now: Seed[] = []
+  const later: Seed[] = []
+  let liked = 0
+  let disliked = 0
+  for (const s of similarSeeds) {
+    if (cached(s.malId)) now.push(s)
+    else if (s.weight > 0 ? liked++ < FIRST_PASS_LIKED : disliked++ < FIRST_PASS_DISLIKED) now.push(s)
+    else later.push(s)
+  }
+  return { now, later }
+}
+
+// 後回しにした作品の似た作品を、裏の優先度で調べて端末に控える（1起動に同時に1つだけ。失敗は黙って捨て、次の提案のときにまた残りを調べる）
+let crawling: Promise<void> | null = null
+function lookUpLater(malIds: number[]): void {
+  if (crawling || malIds.length === 0) return
+  crawling = fetchSimilarMany(malIds, undefined, { background: true }).then(
+    () => undefined,
+    () => undefined,
+  )
+  void crawling.finally(() => {
+    crawling = null
+  })
 }
 
 // 感想から総合評価だけを取り出す（作品の annictId → 評価）
@@ -59,9 +99,11 @@ async function load(token: string, onStep?: StepHandler, shikimori: FetchOptions
   const hasLikes = seeds.some((s) => s.weight > 0)
   onStep?.('好みを分析しています')
   const seedMedia = hasLikes ? await fetchMedia(topSeeds.map((s) => s.malId), shikimori) : new Map<number, Media>()
-  const similarSeeds = hasLikes ? pickSimilarSeeds(seeds) : []
+  const allSimilarSeeds = hasLikes ? pickSimilarSeeds(seeds) : []
+  // 先読み（裏の優先度）は控えを集めるのが目的なので、分けずに全部を調べる
+  const { now: similarSeeds, later } = shikimori.background ? { now: allSimilarSeeds, later: [] } : splitFirstPass(allSimilarSeeds, isSimilarCached)
   const uncached = new Set(similarSeeds.filter((s) => !isSimilarCached(s.malId)).map((s) => s.malId))
-  const note = uncached.size > LONG_WAIT_UNCACHED ? LONG_WAIT_NOTE : undefined
+  const note = later.length > 0 ? FIRST_PASS_NOTE : uncached.size > LONG_WAIT_UNCACHED ? LONG_WAIT_NOTE : undefined
   let fetched = 0
   const similar = await fetchSimilarMany(
     similarSeeds.map((s) => s.malId),
@@ -71,7 +113,8 @@ async function load(token: string, onStep?: StepHandler, shikimori: FetchOptions
     },
     shikimori,
   )
-  return { library, ratings, seeds, topSeeds, seedMedia, similarSeeds, similar, profile: buildProfile(topSeeds, seedMedia) }
+  lookUpLater(later.map((s) => s.malId))
+  return { library, ratings, seeds, topSeeds, seedMedia, similarSeeds, similar, profile: buildProfile(topSeeds, seedMedia), pendingSimilar: later.length }
 }
 
 // 起動中は、同じトークンなら読んだものを使い回す（読み込みは1つの Promise。失敗したら捨てる）。

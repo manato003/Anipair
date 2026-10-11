@@ -21,7 +21,7 @@ describe('AnnictHealth', () => {
     expect(screen.getByText('まだ問い合わせていません')).toBeTruthy()
     expect(container.querySelector('.health--unknown')).not.toBeNull()
     act(() => recordAnnictHealth({ at: Date.now(), ms: 15_300, ok: true }))
-    expect(screen.getByText('混み合っています')).toBeTruthy()
+    expect(screen.getByText('応答に時間がかかっています')).toBeTruthy()
     expect(screen.getByText('応答 15秒・たった今')).toBeTruthy()
     expect(container.querySelector('.health--slow')).not.toBeNull()
     act(() => recordAnnictHealth({ at: Date.now(), ms: 100, ok: false, failure: 'server', status: 502 }))

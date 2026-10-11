@@ -51,7 +51,7 @@ vi.mock('../../lib/covers', async (orig) => ({
   fetchCovers: vi.fn(async () => new Map([[1, { url: 'https://img.example/101.jpg', thumb: 'https://img.example/101-s.jpg', landscape: false }]])),
 }))
 
-const { useRecords } = await import('./useRecords')
+const { coverOrder, useRecords } = await import('./useRecords')
 const { fetchLibrary, scanMyReviews } = await import('../../lib/annict')
 const { rememberReview, resetMyReviewsMemory } = await import('../../lib/myReviews')
 
@@ -250,7 +250,7 @@ describe('useRecords: the list from the last visit', () => {
 
   it('keeps the stored list and tells when Annict cannot be read', async () => {
     localStorage.setItem('animax.library.v1', JSON.stringify(stored))
-    vi.mocked(fetchLibrary).mockRejectedValueOnce(new Error('Annict のサーバーが混み合っているか、止まっているようです（HTTP 502）'))
+    vi.mocked(fetchLibrary).mockRejectedValueOnce(new Error('Annict から応答を受け取れませんでした（HTTP 502）'))
     const hook = renderHook(() => useRecords('t', true))
     await waitFor(() => expect(hook.result.current.refreshError).toContain('HTTP 502'))
     expect(hook.result.current.rows?.map((r) => r.entry.title)).toEqual(['前回の作品'])
@@ -259,5 +259,19 @@ describe('useRecords: the list from the last visit', () => {
     act(() => hook.result.current.retryRefresh())
     await waitFor(() => expect(hook.result.current.staleAt).toBeNull())
     expect(hook.result.current.rows?.map((r) => r.entry.annictId)).toEqual([1, 2])
+  })
+})
+
+describe('coverOrder: which covers to ask for first', () => {
+  const entry = (annictId: number, state: LibraryEntry['state'], stateAt: string | null) => ({ ...initialLibrary[0], annictId, state, stateAt })
+  it('puts the works being watched first, then the most recently recorded', () => {
+    const list = [
+      entry(1, 'WATCHED', '2020-01-01T00:00:00Z'),
+      entry(2, 'WATCHING', '2019-01-01T00:00:00Z'),
+      entry(3, 'WANNA_WATCH', '2026-01-01T00:00:00Z'),
+      entry(4, 'WATCHED', null),
+    ]
+    expect(coverOrder(list).map((e) => e.annictId)).toEqual([2, 3, 1, 4])
+    expect(list.map((e) => e.annictId)).toEqual([1, 2, 3, 4])
   })
 })

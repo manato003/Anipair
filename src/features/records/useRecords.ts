@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchCovers, quickCovers } from '../../lib/covers'
-import { fetchLibrary, updateStatus, type RatingState, type StatusState } from '../../lib/annict'
+import { fetchLibrary, updateStatus, type LibraryEntry, type RatingState, type StatusState } from '../../lib/annict'
 import { getMyReviews, peekMyReviews, refreshMyReviews, rememberReview } from '../../lib/myReviews'
 import { loadStoredLibrary } from '../../lib/offlineCache'
 import { delay } from '../../lib/retry'
@@ -24,6 +24,13 @@ type Fetched = Awaited<ReturnType<typeof fetchRecords>>
 // covers は Annict の作品 ID ごとの表紙
 function toRows({ library, myReviews }: Fetched, covers?: Map<number, Cover>): RecordRow[] {
   return library.map((entry) => ({ entry, review: myReviews.get(entry.annictId) ?? null, cover: covers?.get(entry.annictId) ?? null }))
+}
+
+// 表紙を取る順番。一覧の既定の並び（記録の新しい順）に合わせ、見てるの作品を先にする。
+// 作品の多い人でも、開いてすぐ目に入る作品から表紙が出るように（lib/covers.ts は渡した順に問い合わせる）
+export function coverOrder(library: readonly LibraryEntry[]): LibraryEntry[] {
+  const at = (e: LibraryEntry) => (e.stateAt ? Date.parse(e.stateAt) : 0)
+  return [...library].sort((a, b) => Number(b.state === 'WATCHING') - Number(a.state === 'WATCHING') || at(b) - at(a))
 }
 
 // 端末にとっておいた前回の内容（ライブラリと感想の控え）で作った一覧。無ければ null
@@ -79,7 +86,13 @@ export function useRecords(token: string, active = true) {
         setRows(toRows(fetched, quickCovers(fetched.library)))
         setStaleAt(null)
         setRefreshError(null)
-        const covers = await fetchCovers(fetched.library)
+        // Shikimori の表紙は取れた分から差し替える（全部を待つと、作品の多い人は長く表紙が出ない）
+        const covers = await fetchCovers(coverOrder(fetched.library), {
+          onProgress: (got) => {
+            if (cancelled) return
+            setRows((cur) => (cur ?? []).map((r) => (got.has(r.entry.annictId) ? { ...r, cover: got.get(r.entry.annictId) ?? null } : r)))
+          },
+        })
         if (cancelled) return
         setRows((cur) => (cur ?? []).map((r) => ({ ...r, cover: covers.get(r.entry.annictId) ?? null })))
         // 表紙まで揃ってから。途中で裏の読み直しが走ると、後から来た表紙で上書きされてしまう

@@ -121,7 +121,7 @@ describe('useEpisodes', () => {
 
   it('after a 502 on recording, sending again first checks Annict and does not record twice when it had arrived', async () => {
     fetchEpisodes.mockResolvedValue(new Map([['W1', work()]]))
-    createRecord.mockRejectedValueOnce(new AnnictError('Annict のサーバーが混み合っているか、止まっているようです（HTTP 502）', 'api', 502))
+    createRecord.mockRejectedValueOnce(new AnnictError('Annict から応答を受け取れませんでした（HTTP 502）', 'api', 502))
     // 実は Annict には届いていた
     fetchRecentActivity.mockResolvedValue({ reviews: [], records: [{ id: 'REC1', episodeId: 'E3', createdAt: new Date().toISOString() }] })
     const q = queue()

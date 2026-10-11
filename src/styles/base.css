@@ -1111,6 +1111,18 @@ kbd {
   padding-bottom: 14px;
 }
 
+.help__answer {
+  margin: 4px 0 10px;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.75;
+}
+
+.help__ask {
+  margin: 12px 0 0;
+  font-size: 0.88rem;
+}
+
 .help__thanks {
   margin-top: 24px;
   color: var(--muted);

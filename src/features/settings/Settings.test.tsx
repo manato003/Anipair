@@ -354,9 +354,11 @@ describe('Settings about block', () => {
     show({ section: 'settings-about' })
     const text = screen.getByRole('heading', { name: 'このアプリについて' }).parentElement!.textContent!
     expect(text).toContain('個人が開発した Annict の非公式アプリ')
-    expect(text).toContain('運営サーバーはなく、利用者の情報は保存しません')
-    expect(text).toContain('サーバーで動くのは、ログインの受け渡しと Shikimori への中継の2つの処理だけです')
+    expect(text).toContain('運営サーバーはなく、利用者の記録は保存しません')
+    expect(text).toContain('サーバーで動くのは、ログインの受け渡し・Shikimori への中継・問い合わせの受け付けの3つの処理だけです')
+    expect(text).toContain('問い合わせの内容は、送ったときだけ開発者に届きます（公開はされません）')
     expect(text).toContain('通信先は Annict と Shikimori（このサイトの中継を経由）と Wikipedia です。GitHub と連携した場合は、GitHub にも送信します')
+    expect(text).toContain('問い合わせを送ったときは、その内容だけが、このサイトの関数を通して運営者の非公開の GitHub リポジトリに届きます')
     expect(text).toContain('トークンは、この端末の中にだけ保存されます')
     expect(text).toContain('各作品の公式サイトの画像を表示しています。権利は各権利者に帰属します')
     expect(text).toContain('作品データの一部（ジャンル・似た作品・一部の表紙・声優やスタッフの参加作品）は Shikimori から取得しています')
@@ -375,15 +377,16 @@ describe('Settings about block', () => {
 
 describe('Settings layout (sections, status first, folded explanations)', () => {
 
-  it('lists the five groups first (phone), and each opens its sections, with a way back to the list', () => {
+  it('lists the six groups first (phone), and each opens its sections, with a way back to the list', () => {
     show()
     const groups = [...document.querySelectorAll('.folder b')].map((b) => b.textContent)
-    expect(groups).toEqual(['アカウント', '表示', 'バックアップ', 'キー', 'このアプリ'])
+    expect(groups).toEqual(['アカウント', '表示', 'バックアップ', 'キー', 'お問い合わせ', 'このアプリ'])
     const opened: Record<string, string[]> = {
       アカウント: ['Annict 連携（必須）', 'GitHub 連携（任意）'],
       表示: ['表示', 'ボタンの表示', '演出'],
       バックアップ: ['バックアップ'],
       キー: ['キーバインド（PC）'],
+      お問い合わせ: ['質問・不具合・要望を送る', 'よくある質問'],
       このアプリ: ['このアプリについて'],
     }
     for (const [group, sections] of Object.entries(opened)) {
@@ -391,7 +394,7 @@ describe('Settings layout (sections, status first, folded explanations)', () => 
       expect(screen.getByRole('heading', { level: 2 }).textContent).toBe(group)
       expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(sections)
       fireEvent.click(screen.getByRole('button', { name: '設定' }))
-      expect(document.querySelectorAll('.folder')).toHaveLength(5)
+      expect(document.querySelectorAll('.folder')).toHaveLength(6)
     }
   })
 
@@ -447,7 +450,7 @@ describe('Settings layout (sections, status first, folded explanations)', () => 
     window.matchMedia = ((q: string) => ({ matches: q === '(pointer: coarse)', addEventListener: () => undefined, removeEventListener: () => undefined })) as unknown as typeof window.matchMedia
     try {
       show()
-      expect([...document.querySelectorAll('.folder b')].map((b) => b.textContent)).toEqual(['アカウント', '表示', 'バックアップ', 'このアプリ'])
+      expect([...document.querySelectorAll('.folder b')].map((b) => b.textContent)).toEqual(['アカウント', '表示', 'バックアップ', 'お問い合わせ', 'このアプリ'])
     } finally {
       window.matchMedia = original
     }

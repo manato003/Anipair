@@ -1,4 +1,4 @@
-// Annict の API の調子。アプリがふだん送っている問い合わせの結果（応答までの時間・失敗）を覚えておき、設定の画面で色と一言にする。
+// Annict への接続の状態。アプリがふだん送っている問い合わせの結果（応答までの時間・失敗）を覚えておき、設定の画面で色と一言にする。
 // 状態を知るためだけの問い合わせは送らない（不調のときに全員から確認が飛ぶと、それ自体が Annict の負荷になる）。
 // annict.com のページは見ない（アプリが使うのは API だけで、ページが落ちていても API は答えていることがある。2026-10-06 に 502 と 15 秒で確認）
 
@@ -55,12 +55,12 @@ export function judgeAnnictHealth(list: readonly HealthSample[], now: number): H
   if (!last) return { level: 'unknown', label: 'まだ問い合わせていません', last }
   if (!last.ok) {
     const label =
-      last.failure === 'server' ? `エラーを返しています（HTTP ${last.status}）` : last.failure === 'timeout' ? '応答がありません' : 'つながりません（この端末の通信か Annict の不調）'
+      last.failure === 'server' ? `エラーを返しています（HTTP ${last.status}）` : last.failure === 'timeout' ? '応答を受け取れていません' : 'つながりません（この端末の通信を確かめてください）'
     return { level: 'down', label, last }
   }
-  if (last.ms > SLOW_MS) return { level: 'slow', label: '混み合っています', last }
+  if (last.ms > SLOW_MS) return { level: 'slow', label: '応答に時間がかかっています', last }
   const shaky = list.some((s) => now - s.at <= RECENT_MS && (!s.ok || s.ms > SLOW_MS))
-  if (shaky) return { level: 'slow', label: '不安定です（さっきまで遅いか失敗していました）', last }
+  if (shaky) return { level: 'slow', label: 'ときどき時間がかかっています（さっきまで遅いか失敗していました）', last }
   return { level: 'ok', label: '正常', last }
 }
 

@@ -92,6 +92,31 @@ describe('fetchCovers: the Shikimori poster first, the Annict (official site) im
     expect(fetchMedia).not.toHaveBeenCalled()
   })
 
+  it('asks Shikimori 50 works at a time in the given order, and reports each step as it arrives', async () => {
+    const works = Array.from({ length: 120 }, (_, i) => src(i + 1, 199 - i))
+    const steps: number[][] = []
+    const got = await fetchCovers(works, { onProgress: (part) => steps.push([...part.keys()]) })
+    expect(vi.mocked(fetchMedia).mock.calls.map((c) => c[0].length)).toEqual([50, 50, 20])
+    expect(vi.mocked(fetchMedia).mock.calls[0][0][0]).toBe(199)
+    // 100 番台だけポスターがあるので、知らせは先頭の100作品ぶん（2回）。渡した順の先頭から届く
+    expect(steps.map((s) => s.length)).toEqual([50, 50])
+    expect(steps[0][0]).toBe(1)
+    expect(got.size).toBe(100)
+  })
+
+  it('keeps the posters it got before Shikimori stopped answering', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    vi.mocked(fetchMedia).mockImplementationOnce(async (ids) => new Map(ids.map((i) => [i, mediaWithPoster(i)])))
+    vi.mocked(fetchMedia).mockImplementationOnce(async () => {
+      throw new Error('offline')
+    })
+    const works = Array.from({ length: 60 }, (_, i) => src(i + 1, 100 + i))
+    const got = await fetchCovers(works)
+    expect(got.size).toBe(50)
+    expect(JSON.parse(localStorage.getItem('animax.covers.v2')!)['100']).toBeTruthy()
+    warn.mockRestore()
+  })
+
   it('removes the previous version of the cover cache (it held another source)', async () => {
     localStorage.setItem('animax.covers.v1', '{"1":{"url":"https://old.example/1.jpg","color":null}}')
     await fetchCovers([src(1, 101)])

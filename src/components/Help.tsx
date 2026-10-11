@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { FAQ } from './faq'
+import { FeedbackSheet } from './FeedbackSheet'
 import { HelpIcon } from './Icons'
 import { Sheet } from './Sheet'
 import { Tour } from './Tour'
@@ -61,7 +63,7 @@ const TOURS: Record<HelpTopic, readonly TourStep[]> = {
   settings: [
     { target: '.settings--groups .folders, .settings--groups .rrail', title: '設定の項目', body: 'アカウント・表示・バックアップなどに分けています。押すと、その中の設定が開きます。' },
     { target: '#settings-theme', title: '表示', body: 'テーマの色・明るさ・時刻で色を変えるか・片手操作（よく押すボタンを左右どちらに寄せるか）・画面の動きを選べます。' },
-    { target: '#settings-account', title: 'Annict 連携', body: 'ログインとログアウトです。記録はすべて、あなたの Annict に保存されます。Annict の調子（緑は正常、黄は混み合い、赤は応答なし）もここで見られます。' },
+    { target: '#settings-account', title: 'Annict 連携', body: 'ログインとログアウトです。記録はすべて、あなたの Annict に保存されます。Annict への接続の状態（緑はふつう、黄は時間がかかっている、赤は応答を受け取れていない）もここで見られます。' },
     { target: '#settings-github', title: 'GitHub 連携（任意）', body: '連携すると、興味なし・保留・見てないを PC とスマホで共有でき、毎日自動でバックアップされます。' },
     { target: '#settings-backup', title: 'バックアップ', body: '連携しなくても、作品ごとの記録をファイルに書き出せます。' },
     { target: '#settings-buttons', title: 'ボタンの表示', body: '評価とマッチングのボタンを、アイコンと名前・アイコンだけ・名前だけから選べます。' },
@@ -146,7 +148,7 @@ const COMMON: readonly Item[] = [
   ['キーボード', 'PC ではキーボードだけでも答えられます。キーはボタンの横に出ていて、設定で変えられます。← → で画面を切り替えられます。'],
 ]
 
-export function HelpSheet(props: { topic: HelpTopic; active?: boolean; onClose: () => void }) {
+export function HelpSheet(props: { topic: HelpTopic; active?: boolean; onClose: () => void; onFeedback?: () => void }) {
   const current = TOPICS.find((t) => t.id === props.topic) ?? TOPICS[0]
   const others = TOPICS.filter((t) => t.id !== current.id)
   return (
@@ -169,6 +171,23 @@ export function HelpSheet(props: { topic: HelpTopic; active?: boolean; onClose: 
           </details>
         ))}
       </section>
+      <section className="help__section">
+        <h3 className="help__heading">よくある質問</h3>
+        {FAQ.map(([q, a]) => (
+          <details key={q} className="help__more">
+            <summary>{q}</summary>
+            <p className="help__answer">{a}</p>
+          </details>
+        ))}
+        {props.onFeedback && (
+          <p className="help__ask">
+            ここに無い質問や、不具合・要望は{' '}
+            <button type="button" className="link" onClick={props.onFeedback}>
+              質問・不具合・要望を送る
+            </button>
+          </p>
+        )}
+      </section>
       <p className="help__thanks">Anipair を使っていただき、ありがとうございます。迷ったときは、いつでも右上の「?」を押してください。</p>
     </Sheet>
   )
@@ -189,7 +208,7 @@ function HelpList({ items }: { items: readonly Item[] }) {
 
 // 画面の見出しの右端に置く「?」。onOpenChange は、開いているあいだ画面のキー操作を止めるため（評価・マッチング）。
 // 案内もシートも画面の一番外（body）に出す。画面の中の重なりの順（z-index）に隠されないように
-type Mode = { kind: 'tour'; steps: ReturnType<typeof presentSteps> } | { kind: 'text' } | null
+type Mode = { kind: 'tour'; steps: ReturnType<typeof presentSteps> } | { kind: 'text' } | { kind: 'feedback' } | null
 
 export function HelpButton(props: { topic: HelpTopic; active?: boolean; onOpenChange?: (open: boolean) => void }) {
   const ref = useRef<HTMLButtonElement>(null)
@@ -210,7 +229,12 @@ export function HelpButton(props: { topic: HelpTopic; active?: boolean; onOpenCh
         <HelpIcon />
       </button>
       {mode?.kind === 'tour' && <Tour label="使い方" steps={mode.steps} onClose={() => change(null)} onText={() => change({ kind: 'text' })} />}
-      {mode?.kind === 'text' && createPortal(<HelpSheet topic={props.topic} active={props.active} onClose={() => change(null)} />, document.body)}
+      {mode?.kind === 'text' &&
+        createPortal(
+          <HelpSheet topic={props.topic} active={props.active} onClose={() => change(null)} onFeedback={() => change({ kind: 'feedback' })} />,
+          document.body,
+        )}
+      {mode?.kind === 'feedback' && createPortal(<FeedbackSheet active={props.active} onClose={() => change(null)} />, document.body)}
     </>
   )
 }

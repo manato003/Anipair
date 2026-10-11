@@ -37,7 +37,7 @@ afterEach(() => {
 describe('gql: Annict server errors', () => {
   it('says in words that Annict seems busy or down on 5xx', async () => {
     fetchMock.mockResolvedValue(json({}, 502))
-    await expect(fetchViewer('t')).rejects.toMatchObject({ kind: 'api', message: expect.stringContaining('Annict のサーバーが混み合っているか、止まっているようです（HTTP 502）') })
+    await expect(fetchViewer('t')).rejects.toMatchObject({ kind: 'api', message: expect.stringContaining('Annict から応答を受け取れませんでした（HTTP 502）') })
   })
 })
 
@@ -100,7 +100,7 @@ describe('gql: reads time out, writes run alone', () => {
     fetchMock.mockImplementation(
       (_url, init) => new Promise((_, reject) => init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')))),
     )
-    const p = expect(fetchViewer('t')).rejects.toMatchObject({ kind: 'timeout', message: expect.stringContaining('混み合っている') })
+    const p = expect(fetchViewer('t')).rejects.toMatchObject({ kind: 'timeout', message: expect.stringContaining('応答を受け取れませんでした') })
     // 20 秒では切らない（Annict が重い日は、ライブラリの1ページに 24.6 秒かかった）
     await vi.advanceTimersByTimeAsync(89_999)
     await vi.advanceTimersByTimeAsync(1)

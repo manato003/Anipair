@@ -45,7 +45,7 @@ function review(id: string, rating: MyReview['ratingOverallState']): MyReview {
   return { id, body: '', createdAt: new Date().toISOString(), ratingOverallState: rating, ratingStoryState: null, ratingAnimationState: null, ratingMusicState: null, ratingCharacterState: null }
 }
 
-const bad502 = () => new AnnictError('Annict のサーバーが混み合っているか、止まっているようです（HTTP 502）', 'api', 502)
+const bad502 = () => new AnnictError('Annict から応答を受け取れませんでした（HTTP 502）', 'api', 502)
 
 beforeEach(() => {
   calls.length = 0

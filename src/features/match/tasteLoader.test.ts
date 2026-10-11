@@ -48,7 +48,7 @@ vi.mock('../../lib/shikimori', () => ({
   }),
 }))
 
-const { loadTaste, forgetTaste, prefetchTaste, resetPrefetchedTaste, pickSimilarSeeds, MAX_SEEDS, LONG_WAIT_NOTE, LONG_WAIT_UNCACHED } = await import('./tasteLoader')
+const { loadTaste, forgetTaste, prefetchTaste, resetPrefetchedTaste, pickSimilarSeeds, splitFirstPass, MAX_SEEDS, LONG_WAIT_NOTE, LONG_WAIT_UNCACHED, FIRST_PASS_LIKED, FIRST_PASS_DISLIKED, FIRST_PASS_NOTE } = await import('./tasteLoader')
 const { fetchLibrary } = await import('../../lib/annict')
 const { fetchMedia, fetchSimilarMany, isSimilarCached } = await import('../../lib/shikimori')
 const { refreshMyReviews } = await import('../../lib/myReviews')
@@ -94,7 +94,8 @@ describe('loadTaste', () => {
     ])
   })
 
-  it('looks up similar works for every liked and disliked seed (even beyond the top seeds), liked first and the strongest first', async () => {
+  it('uses every liked and disliked seed (even beyond the top seeds) once their similar lists are on the device, liked first and the strongest first', async () => {
+    vi.mocked(isSimilarCached).mockImplementation(() => true)
     library = Array.from({ length: MAX_SEEDS + 40 }, (_, i) => entry(i + 1, 'WATCHED'))
     // 1〜20 はとても良い、21〜40 は良い、41〜60 は良くない、そのあとは評価なしの見た（好き 0.5）
     ratings = new Map(library.slice(0, 60).map((e) => [e.annictId, e.annictId <= 20 ? 'GREAT' : e.annictId <= 40 ? 'GOOD' : 'BAD']))
@@ -103,7 +104,38 @@ describe('loadTaste', () => {
     expect(ids).toHaveLength(MAX_SEEDS + 40)
     expect(ids.slice(0, 20).sort((a, b) => a - b)).toEqual(Array.from({ length: 20 }, (_, i) => i + 1))
     expect(ids.slice(-20).every((id) => id > 40 && id <= 60)).toBe(true)
+    expect(taste.pendingSimilar).toBe(0)
     expect(fetchSimilarMany).toHaveBeenCalledTimes(1)
+    vi.mocked(isSimilarCached).mockImplementation(() => false)
+  })
+
+  it('with many seeds not on the device, proposes from the strongest first and looks up the rest in the background', async () => {
+    library = Array.from({ length: MAX_SEEDS + 40 }, (_, i) => entry(i + 1, 'WATCHED'))
+    ratings = new Map(library.slice(0, 60).map((e) => [e.annictId, e.annictId <= 20 ? 'GREAT' : e.annictId <= 40 ? 'GOOD' : 'BAD']))
+    const notes: (string | undefined)[] = []
+    const taste = await loadTaste('t', (_step, note) => notes.push(note))
+    const ids = taste.similarSeeds.map((s) => s.malId)
+    expect(ids).toHaveLength(FIRST_PASS_LIKED + FIRST_PASS_DISLIKED)
+    expect(ids.slice(0, 20).sort((a, b) => a - b)).toEqual(Array.from({ length: 20 }, (_, i) => i + 1))
+    expect(ids.slice(-FIRST_PASS_DISLIKED).every((id) => id > 40 && id <= 60)).toBe(true)
+    expect(taste.pendingSimilar).toBe(MAX_SEEDS + 40 - FIRST_PASS_LIKED - FIRST_PASS_DISLIKED)
+    expect(notes.at(-1)).toBe(FIRST_PASS_NOTE)
+    // 2回目の問い合わせは、後回しにした分を裏の優先度で
+    const calls = vi.mocked(fetchSimilarMany).mock.calls
+    expect(calls).toHaveLength(2)
+    expect(calls[1][0]).toHaveLength(taste.pendingSimilar)
+    expect(calls[1][2]).toEqual({ background: true })
+  })
+
+  it('splitFirstPass keeps every cached seed, and does not split when only a few are missing', () => {
+    const seed = (malId: number, weight: number) => ({ malId, title: String(malId), weight })
+    const seeds = [...Array.from({ length: 100 }, (_, i) => seed(i + 1, 1)), seed(500, -1)]
+    const all = splitFirstPass(seeds, (id) => id > 40)
+    expect(all.later).toHaveLength(0)
+    const some = splitFirstPass(seeds, (id) => id > 90)
+    expect(some.now.filter((s) => s.malId <= 90)).toHaveLength(FIRST_PASS_LIKED)
+    expect(some.now.filter((s) => s.malId > 90)).toHaveLength(11)
+    expect(some.later.map((s) => s.malId)).toEqual(Array.from({ length: 90 - FIRST_PASS_LIKED }, (_, i) => FIRST_PASS_LIKED + i + 1))
   })
 
   it('adds a note about the wait only when many similar lists are not on the device yet', async () => {

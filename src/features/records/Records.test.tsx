@@ -42,6 +42,7 @@ vi.mock('./useRecords', () => ({
 }))
 
 const taste: Taste = {
+  pendingSimilar: 0,
   library: [entry(4, 'WATCHED', '2026-08-01T00:00:00Z'), entry(5, 'WATCHED', '2026-08-02T00:00:00Z')],
   ratings: new Map([[4, 'GREAT']]),
   seeds: [{ malId: 104, title: '好き', weight: 2 }],

@@ -43,7 +43,7 @@ export function StaleNote(props: { at: string | null; error: string | null; onRe
   return (
     <div className="stale-toast" role="status">
       <Spinner />
-      <span>Annict が混み合っているようです。前回（{storedAtLabel(props.at)}）の内容を表示しながら読み直しています。</span>
+      <span>読み込みに時間がかかっています。前回（{storedAtLabel(props.at)}）の内容を表示しながら読み直しています。</span>
     </div>
   )
 }

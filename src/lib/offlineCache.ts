@@ -2,7 +2,7 @@ import type { AnnictWork, LibraryEntry, StatusState } from './annict'
 import { loadSeasonWorksRaw, loadStoredLibraryRaw, saveSeasonWorksRaw, saveStoredLibraryRaw } from './storage'
 
 // Annict から最後に読んだ内容（自分のライブラリと、評価の画面のクールの作品）を端末にとっておく。
-// 起動したらまずこれで画面を出し、裏で Annict から読み直して差し替える（Annict が重い日でも数秒で出す。2026-10-06）。
+// 起動したらまずこれで画面を出し、裏で Annict から読み直して差し替える（応答に時間がかかる日でも数秒で出す。2026-10-06）。
 // 状態を変える書き込みが成功したら、とっておいた内容も同じように直す（patchStoredStatus。直さないと、
 // この端末で答えた作品が次の起動でまた出てきて、二重に記録されるおそれがある）。
 // 今のトークンの持ち主のもので、トークンが変わったら storage.saveAnnictToken が消す

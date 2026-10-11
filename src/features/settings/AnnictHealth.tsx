@@ -3,7 +3,7 @@ import { Spinner } from '../../components/Loading'
 import { fetchViewer } from '../../lib/annict'
 import { annictHealthSamples, healthDetail, judgeAnnictHealth, subscribeAnnictHealth } from '../../lib/annictHealth'
 
-// Annict の API の調子。URL と色の点（緑・黄・赤。まだ分からなければ灰）と一言で出す。色だけに頼らず、一言でも分かるようにする。
+// Annict への接続の状態。URL と色の点（緑・黄・赤。まだ分からなければ灰）と一言で出す。色だけに頼らず、一言でも分かるようにする。
 // ふだんの問い合わせの結果から決める。「いま確かめる」を押したときだけ、軽い問い合わせを1回送る
 export function AnnictHealth(props: { token: string }) {
   const samples = useSyncExternalStore(subscribeAnnictHealth, annictHealthSamples)

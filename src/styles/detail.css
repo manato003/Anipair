@@ -802,6 +802,65 @@ a.related__title {
   resize: vertical;
 }
 
+.review__body input[type='text'] {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: var(--ink-raised);
+  color: var(--paper);
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+/* 質問・不具合・要望を送るシート（components/FeedbackSheet.tsx） */
+.feedback {
+  display: grid;
+  gap: 16px;
+}
+
+.feedback__kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.feedback__kinds legend {
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 0;
+}
+
+.feedback__count {
+  justify-self: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.feedback__check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.feedback__check input {
+  margin-top: 0.3em;
+}
+
+.feedback__error {
+  color: var(--danger);
+}
+
+.feedback__done {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+
 .review__foot {
   display: flex;
   align-items: center;
