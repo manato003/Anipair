@@ -273,11 +273,14 @@ describe('Records: 実績', () => {
     render(<Records token="t" active />)
     expect(screen.getAllByLabelText('まだ見ていません').length).toBe(1)
     fireEvent.click(screen.getByRole('tab', { name: /まとめ/ }))
-    expect(screen.getAllByLabelText('まだ見ていません').length).toBe(2)
+    // まとめの一覧では、どの項目のことかを言葉で示す（点だけでは、どれを押せば消えるか分からなかった。Issue #23）
+    expect(screen.getByRole('button', { name: /^実績.*まだ開いていません/ })).toBeTruthy()
+    expect(screen.getAllByText('まだ開いていません')).toHaveLength(1)
     fireEvent.click(screen.getByRole('button', { name: /^実績/ }))
     // 実績は別のファイルから読む（読み終えるのを待つ）
     expect(await screen.findByTestId('achievements')).toBeTruthy()
     expect(screen.queryByLabelText('まだ見ていません')).toBeNull()
+    expect(screen.queryByText('まだ開いていません')).toBeNull()
     // 実績では、記録の操作（編集・絞り込み）は出さない
     expect(screen.queryByRole('button', { name: '編集' })).toBeNull()
     cleanup()

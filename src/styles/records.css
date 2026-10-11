@@ -1619,7 +1619,7 @@
 
 .folder {
   display: grid;
-  grid-template-columns: 30px minmax(0, 1fr);
+  grid-template-columns: 30px minmax(0, 1fr) auto;
   column-gap: 14px;
   align-items: center;
   width: 100%;
@@ -1639,18 +1639,28 @@
 }
 
 .folder b {
+  grid-column: 2;
   position: relative;
   font-size: 1rem;
   font-weight: 700;
 }
 
-.folder b .viewswitch__dot {
-  position: relative;
-  top: -6px;
-  margin-left: 4px;
+/* まとめの一覧で、まだ開いていない項目（実績）の札。上のタブの光る点と同じ色で、どれのことかを言葉で示す（Issue #23） */
+.folder__new {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  padding: 3px 10px;
+  border: 1px solid #e0a92e;
+  border-radius: 999px;
+  background: color-mix(in srgb, #ffcf5a 30%, transparent);
+  color: var(--paper);
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .folder small {
+  grid-column: 2;
   color: var(--sub);
   font-size: 0.75rem;
 }

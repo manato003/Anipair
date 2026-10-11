@@ -491,11 +491,10 @@ export function Records({ token, github = null, active }: { token: string; githu
               <li key={s.id}>
                 <button type="button" className="folder" onClick={() => select(s.id)}>
                   {s.icon}
-                  <b>
-                    {s.label}
-                    {s.id === 'achievements' && dot}
-                  </b>
+                  <b>{s.label}</b>
                   <small>{s.sub}</small>
+                  {/* まとめのタブの光る点が、どれのことかを言葉で示す（点だけでは、どれを押せば消えるか分からなかった。Issue #23） */}
+                  {s.id === 'achievements' && achievementsUnseen && <span className="folder__new">まだ開いていません</span>}
                 </button>
               </li>
             ))}
