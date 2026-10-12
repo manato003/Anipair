@@ -7,6 +7,9 @@
 // 受け付けるのは決まった問い合わせだけ（GET のみ。任意の URL は中継しない）。
 //   ?op=animes&ids=1,2,3   作品の情報（MyAnimeList の ID。Shikimori の ID と同じ。50件まで）
 //   ?op=similar&id=N       似た作品の MyAnimeList ID（似ている順）
+//   ?op=similar&ids=1,2,3  控えにある分だけ、まとめて返す（50件まで。Shikimori には聞かない。無い分は missing で返し、画面が id で1件ずつ聞く）。
+//                          初回のマッチングで70件ほどを1件ずつ0.7秒おきに頼んでいたのを、控えのある分は1回で済ませる（2026-10-13 のコードレビュー #31）
+//   人物の検索（people）は Upstash に控えない（任意の文字で控えが膨らむため）。CDN では控える（同じ人の検索が速くなる。CDN の量はこちらの枠ではない）
 //   ?op=people&q=名前       人物を名前で探す（日本語名つき。作品の詳細のキャスト・スタッフから、その人の参加作品を出すため）
 //   ?op=person&id=N        人物の参加作品（声の出演の MyAnimeList の ID と、スタッフとしての ID と役割。役割は Shikimori のロシア語のまま）。
 //                          v=4 からは、声の出演に演じたキャラクター（ID とローマ字の名前）を付ける
@@ -114,7 +117,26 @@ export function storeFromEnv(env: Record<string, string | undefined>): ShikiStor
   return url && token ? upstashStore(url, token) : null
 }
 
-// 控えに届かないときは、控えなしで続ける（一度失敗したら、その問い合わせの間はもう使わない）
+// Upstash に届かないときの、関数ごとの控えめな上限（全体の数を数えられないので、1つの関数の中だけで数える）。
+// 全体の上限が外れて Shikimori に送りすぎないように（2026-10-13 のコードレビュー #31）。
+// 画面は 0.7 秒に1回（1秒約1.4回）なので、1人なら1秒2回で引っかからない。手元・E2E（Upstash を使わない）では数えない
+const LOCAL_PER_SECOND = 2
+const LOCAL_PER_MINUTE = 40
+const local = { sec: -1, perSec: 0, min: -1, perMin: 0 }
+export function localTake(now: number): number | null {
+  const sec = Math.floor(now / 1000)
+  const min = Math.floor(sec / 60)
+  if (sec !== local.sec) Object.assign(local, { sec, perSec: 0 })
+  if (min !== local.min) Object.assign(local, { min, perMin: 0 })
+  local.perSec++
+  local.perMin++
+  if (local.perMin > LOCAL_PER_MINUTE) return 60 - (sec % 60)
+  if (local.perSec > LOCAL_PER_SECOND) return 1
+  return null
+}
+
+// 控えに届かないときは、控えなしで続ける（一度失敗したら、その問い合わせの間はもう使わない）。
+// 回数は、Upstash を使う設定なのに届かないときだけ、関数の中で控えめに数える（上の localTake）
 function safeStore(store: ShikiStore | null) {
   let alive = store !== null
   async function guard<T>(f: (s: ShikiStore) => Promise<T>, fallback: T): Promise<T> {
@@ -129,7 +151,11 @@ function safeStore(store: ShikiStore | null) {
   return {
     get: (keys: readonly string[]) => guard((s) => s.get(keys), keys.map((): string | null => null)),
     set: (entries: readonly { key: string; value: string; ttl: number }[]) => guard((s) => s.set(entries), undefined),
-    take: (now: number) => guard((s) => s.take(now), null),
+    take: async (now: number) => {
+      if (!store) return null
+      const wait = await guard((s) => s.take(now), undefined)
+      return wait === undefined ? localTake(now) : wait
+    },
   }
 }
 
@@ -186,7 +212,7 @@ const PARAMS: Record<string, readonly string[]> = {
   people: ['op', 'q'],
   person: ['op', 'id', 'v'],
   characters: ['op', 'ids'],
-  similar: ['op', 'id'],
+  similar: ['op', 'id', 'ids'],
 }
 
 function parseIds(raw: string | null): number[] | null {
@@ -284,12 +310,27 @@ export async function handleShiki(request: Request, fetchFn: FetchLike = fetch, 
   const op = q.get('op')
   // 問い合わせの形を1つに決める。CDN の控えは URL ごとなので、余計な引数や並びの違う ids を付けると控えを素通りして、
   // 毎回 Shikimori に問い合わせさせられる（共有の User-Agent と出口が締め出されると、全員の表紙が出なくなる。2026-10-06 の点検）
-  const allowed = op ? PARAMS[op] : undefined
+  // 継承した名前（constructor・toString など）を拾わないよう、自分の項目だけを見る（2026-10-13 のコードレビュー #31。拾うと 500 になっていた）
+  const allowed = op && Object.hasOwn(PARAMS, op) ? PARAMS[op] : undefined
   const keys = [...q.keys()]
   if (!allowed || keys.some((k) => !allowed.includes(k)) || new Set(keys).size !== keys.length) return fail(400, 'bad_request')
   // 版は、使っている版だけ（上の VERSIONS。「05」のような別の綴りも通さない）
   const v = q.get('v')
-  if (v !== null && !(VERSIONS[op ?? ''] ?? []).includes(v)) return fail(400, 'bad_request')
+  if (v !== null && !(op && Object.hasOwn(VERSIONS, op) ? VERSIONS[op] : []).includes(v)) return fail(400, 'bad_request')
+  if (op === 'similar' && q.has('ids')) {
+    // まとめての似た作品: 控えにある分だけ返す（Shikimori には聞かないので、回数も数えない）。控えの中身は増えていくので、CDN には控えない
+    const ids = parseIds(q.get('ids'))
+    if (!ids || q.has('id')) return fail(400, 'bad_request')
+    const values = await store.get(ids.map((id) => `${KEY}:similar:${id}`))
+    const found: Record<string, unknown> = {}
+    const missing: number[] = []
+    ids.forEach((id, i) => {
+      const body = parseJson(values[i]) as { ids?: unknown } | null | undefined
+      if (body && Array.isArray(body.ids)) found[id] = body.ids
+      else missing.push(id)
+    })
+    return respond(200, { found, missing }, 'no-store')
+  }
   if (op === 'animes' || op === 'characters') {
     const ids = parseIds(q.get('ids'))
     if (ids && ids.join(',') !== q.get('ids')) {

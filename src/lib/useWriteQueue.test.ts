@@ -12,6 +12,7 @@ vi.mock('../features/unsent/reconcile', () => ({
 
 const { hasPendingWrites, useWriteQueue } = await import('./useWriteQueue')
 const { saveAnnictToken } = await import('./storage')
+const { journalDone, journalPut } = await import('./writeJournal')
 
 describe('useWriteQueue', () => {
   it('runs writes from different screens one after another, in the order they were asked', async () => {
@@ -220,6 +221,89 @@ describe('useWriteQueue', () => {
       // 元の送信（古い総合評価を含む）は走らせず、感想の中身だけを、総合評価は今の値のままにして送る
       expect(attempts).toBe(1)
       expect(reconciled).toEqual([JSON.stringify({ ...review, keepOverall: true })])
+    })
+
+    // 2026-10-13 のレビュー: 起動中の番号はタブごと。タブAで失敗 → タブBで同じ作品の評価を付け直して成功 → タブAの「もう一度」が古い評価で上書きしていた。
+    // ほかのタブは、共有の端末の控えに直接頼んで送り終えたことにして再現する（起動中の番号には残らない）
+    describe('asked again in another tab', () => {
+      const otherTab = (intents: WriteIntent[]) => journalDone(journalPut('別のタブ', intents))
+
+      it('retry does not send the old value once every item was asked again there', async () => {
+        localStorage.clear()
+        saveAnnictToken('t')
+        reconciled.length = 0
+        const a = renderHook(() => useWriteQueue())
+        let attempts = 0
+        act(() =>
+          a.result.current.enqueue(
+            'GOOD',
+            async () => {
+              attempts++
+              throw new Error('HTTP 502')
+            },
+            [rating('W1', 'GOOD')],
+          ),
+        )
+        await waitFor(() => expect(a.result.current.failed).toHaveLength(1))
+        otherTab([rating('W1', 'GREAT')])
+        act(() => a.result.current.retryFailed())
+        await waitFor(() => expect(a.result.current.pending).toBe(0))
+        expect(attempts).toBe(1)
+        expect(reconciled).toEqual([])
+        expect(a.result.current.failed).toEqual([])
+      })
+
+      it('only the items not asked again there are sent, through reconcile', async () => {
+        localStorage.clear()
+        saveAnnictToken('t')
+        reconciled.length = 0
+        const a = renderHook(() => useWriteQueue())
+        let attempts = 0
+        act(() =>
+          a.result.current.enqueue(
+            '状態と評価',
+            async () => {
+              attempts++
+              throw new Error('HTTP 502')
+            },
+            [status('W1', 'WATCHED'), rating('W1', 'GOOD')],
+          ),
+        )
+        await waitFor(() => expect(a.result.current.failed).toHaveLength(1))
+        otherTab([rating('W1', 'GREAT')])
+        act(() => a.result.current.retryFailed())
+        await waitFor(() => expect(a.result.current.pending).toBe(0))
+        expect(attempts).toBe(1)
+        expect(reconciled).toEqual([JSON.stringify(status('W1', 'WATCHED'))])
+      })
+
+      it('still retries when the device could not keep the wish (nothing to compare with)', async () => {
+        localStorage.clear()
+        const a = renderHook(() => useWriteQueue())
+        const full = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+          throw new Error('保存できない')
+        })
+        let attempts = 0
+        try {
+          act(() =>
+            a.result.current.enqueue(
+              'GOOD',
+              async () => {
+                attempts++
+                if (attempts === 1) throw new Error('HTTP 502')
+              },
+              [rating('W1', 'GOOD')],
+            ),
+          )
+          await waitFor(() => expect(a.result.current.failed).toHaveLength(1))
+          act(() => a.result.current.retryFailed())
+          await waitFor(() => expect(a.result.current.pending).toBe(0))
+        } finally {
+          full.mockRestore()
+        }
+        expect(attempts).toBe(2)
+        expect(a.result.current.failed).toEqual([])
+      })
     })
 
     it('a failed matching answer does not overwrite the status set later for the same work elsewhere', async () => {

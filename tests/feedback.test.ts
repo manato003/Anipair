@@ -133,3 +133,33 @@ describe('parseFeedback and issueOf', () => {
     expect(defuse('@a #1 #x')).toBe('@​a #​1 #x')
   })
 })
+
+// 2026-10-13 のコードレビュー #31: 本文を全部読んでから文字数で見ていた。バイト数で、読みながら打ち切る
+describe('handleFeedback reads at most 16 KB of the body', () => {
+  const streamed = (bytes: Uint8Array) =>
+    new Request('https://app.example/api/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: 'https://app.example' },
+      body: new ReadableStream({
+        start(c) {
+          for (let i = 0; i < bytes.length; i += 4096) c.enqueue(bytes.slice(i, i + 4096))
+          c.close()
+        },
+      }),
+      duplex: 'half',
+    } as RequestInit)
+
+  it('refuses a body over the limit counted in bytes (Japanese text is 3 bytes a character)', async () => {
+    const fetchFn = github()
+    const body = JSON.stringify({ ...GOOD, body: 'あ'.repeat(6000) })
+    expect(body.length).toBeLessThan(16 * 1024)
+    const res = await handleFeedback(req(null, { raw: body }), ENV, fetchFn)
+    expect(res.status).toBe(413)
+    expect(created(fetchFn)).toHaveLength(0)
+  })
+
+  it('stops reading a body without Content-Length once it passes the limit', async () => {
+    const res = await handleFeedback(streamed(new TextEncoder().encode('x'.repeat(200 * 1024))), ENV, github())
+    expect(res.status).toBe(413)
+  })
+})

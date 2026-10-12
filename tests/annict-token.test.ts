@@ -169,3 +169,13 @@ describe('exchangeToken', () => {
     }
   })
 })
+
+// 2026-10-13 のコードレビュー #31: 本文の大きさに上限が無かった
+describe('exchangeToken refuses a large body', () => {
+  it('answers 413 without asking Annict', async () => {
+    const fetchFn = annict(200, { access_token: 't' })
+    const res = await exchangeToken(req(null, { raw: JSON.stringify({ ...GOOD, pad: 'x'.repeat(8 * 1024) }), origin: 'https://app.example' }), ENV, fetchFn)
+    expect(res.status).toBe(413)
+    expect(fetchFn).not.toHaveBeenCalled()
+  })
+})

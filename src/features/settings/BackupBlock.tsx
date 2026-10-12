@@ -55,7 +55,7 @@ export function BackupBlock(props: { annictToken: string; github: GithubConnecti
     <Section
       id="settings-backup"
       title="バックアップ"
-      summary="作品ごとの記録をJSONファイルとして保存できます。視聴状況とその日時、評価（5項目と本文）、興味なし・保留・見てない、見たいの優先とメモを含みます。話ごとの記録は含みません（Annictに残ります）。"
+      summary="作品ごとの記録を、ファイルに書き出せます。"
       status={
         props.github ? (
           <StatusChip tone={status.error ? 'off' : 'ok'}>
@@ -96,8 +96,15 @@ export function BackupBlock(props: { annictToken: string; github: GithubConnecti
           {result.written ? `バックアップしました（${describeCounts(result.counts)}）` : '前回から変更がないため、保存しませんでした'}
         </p>
       )}
+      {/* 中身の細かい説明は畳む（#30） */}
+      <details className="settings__fold">
+        <summary>書き出す中身</summary>
+        <p className="settings__lead">
+          視聴状況とその日時、評価（5項目と本文）、興味なし・保留・見てない、見たいの優先とメモを含みます。話ごとの記録は含みません（Annictに残ります）。
+        </p>
+      </details>
       {!props.github ? (
-        <p className="settings__status">GitHubと連携すると、毎日自動でバックアップされ、変更履歴も残ります。</p>
+        <p className="settings__hint">GitHubと連携すると、毎日自動でバックアップします。</p>
       ) : (
         <>
           <p className="settings__links">

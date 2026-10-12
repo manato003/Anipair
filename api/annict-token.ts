@@ -38,6 +38,35 @@ function allowedRedirects(env: TokenEnv): string[] {
 
 // code は短い英数字の文字列。長すぎるものや変な文字は Annict に渡さない
 const CODE_PATTERN = /^[A-Za-z0-9._~+/=-]{1,512}$/
+// 受け付ける要求の大きさ（code と redirectUri だけなので小さい）
+const MAX_REQUEST_BYTES = 4 * 1024
+
+// 本文を上限のバイト数まで読む。超えたら読むのをやめて null（Content-Length が無い・偽りでも、上限より多くは読まない。
+// 2026-10-13 のコードレビュー #31: 全部読んでから文字数で見ていた）
+async function readLimited(request: Request, max: number): Promise<string | null> {
+  if (Number(request.headers.get('content-length') ?? '0') > max) return null
+  if (!request.body) return ''
+  const reader = request.body.getReader()
+  const chunks: Uint8Array[] = []
+  let size = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    size += value.byteLength
+    if (size > max) {
+      await reader.cancel()
+      return null
+    }
+    chunks.push(value)
+  }
+  const all = new Uint8Array(size)
+  let at = 0
+  for (const c of chunks) {
+    all.set(c, at)
+    at += c.byteLength
+  }
+  return new TextDecoder().decode(all)
+}
 
 export async function exchangeToken(request: Request, env: TokenEnv, fetchFn: FetchLike = fetch): Promise<Response> {
   if (request.method !== 'POST') return fail(405, 'method_not_allowed', { Allow: 'POST' })
@@ -50,7 +79,9 @@ export async function exchangeToken(request: Request, env: TokenEnv, fetchFn: Fe
 
   let body: unknown
   try {
-    body = await request.json()
+    const text = await readLimited(request, MAX_REQUEST_BYTES)
+    if (text === null) return fail(413, 'too_large')
+    body = JSON.parse(text)
   } catch {
     return fail(400, 'bad_request')
   }

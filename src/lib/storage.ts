@@ -115,14 +115,20 @@ function read(key: string): string | null {
 }
 
 function write(key: string, value: string | null): void {
-  if (!pageIsCurrent()) return
+  tryWrite(key, value)
+}
+
+// 書けたかを返す write（退避の控えのように、書けなかったら先へ進めないところで使う）
+function tryWrite(key: string, value: string | null): boolean {
+  if (!pageIsCurrent()) return false
   try {
     if (value === null) localStorage.removeItem(key)
     else localStorage.setItem(key, value)
+    return true
   } catch (e) {
     // 端末の保存容量があふれたら、作り直せる控えを捨てて、もう一度だけ書く（送れなかった記録の控えなど、失いたくないものを守る。
     // 2026-10-07 の点検: 容量を超えると黙って捨てていて、閉じても送り直せるはずの控えが残らないことがあった）
-    if (value === null || !isQuotaError(e)) return
+    if (value === null || !isQuotaError(e)) return false
     for (const k of REBUILDABLE) {
       if (k === key) continue
       try {
@@ -133,9 +139,19 @@ function write(key: string, value: string | null): void {
     }
     try {
       localStorage.setItem(key, value)
+      return true
     } catch {
       // それでも入らなければ、その回の操作だけ有効にする（保存できない環境・プライベートブラウズなど）
+      return false
     }
+  }
+}
+
+// 端末の保存容量が足りず、前の人の記録を退避できなかった（端末の記録は消さずに残してある。切り替えをやめる）
+export class StorageFullError extends Error {
+  constructor() {
+    super('storage full')
+    this.name = 'StorageFullError'
   }
 }
 
@@ -249,6 +265,7 @@ function tokenMark(token: string): string {
 // - 次の人の退避していた分を戻す（空のあいだに付けた分は残し、無い分だけ戻す）
 // - 持ち主を覚えていない記録（この仕組みの前から使っている端末）は、最初の人のものとみなす（前からの状態と同じ）
 // 記録を入れ替えたら true（画面を作り直す）
+// 端末の容量が足りずに前の人の分を退避できなければ、何も変えずに StorageFullError を投げる（呼ぶ側は切り替えをやめる）
 // ログアウトしたあとの持ち主の印。このあいだに書かれた記録（別のタブの遅れた書き込みなど）は、誰のものとも確かめられないので次の人に渡さない
 const LOGGED_OUT = '!'
 // 誰のものか確かめられない持ち主（名前の分からないログイン・ログアウトのあと）
@@ -264,43 +281,72 @@ export function switchAccount(username: string | null, token: string | null = nu
   // 名前の分からなかったログインが、同じトークンのまま名前が分かった
   const identified = owner !== null && owner === mark
   if (owner !== null && !identified) {
-    const mine = takePersonal()
+    const mine = collectPersonal()
     if (Object.keys(mine).length > 0) changed = true
     // 名前の分からなかったログインの記録は、トークンが替わる・ログアウトすると持ち主を確かめる道が無くなるので、退避せずに消す。
     // ログアウトのあとに書かれた記録も同じ
-    if (Object.keys(mine).length > 0 && !unattributable(owner)) accounts[owner] = mine
+    if (Object.keys(mine).length > 0 && !unattributable(owner)) keepAside(accounts, owner, mine)
+    // 控えを書けたのを確かめてから消す
+    removePersonal()
   }
+  // 持ち主は、記録を消して空きのできたいま書く（次の人の分を戻して容量が埋まっても、持ち主を書き損ねない）
+  setOwner(target)
   for (const from of new Set([username, mark])) {
     if (from === null || !accounts[from]) continue
-    putBack(accounts[from])
-    delete accounts[from]
+    // 戻しきれなかった（容量が足りない）ら、控えは消さずに残す（次にこの人に切り替えたとき、もう一度戻す）
+    if (putBack(accounts[from])) delete accounts[from]
     changed = true
   }
   saveAccounts(accounts)
-  setOwner(target)
   return changed
 }
 
-// 人ごとの記録を端末から取り出す（GitHub のトークンは控えに残さず消す）
-function takePersonal(): Record<string, string> {
+// 人ごとの記録を、端末に残したまま集める（GitHub のトークンは控えに入れない）
+function collectPersonal(): Record<string, string> {
   const mine: Record<string, string> = {}
   for (const key of PERSONAL_KEYS) {
     const value = read(key)
     if (value !== null && !NOT_KEPT.includes(key)) mine[key] = value
-    write(key, null)
   }
   return mine
 }
 
-function putBack(kept: Record<string, string>): void {
+function removePersonal(): void {
+  for (const key of PERSONAL_KEYS) write(key, null)
+}
+
+// 人ごとの記録を退避の控えに書き、書けたのを読み直して確かめる。書けなければ StorageFullError（端末の記録はまだ消していない）。
+// 2026-10-13 の点検: 先に端末の記録を消してから控えを書いていて、容量が足りないと前の人の送れなかった記録の控えやパスが黙って失われた
+function keepAside(accounts: Accounts, name: string, mine: Record<string, string>): void {
+  // 戻しきれずに残った控えがあれば合わせる（端末にある方を優先し、表は合わせる）
+  const kept = { ...mine }
+  for (const [key, value] of Object.entries(accounts[name] ?? {})) {
+    kept[key] = key in kept ? mergeKept(key, value, kept[key]) : value
+  }
+  accounts[name] = kept
+  if (saveAccountsChecked(accounts)) return
+  // 入らなければ、作り直せる控え（表紙・似た作品）を外して、もう一度だけ
+  for (const key of REBUILDABLE) delete kept[key]
+  if (!saveAccountsChecked(accounts)) throw new StorageFullError()
+}
+
+// 戻しきれたら true（容量が足りずに書けなかった分があれば false）
+function putBack(kept: Record<string, string>): boolean {
+  let ok = true
   for (const [key, value] of Object.entries(kept)) {
     const current = read(key)
-    write(key, current === null ? value : mergeKept(key, current, value))
+    if (!tryWrite(key, current === null ? value : mergeKept(key, current, value))) ok = false
   }
+  return ok
 }
 
 function saveAccounts(accounts: Accounts): void {
-  write(KEYS.accounts, Object.keys(accounts).length > 0 ? JSON.stringify(accounts) : null)
+  saveAccountsChecked(accounts)
+}
+
+function saveAccountsChecked(accounts: Accounts): boolean {
+  const value = Object.keys(accounts).length > 0 ? JSON.stringify(accounts) : null
+  return tryWrite(KEYS.accounts, value) && rawRead(KEYS.accounts) === value
 }
 
 // このページでの持ち主の変更（ページはこのあと読み込み直すか、同じ人のまま続ける）
@@ -314,15 +360,14 @@ function setOwner(owner: string | null): void {
 // ログインした人に「あなたの記録ですか」と聞いてから戻す（黙って渡さない・黙って消さない。2026-10-06 のセキュリティの点検）
 const UNCLAIMED = '?unclaimed'
 
+// 隔離できなければ、何も消さずに StorageFullError を投げる（switchAccount と同じ）
 export function setAsideUnclaimed(): void {
-  const mine = takePersonal()
+  const mine = collectPersonal()
   // 前の人の送れなかった記録の控えと「届いたか分からない」印は隔離しない（受け取った人のトークンで、前の人の答えを送らないように）
   delete mine[KEYS.writeJournal]
   delete mine[KEYS.uncertainWrites]
-  if (Object.keys(mine).length === 0) return
-  const accounts = loadAccounts()
-  accounts[UNCLAIMED] = { ...(accounts[UNCLAIMED] ?? {}), ...mine }
-  saveAccounts(accounts)
+  if (Object.keys(mine).length > 0) keepAside(loadAccounts(), UNCLAIMED, mine)
+  removePersonal()
 }
 
 export function hasUnclaimed(): boolean {
@@ -334,7 +379,8 @@ export function settleUnclaimed(mine: boolean): void {
   const accounts = loadAccounts()
   const kept = accounts[UNCLAIMED]
   if (!kept) return
-  if (mine) putBack(kept)
+  // 戻しきれなければ、隔離したまま残す（次に開いたとき、もう一度聞く）
+  if (mine && !putBack(kept)) return
   delete accounts[UNCLAIMED]
   saveAccounts(accounts)
 }

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { saveAnnictToken, switchAccount } from './storage'
-import { journalDone, journalPut, keyOf, leftoverEntries, narrowIntent, pendingIntent, type JournalEntry, type WriteIntent } from './writeJournal'
+import { journalDone, journalPut, keyOf, leftoverEntries, narrowIntent, pendingIntent, ticketDropped, type JournalEntry, type WriteIntent } from './writeJournal'
 
 const KEY = 'animax.writeJournal.v1'
 const status = (workId: string, state: 'WATCHED' | 'NO_STATE' = 'WATCHED'): WriteIntent => ({ kind: 'status', workId, state })
@@ -43,6 +43,29 @@ describe('writeJournal', () => {
     journalPut('今回のW1', [status('W1', 'NO_STATE')])
     expect(pendingIntent(left[0])).toBeNull()
     expect(leftoverEntries().map((e) => e.label)).toEqual(['B'])
+  })
+
+  // 送り直しの前に、ほかのタブで頼み直された項目を控えから読む（lib/useWriteQueue.ts）
+  it('tells which items of a ticket were asked again since, and null once the entry is gone', () => {
+    const rating = (r: 'GOOD' | 'GREAT'): WriteIntent => ({ kind: 'rating', workId: 'W1', annictId: 1, rating: r })
+    const t = journalPut('状態と評価', [status('W1'), rating('GOOD')])
+    expect(ticketDropped(t)).toEqual([[], []])
+    journalDone(journalPut('評価', [rating('GREAT')]))
+    // 評価の控えは、項目がすべて頼み直されたので消えている
+    expect(ticketDropped(t)).toEqual([[], null])
+    journalPut('状態', [status('W1', 'NO_STATE')])
+    expect(ticketDropped(t)).toEqual([null, null])
+  })
+
+  it('gives no ticket when the device could not keep the wish', () => {
+    const full = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('保存できない')
+    })
+    try {
+      expect(journalPut('記録', [status('W1')])).toEqual([])
+    } finally {
+      full.mockRestore()
+    }
   })
 
   it('ignores broken entries', () => {

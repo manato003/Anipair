@@ -364,7 +364,34 @@ export async function fetchSimilar(malId: number, opts: FetchOptions = {}): Prom
   return ids
 }
 
-// 複数の作品の似た作品を順に集める（1作品ずつ並べて問い合わせるので、初めてのときは時間がかかる）。
+// 端末に無い作品の似た作品を、中継の控え（Upstash）から50件ずつまとめて受け取り、端末に控える。
+// 中継は控えにある分だけを返し、Shikimori には聞かない（無い分は、このあと1件ずつ聞く）。
+// 初回のマッチングで70件ほどを0.7秒おきに1件ずつ頼んでいたのを、控えのある分は数回で済ませる（2026-10-13 のコードレビュー #31）。
+// 読めなくても、1件ずつ聞く今までの道に戻るだけ
+async function prefetchSimilar(malIds: readonly number[], opts: FetchOptions): Promise<void> {
+  const missing = malIds.filter((id) => !store().has(id))
+  for (let i = 0; i < missing.length; i += BATCH) {
+    const chunk = missing.slice(i, i + BATCH).sort((a, b) => a - b)
+    let body: { found?: unknown }
+    try {
+      body = (await call(`op=similar&ids=${chunk.join(',')}`, opts)) as { found?: unknown }
+    } catch {
+      return
+    }
+    const found = body && typeof body.found === 'object' && body.found !== null ? (body.found as Record<string, unknown>) : {}
+    let added = false
+    for (const id of chunk) {
+      const ids = found[id]
+      if (Array.isArray(ids) && ids.every((n) => Number.isInteger(n) && n > 0)) {
+        store().set(id, { at: Date.now(), ids: ids as number[] })
+        added = true
+      }
+    }
+    if (added) saveSimilar(store())
+  }
+}
+
+// 複数の作品の似た作品を集める。まず中継の控えからまとめて受け取り、残りを1作品ずつ聞く（初めての作品が多いと時間がかかる）。
 // opts.background は先読み用（画面の問い合わせを遅らせない）。
 // 1つ失敗したらそこで止めて例外にする（端末に控えた分は次に使える）
 export async function fetchSimilarMany(
@@ -374,6 +401,7 @@ export async function fetchSimilarMany(
 ): Promise<Map<number, number[]>> {
   const out = new Map<number, number[]>()
   const unique = [...new Set(malIds)]
+  await prefetchSimilar(unique, opts)
   let done = 0
   for (const id of unique) {
     out.set(id, await fetchSimilar(id, opts))

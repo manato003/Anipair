@@ -251,6 +251,17 @@ export function ExternalIcon() {
   )
 }
 
+// 最新情報（設定の、公式 X と開発日誌）。拡声器
+export function NewsIcon() {
+  return (
+    <Icon>
+      <path d="M4 10v4h3l7 4V6l-7 4z" />
+      <path d="M17.5 9.5a3.5 3.5 0 0 1 0 5" />
+      <path d="M7 14l1.5 5h2.5l-1-4.5" />
+    </Icon>
+  )
+}
+
 // 知らせ（コントロールセンター）
 export function BellIcon() {
   return (

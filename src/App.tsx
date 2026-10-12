@@ -25,6 +25,7 @@ import {
   saveAnnictToken,
   setAsideUnclaimed,
   settleUnclaimed,
+  StorageFullError,
   switchAccount,
 } from './lib/storage'
 import { hasPendingWrites } from './lib/useWriteQueue'
@@ -140,6 +141,8 @@ export default function App() {
 
   // ログイン・ログアウト・アカウントの切り替えの最中（送信待ちを送り切るのを待っている）
   const [switching, setSwitching] = useState(false)
+  // 端末の容量が足りず、切り替えられなかった
+  const [switchFailed, setSwitchFailed] = useState(false)
 
   // ログイン・ログアウト（next が null）。手順（2026-10-06 のセキュリティの点検で作り直した）:
   // 1. 送信待ちを送り切る（前の人の答えを失わない。ログアウトのあとに前の人のトークンで書かない）
@@ -173,10 +176,20 @@ export default function App() {
     }
     // 持ち主を読めなければ、名前の分からないログインとして進む（前の人の記録は退避し、あとで分かったらその人の分を戻す）
     const owner = next ? await ownerOf(next) : null
-    saveAnnictToken(next)
-    if (unclaimed) setAsideUnclaimed()
-    if (opts.forget) forgetAccount()
-    switchAccount(owner, next)
+    try {
+      saveAnnictToken(next)
+      if (unclaimed) setAsideUnclaimed()
+      if (opts.forget) forgetAccount()
+      switchAccount(owner, next)
+    } catch (e) {
+      if (!(e instanceof StorageFullError)) throw e
+      // 端末の容量が足りず、前の人の記録を退避できなかった（記録は消さずに残っている）。トークンを前のものに戻し、切り替えをやめる
+      if (loadAnnictToken() !== prev) saveAnnictToken(prev)
+      switchingRef.current = false
+      setSwitching(false)
+      setSwitchFailed(true)
+      return
+    }
     freezeStorage()
     reloadPage()
   }
@@ -191,7 +204,16 @@ export default function App() {
       (v) => {
         const key = ownerKeyOf(v)
         if (cancelled || switchingRef.current || loadAnnictToken() !== token || loadOwner() === key) return
-        if (switchAccount(key, token) && !reloadedOnce(key)) {
+        let switched: boolean
+        try {
+          switched = switchAccount(key, token)
+        } catch (e) {
+          // 容量が足りず退避できなかった（記録は消さずに残っている）。入れ替えずに知らせる
+          if (!(e instanceof StorageFullError)) throw e
+          setSwitchFailed(true)
+          return
+        }
+        if (switched && !reloadedOnce(key)) {
           freezeStorage()
           reloadPage()
         }
@@ -300,6 +322,18 @@ export default function App() {
         {switching && (
           <div className="auth-banner" role="status">
             <p className="auth-banner__text">記録を送り終えてから切り替えます…</p>
+          </div>
+        )}
+        {switchFailed && !switching && (
+          <div className="auth-banner" role="alert">
+            <p className="auth-banner__text">
+              この端末の保存容量が足りないため、アカウントを切り替えられませんでした。記録はそのまま残っています。ほかのサイトのデータを消すなどして空きを作ってから、もう一度お試しください。
+            </p>
+            <div className="auth-banner__actions">
+              <button type="button" className="link" onClick={() => setSwitchFailed(false)}>
+                閉じる
+              </button>
+            </div>
           </div>
         )}
         {unclaimed && !switching && (

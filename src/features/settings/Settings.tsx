@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { HeadActions } from '../../components/ControlCenter'
-import { BackIcon, BoxIcon, CommentIcon, InfoIcon, KeyIcon, PaletteIcon, UserIcon } from '../../components/Icons'
+import { BackIcon, BoxIcon, CommentIcon, InfoIcon, KeyIcon, NewsIcon, PaletteIcon, UserIcon } from '../../components/Icons'
 import { annictClientId } from '../../lib/annictLogin'
 import type { GithubConnection } from '../../lib/github'
 import { rememberScroll, restoreScroll } from '../../lib/pageScroll'
@@ -15,12 +15,13 @@ import { ThemeBlock } from './ThemeBlock'
 import { EffectsBlock } from './EffectsBlock'
 import { GithubBlock } from './GithubBlock'
 import { Keybinds } from './Keybinds'
+import { NewsBlock } from './NewsBlock'
 import { Welcome } from './Welcome'
 import { reducedMotion } from '../../lib/theme'
 
 // 設定のまとまり。スマホは一覧を挟み（押すと開く）、PC は右端の縦の列で切り替える（記録と同じ形）。
 // sections: 中の欄の id（コントロールセンターの近道などが、欄の id で開く先を指す）
-type GroupId = 'account' | 'display' | 'backup' | 'keys' | 'contact' | 'about'
+type GroupId = 'account' | 'display' | 'backup' | 'keys' | 'contact' | 'news' | 'about'
 
 const GROUPS: readonly { id: GroupId; label: string; sub: string; icon: ReactNode; sections: readonly string[] }[] = [
   { id: 'account', label: 'アカウント', sub: 'AnnictとGitHubの連携', icon: <UserIcon />, sections: ['settings-account', 'settings-github'] },
@@ -28,6 +29,7 @@ const GROUPS: readonly { id: GroupId; label: string; sub: string; icon: ReactNod
   { id: 'backup', label: 'バックアップ', sub: 'ファイルに書き出す・毎日のバックアップ', icon: <BoxIcon />, sections: ['settings-backup'] },
   { id: 'keys', label: 'キー', sub: 'PCで答えるキーの割り当て', icon: <KeyIcon />, sections: ['settings-keys'] },
   { id: 'contact', label: 'お問い合わせ', sub: '質問・不具合・要望を送る・よくある質問', icon: <CommentIcon />, sections: ['settings-contact', 'settings-faq'] },
+  { id: 'news', label: '最新情報', sub: '公式X・Anipair開発日誌', icon: <NewsIcon />, sections: ['settings-x', 'settings-devlog'] },
   { id: 'about', label: 'このアプリ', sub: '非公式であること・データの行き先・規約', icon: <InfoIcon />, sections: ['settings-about'] },
 ]
 
@@ -190,6 +192,7 @@ function SignedInSettings(props: {
             {current.id === 'backup' && <BackupBlock annictToken={props.annictToken} github={props.github} />}
             {current.id === 'keys' && <Keybinds />}
             {current.id === 'contact' && <ContactBlock />}
+            {current.id === 'news' && <NewsBlock />}
             {current.id === 'about' && <AboutBlock />}
           </div>
         )}

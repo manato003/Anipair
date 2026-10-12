@@ -51,12 +51,11 @@ export function Keybinds() {
   const isDefault = KEY_ACTIONS.every(({ action }) => keymap[action] === DEFAULT_KEYMAP[action])
 
   return (
-    <Section id="settings-keys" title="キーバインド（PC）" summary="評価画面とマッチングで使うキーを変更できます。">
+    <Section id="settings-keys" title="キーバインド（PC）" summary="評価とマッチングで使うキーを変えられます。">
       <details className="settings__fold" open={!isTouchDevice()}>
         <summary>キーの割り当て</summary>
       <p className="settings__lead">
-        変更したい操作のキーをクリックしてから、新しく割り当てるキーを押してください。同じ画面のほかの操作で使っているキーを選ぶと、2つのキーが入れ替わります（評価の「見てない」とマッチングの「興味なし」のように、使う画面が違えば同じキーにできます）。Escで取り消せます。
-        ← → は画面の切り替えに使うので、割り当てられません。
+        変えたい操作のキーを押してから、新しいキーを押します。使っているキーを選ぶと入れ替わります。Escで取り消せます（← →は画面の切り替え用です）。
       </p>
       {moved && <p className="settings__lead settings__lead--notice">← → で画面を切り替えられるようにしたので、← → に割り当てていた操作を、空いているキーに移しました。下で確かめてください。</p>}
       <ul className="keybinds">

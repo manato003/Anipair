@@ -221,19 +221,51 @@ describe('fetchSimilar', () => {
 describe('fetchSimilarMany', () => {
   it('goes one work at a time, reporting the progress, and stops at the first failure', async () => {
     fetchMock.mockImplementation(async (url) => {
-      const id = Number(new URL(url, 'http://x').searchParams.get('id'))
+      const q = new URL(url, 'http://x').searchParams
+      // 中継の控えには何も無い
+      if (q.has('ids')) return reply({ found: {}, missing: q.get('ids')!.split(',').map(Number) })
+      const id = Number(q.get('id'))
       return id === 3 ? reply({ error: 'x' }, 502) : reply({ ids: [id + 100] })
     })
     const progress: string[] = []
     await expect(fetchSimilarMany([1, 2, 3, 4], (d, t) => progress.push(`${d}/${t}`))).rejects.toThrow()
     expect(progress).toEqual(['1/4', '2/4'])
-    expect(fetchMock).toHaveBeenCalledTimes(3)
+    // まとめての1回と、1件ずつの3回
+    expect(fetchMock).toHaveBeenCalledTimes(4)
     // 取れた分は端末に残っているので、次は続きから
     fetchMock.mockClear()
-    fetchMock.mockImplementation(async () => reply({ ids: [1] }))
+    fetchMock.mockImplementation(async (url) => (url.includes('ids=') ? reply({ found: {}, missing: [3] }) : reply({ ids: [1] })))
     const got = await fetchSimilarMany([1, 2, 3])
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
     expect([...got.keys()]).toEqual([1, 2, 3])
+  })
+})
+
+// 2026-10-13 のコードレビュー #31: 中継の控えにある分は、まとめて1回で受け取る
+describe('fetchSimilarMany uses the shared store first', () => {
+  it('takes what the proxy has in one request per 50 works, and asks one by one only for the rest', async () => {
+    const urls: string[] = []
+    fetchMock.mockImplementation(async (url) => {
+      urls.push(url)
+      const q = new URL(url, 'http://x').searchParams
+      if (q.has('ids')) return reply({ found: { '11': [111], '12': [] }, missing: [13] })
+      return reply({ ids: [131] })
+    })
+    const progress: string[] = []
+    const got = await fetchSimilarMany([13, 11, 12], (d, t) => progress.push(`${d}/${t}`))
+    expect(urls).toEqual(['/api/shiki?op=similar&ids=11,12,13', '/api/shiki?op=similar&id=13'])
+    expect([...got]).toEqual([
+      [13, [131]],
+      [11, [111]],
+      [12, []],
+    ])
+    expect(progress).toEqual(['1/3', '2/3', '3/3'])
+  })
+
+  it('falls back to one by one when the batch request fails', async () => {
+    fetchMock.mockImplementation(async (url) => (url.includes('ids=') ? reply({ error: 'x' }, 502) : reply({ ids: [9] })))
+    const got = await fetchSimilarMany([21, 22])
+    expect([...got.values()]).toEqual([[9], [9]])
   })
 })
 
@@ -305,7 +337,8 @@ describe('background priority', () => {
     scheduleOpts.length = 0
     await fetchMedia([2], { background: true })
     await fetchSimilarMany([3, 4], undefined, { background: true })
-    expect(scheduleOpts).toEqual([{ background: true }, { background: true }, { background: true }])
+    // 作品の情報1回・似た作品のまとめて1回・1件ずつ2回
+    expect(scheduleOpts).toEqual([{ background: true }, { background: true }, { background: true }, { background: true }])
   })
 })
 

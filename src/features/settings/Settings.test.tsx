@@ -65,7 +65,7 @@ describe('Settings backup block', () => {
     show({ section: 'settings-backup', github: null })
     expect(screen.getByRole('heading', { level: 3, name: 'バックアップ' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'ファイルに書き出す' })).toBeTruthy()
-    expect(screen.getByText(/GitHubと連携すると、毎日自動でバックアップされ、変更履歴も残ります/)).toBeTruthy()
+    expect(screen.getByText('GitHubと連携すると、毎日自動でバックアップします。')).toBeTruthy()
     expect(screen.queryByRole('button', { name: '今すぐバックアップ' })).toBeNull()
     expect(screen.queryByText('GitHubで見る')).toBeNull()
     expect(screen.queryByText('変更履歴')).toBeNull()
@@ -145,6 +145,9 @@ describe('Settings GitHub block', () => {
   const formOf = () => screen.getByLabelText('GitHubのリポジトリ名').closest('form')!
   const connectButton = () => formOf().querySelector('button[type="submit"]') as HTMLButtonElement
 
+  // 未連携のときは、「連携する」を押すと手順と入力欄が出る（#30）
+  const openSetup = () => fireEvent.click(screen.getByRole('button', { name: '連携する' }))
+
   function fill(repo: string, token: string) {
     fireEvent.change(screen.getByLabelText('GitHubのリポジトリ名'), { target: { value: repo } })
     fireEvent.change(screen.getByLabelText('GitHubのFine-grainedトークン'), { target: { value: token } })
@@ -153,13 +156,15 @@ describe('Settings GitHub block', () => {
   it('says what connecting adds, and that everything else works without it', () => {
     show({ section: 'settings-github', github: null })
     expect(screen.getByRole('heading', { name: 'GitHub連携（任意）' })).toBeTruthy()
-    expect(screen.getByText('興味なし・保留・見てないを、PCとスマホで共有する')).toBeTruthy()
-    expect(screen.getByText('作品ごとの記録を、毎日自動でバックアップする（変更履歴つき）')).toBeTruthy()
-    expect(screen.getByText(/連携しなくても、すべての機能を使えます/)).toBeTruthy()
+    expect(screen.getByText('興味なし・見てないなどを、PCとスマホで共有して毎日バックアップします。')).toBeTruthy()
+    // 手順と入力欄は、押すまで出ない
+    expect(screen.queryByLabelText('GitHubのリポジトリ名')).toBeNull()
+    expect(screen.queryByText('連携の手順（3ステップ）')).toBeNull()
   })
 
   it('not connected: shows the steps with links, and the form', () => {
     show({ section: 'settings-github', github: null })
+    openSetup()
     expect((screen.getByRole('link', { name: 'リポジトリの作成画面を開く' }) as HTMLAnchorElement).href).toBe(
       'https://github.com/new?name=anipair-data&visibility=private',
     )
@@ -176,6 +181,7 @@ describe('Settings GitHub block', () => {
 
   it('the connect button needs both fields', () => {
     show({ section: 'settings-github', github: null })
+    openSetup()
     expect(connectButton().disabled).toBe(true)
     fireEvent.change(screen.getByLabelText('GitHubのリポジトリ名'), { target: { value: 'me/anipair-data' } })
     expect(connectButton().disabled).toBe(true)
@@ -185,6 +191,7 @@ describe('Settings GitHub block', () => {
 
   it('verifies with the repo and token first, then saves both and connects', async () => {
     show({ section: 'settings-github', github: null })
+    openSetup()
     fill(' me/anipair-data ', ' tok ')
     fireEvent.submit(formOf())
     await waitFor(() => expect(onGithubChange).toHaveBeenCalledWith({ token: 'tok', repo: 'me/anipair-data' }))
@@ -197,6 +204,7 @@ describe('Settings GitHub block', () => {
   it('on a verification failure shows the error and saves nothing', async () => {
     vi.mocked(checkAccess).mockRejectedValueOnce(new GitHubError('このトークンではme/anipair-dataが見えません。', 'auth'))
     show({ section: 'settings-github', github: null })
+    openSetup()
     fill('me/anipair-data', 'tok')
     fireEvent.submit(formOf())
     expect(await screen.findByText(/このトークンではme\/anipair-dataが見えません/)).toBeTruthy()
@@ -209,6 +217,7 @@ describe('Settings GitHub block', () => {
 
   it('rejects a malformed repository name without calling GitHub', () => {
     show({ section: 'settings-github', github: null })
+    openSetup()
     fill('https://github.com/me/anipair-data', 'tok')
     fireEvent.submit(formOf())
     expect(screen.getByText(/リポジトリ名は「ユーザー名\/anipair-data」の形式で入力してください/)).toBeTruthy()
@@ -353,16 +362,16 @@ describe('Settings about block', () => {
   it('states what the app is and where data goes', () => {
     show({ section: 'settings-about' })
     const text = screen.getByRole('heading', { name: 'このアプリについて' }).parentElement!.textContent!
-    expect(text).toContain('個人が開発したAnnictの非公式アプリ')
-    expect(text).toContain('運営サーバーはなく、利用者の記録は保存しません')
+    expect(text).toContain('個人が開発した、Annictの非公式アプリです')
+    expect(text).toContain('運営サーバーに、利用者の記録は置きません。トークンはこの端末の中だけにあります')
     expect(text).toContain('サーバーで動くのは、ログインの受け渡し・Shikimoriへの中継・問い合わせの受け付けの3つの処理だけです')
     expect(text).toContain('問い合わせの内容は、送ったときだけ開発者に届きます（公開はされません）')
     expect(text).toContain('通信先はAnnict・Shikimori・Wikipedia・Google Fontsです。Shikimoriの作品データは、上に書いたサーバーの処理（Vercel）を通して受け取ります。GitHubと連携した場合は、GitHubにも送信します')
     expect(text).toContain('問い合わせを送ったときは、その内容だけが、このサイトの関数を通して運営者の非公開のGitHubリポジトリに届きます')
-    expect(text).toContain('トークンは、この端末の中にだけ保存されます')
     expect(text).toContain('各作品の公式サイトの画像を表示しています。画像はブラウザが提供元から直接読み込みます。権利は各権利者に帰属します')
     expect(text).toContain('作品データの一部（ジャンル・似た作品・一部の表紙・声優やスタッフの参加作品）はShikimoriから取得しています')
     expect((screen.getByRole('link', { name: 'Shikimori' }) as HTMLAnchorElement).href).toBe('https://shikimori.io/')
+
     // Annict は API で取れるものだけを使う（作品ページは読まない）。あらすじは Wikipedia から、出典とライセンスを添えて
     expect(text).not.toMatch(/作品ページ/)
     expect(text).toContain('Wikipediaの記事の冒頭を、出典とライセンス（CC BY-SA 4.0）を添えて表示しています')
@@ -380,21 +389,23 @@ describe('Settings layout (sections, status first, folded explanations)', () => 
   it('lists the six groups first (phone), and each opens its sections, with a way back to the list', () => {
     show()
     const groups = [...document.querySelectorAll('.folder b')].map((b) => b.textContent)
-    expect(groups).toEqual(['アカウント', '表示', 'バックアップ', 'キー', 'お問い合わせ', 'このアプリ'])
+    expect(groups).toEqual(['アカウント', '表示', 'バックアップ', 'キー', 'お問い合わせ', '最新情報', 'このアプリ'])
     const opened: Record<string, string[]> = {
-      アカウント: ['Annict連携（必須）', 'GitHub連携（任意）'],
-      表示: ['表示', 'ボタンの表示', '演出'],
+      アカウント: ['Annict連携', 'GitHub連携（任意）'],
+      // 表示は見出しを付けず、1つずつの行に並べる（#30）
+      表示: [],
       バックアップ: ['バックアップ'],
       キー: ['キーバインド（PC）'],
       お問い合わせ: ['質問・不具合・要望を送る', 'よくある質問'],
+      最新情報: ['公式X', 'Anipair開発日誌'],
       このアプリ: ['このアプリについて'],
     }
     for (const [group, sections] of Object.entries(opened)) {
       fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${group}`) }))
       expect(screen.getByRole('heading', { level: 2 }).textContent).toBe(group)
-      expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(sections)
+      expect(screen.queryAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(sections)
       fireEvent.click(screen.getByRole('button', { name: '設定' }))
-      expect(document.querySelectorAll('.folder')).toHaveLength(6)
+      expect(document.querySelectorAll('.folder')).toHaveLength(7)
     }
   })
 
@@ -422,9 +433,10 @@ describe('Settings layout (sections, status first, folded explanations)', () => 
     expect(screen.queryByText('連携の手順（3ステップ）')).toBeNull()
   })
 
-  it('GitHub not connected: shows the steps (open) and the not-connected status', () => {
+  it('GitHub not connected: shows the not-connected status, and the steps (open) after pressing 連携する', () => {
     show({ section: 'settings-github', github: null })
     expect(screen.getByText('未連携')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '連携する' }))
     expect((screen.getByText('連携の手順（3ステップ）').closest('details') as HTMLDetailsElement).open).toBe(true)
   })
 
@@ -450,7 +462,7 @@ describe('Settings layout (sections, status first, folded explanations)', () => 
     window.matchMedia = ((q: string) => ({ matches: q === '(pointer: coarse)', addEventListener: () => undefined, removeEventListener: () => undefined })) as unknown as typeof window.matchMedia
     try {
       show()
-      expect([...document.querySelectorAll('.folder b')].map((b) => b.textContent)).toEqual(['アカウント', '表示', 'バックアップ', 'お問い合わせ', 'このアプリ'])
+      expect([...document.querySelectorAll('.folder b')].map((b) => b.textContent)).toEqual(['アカウント', '表示', 'バックアップ', 'お問い合わせ', '最新情報', 'このアプリ'])
     } finally {
       window.matchMedia = original
     }
@@ -497,5 +509,29 @@ describe('Settings 使い方を見る', () => {
   it('is also there on the signed-out first screen', () => {
     show({ annictToken: null, clientId: null })
     expect(screen.getByRole('button', { name: '使い方を見る' })).toBeTruthy()
+  })
+})
+
+// #30（2026-10-13 利用者）: お問い合わせは X の DM でも受け付ける
+describe('Settings contact', () => {
+  it('says that X DMs and GitHub issues are also accepted', () => {
+    show({ section: 'settings-contact' })
+    expect((screen.getByRole('link', { name: 'XのDMで送る' }) as HTMLAnchorElement).href).toBe('https://x.com/anipairAPP')
+    expect((screen.getByRole('link', { name: 'GitHubのIssues' }) as HTMLAnchorElement).href).toBe('https://github.com/manato003/anipair/issues')
+  })
+})
+
+// #30（2026-10-13 利用者）: 最新情報（公式 X と開発日誌）を項目に分ける
+describe('Settings news', () => {
+  it('shows the official X account and the devlog articles by title', () => {
+    show({ section: 'settings-devlog' })
+    expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('最新情報')
+    expect((screen.getByRole('link', { name: 'Xで@anipairAPPを見る' }) as HTMLAnchorElement).href).toBe('https://x.com/anipairAPP')
+    expect(screen.getByText('最新情報や、Anipairを使うときに役立つことを投稿しています。')).toBeTruthy()
+    const titles = [...document.querySelectorAll('.devlog a')].map((a) => [a.textContent, (a as HTMLAnchorElement).href])
+    expect(titles).toEqual([
+      ['Annictの記録をタップで付けて、次に見るアニメを理由つきで提案するWebアプリを作った', 'https://zenn.dev/manato003/articles/anipair-annict-anime-app'],
+      ['公開APIを使わせてもらう側として、負担をかけないクライアント作りで意識したこと', 'https://zenn.dev/manato003/articles/anipair-gentle-api-client'],
+    ])
   })
 })

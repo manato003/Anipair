@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { GET, handleShiki, storeFromEnv, upstashStore, type ShikiStore } from '../api/shiki'
+import { GET, handleShiki, localTake, storeFromEnv, upstashStore, type ShikiStore } from '../api/shiki'
 
 type Fetch = (url: string, init: RequestInit) => Promise<Response>
 
@@ -543,5 +543,49 @@ describe('upstashStore', () => {
     expect(storeFromEnv({})).toBeNull()
     expect(storeFromEnv({ KV_REST_API_URL: 'https://x' })).toBeNull()
     expect(storeFromEnv({ KV_REST_API_URL: 'https://x', KV_REST_API_TOKEN: 't' })).not.toBeNull()
+  })
+})
+
+// 2026-10-13 のコードレビュー #31
+describe('handleShiki: review #31', () => {
+  it('refuses inherited names as the operation or version (400, not 500)', async () => {
+    for (const op of ['constructor', 'toString', '__proto__', 'hasOwnProperty']) {
+      const res = await handleShiki(req(`?op=${op}`), upstream(200, {}))
+      expect(res.status).toBe(400)
+    }
+    expect((await handleShiki(req('?op=animes&ids=1&v=constructor'), upstream(200, {}))).status).toBe(400)
+  })
+
+  it('answers many similar lists at once from the store only, never asking Shikimori, and lists the missing ones', async () => {
+    const s = fakeStore()
+    s.data.set('shiki:1:similar:5', { value: '{"ids":[7,8]}', ttl: 1 })
+    s.data.set('shiki:1:similar:9', { value: '{"ids":[]}', ttl: 1 })
+    const fetchFn = upstream(200, [])
+    const res = await handleShiki(req('?op=similar&ids=5,6,9'), fetchFn, s.store)
+    expect(res.status).toBe(200)
+    expect(res.headers.get('cache-control')).toBe('no-store')
+    expect(await json(res)).toEqual({ found: { '5': [7, 8], '9': [] }, missing: [6] })
+    expect(fetchFn).not.toHaveBeenCalled()
+    expect(s.takes()).toBe(0)
+    // 控えが無い（手元）ときは、全部 missing
+    expect(await json(await handleShiki(req('?op=similar&ids=5,6'), fetchFn))).toEqual({ found: {}, missing: [5, 6] })
+    // id と ids の両方・壊れた ids は断る
+    expect((await handleShiki(req('?op=similar&ids=5&id=6'), fetchFn, s.store)).status).toBe(400)
+    expect((await handleShiki(req('?op=similar&ids=a'), fetchFn, s.store)).status).toBe(400)
+  })
+
+  it('keeps a conservative limit inside the function when the store cannot be reached', async () => {
+    const at = Date.UTC(2026, 9, 13, 0, 0, 10, 500)
+    // 1秒2回まで、そのあとは1秒待ってもらう
+    expect(localTake(at)).toBeNull()
+    expect(localTake(at)).toBeNull()
+    expect(localTake(at)).toBe(1)
+    const s = fakeStore({ broken: true })
+    const fetchFn = upstream(200, [])
+    const res = await handleShiki(req('?op=similar&id=52991'), fetchFn, s.store, () => at)
+    expect(res.status).toBe(429)
+    expect(fetchFn).not.toHaveBeenCalled()
+    // Upstash を使わない設定（手元・E2E）では数えない
+    expect((await handleShiki(req('?op=similar&id=52991'), fetchFn, null, () => at)).status).toBe(200)
   })
 })

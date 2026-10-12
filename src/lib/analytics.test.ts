@@ -20,6 +20,7 @@ describe('analytics', () => {
       type: 'pageview',
       url: 'https://anipair.vercel.app/rate',
     })
-    expect(withoutQuery({ type: 'pageview', url: 'not a url' })).toEqual({ type: 'pageview', url: 'not a url' })
+    // 読めない URL は送らない（クエリを外せないまま送らない）
+    expect(withoutQuery({ type: 'pageview', url: 'not a url' })).toBeNull()
   })
 })

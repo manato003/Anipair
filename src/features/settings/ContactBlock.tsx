@@ -12,19 +12,22 @@ export function ContactBlock() {
       <Section
         id="settings-contact"
         title="質問・不具合・要望を送る"
-        summary="GitHubのアカウントは要りません。送った内容は開発者だけが読み、公開はされません。"
+        summary="送った内容は開発者だけが読みます（公開されません）。"
       >
         <div className="settings__actions">
           <button type="button" className="btn btn--primary" onClick={() => setOpen(true)}>
             質問・不具合・要望を送る
           </button>
-        </div>
-        <p className="settings__lead">
-          GitHubを使う方は、
-          <a href="https://github.com/manato003/anipair/issues" target="_blank" rel="noreferrer">
-            公開リポジトリのIssues
+          {/* X の DM でも受け付ける。補足の薄い文字だと見つからなかったので、送るボタンと並べる（#30。2026-10-13 利用者） */}
+          <a className="btn" href="https://x.com/anipairAPP" target="_blank" rel="noreferrer">
+            XのDMで送る
           </a>
-          からも送れます（こちらは公開されます）。
+        </div>
+        <p className="settings__hint">
+          <a href="https://github.com/manato003/anipair/issues" target="_blank" rel="noreferrer">
+            GitHubのIssues
+          </a>
+          でも受け付けています（公開されます）。
         </p>
         {open && <FeedbackSheet onClose={() => setOpen(false)} />}
       </Section>

@@ -208,7 +208,21 @@ export function journalPut(label: string, intents: readonly WriteIntent[], now =
   const seq = lastSeq
   const added = intents.map((intent): JournalEntry => ({ key: keyOf(intent), label, intent, at: now, seq, session: SESSION }))
   save([...kept, ...added])
+  // 控えに書けなかったとき（保存できない環境・容量の不足）は札を返さない。札があるのに控えから消えていれば、
+  // ほかのタブで同じ項目を頼み直したと読む（ticketDropped）ので、書けていない札を渡すと送り直しを取りやめてしまう
+  if (!load().some((e) => e.seq === seq && e.session === SESSION)) return []
   return added.map((e) => ({ key: e.key, seq: e.seq }))
+}
+
+// このページで頼んだ札の、控えの今の中身（札の順）。そのあとで頼み直されて、もう書かない項目を返す。
+// 控えから消えていれば null（どの項目も頼み直された・ほかのタブで送り終えた・送らないことにした）。
+// 控えはタブのあいだで共有なので、ほかのタブで頼み直した分もここに表れる（useWriteQueue の送り直しが見る）
+export function ticketDropped(ticket: JournalTicket): (readonly Field[] | null)[] {
+  const entries = load()
+  return ticket.map((t) => {
+    const e = entries.find((x) => x.key === t.key && x.seq === t.seq && x.session === SESSION)
+    return e ? (e.dropped ?? []) : null
+  })
 }
 
 // 送り終えた（または利用者が送らないことにした）。あとから同じ項目を頼んでいれば、そちらは残す

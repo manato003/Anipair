@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnnictError } from './annict'
 import { isFrozen, loadAnnictToken } from './storage'
-import { fieldsOf, journalDone, journalPut, narrowIntent, type Field, type JournalTicket, type WriteIntent } from './writeJournal'
+import { fieldsOf, journalDone, journalPut, narrowIntent, ticketDropped, type Field, type JournalTicket, type WriteIntent } from './writeJournal'
 
 export interface FailedWrite {
   label: string
@@ -28,12 +28,15 @@ function stamp(intents: readonly WriteIntent[] | undefined): number | undefined 
   for (const intent of intents) for (const f of fieldsOf(intent)) for (const a of f.aliases) latestByAlias.set(a, n)
   return n
 }
-// まだ上書きされていない行き先だけ（一部の項目が頼み直されていれば、残りの項目だけの行き先にする）
-function liveIntents(f: FailedWrite): readonly WriteIntent[] | undefined {
+// まだ上書きされていない行き先だけ（一部の項目が頼み直されていれば、残りの項目だけの行き先にする）。
+// shared: 端末の控えで頼み直された項目（ticketDropped。行き先の順。null はすべての項目）。起動中の番号はこのタブで頼んだ分しか知らないので、送り直す前に足して見る
+function liveIntents(f: FailedWrite, shared?: readonly (readonly Field[] | null)[]): readonly WriteIntent[] | undefined {
   if (!f.intents || f.stamp === undefined) return f.intents
   const n = f.stamp
-  return f.intents.flatMap((intent) => {
-    const dropped = new Set<Field>(fieldsOf(intent).filter((x) => x.aliases.some((a) => (latestByAlias.get(a) ?? 0) > n)).map((x) => x.name))
+  return f.intents.flatMap((intent, i) => {
+    if (shared?.[i] === null) return []
+    const dropped = new Set<Field>(shared?.[i] ?? [])
+    for (const x of fieldsOf(intent)) if (x.aliases.some((a) => (latestByAlias.get(a) ?? 0) > n)) dropped.add(x.name)
     const live = narrowIntent(intent, dropped)
     return live ? [live] : []
   })
@@ -106,12 +109,16 @@ export function useWriteQueue() {
 
   // 失敗したものを送り直す。そのあとで同じ項目を頼み直していれば、その項目は送らない。
   // 一部だけ頼み直されていたら、残りの行き先だけを Annict の今の状態と比べて書く（features/unsent/reconcile.ts。何度送っても同じ結果になる）。
-  // 例: 感想の保存が失敗 → 総合評価だけ付け直して成功 → 「もう一度」は感想の中身だけを書き、総合評価は今の値のまま
+  // 例: 感想の保存が失敗 → 総合評価だけ付け直して成功 → 「もう一度」は感想の中身だけを書き、総合評価は今の値のまま。
+  // ほかのタブで頼み直した分は、共有の端末の控えで見る（2026-10-13 のレビュー: タブAで評価の送信が失敗 → タブBで別の評価にして成功 →
+  // タブAの「もう一度」が古い評価で上書きしていた。タブBの頼みで、タブAの控えはその項目が「もう書かない」になるか消えている）
   const retryFailed = useCallback(() => {
     const list = failedRef.current
     updateFailed([])
     for (const f of list) {
-      const live = liveIntents(f)
+      // 札は行き先と同じ順に1つずつ（控えに書けなかったときは空なので、起動中の番号だけで見る）
+      const shared = f.ticket?.length && f.ticket.length === f.intents?.length ? ticketDropped(f.ticket) : undefined
+      const live = liveIntents(f, shared)
       if (!live || untouched(f, live)) {
         enqueue(f.label, f.task, f.intents)
         continue

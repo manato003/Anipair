@@ -36,6 +36,33 @@ const MAX_REQUEST_BYTES = 16 * 1024
 
 const REPO_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/
 
+// 本文を上限のバイト数まで読む。超えたら読むのをやめて null（Content-Length が無い・偽りでも、上限より多くは読まない。
+// 2026-10-13 のコードレビュー #31: 全部読んでから文字数で見ていた）
+async function readLimited(request: Request, max: number): Promise<string | null> {
+  if (Number(request.headers.get('content-length') ?? '0') > max) return null
+  if (!request.body) return ''
+  const reader = request.body.getReader()
+  const chunks: Uint8Array[] = []
+  let size = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    size += value.byteLength
+    if (size > max) {
+      await reader.cancel()
+      return null
+    }
+    chunks.push(value)
+  }
+  const all = new Uint8Array(size)
+  let at = 0
+  for (const c of chunks) {
+    all.set(c, at)
+    at += c.byteLength
+  }
+  return new TextDecoder().decode(all)
+}
+
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } })
 }
@@ -138,12 +165,10 @@ export async function handleFeedback(request: Request, env: FeedbackEnv, fetchFn
   const origin = request.headers.get('origin')
   if (origin !== new URL(request.url).origin) return fail(403, 'origin_not_allowed')
 
-  const length = Number(request.headers.get('content-length') ?? '0')
-  if (length > MAX_REQUEST_BYTES) return fail(413, 'too_large')
   let raw: unknown
   try {
-    const text = await request.text()
-    if (text.length > MAX_REQUEST_BYTES) return fail(413, 'too_large')
+    const text = await readLimited(request, MAX_REQUEST_BYTES)
+    if (text === null) return fail(413, 'too_large')
     raw = JSON.parse(text)
   } catch {
     return fail(400, 'bad_request')

@@ -14,6 +14,7 @@ import {
   savePassesRaw,
   setAsideUnclaimed,
   settleUnclaimed,
+  StorageFullError,
   switchAccount,
   loadOnboardingSeen,
   loadReviewsRaw,
@@ -525,6 +526,76 @@ describe('when the device storage is full', () => {
     expect(localStorage.getItem('animax.covers.v2')).toBeNull()
     expect(localStorage.getItem('animax.library.v1')).toBeNull()
     expect(localStorage.getItem('animax.passes')).toBe('{"keep":1}')
+  })
+
+  // 2026-10-13 の点検: 端末の記録を先に消してから退避の控えを書いていて、控えを書けないと前の人の記録が失われた
+  it('does not switch, and keeps the previous person\'s records, when the stash cannot be written', () => {
+    switchAccount('alice')
+    localStorage.setItem('animax.passes', '{"a":1}')
+    localStorage.setItem('animax.writeJournal.v1', JSON.stringify({ v: 1, entries: [{ key: 'status:W1', at: 1 }] }))
+    localStorage.setItem('animax.titles.v1', '{"equipped":"x"}')
+    localStorage.setItem('animax.accounts.v1', JSON.stringify({ carol: { 'animax.passes': '{"c":1}' } }))
+    const before = { ...localStorage }
+    const original = Storage.prototype.setItem
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key: string, value: string) {
+      if (key === 'animax.accounts.v1') throw new DOMException('full', 'QuotaExceededError')
+      original.call(this, key, value)
+    })
+    expect(() => switchAccount('bob', 'tok-b')).toThrow(StorageFullError)
+    expect(loadOwner()).toBe('alice')
+    expect({ ...localStorage }).toEqual(before)
+  })
+
+  it('setAsideUnclaimed keeps the records when they cannot be set aside', () => {
+    localStorage.setItem('animax.passes', '{"x":1}')
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('full', 'QuotaExceededError')
+    })
+    expect(() => setAsideUnclaimed()).toThrow(StorageFullError)
+    expect(localStorage.getItem('animax.passes')).toBe('{"x":1}')
+    expect(hasUnclaimed()).toBe(false)
+  })
+
+  it('leaves out the rebuildable caches from the stash when only that makes it fit', () => {
+    switchAccount('alice')
+    localStorage.setItem('animax.passes', '{"a":1}')
+    localStorage.setItem('animax.covers.v2', 'x'.repeat(4000))
+    // 表紙の控えごとでは入らないが、外せば入る
+    limitStorage(3000)
+    expect(switchAccount('bob')).toBe(true)
+    expect(localStorage.getItem('animax.passes')).toBeNull()
+    expect(loadOwner()).toBe('bob')
+    vi.restoreAllMocks()
+    switchAccount('alice')
+    expect(localStorage.getItem('animax.passes')).toBe('{"a":1}')
+    expect(localStorage.getItem('animax.covers.v2')).toBeNull()
+  })
+
+  it('keeps the stash of the next person when it cannot all be put back, and puts it back later', () => {
+    switchAccount('alice')
+    localStorage.setItem('animax.passes', JSON.stringify({ big: 'p'.repeat(3000) }))
+    switchAccount('bob')
+    limitStorage(5000)
+    expect(switchAccount('alice')).toBe(true)
+    expect(loadOwner()).toBe('alice')
+    expect(localStorage.getItem('animax.passes')).toBeNull()
+    expect(localStorage.getItem('animax.accounts.v1')).toContain('alice')
+    vi.restoreAllMocks()
+    // 別の人に替わっても、残した控えは失わない
+    switchAccount('bob')
+    switchAccount('alice')
+    expect(JSON.parse(localStorage.getItem('animax.passes')!).big).toHaveLength(3000)
+  })
+
+  it('switches normally when there is room', () => {
+    switchAccount('alice')
+    localStorage.setItem('animax.passes', '{"a":1}')
+    limitStorage(100000)
+    expect(switchAccount('bob')).toBe(true)
+    expect(localStorage.getItem('animax.passes')).toBeNull()
+    expect(JSON.parse(localStorage.getItem('animax.accounts.v1')!).alice['animax.passes']).toBe('{"a":1}')
+    switchAccount('alice')
+    expect(localStorage.getItem('animax.passes')).toBe('{"a":1}')
   })
 
   it('keeps at most POSTERS_MAX covers, the newest works (largest Annict IDs) first', () => {

@@ -21,21 +21,11 @@ export function AccountBlock(props: { token: string; onChange: (token: string | 
   return (
     <Section
       id="settings-account"
-      title="Annict連携（必須）"
-      summary="評価や視聴状況は、すべてあなたのAnnictアカウントに保存されます。"
+      title="Annict連携"
       status={<StatusChip>{viewer ? `${viewer.name}（@${viewer.username}）で連携中` : 'Annictと連携中'}</StatusChip>}
     >
       {/* Anipair は Annict とつながって動く。遅い・出ないときに、原因が通信のどこにあるかを見分けられるように */}
       <AnnictHealth token={props.token} />
-      {/* コレクションは Annict の機能（API では読み書きできないので、Anipair では作らずに案内する） */}
-      {viewer && (
-        <p className="settings__lead">
-          作品をまとめるコレクションは、Annictで作れます。
-          <a href={annictCollectionsUrl(viewer.username)} target="_blank" rel="noreferrer">
-            Annictの自分のコレクション
-          </a>
-        </p>
-      )}
       <div className="settings__actions">
         <button
           type="button"
@@ -56,11 +46,25 @@ export function AccountBlock(props: { token: string; onChange: (token: string | 
           ログアウトして、この端末の記録も消す
         </button>
       </div>
-      <p className="settings__lead">
-        {'この端末からAnnictのログイン情報を削除します。Annictの記録は消えません。' +
-          'この端末に置いた記録（興味なし・見てない・称号など）は、同じアカウントでログインし直すと戻ります。ほかの人がログインしても、アプリには出ません。' +
-          'GitHubのトークンは消えるので、もう一度つなぐときに入れ直してください。'}
-      </p>
+      {/* 説明は1行に。細かいこと（端末の記録の戻り方・GitHub のトークン）は畳む（#30: 5行あって読まれにくかった） */}
+      <p className="settings__hint">ログアウトしても、Annictの記録は消えません。</p>
+      <details className="settings__fold">
+        <summary>詳しく</summary>
+        <p className="settings__lead">
+          {'記録はすべてAnnictに保存されます。この端末に置いた記録（興味なし・見てない・称号など）は、同じアカウントでログインし直すと戻ります。' +
+            'ほかの人がログインしても、アプリには出ません。GitHubのトークンは消えるので、もう一度つなぐときに入れ直してください。'}
+        </p>
+        {/* コレクションは Annict の機能（API では読み書きできないので、Anipair では作らずに案内する） */}
+        {viewer && (
+          <p className="settings__lead">
+            作品をまとめるコレクションは、
+            <a href={annictCollectionsUrl(viewer.username)} target="_blank" rel="noreferrer">
+              Annictで作れます
+            </a>
+            。
+          </p>
+        )}
+      </details>
     </Section>
   )
 }

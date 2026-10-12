@@ -9,6 +9,8 @@ import { Spinner } from '../../components/Loading'
 export function GithubBlock(props: { github: GithubConnection | null; onChange: (github: GithubConnection | null) => void }) {
   const [repoDraft, setRepoDraft] = useState('')
   const [tokenDraft, setTokenDraft] = useState('')
+  // 未連携のときに「連携する」を押したか（手順と入力欄を出す）
+  const [setup, setSetup] = useState(false)
   const [checking, setChecking] = useState(false)
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
 
@@ -50,7 +52,7 @@ export function GithubBlock(props: { github: GithubConnection | null; onChange: 
     <Section
       id="settings-github"
       title="GitHub連携（任意）"
-      summary="連携しなくても、すべての機能を使えます。"
+      summary="興味なし・見てないなどを、PCとスマホで共有して毎日バックアップします。"
       status={
         props.github ? (
           <StatusChip>
@@ -64,23 +66,25 @@ export function GithubBlock(props: { github: GithubConnection | null; onChange: 
         )
       }
     >
-      {/* なぜ GitHub なのかを、連携していてもいなくても見せる */}
-      <p className="settings__lead">
-        興味なし・保留・見てないはAnipair独自の記録で、Annictには保存できません。Anipairは運営サーバーを持たないため、これらはあなた自身のGitHubリポジトリに保存します。連携しない場合は、この端末の中にだけ保存されます。
-      </p>
       {props.github ? (
         <div className="settings__actions">
           <button type="button" className="btn" onClick={disconnect}>
             連携を解除
           </button>
         </div>
+      ) : !setup ? (
+        // 手順と入力欄は、連携したい人が押したときだけ出す（#30: 説明・箇条書き・3つの手順が、いつも全部出ていた）
+        <div className="settings__actions">
+          <button type="button" className="btn" onClick={() => setSetup(true)}>
+            連携する
+          </button>
+        </div>
       ) : (
         <>
-          <p className="settings__lead">連携すると、次のことができます。</p>
-          <ul className="settings__list settings__lead">
-            <li>興味なし・保留・見てないを、PCとスマホで共有する</li>
-            <li>作品ごとの記録を、毎日自動でバックアップする（変更履歴つき）</li>
-          </ul>
+          {/* なぜ GitHub なのか（連携しようとしている人にだけ） */}
+          <p className="settings__lead">
+            興味なし・保留・見てないはAnipairだけの記録で、Annictには置けません。Anipairは運営サーバーを持たないので、あなた自身のGitHubのリポジトリに保存します。連携しない場合は、この端末の中にだけ残ります。
+          </p>
           <details className="settings__fold" open>
             <summary>連携の手順（3ステップ）</summary>
             <ol className="settings__list settings__lead">
