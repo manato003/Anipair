@@ -12,7 +12,13 @@
 //                          v=4 からは、声の出演に演じたキャラクター（ID とローマ字の名前）を付ける
 //   ?op=characters&ids=1,2 キャラクターの日本語名（50人まで。参加作品の一覧の役名に使う。Shikimori の人物の応答はローマ字とロシア語の名前しか無い）
 //   ?op=studio&id=N&page=P 制作会社の作品（新しい順に50件ずつ。作品の情報と同じ形）
-// 何も保存せず、何もログに出さない（利用者に結びつく情報はそもそも受け取らない）。
+// 利用者に結びつく情報は受け取らず、何もログに出さない。
+//
+// 控えと回数（2026-10-12）: Upstash Redis（環境変数 KV_REST_API_URL・KV_REST_API_TOKEN。無ければ今までどおり直接聞く）に、
+// Shikimori の公開データを作品ごとに控え（デプロイしても消えない。CDN の控えはデプロイごとに空になり、まとめて頼んだ並びでしか使い回せない）、
+// Shikimori へ実際に送る回数を全利用者で数える（Shikimori の上限は 5rps / 90rpm で、Vercel の出口から数えられる。こちらは 4/秒・80/分で止める）。
+// 上限に達したら Shikimori には送らず 429 と Retry-After を返す（画面は待って送り直す）。Upstash に届かなければ、控えも数えるのも飛ばす（止まらない）。
+// 置くのは Shikimori の公開データと回数だけ（利用者の情報は置かない）
 //
 // 注意: api/ の中のファイルはすべて関数として配備される。自己完結にして、テストは tests/ に置く（annict-token.ts と同じ）
 
@@ -36,6 +42,104 @@ const TIMEOUT_MS = 8000
 const CACHE_OK = 'public, s-maxage=604800, stale-while-revalidate=86400'
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>
+
+// Shikimori の公開データの控えと、Shikimori へ送る回数（Upstash Redis。テストでは偽物を渡す）
+export interface ShikiStore {
+  get(keys: readonly string[]): Promise<(string | null)[]>
+  set(entries: readonly { key: string; value: string; ttl: number }[]): Promise<void>
+  // Shikimori へ1回送ってよいか。よければ null、上限なら待つ秒数
+  take(now: number): Promise<number | null>
+}
+
+const DAY = 86400
+// 作品の情報: 放送が終わった作品は30日、放送中・放送前は1日（話数や状態が変わる）。Shikimori に無い ID は7日
+const TTL_RELEASED = 30 * DAY
+const TTL_CHANGING = DAY
+const TTL_MISSING = 7 * DAY
+const TTL_SIMILAR = 30 * DAY
+const TTL_CHARACTER = 30 * DAY
+const TTL_PERSON = 7 * DAY
+const TTL_STUDIO = DAY
+// 全利用者で Shikimori へ送る上限（Shikimori は 5rps / 90rpm。少し下で止める）
+const PER_SECOND = 4
+const PER_MINUTE = 80
+// 控えの名前の版（控える形を変えたら上げる）
+const KEY = 'shiki:1'
+const STORE_TIMEOUT_MS = 1500
+
+// Upstash の REST（pipeline）。SDK を入れずに fetch で話す
+export function upstashStore(url: string, token: string, fetchFn: FetchLike = fetch): ShikiStore {
+  async function pipeline(commands: readonly (string | number)[][]): Promise<unknown[]> {
+    const res = await fetchFn(`${url.replace(/\/$/, '')}/pipeline`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(commands),
+      signal: AbortSignal.timeout(STORE_TIMEOUT_MS),
+    })
+    if (!res.ok) throw new Error('store')
+    const out = (await res.json()) as { result?: unknown; error?: unknown }[]
+    if (!Array.isArray(out) || out.some((x) => x?.error)) throw new Error('store')
+    return out.map((x) => x.result)
+  }
+  return {
+    async get(keys) {
+      if (keys.length === 0) return []
+      const [values] = await pipeline([['MGET', ...keys]])
+      return Array.isArray(values) ? values.map((v) => (typeof v === 'string' ? v : null)) : keys.map(() => null)
+    },
+    async set(entries) {
+      if (entries.length > 0) await pipeline(entries.map((e) => ['SET', e.key, e.value, 'EX', e.ttl]))
+    },
+    async take(now) {
+      const sec = Math.floor(now / 1000)
+      const min = Math.floor(sec / 60)
+      const [perSec, , perMin] = await pipeline([
+        ['INCR', `${KEY}:rate:s:${sec}`],
+        ['EXPIRE', `${KEY}:rate:s:${sec}`, 5],
+        ['INCR', `${KEY}:rate:m:${min}`],
+        ['EXPIRE', `${KEY}:rate:m:${min}`, 120],
+      ])
+      if (Number(perMin) > PER_MINUTE) return 60 - (sec % 60)
+      if (Number(perSec) > PER_SECOND) return 1
+      return null
+    },
+  }
+}
+
+// 環境変数から（Vercel の Upstash の連携が入れる名前。手元と E2E には無いので null）
+export function storeFromEnv(env: Record<string, string | undefined>): ShikiStore | null {
+  const url = env.KV_REST_API_URL ?? env.UPSTASH_REDIS_REST_URL
+  const token = env.KV_REST_API_TOKEN ?? env.UPSTASH_REDIS_REST_TOKEN
+  return url && token ? upstashStore(url, token) : null
+}
+
+// 控えに届かないときは、控えなしで続ける（一度失敗したら、その問い合わせの間はもう使わない）
+function safeStore(store: ShikiStore | null) {
+  let alive = store !== null
+  async function guard<T>(f: (s: ShikiStore) => Promise<T>, fallback: T): Promise<T> {
+    if (!alive || !store) return fallback
+    try {
+      return await f(store)
+    } catch {
+      alive = false
+      return fallback
+    }
+  }
+  return {
+    get: (keys: readonly string[]) => guard((s) => s.get(keys), keys.map((): string | null => null)),
+    set: (entries: readonly { key: string; value: string; ttl: number }[]) => guard((s) => s.set(entries), undefined),
+    take: (now: number) => guard((s) => s.take(now), null),
+  }
+}
+
+const parseJson = (v: string | null): unknown => {
+  if (v === null) return undefined
+  try {
+    return JSON.parse(v) as unknown
+  } catch {
+    return undefined
+  }
+}
 
 // 固定の問い合わせ（利用者の入力は variables の ids だけ。数字のコンマ区切りに検証してから入れる）
 const ANIME_FIELDS = `malId name japanese english kind rating status score episodes episodesAired duration
@@ -166,7 +270,13 @@ function trim(a: RawAnime) {
   }
 }
 
-export async function handleShiki(request: Request, fetchFn: FetchLike = fetch): Promise<Response> {
+export async function handleShiki(request: Request, fetchFn: FetchLike = fetch, rawStore: ShikiStore | null = null, now: () => number = Date.now): Promise<Response> {
+  const store = safeStore(rawStore)
+  // 答えを控えてから返す
+  const keep = async (key: string | null, body: unknown, ttl: number): Promise<Response> => {
+    if (key) await store.set([{ key, value: JSON.stringify(body), ttl }])
+    return respond(200, body, CACHE_OK)
+  }
   if (request.method !== 'GET') return fail(405, 'method_not_allowed', { Allow: 'GET' })
   const url = new URL(request.url)
   const q = url.searchParams
@@ -188,21 +298,53 @@ export async function handleShiki(request: Request, fetchFn: FetchLike = fetch):
     }
   }
 
+  // 控えから答えられるものは、Shikimori に聞かずに返す
+  let ids: number[] = []
+  let cachedAnimes: unknown[] = []
+  let cachedChars: unknown[] = []
+  const singleKey =
+    op === 'similar' && parseId(q.get('id'))
+      ? `${KEY}:similar:${q.get('id')}`
+      : op === 'person' && parseId(q.get('id'))
+        ? `${KEY}:person:${q.get('id')}:${q.get('v') ?? '2'}`
+        : op === 'studio' && parseId(q.get('id')) && parseId(q.get('page') ?? '1')
+          ? `${KEY}:studio:${q.get('id')}:${q.get('page') ?? '1'}`
+          : null
+  if (op === 'animes' || op === 'characters') {
+    const all = parseIds(q.get('ids'))
+    if (!all) return fail(400, 'bad_request')
+    const kind = op === 'animes' ? 'anime' : 'char'
+    const values = await store.get(all.map((id) => `${KEY}:${kind}:${id}`))
+    const parsed = values.map(parseJson)
+    ids = all.filter((_, i) => parsed[i] === undefined)
+    const hits = parsed.filter((x) => x !== undefined && x !== null)
+    if (op === 'animes') cachedAnimes = hits
+    else cachedChars = hits
+    if (ids.length === 0) return respond(200, op === 'animes' ? { animes: cachedAnimes } : { characters: cachedChars }, CACHE_OK)
+  } else if (singleKey) {
+    const [hit] = await store.get([singleKey])
+    const body = parseJson(hit)
+    if (body !== undefined && body !== null) return respond(200, body, CACHE_OK)
+  }
+
   let upstream: Response
+  // 全利用者で数えた上限に達したときの、待ってもらう秒数
+  let limitedFor: number | null = null
   try {
+    // 入力の検査を通ったものだけ、Shikimori へ送る回数を全利用者で数え、上限なら送らない
+    const send = async (url: string, init: RequestInit): Promise<Response> => {
+      limitedFor = await store.take(now())
+      return limitedFor === null ? fetchFn(url, init) : new Response(null, { status: 429 })
+    }
     if (op === 'animes') {
-      const ids = parseIds(q.get('ids'))
-      if (!ids) return fail(400, 'bad_request')
-      upstream = await fetchFn(GRAPHQL_URL, {
+      upstream = await send(GRAPHQL_URL, {
         method: 'POST',
         headers: { 'User-Agent': USER_AGENT, 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ query: ANIMES_QUERY, variables: { ids: ids.join(',') } }),
         signal: AbortSignal.timeout(TIMEOUT_MS),
       })
     } else if (op === 'characters') {
-      const ids = parseIds(q.get('ids'))
-      if (!ids) return fail(400, 'bad_request')
-      upstream = await fetchFn(GRAPHQL_URL, {
+      upstream = await send(GRAPHQL_URL, {
         method: 'POST',
         headers: { 'User-Agent': USER_AGENT, 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ query: CHARACTERS_QUERY, variables: { ids: ids.join(',') } }),
@@ -212,7 +354,7 @@ export async function handleShiki(request: Request, fetchFn: FetchLike = fetch):
       const id = parseId(q.get('id'))
       const page = parseId(q.get('page') ?? '1')
       if (!id || !page || page > MAX_STUDIO_PAGE) return fail(400, 'bad_request')
-      upstream = await fetchFn(GRAPHQL_URL, {
+      upstream = await send(GRAPHQL_URL, {
         method: 'POST',
         headers: { 'User-Agent': USER_AGENT, 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ query: STUDIO_QUERY, variables: { studio: String(id), page } }),
@@ -221,7 +363,7 @@ export async function handleShiki(request: Request, fetchFn: FetchLike = fetch):
     } else if (op === 'people') {
       const name = parseName(q.get('q'))
       if (!name) return fail(400, 'bad_request')
-      upstream = await fetchFn(GRAPHQL_URL, {
+      upstream = await send(GRAPHQL_URL, {
         method: 'POST',
         headers: { 'User-Agent': USER_AGENT, 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ query: PEOPLE_QUERY, variables: { search: name } }),
@@ -230,23 +372,23 @@ export async function handleShiki(request: Request, fetchFn: FetchLike = fetch):
     } else if (op === 'person') {
       const id = parseId(q.get('id'))
       if (!id) return fail(400, 'bad_request')
-      upstream = await fetchFn(`${PEOPLE_URL}/${id}`, {
+      upstream = await send(`${PEOPLE_URL}/${id}`, {
         method: 'GET',
         headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
         signal: AbortSignal.timeout(TIMEOUT_MS),
       })
       // 居ない人。参加作品が無いだけなので、空として返して控えさせる
-      if (upstream.status === 404) return respond(200, { cast: [], staff: [] }, CACHE_OK)
+      if (upstream.status === 404) return keep(singleKey, { cast: [], staff: [] }, TTL_PERSON)
     } else if (op === 'similar') {
       const id = parseId(q.get('id'))
       if (!id) return fail(400, 'bad_request')
-      upstream = await fetchFn(`${REST_URL}/${id}/similar`, {
+      upstream = await send(`${REST_URL}/${id}/similar`, {
         method: 'GET',
         headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
         signal: AbortSignal.timeout(TIMEOUT_MS),
       })
       // MyAnimeList に無い ID。似た作品が無いだけなので、空の一覧として返して控えさせる
-      if (upstream.status === 404) return respond(200, { ids: [] }, CACHE_OK)
+      if (upstream.status === 404) return keep(singleKey, { ids: [] }, TTL_SIMILAR)
     } else {
       return fail(400, 'bad_request')
     }
@@ -254,6 +396,7 @@ export async function handleShiki(request: Request, fetchFn: FetchLike = fetch):
     return fail(502, 'upstream_unreachable')
   }
 
+  if (limitedFor !== null) return fail(429, 'rate_limited', { 'Retry-After': String(limitedFor) })
   if (upstream.status === 429) return fail(429, 'rate_limited', { 'Retry-After': '5' })
   if (!upstream.ok) return fail(502, 'upstream_error')
 
@@ -267,23 +410,31 @@ export async function handleShiki(request: Request, fetchFn: FetchLike = fetch):
   if (op === 'animes' || op === 'studio') {
     const list = (data as { data?: { animes?: RawAnime[] } } | null)?.data?.animes
     if (!Array.isArray(list)) return fail(502, 'upstream_error')
-    return respond(200, { animes: list.flatMap((a) => trim(a) ?? []) }, CACHE_OK)
+    const animes = list.flatMap((a) => trim(a) ?? [])
+    if (op === 'studio') return keep(singleKey, { animes }, TTL_STUDIO)
+    // 作品ごとに控える。頼んだのに返らなかった ID も「無い」として控える（毎回聞き直さない）
+    const found = new Set(animes.map((a) => a.id))
+    await store.set([
+      ...animes.map((a) => ({ key: `${KEY}:anime:${a.id}`, value: JSON.stringify(a), ttl: a.status === 'released' ? TTL_RELEASED : TTL_CHANGING })),
+      ...ids.filter((id) => !found.has(id)).map((id) => ({ key: `${KEY}:anime:${id}`, value: 'null', ttl: TTL_MISSING })),
+    ])
+    return respond(200, { animes: [...cachedAnimes, ...animes] }, CACHE_OK)
   }
   if (op === 'characters') {
     const list = (data as { data?: { characters?: { id?: unknown; japanese?: unknown }[] } } | null)?.data?.characters
     if (!Array.isArray(list)) return fail(502, 'upstream_error')
     // 日本語名は「姓 名」の間を空けて返る。役名としては詰める（「竈門 炭治郎」→「竈門炭治郎」）
-    return respond(
-      200,
-      {
-        characters: list.flatMap((c) => {
-          const id = num(c?.id)
-          const ja = str(c?.japanese)?.replace(/\s+/g, '')
-          return id && id > 0 && ja && ja.length <= 60 ? [{ id, ja }] : []
-        }),
-      },
-      CACHE_OK,
-    )
+    const characters = list.flatMap((c) => {
+      const id = num(c?.id)
+      const ja = str(c?.japanese)?.replace(/\s+/g, '')
+      return id && id > 0 && ja && ja.length <= 60 ? [{ id, ja }] : []
+    })
+    const found = new Set(characters.map((c) => c.id))
+    await store.set([
+      ...characters.map((c) => ({ key: `${KEY}:char:${c.id}`, value: JSON.stringify(c), ttl: TTL_CHARACTER })),
+      ...ids.filter((id) => !found.has(id)).map((id) => ({ key: `${KEY}:char:${id}`, value: 'null', ttl: TTL_MISSING })),
+    ])
+    return respond(200, { characters: [...cachedChars, ...characters] }, CACHE_OK)
   }
   if (op === 'people') {
     const list = (data as { data?: { people?: { id?: unknown; name?: unknown; japanese?: unknown }[] } } | null)?.data?.people
@@ -328,16 +479,16 @@ export async function handleShiki(request: Request, fetchFn: FetchLike = fetch):
     }
     const staff = [...staffRoles].slice(0, MAX_PERSON_WORKS).map(([id, r]) => ({ id, r }))
     // v=2 までの画面には、今までの形（声の出演は ID だけ）で返す
-    if (q.get('v') !== '4') return respond(200, { cast: castIds, staff }, CACHE_OK)
+    if (q.get('v') !== '4') return keep(singleKey, { cast: castIds, staff }, TTL_PERSON)
     // 演じたキャラクターは ID とローマ字の名前だけ。日本語名は画面が op=characters で引く（1回の問い合わせで Shikimori へ出るのは1回に保つ）
     const cast = castIds.map((id) => ({ id, ch: (castChars.get(id) ?? []).slice(0, MAX_CHARACTERS_PER_WORK).map((c) => ({ i: c, n: romaji.get(c) ?? null })) }))
-    return respond(200, { cast, staff }, CACHE_OK)
+    return keep(singleKey, { cast, staff }, TTL_PERSON)
   }
   if (!Array.isArray(data)) return fail(502, 'upstream_error')
-  const ids = data.flatMap((a: { id?: unknown }) => (num(a?.id) ? [num(a.id)] : [])).slice(0, MAX_SIMILAR)
-  return respond(200, { ids }, CACHE_OK)
+  const similar = data.flatMap((a: { id?: unknown }) => (num(a?.id) ? [num(a.id)] : [])).slice(0, MAX_SIMILAR)
+  return keep(singleKey, { ids: similar }, TTL_SIMILAR)
 }
 
 export function GET(request: Request): Promise<Response> {
-  return handleShiki(request)
+  return handleShiki(request, fetch, storeFromEnv(process.env))
 }

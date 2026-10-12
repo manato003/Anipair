@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { GET, handleShiki } from '../api/shiki'
+import { GET, handleShiki, storeFromEnv, upstashStore, type ShikiStore } from '../api/shiki'
 
 type Fetch = (url: string, init: RequestInit) => Promise<Response>
 
@@ -426,3 +426,122 @@ describe('handleShiki studio (the works of a studio)', () => {
   })
 })
 
+
+// 2026-10-12: Upstash Redis に Shikimori の公開データを作品ごとに控え、Shikimori へ送る回数を全利用者で数える
+function fakeStore(opts: { wait?: number | null; broken?: boolean } = {}) {
+  const data = new Map<string, { value: string; ttl: number }>()
+  let takes = 0
+  const store: ShikiStore = {
+    async get(keys) {
+      if (opts.broken) throw new Error('down')
+      return keys.map((k) => data.get(k)?.value ?? null)
+    },
+    async set(entries) {
+      if (opts.broken) throw new Error('down')
+      for (const e of entries) data.set(e.key, { value: e.value, ttl: e.ttl })
+    },
+    async take() {
+      if (opts.broken) throw new Error('down')
+      takes++
+      return opts.wait ?? null
+    },
+  }
+  return { store, data, takes: () => takes }
+}
+
+describe('handleShiki with the shared store (Upstash)', () => {
+  const AIRING = { ...RAW, malId: '60000', status: 'ongoing' }
+
+  it('keeps each anime by itself (30 days when finished, 1 day while airing, 7 days for unknown ids) and asks Shikimori only for the missing ones', async () => {
+    const s = fakeStore()
+    const fetchFn = upstream(200, { data: { animes: [RAW, AIRING] } })
+    const first = await handleShiki(req('?op=animes&ids=777,52991,60000'), fetchFn, s.store)
+    expect(((await json(first)).animes as unknown[]).length).toBe(2)
+    expect(s.data.get('shiki:1:anime:52991')?.ttl).toBe(30 * 86400)
+    expect(s.data.get('shiki:1:anime:60000')?.ttl).toBe(86400)
+    expect(s.data.get('shiki:1:anime:777')).toEqual({ value: 'null', ttl: 7 * 86400 })
+    // 別の並び（別の人の頼み）でも、控えにある作品は聞かない。無い作品だけを聞く
+    const fetch2 = upstream(200, { data: { animes: [{ ...RAW, malId: '5114' }] } })
+    const second = await handleShiki(req('?op=animes&ids=777,5114,52991'), fetch2, s.store)
+    expect(JSON.parse(String(fetch2.mock.calls[0][1].body)).variables).toEqual({ ids: '5114' })
+    const ids = ((await json(second)).animes as { id: number }[]).map((a) => a.id).sort((a, b) => a - b)
+    expect(ids).toEqual([5114, 52991])
+    // 全部控えにあれば、Shikimori にも数える回数にも触れない
+    const fetch3 = upstream(200, {})
+    const before = s.takes()
+    const third = await handleShiki(req('?op=animes&ids=777,52991'), fetch3, s.store)
+    expect(third.status).toBe(200)
+    expect(fetch3).not.toHaveBeenCalled()
+    expect(s.takes()).toBe(before)
+  })
+
+  it('keeps similar lists for 30 days, including the empty list for an unknown id', async () => {
+    const s = fakeStore()
+    await handleShiki(req('?op=similar&id=52991'), upstream(200, [{ id: 1 }, { id: 2 }]), s.store)
+    await handleShiki(req('?op=similar&id=99999999'), upstream(404, {}), s.store)
+    expect(s.data.get('shiki:1:similar:52991')).toEqual({ value: '{"ids":[1,2]}', ttl: 30 * 86400 })
+    expect(s.data.get('shiki:1:similar:99999999')?.value).toBe('{"ids":[]}')
+    const fetchFn = upstream(200, [])
+    const res = await handleShiki(req('?op=similar&id=52991'), fetchFn, s.store)
+    expect(await json(res)).toEqual({ ids: [1, 2] })
+    expect(fetchFn).not.toHaveBeenCalled()
+  })
+
+  it('does not ask Shikimori past the shared limit; tells the app how long to wait, without caching', async () => {
+    const s = fakeStore({ wait: 12 })
+    const fetchFn = upstream(200, [])
+    const res = await handleShiki(req('?op=similar&id=52991'), fetchFn, s.store)
+    expect(res.status).toBe(429)
+    expect(res.headers.get('retry-after')).toBe('12')
+    expect(res.headers.get('cache-control')).toBe('no-store')
+    expect(fetchFn).not.toHaveBeenCalled()
+    expect(s.data.size).toBe(0)
+  })
+
+  it('still answers when the store is down (asks Shikimori directly, as before)', async () => {
+    const s = fakeStore({ broken: true })
+    const fetchFn = upstream(200, { data: { animes: [RAW] } })
+    const res = await handleShiki(req('?op=animes&ids=52991'), fetchFn, s.store)
+    expect(res.status).toBe(200)
+    expect(fetchFn).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not count or store a request it refuses', async () => {
+    const s = fakeStore()
+    expect((await handleShiki(req('?op=similar&id=abc'), upstream(200, []), s.store)).status).toBe(400)
+    expect(s.takes()).toBe(0)
+    expect(s.data.size).toBe(0)
+  })
+})
+
+describe('upstashStore', () => {
+  const answer = (results: unknown[]) => vi.fn<Fetch>(async () => new Response(JSON.stringify(results.map((result) => ({ result }))), { status: 200 }))
+
+  it('talks to the REST pipeline with the token, and reads many keys at once', async () => {
+    const fetchFn = answer([['a', null]])
+    const store = upstashStore('https://x.upstash.io/', 'tok', fetchFn)
+    expect(await store.get(['k1', 'k2'])).toEqual(['a', null])
+    const [url, init] = fetchFn.mock.calls[0]
+    expect(url).toBe('https://x.upstash.io/pipeline')
+    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer tok')
+    expect(JSON.parse(String(init.body))).toEqual([['MGET', 'k1', 'k2']])
+  })
+
+  it('counts per second and per minute, and asks to wait past 4 a second or 80 a minute', async () => {
+    const at = Date.UTC(2026, 9, 12, 0, 0, 45)
+    expect(await upstashStore('https://x', 't', answer([1, 1, 1, 1])).take(at)).toBeNull()
+    expect(await upstashStore('https://x', 't', answer([5, 1, 30, 1])).take(at)).toBe(1)
+    expect(await upstashStore('https://x', 't', answer([1, 1, 81, 1])).take(at)).toBe(15)
+  })
+
+  it('fails (so the handler goes on without it) on an error answer', async () => {
+    const fetchFn = vi.fn<Fetch>(async () => new Response(JSON.stringify([{ error: 'WRONGPASS' }]), { status: 200 }))
+    await expect(upstashStore('https://x', 't', fetchFn).get(['k'])).rejects.toThrow()
+  })
+
+  it('is used only when both environment variables are set', () => {
+    expect(storeFromEnv({})).toBeNull()
+    expect(storeFromEnv({ KV_REST_API_URL: 'https://x' })).toBeNull()
+    expect(storeFromEnv({ KV_REST_API_URL: 'https://x', KV_REST_API_TOKEN: 't' })).not.toBeNull()
+  })
+})

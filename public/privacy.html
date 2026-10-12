@@ -86,6 +86,7 @@
             <strong>作品情報の提供元</strong>（現在は<a href="https://shikimori.io/" rel="noreferrer">Shikimori</a>）:
             ジャンル、似た作品、関連作品、表紙の画像の場所、声優・スタッフ・制作会社の参加作品などの公開データ。本アプリの中継の仕組みを通して取得し、利用者を特定する情報は送りません。
             参加作品を探すときは、作品の詳細に載っている人物の名前（Annictに公開されている名前）を送ります。
+            中継は、Shikimoriの公開データの控えと、Shikimoriへの問い合わせの回数を数えるために、Upstash（Redis）を使います。そこに利用者の情報は置きません。
           </li>
           <li>
             <strong>Wikipedia</strong>（<a href="https://ja.wikipedia.org/" rel="noreferrer">ja.wikipedia.org</a>）:
@@ -173,7 +174,7 @@
           <h2>3. Services Anipair connects to</h2>
           <ul>
             <li><strong>Annict</strong>: login, reading and writing your watch records and ratings, and anime information, using only Annict's public API. Your records are stored in your own Annict account.</li>
-            <li><strong>Anime data provider</strong> (currently Shikimori): public data such as genres, similar and related anime, cover image locations, and the works of voice actors, staff and studios, fetched through Anipair's proxy without any information that identifies you. To look up the works of a person, Anipair sends that person's public name as listed on Annict.</li>
+            <li><strong>Anime data provider</strong> (currently Shikimori): public data such as genres, similar and related anime, cover image locations, and the works of voice actors, staff and studios, fetched through Anipair's proxy without any information that identifies you. To look up the works of a person, Anipair sends that person's public name as listed on Annict. The proxy uses Upstash (Redis) to keep copies of Shikimori's public data and to count requests to Shikimori; no information about you is stored there.</li>
             <li><strong>Wikipedia</strong>: when you open the details of an anime, its synopsis is read from the article through Wikipedia's public API, without any information that identifies you.</li>
             <li><strong>GitHub</strong>, only if you connect it: your pass, skip and "not watched" records, your priority marks and notes on "want to watch" anime, and backups are saved to your own repository.</li>
             <li><strong>Google Fonts</strong>: web fonts used to display the app.</li>
