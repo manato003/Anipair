@@ -36,15 +36,6 @@ export function AccountBlock(props: { token: string; onChange: (token: string | 
         >
           ログアウト
         </button>
-        <button
-          type="button"
-          className="link"
-          onClick={() => {
-            props.onChange(null, { forget: true })
-          }}
-        >
-          ログアウトして、この端末の記録も消す
-        </button>
       </div>
       {/* 説明は1行に。細かいこと（端末の記録の戻り方・GitHub のトークン）は畳む（#30: 5行あって読まれにくかった） */}
       <p className="settings__hint">ログアウトしても、Annictの記録は消えません。</p>
@@ -64,6 +55,20 @@ export function AccountBlock(props: { token: string; onChange: (token: string | 
             。
           </p>
         )}
+        {/* 消す方は、端末を手放すときなどにしか使わないので畳んだ中に置き、確認を挟む。
+            前は「ログアウト」と並んでいて、Annict のログインまで切れそうに見えた（2026-10-13 利用者） */}
+        <div className="settings__actions">
+          <button
+            type="button"
+            className="link"
+            onClick={() => {
+              if (confirm('この端末のAnipairのデータを削除して、ログアウトします。削除したデータは元に戻せません。')) props.onChange(null, { forget: true })
+            }}
+          >
+            ログアウトして、Anipairのデータを削除
+          </button>
+        </div>
+        <p className="settings__hint">Annictの記録は消えません。この端末に置いた、興味なし・見てない・称号などを削除します。</p>
       </details>
     </Section>
   )

@@ -163,6 +163,19 @@ describe('App remembers the screen across a reload', () => {
     expect(sessionStorage.getItem('animax.tab')).toBeNull()
   })
 
+  // 「Annictでログイン」は Annict にログインしているアカウントでそのまま入るので、どのアカウントで入ったかを一度だけ知らせる（2026-10-13）
+  it('after logging in, says once which account it signed in with', async () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: '設定' }))
+    fireEvent.click(await screen.findByRole('button', { name: '別のトークンにする' }))
+    await waitFor(() => expect(reloadPage).toHaveBeenCalledTimes(1))
+    expect(sessionStorage.getItem('anipair.signedInAs')).toBe('@bob')
+    cleanup()
+    render(<App />)
+    expect(screen.getByText('@bobでログインしました。')).toBeTruthy()
+    expect(sessionStorage.getItem('anipair.signedInAs')).toBeNull()
+  })
+
   it('reloads the page from the logo in the top bar', () => {
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'Anipair（読み込み直す）' }))

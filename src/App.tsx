@@ -87,6 +87,25 @@ function loadTab(signedIn: boolean): Tab {
   return 'rate'
 }
 
+// ログインしたら、読み込み直したあとに「○○でログインしました」と一度だけ出す。「Annictでログイン」は Annict にログインしている
+// アカウントでそのまま入るので、別のアカウントのつもりで前のアカウントに入っても気づけるように（2026-10-13 利用者）
+const SIGNED_IN_KEY = 'anipair.signedInAs'
+function loadSignedInAs(): string | null {
+  try {
+    return sessionStorage.getItem(SIGNED_IN_KEY)
+  } catch {
+    return null
+  }
+}
+function setSignedInAs(name: string | null): void {
+  try {
+    if (name) sessionStorage.setItem(SIGNED_IN_KEY, name)
+    else sessionStorage.removeItem(SIGNED_IN_KEY)
+  } catch {
+    // 出せないだけ
+  }
+}
+
 function forgetTab(): void {
   try {
     sessionStorage.removeItem(TAB_KEY)
@@ -143,6 +162,14 @@ export default function App() {
   const [switching, setSwitching] = useState(false)
   // 端末の容量が足りず、切り替えられなかった
   const [switchFailed, setSwitchFailed] = useState(false)
+  // ログインした直後の知らせ（読むのは描画のとき、消すのは描画のあと。開発の二重の呼び出しで消えないように）
+  const [signedInAs, setSignedInAsShown] = useState(() => (token ? loadSignedInAs() : null))
+  useEffect(() => {
+    if (!signedInAs) return
+    setSignedInAs(null)
+    const timer = window.setTimeout(() => setSignedInAsShown(null), 6000)
+    return () => window.clearTimeout(timer)
+  }, [signedInAs])
 
   // ログイン・ログアウト（next が null）。手順（2026-10-06 のセキュリティの点検で作り直した）:
   // 1. 送信待ちを送り切る（前の人の答えを失わない。ログアウトのあとに前の人のトークンで書かない）
@@ -175,7 +202,8 @@ export default function App() {
       else unclaimed = true
     }
     // 持ち主を読めなければ、名前の分からないログインとして進む（前の人の記録は退避し、あとで分かったらその人の分を戻す）
-    const owner = next ? await ownerOf(next) : null
+    const viewer = next ? await fetchViewer(next).catch(() => null) : null
+    const owner = viewer ? ownerKeyOf(viewer) : null
     try {
       saveAnnictToken(next)
       if (unclaimed) setAsideUnclaimed()
@@ -190,6 +218,7 @@ export default function App() {
       setSwitchFailed(true)
       return
     }
+    setSignedInAs(viewer ? (viewer.name ? `${viewer.name}（@${viewer.username}）` : `@${viewer.username}`) : null)
     freezeStorage()
     reloadPage()
   }
@@ -322,6 +351,16 @@ export default function App() {
         {switching && (
           <div className="auth-banner" role="status">
             <p className="auth-banner__text">記録を送り終えてから切り替えます…</p>
+          </div>
+        )}
+        {signedInAs && !switching && (
+          <div className="auth-banner" role="status">
+            <p className="auth-banner__text">{signedInAs}でログインしました。</p>
+            <div className="auth-banner__actions">
+              <button type="button" className="link" onClick={() => setSignedInAsShown(null)}>
+                閉じる
+              </button>
+            </div>
           </div>
         )}
         {switchFailed && !switching && (

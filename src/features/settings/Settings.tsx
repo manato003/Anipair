@@ -4,6 +4,7 @@ import { BackIcon, BoxIcon, CommentIcon, InfoIcon, KeyIcon, NewsIcon, PaletteIco
 import { annictClientId } from '../../lib/annictLogin'
 import type { GithubConnection } from '../../lib/github'
 import { rememberScroll, restoreScroll } from '../../lib/pageScroll'
+import { isLoggedOut } from '../../lib/storage'
 import { useWide } from '../../lib/useWide'
 import { useSwipeIntercept } from '../../lib/useSwipeNav'
 import { AboutBlock } from './AboutBlock'
@@ -65,9 +66,9 @@ export function Settings(props: {
           clientId={props.clientId === undefined ? annictClientId() : props.clientId}
           busy={props.loginBusy ?? false}
           error={props.loginError ?? null}
+          loggedOut={isLoggedOut()}
           onAnnictTokenChange={props.onAnnictTokenChange}
         />
-        <AboutBlock showTagline={false} welcome />
       </section>
     )
   }

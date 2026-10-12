@@ -245,6 +245,11 @@ export function loadOwner(): string | null {
   return read(KEYS.owner)
 }
 
+// この端末で、ログインしてからログアウトしたままか（ログインの画面に、別のアカウントでの入り方を添える）
+export function isLoggedOut(): boolean {
+  return loadOwner() === LOGGED_OUT
+}
+
 // 名前をまだ確かめられないログインのあいだの記録は、そのときのトークンの印（トークンそのものではなく、短いハッシュ）を持ち主にする。
 // 同じトークンで名前が分かったときだけ、その人のものにする（名前が分からないままログアウトした記録を、次の別の人に引き継がない。
 // 2026-10-06 のセキュリティの点検の指摘）
@@ -421,7 +426,7 @@ function mergeKept(key: string, current: string, kept: string): string {
   return kept
 }
 
-// いまの人の記録を、この端末から消す（「ログアウトして、この端末の記録も消す」）。退避していた分も消す
+// いまの人の記録を、この端末から消す（「ログアウトして、Anipairのデータを削除」）。退避していた分も消す
 export function forgetAccount(): void {
   const owner = loadOwner()
   for (const key of PERSONAL_KEYS) write(key, null)

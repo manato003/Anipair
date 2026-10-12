@@ -281,8 +281,21 @@ describe('Settings first screen (no Annict token)', () => {
     expect(screen.getByRole('heading', { name: 'Anipair' })).toBeTruthy()
     expect(screen.getByText(/タップだけで付けられるアプリです/)).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Annictでログイン' })).toBeTruthy()
-    expect(screen.getByText(/ご利用にはAnnictのアカウントが必要です/)).toBeTruthy()
+    expect(screen.getByText(/アカウントをお持ちでない方は/)).toBeTruthy()
     expect((screen.getByRole('link', { name: 'Annictで新規登録' }) as HTMLAnchorElement).href).toBe('https://annict.com/sign_up')
+  })
+
+  // 「Annictでログイン」は Annict にログインしているアカウントでそのまま入る。ログアウトした端末にだけ、別のアカウントでの入り方を添える（2026-10-13）
+  it('after a logout on this device, tells how to sign in with another Annict account (same window)', () => {
+    show({ annictToken: null, clientId: 'cid' })
+    expect(screen.queryByText(/別のアカウントと連携するときは/)).toBeNull()
+    cleanup()
+    localStorage.setItem('animax.owner.v1', '!')
+    show({ annictToken: null, clientId: 'cid' })
+    expect(screen.getByText(/先にAnnictのサイトでそのアカウントにログインしてください/)).toBeTruthy()
+    const link = screen.getByRole('link', { name: 'Annictを開く' }) as HTMLAnchorElement
+    expect(link.href).toBe('https://annict.com/')
+    expect(link.target).toBe('')
   })
 
   it('puts the logo and the tagline at the top of the welcome', () => {
@@ -294,9 +307,12 @@ describe('Settings first screen (no Annict token)', () => {
     expect(heading.nextElementSibling?.nextElementSibling?.textContent).toBe(TAGLINE)
   })
 
-  it('shows only the welcome and the about block (no GitHub, backup or keys yet)', () => {
-    show({ annictToken: null, clientId: 'cid' })
-    expect(screen.getByRole('heading', { name: 'このアプリについて' })).toBeTruthy()
+  it('shows only the welcome and a folded 「このアプリについて」 (no GitHub, backup or keys yet)', () => {
+    const { container } = show({ annictToken: null, clientId: 'cid' })
+    const about = container.querySelector('details.welcome__about') as HTMLDetailsElement
+    expect(about.open).toBe(false)
+    expect(about.querySelector(':scope > summary')?.textContent).toBe('このアプリについて')
+    expect(about.textContent).toContain('個人が開発した、Annictの非公式アプリです')
     expect(screen.queryByRole('heading', { name: 'GitHub連携（任意）' })).toBeNull()
     expect(screen.queryByRole('heading', { name: 'バックアップ' })).toBeNull()
   })
@@ -317,9 +333,10 @@ describe('Settings first screen (no Annict token)', () => {
     expect(screen.getByRole('alert').textContent).toBe('ログインの確認に失敗しました。')
   })
 
-  it('folds the personal-token form under the developer heading when the login is available', () => {
+  it('folds the personal-token form under the developer heading, inside 「このアプリについて」, when the login is available', () => {
     const { container } = show({ annictToken: null, clientId: 'cid' })
-    const details = container.querySelector('details') as HTMLDetailsElement
+    const details = container.querySelector('details.settings__dev') as HTMLDetailsElement
+    expect(details.closest('details.welcome__about')).toBeTruthy()
     expect(details.open).toBe(false)
     expect(details.querySelector('summary')?.textContent).toBe('開発者向け: 個人用アクセストークンで使う')
     expect(details.querySelector('input[type="password"]')).toBeTruthy()
@@ -328,7 +345,9 @@ describe('Settings first screen (no Annict token)', () => {
   it('without a client id there is no login button and the developer form is open', () => {
     const { container } = show({ annictToken: null, clientId: null })
     expect(screen.queryByRole('button', { name: 'Annictでログイン' })).toBeNull()
-    expect((container.querySelector('details') as HTMLDetailsElement).open).toBe(true)
+    const dev = container.querySelector('details.settings__dev') as HTMLDetailsElement
+    expect(dev.open).toBe(true)
+    expect(dev.closest('details.welcome__about')).toBeNull()
   })
 
   it('connects with a personal token from the developer form', async () => {
@@ -348,10 +367,9 @@ describe('Settings first screen (no Annict token)', () => {
 })
 
 describe('Settings about block', () => {
-  it('is at the end of the screen when signed out', () => {
-    show({ annictToken: null, clientId: null })
-    const headings = screen.getAllByRole('heading').map((h) => h.textContent)
-    expect(headings.at(-1)).toBe('このアプリについて')
+  it('is folded under the notes below the login button when signed out', () => {
+    const { container } = show({ annictToken: null, clientId: 'cid' })
+    expect(container.querySelector('.welcome__notes + details.welcome__about')).toBeTruthy()
   })
 
   it('is the last group when signed in', () => {
@@ -420,6 +438,18 @@ describe('Settings layout (sections, status first, folded explanations)', () => 
     expect(document.querySelector('.folder')).toBeNull()
   })
 
+  it('deletes the data on this device only after a confirmation, from inside 詳しく', () => {
+    show({ section: 'settings-account' })
+    const del = screen.getByRole('button', { name: 'ログアウトして、Anipairのデータを削除' })
+    expect(del.closest('details')).toBeTruthy()
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true)
+    fireEvent.click(del)
+    expect(onAnnictTokenChange).not.toHaveBeenCalled()
+    fireEvent.click(del)
+    expect(onAnnictTokenChange).toHaveBeenCalledWith(null, { forget: true })
+    confirm.mockRestore()
+  })
+
   it('shows who is connected as the status of the account section', async () => {
     show({ section: 'settings-account' })
     expect(await screen.findByText('テスト（@tester）で連携中')).toBeTruthy()
@@ -477,9 +507,19 @@ describe('Settings layout (sections, status first, folded explanations)', () => 
     expect((screen.getAllByRole('link', { name: 'プライバシーポリシー' })[0] as HTMLAnchorElement).getAttribute('href')).toBe('/privacy.html')
   })
 
-  it('the signed-out first screen also has the small footer links under the sign-up note', () => {
+  it('the signed-out first screen keeps the terms inside 「このアプリについて」', () => {
     const { container } = show({ annictToken: null, clientId: 'cid' })
-    expect(container.querySelector('.settings__legal a[href="/terms.html"]')).toBeTruthy()
+    expect(container.querySelector('details.welcome__about a[href="/terms.html"]')).toBeTruthy()
+  })
+
+  // 新規登録は多くの人に、別のアカウントは少数に関わるので、新規登録を先に。1つずつ「・」で分ける（2026-10-13 利用者）
+  it('lists the sign-up note before the other-account note', () => {
+    localStorage.setItem('animax.owner.v1', '!')
+    const { container } = show({ annictToken: null, clientId: 'cid' })
+    const items = [...container.querySelectorAll('.welcome__notes > li')].map((li) => li.textContent)
+    expect(items).toHaveLength(2)
+    expect(items[0]).toContain('アカウントをお持ちでない方は')
+    expect(items[1]).toContain('別のアカウントで連携するときは')
   })
 })
 
