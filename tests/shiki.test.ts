@@ -452,12 +452,12 @@ function fakeStore(opts: { wait?: number | null; broken?: boolean } = {}) {
 describe('handleShiki with the shared store (Upstash)', () => {
   const AIRING = { ...RAW, malId: '60000', status: 'ongoing' }
 
-  it('keeps each anime by itself (30 days when finished, 1 day while airing, 7 days for unknown ids) and asks Shikimori only for the missing ones', async () => {
+  it('keeps each anime by itself (90 days when finished, 1 day while airing, 7 days for unknown ids) and asks Shikimori only for the missing ones', async () => {
     const s = fakeStore()
     const fetchFn = upstream(200, { data: { animes: [RAW, AIRING] } })
     const first = await handleShiki(req('?op=animes&ids=777,52991,60000'), fetchFn, s.store)
     expect(((await json(first)).animes as unknown[]).length).toBe(2)
-    expect(s.data.get('shiki:1:anime:52991')?.ttl).toBe(30 * 86400)
+    expect(s.data.get('shiki:1:anime:52991')?.ttl).toBe(90 * 86400)
     expect(s.data.get('shiki:1:anime:60000')?.ttl).toBe(86400)
     expect(s.data.get('shiki:1:anime:777')).toEqual({ value: 'null', ttl: 7 * 86400 })
     // 別の並び（別の人の頼み）でも、控えにある作品は聞かない。無い作品だけを聞く
@@ -475,11 +475,11 @@ describe('handleShiki with the shared store (Upstash)', () => {
     expect(s.takes()).toBe(before)
   })
 
-  it('keeps similar lists for 30 days, including the empty list for an unknown id', async () => {
+  it('keeps similar lists for 90 days, including the empty list for an unknown id', async () => {
     const s = fakeStore()
     await handleShiki(req('?op=similar&id=52991'), upstream(200, [{ id: 1 }, { id: 2 }]), s.store)
     await handleShiki(req('?op=similar&id=99999999'), upstream(404, {}), s.store)
-    expect(s.data.get('shiki:1:similar:52991')).toEqual({ value: '{"ids":[1,2]}', ttl: 30 * 86400 })
+    expect(s.data.get('shiki:1:similar:52991')).toEqual({ value: '{"ids":[1,2]}', ttl: 90 * 86400 })
     expect(s.data.get('shiki:1:similar:99999999')?.value).toBe('{"ids":[]}')
     const fetchFn = upstream(200, [])
     const res = await handleShiki(req('?op=similar&id=52991'), fetchFn, s.store)

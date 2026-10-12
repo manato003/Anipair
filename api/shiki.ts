@@ -52,11 +52,12 @@ export interface ShikiStore {
 }
 
 const DAY = 86400
-// 作品の情報: 放送が終わった作品は30日、放送中・放送前は1日（話数や状態が変わる）。Shikimori に無い ID は7日
-const TTL_RELEASED = 30 * DAY
+// 作品の情報: 放送が終わった作品は90日（点数や続編のつながりは少しずつ変わるが、3か月なら困らない。2026-10-12 利用者と決めた）、
+// 放送中・放送前は1日（話数や状態が変わる）。Shikimori に無い ID は7日
+const TTL_RELEASED = 90 * DAY
 const TTL_CHANGING = DAY
 const TTL_MISSING = 7 * DAY
-const TTL_SIMILAR = 30 * DAY
+const TTL_SIMILAR = 90 * DAY
 const TTL_CHARACTER = 30 * DAY
 const TTL_PERSON = 7 * DAY
 const TTL_STUDIO = DAY
