@@ -3,7 +3,7 @@ import { Spinner } from '../../components/Loading'
 import { storedAtLabel } from '../../lib/offlineCache'
 import { useNotice } from '../../lib/notices'
 import { useWriteQueue } from '../../lib/useWriteQueue'
-import { isStillPending, journalDone, leftoverEntries, type JournalEntry } from '../../lib/writeJournal'
+import { journalDone, leftoverEntries, pendingIntent, type JournalEntry, type WriteIntent } from '../../lib/writeJournal'
 import { reconcileIntent } from './reconcile'
 
 // 前回開いたときに送れなかった書き込み（送る前に閉じた・失敗したまま閉じた）を知らせる帯。送るかどうかは利用者が決める
@@ -21,11 +21,11 @@ export function UnsentWrites(props: { token: string }) {
   function send() {
     for (const group of groups) {
       // そのあとで同じ項目を頼み直していれば、古い行き先では送らない
-      const still = group.filter(isStillPending)
-      if (still.length === 0) continue
-      const intents = still.map((e) => e.intent)
+      // 今回あとから同じ項目を頼み直していれば、その項目は送らない（例: 総合評価を付け直した作品の、前回の感想は中身だけ書く）
+      const intents = group.map(pendingIntent).filter((i): i is WriteIntent => i !== null)
+      if (intents.length === 0) continue
       queue.enqueue(
-        still[0].label,
+        group[0].label,
         async () => {
           for (const intent of intents) await reconcileIntent(props.token, intent)
         },

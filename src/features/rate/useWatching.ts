@@ -1,3 +1,4 @@
+import { idMalOf } from '../../lib/writeJournal'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchCovers, quickCovers } from '../../lib/covers'
 import { loadStoredLibrary } from '../../lib/offlineCache'
@@ -132,6 +133,7 @@ export function useWatching(token: string) {
         return
       }
       const { workId, annictId, title } = card.entry
+      const idMal = idMalOf(card.entry.malAnimeId)
       enqueue(
         `「${title}」の記録`,
         async () => {
@@ -142,7 +144,7 @@ export function useWatching(token: string) {
           entry.before = current?.ratingOverallState ?? null
           await rememberReview(token, annictId, await changeRating(token, workId, current, a.rating))
         },
-        [{ kind: 'status', workId, state: TARGET[a.kind] }, ...(a.kind === 'rate' ? [{ kind: 'rating' as const, workId, annictId, rating: a.rating }] : [])],
+        [{ kind: 'status', workId, state: TARGET[a.kind], idMal }, ...(a.kind === 'rate' ? [{ kind: 'rating' as const, workId, annictId, rating: a.rating, idMal }] : [])],
       )
     },
     [cards, index, token, enqueue],
@@ -158,6 +160,7 @@ export function useWatching(token: string) {
       return
     }
     const { workId, annictId, title } = entry.card.entry
+    const idMal = idMalOf(entry.card.entry.malAnimeId)
     const rated = entry.answer.kind === 'rate'
     enqueue(
       `「${title}」の取り消し`,
@@ -169,7 +172,7 @@ export function useWatching(token: string) {
           await rememberReview(token, annictId, await changeRating(token, workId, current, entry.before))
         }
       },
-      [{ kind: 'status', workId, state: 'WATCHING' }, ...(rated ? [{ kind: 'rating' as const, workId, annictId, rating: entry.before ?? entry.guess }] : [])],
+      [{ kind: 'status', workId, state: 'WATCHING', idMal }, ...(rated ? [{ kind: 'rating' as const, workId, annictId, rating: entry.before ?? entry.guess, idMal }] : [])],
     )
   }, [token, enqueue])
 

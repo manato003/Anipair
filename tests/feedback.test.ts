@@ -102,6 +102,8 @@ describe('handleFeedback', () => {
 describe('parseFeedback and issueOf', () => {
   it('requires a known kind and a body of a sensible length, and keeps the optional fields to one line', () => {
     expect(parseFeedback({ kind: 'question', body: '短い' })).toBeNull()
+    // 種類は決めた4つだけ（オブジェクトが継承している名前は通さない）
+    for (const kind of ['constructor', 'toString', '__proto__', 'hasOwnProperty']) expect(parseFeedback({ kind, body: '質問があります' })).toBeNull()
     expect(parseFeedback({ kind: 'question', body: '  質問があります  ', contact: '', device: null })).toEqual({ kind: 'question', body: '質問があります', contact: null, device: null })
     expect(parseFeedback({ kind: 'idea', body: '要望があります', contact: 'a\nb' })?.contact).toBe('a b')
     expect(parseFeedback({ kind: 'idea', body: '要望があります', contact: 'x'.repeat(101) })).toBeNull()

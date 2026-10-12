@@ -1,3 +1,4 @@
+import { idMalOf } from '../../lib/writeJournal'
 import { Phrase } from '../../components/Phrase'
 import { useEffect, useRef, useState } from 'react'
 import { CoverImage } from '../../components/CoverImage'
@@ -194,7 +195,7 @@ export function WorkDetail(
     setState(value === 'NO_STATE' ? null : value)
     setStateAt(value === 'NO_STATE' ? null : new Date().toISOString())
     props.onChange({ state: value === 'NO_STATE' ? null : value })
-    props.enqueue(`「${work.title}」の状態`, () => updateStatus(token, work.id, value), [{ kind: 'status', workId: work.id, state: value }])
+    props.enqueue(`「${work.title}」の状態`, () => updateStatus(token, work.id, value), [{ kind: 'status', workId: work.id, state: value, idMal: idMalOf(work.malAnimeId) }])
   }
 
   // 見てる作品の最終話まで記録したあと: 作品の評価を付けて（付けずに）「見た」にする
@@ -226,7 +227,7 @@ export function WorkDetail(
         const current = (await getMyReviews(token)).get(work.annictId) ?? null
         await rememberReview(token, work.annictId, await changeRating(token, work.id, current, value))
       },
-      [...(becomesWatched ? [{ kind: 'status' as const, workId: work.id, state: 'WATCHED' as const }] : []), { kind: 'rating', workId: work.id, annictId: work.annictId, rating: value }],
+      [...(becomesWatched ? [{ kind: 'status' as const, workId: work.id, state: 'WATCHED' as const, idMal: idMalOf(work.malAnimeId) }] : []), { kind: 'rating', workId: work.id, annictId: work.annictId, rating: value, idMal: idMalOf(work.malAnimeId) }],
     )
   }
 
@@ -425,7 +426,7 @@ export function WorkDetail(
                       {reviewAt.withText ? '評価と感想を付けた日時' : '評価を付けた日時'} <time dateTime={reviewAt.at}>{formatDateTime(reviewAt.at)}</time>
                     </p>
                   )}
-                  <ReviewEditor token={token} workId={work.id} annictId={work.annictId} title={work.title} overall={rating} enqueue={props.enqueue} />
+                  <ReviewEditor token={token} workId={work.id} annictId={work.annictId} idMal={idMalOf(work.malAnimeId)} title={work.title} overall={rating} enqueue={props.enqueue} />
                 </section>
 
                 {/* コレクションは Annict の機能（API では読み書きできない）。作り直さずに、Annict の作品ページへ案内する */}

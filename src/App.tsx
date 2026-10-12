@@ -37,6 +37,8 @@ import type { SettingsRequest } from './features/settings/Settings'
 import { rememberScroll, restoreScroll, scrollToTop } from './lib/pageScroll'
 import { MascotPeek } from './components/MascotPeek'
 import { ToTop } from './components/ToTop'
+import { Analytics } from '@vercel/analytics/react'
+import { analyticsEnabled, screenPath, withoutQuery } from './lib/analytics'
 
 type Tab = 'rate' | 'match' | 'records' | 'browse' | 'settings'
 
@@ -256,6 +258,10 @@ export default function App() {
 
   return (
     <div className="app" data-page={pageScroll || undefined}>
+      {/* アクセス解析: 開いた画面だけを数える（lib/analytics.ts） */}
+      {analyticsEnabled(window.location.hostname) && (
+        <Analytics route={screenPath(tab, token !== null)} path={screenPath(tab, token !== null)} beforeSend={withoutQuery} />
+      )}
       {/* 帯を主な画面の上に出すための枠（広い画面では上の帯のタブのすぐ下になる） */}
       <div className="app__body">
         {switching && (

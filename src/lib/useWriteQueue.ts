@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnnictError } from './annict'
 import { isFrozen, loadAnnictToken } from './storage'
-import { journalDone, journalPut, keyOf, type JournalTicket, type WriteIntent } from './writeJournal'
+import { fieldsOf, journalDone, journalPut, narrowIntent, type Field, type JournalTicket, type WriteIntent } from './writeJournal'
 
 export interface FailedWrite {
   label: string
@@ -12,33 +12,34 @@ export interface FailedWrite {
   intents?: readonly WriteIntent[]
   // 端末の控え（lib/writeJournal.ts）の札。送らないことにしたら控えからも消す
   ticket?: JournalTicket
-  // intents のそれぞれを頼んだときの番号（stamp）。あとから同じ項目を頼み直したかを見分ける
-  stamps?: readonly Stamp[]
+  // intents を頼んだときの番号。あとから同じ項目を頼み直したかを見分ける
+  stamp?: number
 }
 
-// 同じ項目（作品の状態・評価、話の記録など。writeJournal の keyOf）について、いちばん新しく頼んだ書き込みの番号。起動中だけ持つ。
+// 同じ項目（作品の状態・総合評価・感想の中身、話の記録など。writeJournal の fieldsOf の呼び名）について、いちばん新しく頼んだ書き込みの番号。起動中だけ持つ。
 // 失敗した書き込みを「もう一度」送るとき、そのあとで利用者が同じ項目を付け直した・取り消した分まで古い答えで上書きしないために使う
-// （2026-10-06 の点検で見つけた: 評価の送信が失敗 → 別の評価に付け直して成功 → 「もう一度」で古い評価に戻っていた）
-interface Stamp {
-  key: string
-  n: number
-}
-const latestByKey = new Map<string, number>()
+// （2026-10-06 の点検で見つけた: 評価の送信が失敗 → 別の評価に付け直して成功 → 「もう一度」で古い評価に戻っていた。
+// 2026-10-12 のレビュー: 感想の保存は総合評価も書くので、種類ごとに見ていると、あとで総合評価だけ変えた分を古い感想で戻していた）
+const latestByAlias = new Map<string, number>()
 let lastAsk = 0
-function stamp(intents: readonly WriteIntent[] | undefined): Stamp[] | undefined {
+function stamp(intents: readonly WriteIntent[] | undefined): number | undefined {
   if (!intents) return undefined
   const n = ++lastAsk
-  return intents.map((intent) => {
-    const key = keyOf(intent)
-    latestByKey.set(key, n)
-    return { key, n }
+  for (const intent of intents) for (const f of fieldsOf(intent)) for (const a of f.aliases) latestByAlias.set(a, n)
+  return n
+}
+// まだ上書きされていない行き先だけ（一部の項目が頼み直されていれば、残りの項目だけの行き先にする）
+function liveIntents(f: FailedWrite): readonly WriteIntent[] | undefined {
+  if (!f.intents || f.stamp === undefined) return f.intents
+  const n = f.stamp
+  return f.intents.flatMap((intent) => {
+    const dropped = new Set<Field>(fieldsOf(intent).filter((x) => x.aliases.some((a) => (latestByAlias.get(a) ?? 0) > n)).map((x) => x.name))
+    const live = narrowIntent(intent, dropped)
+    return live ? [live] : []
   })
 }
-// まだ上書きされていない行き先だけ
-function liveIntents(f: FailedWrite): readonly WriteIntent[] | undefined {
-  if (!f.intents || !f.stamps) return f.intents
-  return f.intents.filter((_, i) => latestByKey.get(f.stamps![i].key) === f.stamps![i].n)
-}
+// 頼んだときのまま、何も頼み直されていない
+const untouched = (f: FailedWrite, live: readonly WriteIntent[] | undefined) => !live || (live.length === f.intents?.length && live.every((x, i) => x === f.intents![i]))
 
 // 利用者に見せる形の失敗。links を付けると、失敗の表示に手で直すためのリンクが出る
 export class WriteError extends Error {
@@ -82,7 +83,7 @@ export function useWriteQueue() {
     setPending((p) => p + 1)
     pendingAll++
     const ticket = intents ? journalPut(label, intents) : []
-    const stamps = stamp(intents)
+    const n = stamp(intents)
     // この画面の失敗のうち、今の頼みですべて上書きされたものは一覧から外す（もう送らない）
     if (intents && failedRef.current.some((f) => liveIntents(f)?.length === 0)) {
       updateFailed(failedRef.current.filter((f) => liveIntents(f)?.length !== 0))
@@ -92,7 +93,7 @@ export function useWriteQueue() {
         await task()
         journalDone(ticket)
       } catch (e) {
-        const failed: FailedWrite = { label, message: messageOf(e), links: e instanceof WriteError ? e.links : undefined, task, intents, ticket, stamps }
+        const failed: FailedWrite = { label, message: messageOf(e), links: e instanceof WriteError ? e.links : undefined, task, intents, ticket, stamp: n }
         // 送っているあいだに、同じ項目がすべて頼み直されていたら、失敗として残さない（新しいほうが送られる）
         if (liveIntents(failed)?.length === 0) journalDone(ticket)
         else updateFailed([...failedRef.current, failed])
@@ -104,13 +105,14 @@ export function useWriteQueue() {
   }, [updateFailed])
 
   // 失敗したものを送り直す。そのあとで同じ項目を頼み直していれば、その項目は送らない。
-  // 一部だけ頼み直されていたら、残りの行き先だけを Annict の今の状態と比べて書く（features/unsent/reconcile.ts。何度送っても同じ結果になる）
+  // 一部だけ頼み直されていたら、残りの行き先だけを Annict の今の状態と比べて書く（features/unsent/reconcile.ts。何度送っても同じ結果になる）。
+  // 例: 感想の保存が失敗 → 総合評価だけ付け直して成功 → 「もう一度」は感想の中身だけを書き、総合評価は今の値のまま
   const retryFailed = useCallback(() => {
     const list = failedRef.current
     updateFailed([])
     for (const f of list) {
       const live = liveIntents(f)
-      if (!live || live.length === f.intents?.length) {
+      if (!live || untouched(f, live)) {
         enqueue(f.label, f.task, f.intents)
         continue
       }

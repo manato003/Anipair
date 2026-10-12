@@ -1,3 +1,4 @@
+import { idMalOf } from '../../lib/writeJournal'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchCovers, quickCovers } from '../../lib/covers'
 import { fetchLibrary, updateStatus, type LibraryEntry, type RatingState, type StatusState } from '../../lib/annict'
@@ -174,7 +175,7 @@ export function useRecords(token: string, active = true) {
           const current = (await getMyReviews(token)).get(annictId) ?? null
           await rememberReview(token, annictId, await changeRating(token, workId, current, rating))
         },
-        [...(becomesWatched ? [{ kind: 'status' as const, workId, state: 'WATCHED' as const }] : []), { kind: 'rating', workId, annictId, rating }],
+        [...(becomesWatched ? [{ kind: 'status' as const, workId, state: 'WATCHED' as const, idMal: idMalOf(row.entry.malAnimeId) }] : []), { kind: 'rating', workId, annictId, rating, idMal: idMalOf(row.entry.malAnimeId) }],
       )
     },
     [token, enqueue, patchRow],
@@ -191,7 +192,7 @@ export function useRecords(token: string, active = true) {
         async () => {
           await updateStatus(token, workId, state)
         },
-        [{ kind: 'status', workId, state }],
+        [{ kind: 'status', workId, state, idMal: idMalOf(row.entry.malAnimeId) }],
       )
     },
     [token, enqueue, patchRow],

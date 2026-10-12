@@ -1,6 +1,6 @@
 import { annictMissingLinks, fetchRecentActivity, updateRecord, updateStatus } from '../../lib/annict'
 import { getMyReviews, rememberReview } from '../../lib/myReviews'
-import { changeRating, saveReview } from '../../lib/reviewOps'
+import { changeRating, contentOf, saveReview } from '../../lib/reviewOps'
 import { createRecordGuarded, deleteRecordIfExists, findMyRecord, MARGIN_MS } from '../../lib/uncertainWrites'
 import { WriteError } from '../../lib/useWriteQueue'
 import type { WriteIntent } from '../../lib/writeJournal'
@@ -20,7 +20,9 @@ export async function reconcileIntent(token: string, intent: WriteIntent): Promi
     }
     case 'review': {
       const current = (await getMyReviews(token)).get(intent.annictId) ?? null
-      await rememberReview(token, intent.annictId, await saveReview(token, intent.workId, current, intent.content))
+      // 総合評価があとから付け直されていたら、感想の中身だけを書き、総合評価は今の値のまま
+      const content = intent.keepOverall ? { ...intent.content, axes: { ...intent.content.axes, ratingOverallState: contentOf(current).axes.ratingOverallState } } : intent.content
+      await rememberReview(token, intent.annictId, await saveReview(token, intent.workId, current, content))
       return
     }
     case 'episode': {
@@ -40,7 +42,8 @@ export async function reconcileIntent(token: string, intent: WriteIntent): Promi
       const ref = await resolveAnnictWork(token, intent)
       const title = intent.title.native ?? intent.title.english ?? intent.title.romaji ?? ''
       if (!ref) throw new WriteError(`「${title}」をAnnictで見つけられませんでした。`, annictMissingLinks(title))
-      await updateStatus(token, ref.id, intent.state)
+      // 状態があとから付け直されていたら、状態は書かない（評価だけ）
+      if (!intent.keepState) await updateStatus(token, ref.id, intent.state)
       if (intent.rating === undefined) return
       const current = (await getMyReviews(token)).get(ref.annictId) ?? null
       await rememberReview(token, ref.annictId, await changeRating(token, ref.id, current, intent.rating))

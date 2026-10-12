@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest'
 import { saveAnnictToken, switchAccount } from './storage'
-import { isStillPending, journalDone, journalPut, keyOf, leftoverEntries, type JournalEntry, type WriteIntent } from './writeJournal'
+import { journalDone, journalPut, keyOf, leftoverEntries, narrowIntent, pendingIntent, type JournalEntry, type WriteIntent } from './writeJournal'
 
 const KEY = 'animax.writeJournal.v1'
 const status = (workId: string, state: 'WATCHED' | 'NO_STATE' = 'WATCHED'): WriteIntent => ({ kind: 'status', workId, state })
@@ -38,10 +38,10 @@ describe('writeJournal', () => {
     journalPut('今回', [status('W3')])
     const left = leftoverEntries()
     expect(left.map((e) => e.label)).toEqual(['A', 'B'])
-    expect(isStillPending(left[0])).toBe(true)
+    expect(pendingIntent(left[0])).toEqual(status('W1'))
     // 今回、同じ作品の状態を頼み直した
     journalPut('今回のW1', [status('W1', 'NO_STATE')])
-    expect(isStillPending(left[0])).toBe(false)
+    expect(pendingIntent(left[0])).toBeNull()
     expect(leftoverEntries().map((e) => e.label)).toEqual(['B'])
   })
 
@@ -89,6 +89,54 @@ describe('writeJournal', () => {
     const keyFor = (i: Record<string, unknown>) => `${i.kind === 'episode' || i.kind === 'episodeComment' ? `${i.kind}:${i.episodeId}` : i.kind === 'match' ? `match:${i.idMal}` : `${i.kind}:${i.workId}`}`
     fromLastVisit([...good, ...(bad as never[])].map((intent, i) => ({ key: keyFor(intent as Record<string, unknown>), label: 'x', intent, at: 1, seq: i + 1 })))
     expect(leftoverEntries().map((e) => e.intent)).toEqual(good)
+  })
+
+  // 2026-10-12 のレビュー: 感想の保存は総合評価も書く。失敗した古い感想を送り直すと、あとで付け直した総合評価を古い値に戻していた
+  describe('items are compared by the value they write, not by the kind of write', () => {
+    const axes = (overall: 'GOOD' | 'GREAT' | null) => ({ ratingOverallState: overall, ratingStoryState: 'GOOD' as const, ratingAnimationState: null, ratingMusicState: null, ratingCharacterState: null })
+    const review = (overall: 'GOOD' | 'GREAT' | null, body = '本文'): WriteIntent => ({ kind: 'review', workId: 'W1', annictId: 1, content: { axes: axes(overall), body } })
+    const rating = (r: 'GOOD' | 'GREAT'): WriteIntent => ({ kind: 'rating', workId: 'W1', annictId: 1, rating: r })
+    // ページを開き直した（今の控えを、前回の分にする）
+    const reopen = () => localStorage.setItem(KEY, JSON.stringify({ v: 1, entries: stored().map((e) => ({ ...e, session: 'last-visit' })) }))
+
+    it('a review left unsent keeps its text but not its old overall rating once the overall was changed later', () => {
+      journalPut('感想', [review('GOOD')])
+      journalDone(journalPut('総合評価', [rating('GREAT')]))
+      expect(stored()).toHaveLength(1)
+      expect(stored()[0].dropped).toEqual(['overall'])
+      reopen()
+      // 開き直したあとの送り直しでも、感想の中身だけ（総合評価は Annict の今の値のまま）
+      expect(pendingIntent(leftoverEntries()[0])).toEqual({ ...review('GOOD'), keepOverall: true })
+    })
+
+    it('a rating left unsent is dropped when a later review writes the overall rating too', () => {
+      journalPut('総合評価', [rating('GOOD')])
+      journalPut('感想', [review('GREAT')])
+      expect(stored().map((e) => e.key)).toEqual(['review:W1'])
+    })
+
+    it('a matching answer and a change of the same work elsewhere are the same item, told apart by the MyAnimeList id', () => {
+      const match: WriteIntent = { kind: 'match', idMal: 5, title: { native: 'x', romaji: null, english: null }, state: 'WANNA_WATCH', rating: 'GOOD' }
+      journalPut('マッチング', [match])
+      journalPut('状態', [{ kind: 'status', workId: 'W1', state: 'WATCHED', idMal: 5 }])
+      reopen()
+      // 状態はあとの「見た」を残し、マッチングの答えからは評価だけを書く
+      expect(pendingIntent(leftoverEntries()[0])).toEqual({ ...match, keepState: true })
+      journalPut('評価', [{ kind: 'rating', workId: 'W1', annictId: 1, rating: 'GREAT', idMal: 5 }])
+      // 評価も付け直したので、マッチングの答えはもう書くものが無い（控えから消える）
+      expect(stored().map((e) => e.key)).toEqual(['status:W1', 'rating:W1'])
+    })
+
+    it('narrows a review to its overall rating when only the text was written again', () => {
+      expect(narrowIntent(review('GOOD'), new Set(['review']))).toEqual(rating('GOOD'))
+      expect(narrowIntent(review('GOOD'), new Set(['review', 'overall']))).toBeNull()
+      expect(narrowIntent(review('GOOD'), new Set())).toEqual(review('GOOD'))
+    })
+
+    it('ignores a stored entry whose list of dropped items is broken', () => {
+      fromLastVisit([{ key: 'status:W1', label: 'x', intent: status('W1'), at: 1, seq: 1, dropped: ['nope' as never] }])
+      expect(leftoverEntries()).toEqual([])
+    })
   })
 
   it('keys every kind of wish', () => {

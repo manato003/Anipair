@@ -73,7 +73,8 @@ export interface FeedbackInput {
 export function parseFeedback(raw: unknown): FeedbackInput | null {
   if (!raw || typeof raw !== 'object') return null
   const { kind, body, contact, device } = raw as Record<string, unknown>
-  if (typeof kind !== 'string' || !(kind in FEEDBACK_KINDS)) return null
+  // in は継承したもの（constructor・toString など）も通すので、自分の項目だけを見る（2026-10-12 のレビュー）
+  if (typeof kind !== 'string' || !Object.hasOwn(FEEDBACK_KINDS, kind)) return null
   if (typeof body !== 'string') return null
   const text = clean(body).trim()
   if (text.length < MIN_BODY || text.length > MAX_BODY) return null

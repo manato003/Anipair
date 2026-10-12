@@ -24,7 +24,7 @@ const same = (a: Form, b: Form) => a.body === b.body && AXES.every((k) => a.axes
 
 type Loaded = { kind: 'closed' } | { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; saved: Form; fromDraft: boolean }
 
-export function ReviewEditor(props: { token: string; workId: string; annictId: number; title: string; overall: RatingState | null; enqueue: Enqueue }) {
+export function ReviewEditor(props: { token: string; workId: string; annictId: number; idMal?: number; title: string; overall: RatingState | null; enqueue: Enqueue }) {
   const { token, annictId } = props
   const [loaded, setLoaded] = useState<Loaded>({ kind: 'closed' })
   const [form, setForm] = useState<Form>(EMPTY)
@@ -81,7 +81,7 @@ export function ReviewEditor(props: { token: string; workId: string; annictId: n
         await rememberReview(token, annictId, after)
         clearDraft(annictId)
       },
-      [{ kind: 'review', workId: props.workId, annictId, content }],
+      [{ kind: 'review', workId: props.workId, annictId, content, idMal: props.idMal }],
     )
   }
 

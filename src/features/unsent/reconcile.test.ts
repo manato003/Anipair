@@ -21,13 +21,14 @@ vi.mock('../../lib/myReviews', () => ({
   getMyReviews: vi.fn(async () => cache),
   rememberReview: vi.fn(async (_t: string, id: number, r: MyReview | null) => void calls.push(`remember ${id} ${r?.ratingOverallState ?? null}`)),
 }))
-vi.mock('../../lib/reviewOps', () => ({
+vi.mock('../../lib/reviewOps', async (orig) => ({
+  ...(await orig<typeof import('../../lib/reviewOps')>()),
   changeRating: vi.fn(async (_t: string, w: string, cur: MyReview | null, r: string | null) => {
     calls.push(`rate ${w} ${cur?.id ?? '-'} ${r}`)
     return r ? { id: 'R', ratingOverallState: r } : null
   }),
-  saveReview: vi.fn(async (_t: string, w: string, cur: MyReview | null, c: { body: string }) => {
-    calls.push(`review ${w} ${cur?.id ?? '-'} "${c.body}"`)
+  saveReview: vi.fn(async (_t: string, w: string, cur: MyReview | null, c: { body: string; axes: { ratingOverallState: string | null } }) => {
+    calls.push(`review ${w} ${cur?.id ?? '-'} "${c.body}" ${c.axes.ratingOverallState}`)
     return { id: 'R', ratingOverallState: null }
   }),
 }))
@@ -62,7 +63,20 @@ describe('reconcileIntent', () => {
   it('saves the review content from the review Annict has now', async () => {
     const axes = { ratingOverallState: null, ratingStoryState: null, ratingAnimationState: null, ratingMusicState: null, ratingCharacterState: null }
     await reconcileIntent('t', { kind: 'review', workId: 'W1', annictId: 1, content: { axes, body: '良かった' } })
-    expect(calls).toEqual(['review W1 - "良かった"', 'remember 1 null'])
+    expect(calls).toEqual(['review W1 - "良かった" null', 'remember 1 null'])
+  })
+
+  // 2026-10-12 のレビュー: 総合評価をあとから付け直した作品の、送れなかった感想
+  it('keeps the overall rating Annict has now when the review was asked to keep it', async () => {
+    cache.set(1, { ...existing('R1'), ratingOverallState: 'GREAT' })
+    const axes = { ratingOverallState: 'BAD' as const, ratingStoryState: 'GOOD' as const, ratingAnimationState: null, ratingMusicState: null, ratingCharacterState: null }
+    await reconcileIntent('t', { kind: 'review', workId: 'W1', annictId: 1, content: { axes, body: '良かった' }, keepOverall: true })
+    expect(calls).toEqual(['review W1 R1 "良かった" GREAT', 'remember 1 null'])
+  })
+
+  it('leaves the status alone for a matching answer whose status was set again later, and still writes its rating', async () => {
+    await reconcileIntent('t', { kind: 'match', idMal: 11, title, state: 'WANNA_WATCH', rating: 'GOOD', keepState: true })
+    expect(calls).toEqual(['rate A11 - GOOD', 'remember 11 GOOD'])
   })
 
   it('records an episode only when no record has been made since it was asked', async () => {

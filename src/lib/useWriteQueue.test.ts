@@ -191,5 +191,48 @@ describe('useWriteQueue', () => {
       expect(reconciled).toEqual([JSON.stringify(status('W1', 'WATCHED'))])
       expect(a.result.current.failed).toEqual([])
     })
+
+    // 2026-10-12 のレビュー: 感想の保存は総合評価も書く。種類ごとに見ていると、あとで総合評価だけ変えた分を古い感想で戻していた
+    it('a failed review is retried without its old overall rating once the overall was changed on another screen', async () => {
+      localStorage.clear()
+      saveAnnictToken('t')
+      reconciled.length = 0
+      const a = renderHook(() => useWriteQueue())
+      const b = renderHook(() => useWriteQueue())
+      const axes = { ratingOverallState: 'GOOD' as const, ratingStoryState: 'GREAT' as const, ratingAnimationState: null, ratingMusicState: null, ratingCharacterState: null }
+      const review: WriteIntent = { kind: 'review', workId: 'W1', annictId: 1, content: { axes, body: '本文' } }
+      let attempts = 0
+      act(() =>
+        a.result.current.enqueue(
+          '感想',
+          async () => {
+            attempts++
+            throw new Error('HTTP 502')
+          },
+          [review],
+        ),
+      )
+      await waitFor(() => expect(a.result.current.failed).toHaveLength(1))
+      act(() => b.result.current.enqueue('GREAT', async () => undefined, [rating('W1', 'GREAT')]))
+      await waitFor(() => expect(b.result.current.pending).toBe(0))
+      act(() => a.result.current.retryFailed())
+      await waitFor(() => expect(a.result.current.pending).toBe(0))
+      // 元の送信（古い総合評価を含む）は走らせず、感想の中身だけを、総合評価は今の値のままにして送る
+      expect(attempts).toBe(1)
+      expect(reconciled).toEqual([JSON.stringify({ ...review, keepOverall: true })])
+    })
+
+    it('a failed matching answer does not overwrite the status set later for the same work elsewhere', async () => {
+      localStorage.clear()
+      saveAnnictToken('t')
+      reconciled.length = 0
+      const a = renderHook(() => useWriteQueue())
+      const match: WriteIntent = { kind: 'match', idMal: 5, title: { native: 'x', romaji: null, english: null }, state: 'WANNA_WATCH' }
+      act(() => a.result.current.enqueue('見たい', async () => Promise.reject(new Error('HTTP 502')), [match]))
+      await waitFor(() => expect(a.result.current.failed).toHaveLength(1))
+      // ブラウズで同じ作品を「見た」にした（状態だけを頼み直した。マッチングの答えには評価が無いので、もう送るものが無い）
+      act(() => a.result.current.enqueue('見た', async () => undefined, [{ kind: 'status', workId: 'W1', state: 'WATCHED', idMal: 5 }]))
+      expect(a.result.current.failed).toEqual([])
+    })
   })
 })

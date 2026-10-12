@@ -1,3 +1,4 @@
+import { idMalOf } from '../../lib/writeJournal'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fetchSeasonWorks, updateStatus, type AnnictWork, type RatingState } from '../../lib/annict'
 import { fetchCovers, quickCovers } from '../../lib/covers'
@@ -244,6 +245,7 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
       if (a.kind === 'watching') markStillWatching(card.work.annictId)
       const state = a.kind === 'wanna' ? 'WANNA_WATCH' : a.kind === 'watching' ? 'WATCHING' : a.kind === 'stop' ? 'STOP_WATCHING' : 'WATCHED'
       const { id: workId, annictId } = card.work
+      const idMal = idMalOf(card.work.malAnimeId)
       enqueue(
         `「${card.work.title}」の記録`,
         async () => {
@@ -254,7 +256,7 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
           entry.before = current?.ratingOverallState ?? null
           await rememberReview(token, annictId, await changeRating(token, workId, current, a.rating))
         },
-        [{ kind: 'status', workId, state }, ...(a.kind === 'rate' ? [{ kind: 'rating' as const, workId, annictId, rating: a.rating }] : [])],
+        [{ kind: 'status', workId, state, idMal }, ...(a.kind === 'rate' ? [{ kind: 'rating' as const, workId, annictId, rating: a.rating, idMal }] : [])],
       )
     },
     [cards, index, token, enqueue, syncLater, reviewFrom],
@@ -280,6 +282,7 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
     if (entry.answer.kind === 'watching') unmarkStillWatching(entry.card.work.annictId)
     // 列に並んでいる作品は、もともと何も記録していなかったものだけなので「未設定」に戻せばよい
     const { id: workId, annictId } = entry.card.work
+    const idMal = idMalOf(entry.card.work.malAnimeId)
     const rated = entry.answer.kind === 'rate'
     enqueue(
       `「${entry.card.work.title}」の取り消し`,
@@ -292,7 +295,7 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
         entry.before = undefined
         await updateStatus(token, workId, 'NO_STATE')
       },
-      [{ kind: 'status', workId, state: 'NO_STATE' }, ...(rated ? [{ kind: 'rating' as const, workId, annictId, rating: entry.before ?? entry.guess }] : [])],
+      [{ kind: 'status', workId, state: 'NO_STATE', idMal }, ...(rated ? [{ kind: 'rating' as const, workId, annictId, rating: entry.before ?? entry.guess, idMal }] : [])],
     )
   }, [token, enqueue, syncLater])
 
