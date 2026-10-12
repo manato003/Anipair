@@ -1004,6 +1004,52 @@
   touch-action: manipulation;
 }
 
+/* 記録済みの話の評価（押すと記録がもう1つ増える。付け替えではない） */
+.mini-ratings--again .mini-rating {
+  border-style: dashed;
+}
+
+/* 記録済みの話: 評価のボタンの代わりに「もう一度記録する」と「Annictで直す」（同じ高さの段に並べる） */
+.ep__locked {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+}
+
+.ep__againbtn,
+.ep__annict {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-s);
+  background: none;
+  color: var(--paper);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.ep__annict {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.ep__past {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ep__again {
+  overflow: hidden;
+  color: var(--paper);
+  text-overflow: ellipsis;
+}
+
 .mini-rating[aria-pressed='true'] {
   background: var(--tone);
   color: var(--ink);

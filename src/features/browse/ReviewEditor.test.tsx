@@ -49,7 +49,7 @@ afterEach(() => cleanup())
 
 const open = async () => {
   render(<ReviewEditor token="t" workId="W5" annictId={5} title="作品5" overall="GOOD" enqueue={enqueue} />)
-  fireEvent.click(screen.getByRole('button', { name: '項目別の評価と感想を書く' }))
+  fireEvent.click(screen.getByRole('button', { name: '詳細な評価と感想を書く' }))
   return (await screen.findByRole('textbox')) as HTMLTextAreaElement
 }
 

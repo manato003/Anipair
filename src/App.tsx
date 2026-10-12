@@ -71,6 +71,29 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'settings', label: '設定' },
 ]
 
+// 最後に開いていた画面（ページを読み込み直したら、そこへ戻る。2026-10-12 利用者の要望）。
+// そのタブのあいだだけ覚える（sessionStorage）。アプリを開き直したときは、いつもの評価の画面から
+const TAB_KEY = 'animax.tab'
+function loadTab(signedIn: boolean): Tab {
+  if (!signedIn) return 'settings'
+  try {
+    const saved = sessionStorage.getItem(TAB_KEY)
+    const found = TABS.find((t) => t.id === saved)
+    if (found) return found.id
+  } catch {
+    // 読めなければ、いつもの評価の画面から
+  }
+  return 'rate'
+}
+
+function forgetTab(): void {
+  try {
+    sessionStorage.removeItem(TAB_KEY)
+  } catch {
+    // 消せなくても、開く画面が変わるだけ
+  }
+}
+
 // 一度開いた画面は隠すだけで残す。作り直すと、マッチングの候補や取り消し、ブラウズの検索、記録の一覧が消えてしまうため。
 // 高さは中の画面（height: 100%）に受け渡す
 // enter: 直前に分類を替えた向き。隠していた画面が出るとき、その向きから入る（styles/app.css。display を戻すと動きが毎回始まる）
@@ -94,11 +117,11 @@ export default function App() {
   const [token] = useState<string | null>(loadAnnictToken)
   // GitHub は任意。トークンとリポジトリの両方がそろったときだけ連携する
   const [github, setGithub] = useState<GithubConnection | null>(loadGithubConnection)
-  const [tab, setTab] = useState<Tab>(token ? 'rate' : 'settings')
+  const [tab, setTab] = useState<Tab>(() => loadTab(token !== null))
   // 1日1回、裏でバックアップを取る（時期でなければ何もしない）
   useAutoBackup(token, github)
   // 開いたことのあるタブ（画面を作るのは初めて開いたとき）。設定はいつも作り直すので入れない
-  const [visited, setVisited] = useState<ReadonlySet<Tab>>(() => new Set(token ? ['rate'] : []))
+  const [visited, setVisited] = useState<ReadonlySet<Tab>>(() => new Set(token ? [tab] : []))
 
   // 画面の外（コントロールセンターの近道など）から頼まれた設定の欄
   const [settingsRequest, setSettingsRequest] = useState<SettingsRequest | null>(null)
@@ -129,6 +152,8 @@ export default function App() {
   async function onTokenChange(next: string | null, opts: { forget?: boolean } = {}) {
     switchingRef.current = true
     setSwitching(true)
+    // ログイン・ログアウト・切り替えのあとは、覚えた画面（ログアウトした設定など）ではなく、いつもの評価の画面から
+    forgetTab()
     await untilWritesDone()
     const ownerOf = (t: string) =>
       fetchViewer(t).then(
@@ -231,6 +256,14 @@ export default function App() {
   const pageScroll = shown !== 'rate' && shown !== 'match'
   // 分類を替えたら、その画面で前に流した位置に戻す（初めては先頭）
   useLayoutEffect(() => restoreScroll(tab), [tab])
+  useEffect(() => {
+    if (!token) return
+    try {
+      sessionStorage.setItem(TAB_KEY, tab)
+    } catch {
+      // 覚えられなくても、読み込み直したときに評価の画面から始まるだけ
+    }
+  }, [token, tab])
   // 評価の画面を出して少したったら、好みの先読みを裏で1回だけ始める（マッチングや記録の初回を速くする）
   usePrefetchTaste(token, shown === 'rate')
   // 最初の画面が出て手が空いたら、ほかの画面の JS を裏で読んでおく
@@ -336,10 +369,10 @@ export default function App() {
       {/* ログインする前は、最初の画面（設定のログイン）しか使えないので、分類の帯を出さない */}
       {token && (
         <nav className="tabs" aria-label="画面の切り替え">
-          {/* 広い画面だけ、上の帯の左に出す */}
-          <span className="tabs__brand" aria-hidden>
+          {/* 広い画面だけ、上の帯の左に出す。押すとページを読み込み直す（開いていた画面に戻る。2026-10-12 利用者の要望） */}
+          <button type="button" className="tabs__brand" aria-label="Anipair（読み込み直す）" title="読み込み直す" onClick={reloadPage}>
             <Logo size="small" />
-          </span>
+          </button>
           {TABS.map((t) => (
             <button
               key={t.id}

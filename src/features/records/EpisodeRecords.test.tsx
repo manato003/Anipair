@@ -150,6 +150,83 @@ describe('EpisodeRecorder', () => {
     expect(current()).toBe('#1')
   })
 
+  // 2026-10-12 の総点検: 続けて記録すると、直前の1話しか取り消せなかった
+  it('undo goes back one recorded episode at a time, newest first', () => {
+    const h = { onRecord: vi.fn(), onUndo: vi.fn(), onFinish: vi.fn(), onRetry: vi.fn(), onComment: vi.fn(), onCommentExisting: vi.fn() }
+    const props = { data: data([ep(1), ep(2), ep(3), ep(4)]), error: null, watching: true, commented: new Set<string>(), ...h }
+    const view = render(<EpisodeRecorder undoable={new Set<string>()} {...props} />)
+    fireEvent.click(within(ratings()).getByRole('button', { name: '普通' }))
+    fireEvent.click(within(ratings()).getByRole('button', { name: '良い' }))
+    fireEvent.click(within(ratings()).getByRole('button', { name: 'とても良い' }))
+    expect(current()).toBe('#4')
+    view.rerender(<EpisodeRecorder undoable={new Set(['E1', 'E2', 'E3'])} {...props} />)
+    fireEvent.click(screen.getByRole('button', { name: '取り消す' }))
+    expect(h.onUndo).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'E3' }))
+    view.rerender(<EpisodeRecorder undoable={new Set(['E1', 'E2'])} {...props} />)
+    expect(screen.getByText('#2を「良い」で記録')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '取り消す' }))
+    expect(h.onUndo).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'E2' }))
+    view.rerender(<EpisodeRecorder undoable={new Set(['E1'])} {...props} />)
+    fireEvent.click(screen.getByRole('button', { name: '取り消す' }))
+    expect(h.onUndo).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'E1' }))
+    expect(current()).toBe('#1')
+    expect(screen.queryByRole('button', { name: '取り消す' })).toBeNull()
+  })
+
+  // 2026-10-12 の総点検（利用者の指摘）: 記録済みの話で評価を押すと、付け替えではなく記録が増える。
+  // 誤って押さないよう、記録済みの話では評価のボタンを出さず、前回の評価と「もう一度記録する」「Annictで直す」を出す
+  it('on an episode recorded before, shows the last rating instead of the buttons, and records again only when asked', () => {
+    const h = { onRecord: vi.fn(), onUndo: vi.fn(), onFinish: vi.fn(), onRetry: vi.fn(), onComment: vi.fn(), onCommentExisting: vi.fn() }
+    const lookup = vi.fn()
+    const props = { data: data([ep(1, true), ep(2)]), error: null, watching: true, undoable: new Set<string>(), commented: new Set<string>(), workAnnictId: 77, onLookupPast: lookup, ...h }
+    const view = render(<EpisodeRecorder {...props} />)
+    // 次に見る話（まだ記録していない）はふつうの評価
+    expect(current()).toBe('#2')
+    expect(ratings()).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '前の話' }))
+    expect(current()).toBe('#1')
+    // 評価のボタンは出ず、前回の評価を探す
+    expect(ratings()).toBeNull()
+    expect(lookup).toHaveBeenCalledWith('E1')
+    expect(screen.getByText('前回の評価を探しています…')).toBeTruthy()
+    view.rerender(<EpisodeRecorder {...props} past={new Map([['E1', { rating: 'GOOD', createdAt: '2025-09-03T03:00:00Z' }]])} />)
+    expect(screen.getByText('前回：良い（2025/9/3）')).toBeTruthy()
+    expect((screen.getByRole('link', { name: 'Annictで直す' }) as HTMLAnchorElement).href).toBe('https://annict.com/works/77/episodes/1')
+    // もう一度記録する → 点線の評価のボタン。やめると戻る
+    fireEvent.click(screen.getByRole('button', { name: 'もう一度記録する（2回目）' }))
+    expect(ratings().classList.contains('mini-ratings--again')).toBe(true)
+    expect(ratings().getAttribute('aria-label')).toBe('#1をもう一度記録する評価')
+    expect(screen.getByText('2回目の記録を付けます')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'やめる' }))
+    expect(ratings()).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'もう一度記録する（2回目）' }))
+    fireEvent.click(within(ratings()).getByRole('button', { name: 'とても良い' }))
+    expect(h.onRecord).toHaveBeenCalledWith(expect.objectContaining({ id: 'E1' }), 'GREAT', undefined)
+  })
+
+  it('says the last rating can be seen on Annict when it is too old to find', () => {
+    const h = { onRecord: vi.fn(), onUndo: vi.fn(), onFinish: vi.fn(), onRetry: vi.fn(), onComment: vi.fn(), onCommentExisting: vi.fn() }
+    render(<EpisodeRecorder data={data([ep(1, true), ep(2, true)])} error={null} watching={false} undoable={new Set()} commented={new Set()} past={new Map([['E1', null]])} {...h} />)
+    expect(screen.getByText('前回の評価はAnnictで見られます')).toBeTruthy()
+  })
+
+  it('choosing an episode recorded on this screen offers to undo that one, not the latest', () => {
+    const h = { onRecord: vi.fn(), onUndo: vi.fn(), onFinish: vi.fn(), onRetry: vi.fn(), onComment: vi.fn(), onCommentExisting: vi.fn() }
+    const props = { error: null, watching: true, commented: new Set<string>(), ...h }
+    const view = render(<EpisodeRecorder data={data([ep(1), ep(2), ep(3)])} undoable={new Set<string>()} {...props} />)
+    fireEvent.click(within(ratings()).getByRole('button', { name: '普通' }))
+    fireEvent.click(within(ratings()).getByRole('button', { name: '良い' }))
+    view.rerender(<EpisodeRecorder data={data([ep(1, true), ep(2, true), ep(3)])} undoable={new Set(['E1', 'E2'])} {...props} />)
+    fireEvent.click(screen.getByRole('button', { name: '前の話' }))
+    fireEvent.click(screen.getByRole('button', { name: '前の話' }))
+    expect(current()).toBe('#1')
+    // この画面で記録した話は「2回目」の案内ではなく、その記録と取り消し
+    expect(screen.getByText('#1を「普通」で記録')).toBeTruthy()
+    expect(ratings().classList.contains('mini-ratings--again')).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: '取り消す' }))
+    expect(h.onUndo).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'E1' }))
+  })
+
   // 2026-10-06 の点検: 記録すると話の中身が新しいものに差し替わり、取り消すと第1話に飛んでいた
   it('undo goes back to the episode it recorded, after the list was updated by the record', () => {
     const h = { onRecord: vi.fn(), onUndo: vi.fn(), onFinish: vi.fn(), onRetry: vi.fn(), onComment: vi.fn(), onCommentExisting: vi.fn() }

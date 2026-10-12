@@ -214,6 +214,11 @@ img {
 /* Anipair の字は広い画面の上の帯だけに出す */
 .tabs__brand {
   display: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
 }
 
 .tabs__item {

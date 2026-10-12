@@ -175,7 +175,8 @@ export function Records({ token, github = null, active }: { token: string; githu
   const watchingEntries = useMemo(() => watchingRows.map((row) => row.entry), [watchingRows])
   const watchMedia = useMediaInfo(watchingEntries, showWatching)
   // 見てるのカードから記録した話（作品ごと。取り消せるあいだ「取り消す」を出す）
-  const [lastRecorded, setLastRecorded] = useState<ReadonlyMap<string, Episode>>(new Map())
+  // 作品ごとに、この画面で記録した話（古い順）。取り消すと、ひとつ前に記録した話を取り消せるようになる
+  const [lastRecorded, setLastRecorded] = useState<ReadonlyMap<string, readonly Episode[]>>(new Map())
 
   const sort = sortBy[bucket ?? 'watched']
   const chooseSort = (key: SortKey) => {
@@ -443,7 +444,7 @@ export function Records({ token, github = null, active }: { token: string; githu
                   {visible.map((row) => {
                     const data = eps.byWork.get(row.entry.workId)
                     const episodes = data && !data.noEpisodes ? data.episodes : null
-                    const last = lastRecorded.get(row.entry.workId) ?? null
+                    const undoable = [...(lastRecorded.get(row.entry.workId) ?? [])].reverse().find((e) => eps.undoable.has(e.id)) ?? null
                     return (
                       <WatchCard
                         key={row.entry.annictId}
@@ -454,11 +455,11 @@ export function Records({ token, github = null, active }: { token: string; githu
                         noEpisodes={data?.noEpisodes === true}
                         onRetry={eps.retry}
                         media={watchMedia.info ? (watchMedia.info.get(malIdOf(row.entry) ?? -1) ?? null) : watchMedia.error ? null : undefined}
-                        undoable={last !== null && eps.undoable.has(last.id) ? last : null}
+                        undoable={undoable}
                         onOpen={() => openRow(row)}
                         onRecord={(ep, rating) => {
                           eps.record(row.entry.title, row.entry.workId, ep, rating)
-                          setLastRecorded((cur) => new Map(cur).set(row.entry.workId, ep))
+                          setLastRecorded((cur) => new Map(cur).set(row.entry.workId, [...(cur.get(row.entry.workId) ?? []).filter((e) => e.id !== ep.id), ep]))
                         }}
                         onUndo={(ep) => eps.undo(row.entry.title, row.entry.workId, ep)}
                       />

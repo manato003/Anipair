@@ -357,7 +357,7 @@ describe('Settings about block', () => {
     expect(text).toContain('運営サーバーはなく、利用者の記録は保存しません')
     expect(text).toContain('サーバーで動くのは、ログインの受け渡し・Shikimoriへの中継・問い合わせの受け付けの3つの処理だけです')
     expect(text).toContain('問い合わせの内容は、送ったときだけ開発者に届きます（公開はされません）')
-    expect(text).toContain('通信先はAnnictとShikimori（このサイトの中継を経由）とWikipedia、文字のためのGoogle Fontsです。GitHubと連携した場合は、GitHubにも送信します')
+    expect(text).toContain('通信先はAnnict・Shikimori・Wikipedia・Google Fontsです。Shikimoriの作品データは、上に書いたサーバーの処理（Vercel）を通して受け取ります。GitHubと連携した場合は、GitHubにも送信します')
     expect(text).toContain('問い合わせを送ったときは、その内容だけが、このサイトの関数を通して運営者の非公開のGitHubリポジトリに届きます')
     expect(text).toContain('トークンは、この端末の中にだけ保存されます')
     expect(text).toContain('各作品の公式サイトの画像を表示しています。画像はブラウザが提供元から直接読み込みます。権利は各権利者に帰属します')

@@ -417,6 +417,28 @@ export async function findMyEpisodeRecord(token: string, episodeId: string, maxP
   return null
 }
 
+// 自分の話の記録を、新しい順に1ページ（50件）。記録済みの話の「前回の評価」を探すのに使う（lib/pastRecords.ts）
+export async function fetchMyRecordsPage(
+  token: string,
+  after: string | null,
+): Promise<{ records: { episodeId: string; rating: RatingState | null; createdAt: string }[]; next: string | null }> {
+  const data: {
+    viewer: { records: { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: { ratingState: RatingState | null; createdAt: string; episode: { id: string } | null }[] } }
+  } = await gql(
+    token,
+    `query($after: String) { viewer { records(first: 50, after: $after, orderBy: {field: CREATED_AT, direction: DESC}) {
+      pageInfo { hasNextPage endCursor }
+      nodes { ratingState createdAt episode { id } }
+    } } }`,
+    { after },
+  )
+  const { nodes, pageInfo } = data.viewer.records
+  return {
+    records: nodes.flatMap((r) => (r.episode ? [{ episodeId: r.episode.id, rating: r.ratingState, createdAt: r.createdAt }] : [])),
+    next: pageInfo.hasNextPage ? pageInfo.endCursor : null,
+  }
+}
+
 export async function deleteRecord(token: string, recordId: string): Promise<void> {
   await gql(token, `mutation($recordId: ID!) { deleteRecord(input: {recordId: $recordId}) { clientMutationId } }`, { recordId })
   forgetLibrary()
@@ -503,6 +525,11 @@ export async function deleteReview(token: string, reviewId: string): Promise<voi
 
 export function annictWorkUrl(annictId: number): string {
   return `https://annict.com/works/${annictId}`
+}
+
+// Annict の話のページ（記録の一覧。自分の記録の評価を直す・消すのは、ここから）
+export function annictEpisodeUrl(workAnnictId: number, episodeAnnictId: number): string {
+  return `https://annict.com/works/${workAnnictId}/episodes/${episodeAnnictId}`
 }
 
 // Annict の作品の感想の一覧のページ（みんなの感想の「Annict で感想をすべて読む」）

@@ -303,6 +303,9 @@ export function WorkDetail(
         onUndo={(ep) => eps.undo(work.title, work.id, ep)}
         onFinish={finish}
         onRetry={eps.retry}
+        past={eps.past}
+        onLookupPast={eps.lookupPast}
+        workAnnictId={work.annictId}
       />
     </section>
   )
@@ -437,7 +440,7 @@ export function WorkDetail(
                     <a href={annictWorkUrl(work.annictId)} target="_blank" rel="noreferrer">
                       Annictの作品ページ
                     </a>
-                    の「記録する」から追加できます。
+                    で、作品画像の下のメニューボタンを押すと右側に出るパネルから追加できます。
                   </p>
                 </section>
 

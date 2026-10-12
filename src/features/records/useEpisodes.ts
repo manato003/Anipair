@@ -3,6 +3,7 @@ import { fetchEpisodes, type Episode, type RatingState, type WorkEpisodes } from
 import { findMyEpisodeRecord, updateRecord } from '../../lib/annict'
 import { createRecordGuarded, deleteRecordIfExists, findMyRecord, resolveUncertainRecord } from '../../lib/uncertainWrites'
 import { WriteError, messageOf } from '../../lib/useWriteQueue'
+import { findPastRecord, forgetPastRecords, type PastRecord } from '../../lib/pastRecords'
 import type { WriteIntent } from '../../lib/writeJournal'
 import { episodeLabel } from './episodes'
 
@@ -27,6 +28,23 @@ export function useEpisodes(token: string, workIds: readonly string[], enqueue: 
   const [undoable, setUndoable] = useState<ReadonlySet<string>>(new Set())
   // この画面で付けた記録のうち、感想を付けた話（「感想を書く」を「感想を直す」にする）
   const [commented, setCommented] = useState<ReadonlySet<string>>(new Set())
+  // 記録済みの話の前回の記録（話の ID ごと。探している間は 'loading'、読める範囲に無い・読めなければ null）。記録欄で選んだときに探す
+  const [past, setPast] = useState<ReadonlyMap<string, PastRecord | null | 'loading'>>(new Map())
+  const lookupPast = useCallback(
+    (episodeId: string) => {
+      setPast((cur) => (cur.has(episodeId) ? cur : new Map(cur).set(episodeId, 'loading')))
+      findPastRecord(token, episodeId).then(
+        (found) => setPast((cur) => new Map(cur).set(episodeId, found)),
+        () => setPast((cur) => new Map(cur).set(episodeId, null)),
+      )
+    },
+    [token],
+  )
+  // 記録を付けた・取り消したら、前回の記録の控えを捨てる（いちばん新しい記録が変わるため）
+  const forgetPast = useCallback(() => {
+    forgetPastRecords()
+    setPast(new Map())
+  }, [])
 
   const missing = workIds.filter((id) => !byWork.has(id) && !errors.has(id))
   const missingKey = [...new Set(missing)].sort().join(',')
@@ -72,6 +90,7 @@ export function useEpisodes(token: string, workIds: readonly string[], enqueue: 
   const record = useCallback(
     (title: string, workId: string, episode: Episode, rating: RatingState | null, comment?: string) => {
       patchEpisode(workId, episode.id, 1)
+      forgetPast()
       if (comment) setCommented((cur) => new Set(cur).add(episode.id))
       let resolveId: (id: string | null) => void = () => undefined
       const created = new Promise<string | null>((resolve) => (resolveId = resolve))
@@ -97,7 +116,7 @@ export function useEpisodes(token: string, workIds: readonly string[], enqueue: 
         [{ kind: 'episode', episodeId: episode.id, recorded: true, rating, since, ...(comment ? { comment } : {}) }],
       )
     },
-    [token, enqueue, patchEpisode],
+    [token, enqueue, patchEpisode, forgetPast],
   )
 
   const undo = useCallback(
@@ -111,6 +130,7 @@ export function useEpisodes(token: string, workIds: readonly string[], enqueue: 
         return next
       })
       patchEpisode(workId, episode.id, -1)
+      forgetPast()
       setCommented((cur) => {
         const next = new Set(cur)
         next.delete(episode.id)
@@ -127,7 +147,7 @@ export function useEpisodes(token: string, workIds: readonly string[], enqueue: 
         [{ kind: 'episode', episodeId: episode.id, recorded: false, rating: null, since }],
       )
     },
-    [token, enqueue, patchEpisode],
+    [token, enqueue, patchEpisode, forgetPast],
   )
 
   // この画面で付けた記録に、感想を付ける（直す）。評価だけで記録したい人の手間は増やさない（書きたい人が、記録のあとに押す）
@@ -173,6 +193,8 @@ export function useEpisodes(token: string, workIds: readonly string[], enqueue: 
     errors,
     undoable,
     commented,
+    past,
+    lookupPast,
     record,
     undo,
     comment,

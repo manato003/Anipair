@@ -95,7 +95,7 @@ export function ReviewEditor(props: { token: string; workId: string; annictId: n
   if (loaded.kind === 'closed') {
     return (
       <button type="button" className="review__open link" onClick={() => setLoaded({ kind: 'loading' })} aria-expanded={false}>
-        項目別の評価と感想を書く
+        詳細な評価と感想を書く
       </button>
     )
   }
@@ -104,7 +104,7 @@ export function ReviewEditor(props: { token: string; workId: string; annictId: n
   return (
     <div className="review">
       <button type="button" className="review__open link" onClick={() => setLoaded({ kind: 'closed' })} aria-expanded>
-        項目別の評価と感想をたたむ
+        詳細な評価と感想をたたむ
       </button>
       {loaded.kind === 'loading' && <Loading label="感想を読み込み中" />}
       {loaded.kind === 'error' && (
@@ -154,7 +154,7 @@ export function ReviewEditor(props: { token: string; workId: string; annictId: n
             <span className="review__axis-name">感想</span>
             <textarea value={form.body} rows={5} placeholder="感じたことを自由に（書かなくても保存できます）" onChange={(e) => change({ ...form, body: e.target.value })} />
           </label>
-          <p className="note">項目別の評価と感想は、総合評価と同じくAnnictに保存され、Annictの作品ページなどで公開されます。選んでいる評価をもう一度押すと外せます。</p>
+          <p className="note">詳細な評価（映像・キャラクター・ストーリー・音楽）と感想は、総合評価と同じくAnnictに保存され、Annictの作品ページなどで公開されます。選んでいる評価をもう一度押すと外せます。</p>
           <div className="review__foot">
             {note && !dirty && <span className="note">{note}</span>}
             <button type="button" className="btn btn--primary" onClick={save} disabled={!dirty}>

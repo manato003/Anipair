@@ -44,6 +44,7 @@ const { usePrefetchTaste } = await import('./features/match/usePrefetchTaste')
 
 beforeEach(() => {
   localStorage.clear()
+  sessionStorage.clear()
   localStorage.setItem('animax.annictToken', 'tok-1')
 })
 afterEach(() => {
@@ -131,5 +132,40 @@ describe('App login-expired banner', () => {
     expect(localStorage.getItem('animax.githubToken')).toBeNull()
     expect(JSON.stringify(localStorage)).not.toContain('gh-old')
     expect(JSON.parse(localStorage.getItem('animax.accounts.v1')!)['?unclaimed']['animax.passes']).toBe('{"old":1}')
+  })
+})
+
+// 2026-10-12 利用者の要望: 読み込み直したら最後に見ていた画面へ。PC の上の帯のロゴで読み込み直す
+describe('App remembers the screen across a reload', () => {
+  const current = () => document.querySelector('nav.tabs [aria-current="page"]')?.textContent
+  it('opens the screen that was open before reloading, and the rate screen in a new session', async () => {
+    const first = render(<App />)
+    expect(current()).toContain('評価')
+    fireEvent.click(screen.getByRole('button', { name: 'ブラウズ' }))
+    await waitFor(() => expect(current()).toContain('ブラウズ'))
+    first.unmount()
+    // 読み込み直し（同じタブ）
+    render(<App />)
+    expect(current()).toContain('ブラウズ')
+    cleanup()
+    // 新しく開いたとき（sessionStorage が空）・知らない値は評価から
+    sessionStorage.setItem('animax.tab', 'nope')
+    render(<App />)
+    expect(current()).toContain('評価')
+  })
+
+  it('forgets the screen when switching accounts, so the next person starts from the rate screen', async () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: '設定' }))
+    await waitFor(() => expect(sessionStorage.getItem('animax.tab')).toBe('settings'))
+    fireEvent.click(await screen.findByRole('button', { name: '別のトークンにする' }))
+    await waitFor(() => expect(reloadPage).toHaveBeenCalled())
+    expect(sessionStorage.getItem('animax.tab')).toBeNull()
+  })
+
+  it('reloads the page from the logo in the top bar', () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Anipair（読み込み直す）' }))
+    expect(reloadPage).toHaveBeenCalled()
   })
 })

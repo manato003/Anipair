@@ -208,7 +208,7 @@ export function TrendsView(props: { rows: readonly RecordRow[]; data: TrendsData
             </p>
           </>
         ) : (
-          <p className="trend__note">作品の詳細の「項目別の評価と感想を書く」で、映像・キャラクター・ストーリー・音楽を評価した作品が5本以上になると出ます。</p>
+          <p className="trend__note">作品の詳細の「詳細な評価と感想を書く」で、映像・キャラクター・ストーリー・音楽を評価した作品が5本以上になると出ます。</p>
         )}
       </section>
 

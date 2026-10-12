@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import type { Episode, RatingState, WorkEpisodes } from '../../lib/annict'
+import { useEffect, useState } from 'react'
+import { annictEpisodeUrl, type Episode, type RatingState, type WorkEpisodes } from '../../lib/annict'
+import type { PastRecord } from '../../lib/pastRecords'
 import { CommentIcon } from '../../components/Icons'
 import { RATINGS } from '../rate/queue'
 import { clearEpisodeDraft, loadEpisodeDraft, saveEpisodeDraft } from './episodeDrafts'
@@ -28,12 +29,19 @@ export function EpisodeRecorder(props: {
   onUndo: (episode: Episode) => void
   onFinish: (rating: RatingState | null) => void
   onRetry: () => void
+  // 記録済みの話の前回の記録（探している間は 'loading'、読める範囲に無ければ null、まだ探していなければ undefined）と、探す頼み
+  past?: ReadonlyMap<string, PastRecord | null | 'loading'>
+  onLookupPast?: (episodeId: string) => void
+  // Annict の作品の番号（「Annictで直す」で話のページを開く）
+  workAnnictId?: number
 }) {
   const { data } = props
   // 選んでいる話の位置（話の数と同じなら、最後まで記録し終えたところ）。読み終えたら次に見る話から
   const [index, setIndex] = useState<number | null>(null)
-  // この欄で直前に記録した話（取り消せるのは、それがこの画面で付けたものの間だけ）
-  const [last, setLast] = useState<{ episode: Episode; rating: RatingState } | null>(null)
+  // この欄で記録した話（古い順）。取り消すと、ひとつ前に記録した話へさかのぼる（2026-10-12 の総点検: 直前の1話しか取り消せなかった）。
+  // 取り消せるのは、この画面で付けたものの間だけ
+  const [history, setHistory] = useState<readonly { episode: Episode; rating: RatingState }[]>([])
+  const last = history.length > 0 ? history[history.length - 1] : null
   // 感想を書いている話と、その本文（下書きは端末に残す）。評価を押して次の話へ進んでも書いている先は変えないが、
   // ‹ › や一覧で話を選び直したら、選んだ話の感想に切り替える（欄の話と、評価を押す話を食い違わせない）
   const [writing, setWriting] = useState<CommentTarget | null>(null)
@@ -43,6 +51,8 @@ export function EpisodeRecorder(props: {
   const [ratedHere, setRatedHere] = useState<ReadonlyMap<string, RatingState>>(new Map())
   // 評価を押した直後か（そのあいだの「感想を書く」は、いま記録した話に付ける。話を選び直したら、選んだ話に付ける）
   const [followLast, setFollowLast] = useState(false)
+  // 記録済みの話で「もう一度記録する」を押した話（そのあいだだけ評価のボタンを出す）
+  const [againFor, setAgainFor] = useState<string | null>(null)
 
   if (props.error) {
     return (
@@ -82,6 +92,7 @@ export function EpisodeRecorder(props: {
     const next = clamp(i)
     setIndex(next)
     setFollowLast(false)
+    setAgainFor(null)
     if (!writing) return
     const episode = episodes[next]
     if (!episode) setWriting(null)
@@ -98,9 +109,10 @@ export function EpisodeRecorder(props: {
       setWriting(null)
     }
     setSavedFor(withComment ? current.id : null)
-    setLast({ episode: current, rating })
+    setHistory((cur) => [...cur.filter((h) => h.episode.id !== current.id), { episode: current, rating }])
     setRatedHere((cur) => new Map(cur).set(current.id, rating))
     setFollowLast(true)
+    setAgainFor(null)
     setIndex(clamp(at + 1))
   }
   const saveComment = () => {
@@ -116,15 +128,25 @@ export function EpisodeRecorder(props: {
     setSavedFor(episode.id)
     setWriting(null)
   }
-  const undo = () => {
-    if (!last) return
-    if (writing?.episode.id === last.episode.id) setWriting(null)
-    props.onUndo(last.episode)
+  const undo = (target: { episode: Episode } | null) => {
+    if (!target) return
+    if (writing?.episode.id === target.episode.id) setWriting(null)
+    props.onUndo(target.episode)
     // 記録すると話の中身（記録数）が新しいものに差し替わるので、ID で探す（2026-10-06 の点検: 取り消すと第1話に飛んでいた）
-    setIndex(clamp(episodes.findIndex((e) => e.id === last.episode.id)))
+    setIndex(clamp(episodes.findIndex((e) => e.id === target.episode.id)))
     setFollowLast(false)
-    setLast(null)
+    setHistory((cur) => cur.filter((h) => h.episode.id !== target.episode.id))
   }
+  // 選んでいる話を、この画面で記録していれば、その記録（取り消せる）
+  const here = current ? (history.find((h) => h.episode.id === current.id && props.undoable.has(h.episode.id)) ?? null) : null
+  // 記録済みの話で評価を押すと、Annict では前の記録はそのままで、記録がもう1つ増える（見返した回数として。評価は付け替わらない）。
+  // 付け替えと思って押さないよう、記録済みの話（この画面で付けたものを除く）は評価のボタンを出さず、前回の評価と
+  // 「もう一度記録する」「Annictで直す」を出す。もう一度記録するときだけ、点線の評価のボタンにする（2026-10-12 の総点検、利用者の指摘）
+  const recordedBefore = current !== null && current.viewerDidTrack && here === null
+  const locked = recordedBefore && againFor !== current.id
+  const adding = recordedBefore && againFor === current.id
+  // 3段目に出す記録: 評価を押した直後は直前の記録。話を選び直したら、その話をこの画面で記録していればその記録（記録済みの話なら、代わりに前回の評価）
+  const shown = followLast && last ? last : (here ?? (recordedBefore ? null : last))
   const ratingLabel = (r: RatingState) => RATINGS.find((x) => x.rating === r)?.label ?? ''
   // 「感想を書く」の行き先: 評価を押した直後は、いま記録した話（あとから付ける）。それ以外は、いま選んでいる話。
   // 評価の前から見える場所に置く（記録のあとにだけ出していると、見つけられない）
@@ -176,7 +198,20 @@ export function EpisodeRecorder(props: {
 
         {/* 2段目: 4段階のボタン（いつも同じ位置）。最後まで記録したら、見てる作品は作品の評価を付けて「見た」にできる */}
         {current ? (
-          <Ratings label={`${episodeLabel(current)}の評価`} onRate={rate} />
+          locked ? (
+            <div className="ep__locked">
+              <button type="button" className="ep__againbtn" onClick={() => setAgainFor(current.id)}>
+                もう一度記録する（{current.viewerRecordsCount + 1}回目）
+              </button>
+              {props.workAnnictId !== undefined && (
+                <a className="ep__annict" href={annictEpisodeUrl(props.workAnnictId, current.annictId)} target="_blank" rel="noreferrer">
+                  Annictで直す
+                </a>
+              )}
+            </div>
+          ) : (
+            <Ratings label={adding ? `${episodeLabel(current)}をもう一度記録する評価` : `${episodeLabel(current)}の評価`} again={adding} onRate={rate} />
+          )
         ) : props.watching && !props.airing ? (
           <Ratings label="作品の評価" onRate={(r) => props.onFinish(r)} />
         ) : (
@@ -186,15 +221,24 @@ export function EpisodeRecorder(props: {
         {/* 3段目: 直前の記録と取り消し、右端に「感想を書く」。何も無いときも高さを取っておく（ボタンの位置を動かさない） */}
         <div className="ep__last">
           <p className="ep__msg" role="status">
-            {last ? (
+            {shown ? (
               <>
-                {episodeLabel(last.episode)}を「{ratingLabel(last.rating)}」で記録{savedFor === last.episode.id || props.commented.has(last.episode.id) ? '・感想つき' : ''}
-                {props.undoable.has(last.episode.id) && (
-                  <button type="button" className="link" onClick={undo}>
+                {episodeLabel(shown.episode)}を「{ratingLabel(shown.rating)}」で記録{savedFor === shown.episode.id || props.commented.has(shown.episode.id) ? '・感想つき' : ''}
+                {props.undoable.has(shown.episode.id) && (
+                  <button type="button" className="link" onClick={() => undo(shown)}>
                     取り消す
                   </button>
                 )}
               </>
+            ) : adding && current ? (
+              <>
+                <span className="ep__again">{current.viewerRecordsCount + 1}回目の記録を付けます</span>
+                <button type="button" className="link" onClick={() => setAgainFor(null)}>
+                  やめる
+                </button>
+              </>
+            ) : locked && current ? (
+              <PastRating key={current.id} episodeId={current.id} past={props.past?.get(current.id)} onLookup={props.onLookupPast} />
             ) : !current && props.watching && props.airing ? (
               <>次の話がAnnictに登録されたら、ここで続けて記録できます。</>
             ) : !current && props.watching ? (
@@ -255,9 +299,25 @@ export function EpisodeRecorder(props: {
 type CommentTarget = { episode: Episode; mode: 'before' } | { episode: Episode; mode: 'after'; rating: RatingState } | { episode: Episode; mode: 'existing' }
 
 // 4段階の評価のボタン。押すとすぐ記録する（評価が記録の一部）
-function Ratings(props: { label: string; onRate: (rating: RatingState) => void }) {
+// 記録済みの話の前回の評価。出したときに探す（読める範囲に無ければ、Annict で見られると案内する）
+function PastRating(props: { episodeId: string; past: PastRecord | null | 'loading' | undefined; onLookup?: (episodeId: string) => void }) {
+  const { episodeId, past, onLookup } = props
+  useEffect(() => {
+    if (past === undefined) onLookup?.(episodeId)
+  }, [episodeId, past, onLookup])
+  if (past === undefined || past === 'loading') return <span className="ep__past">前回の評価を探しています…</span>
+  if (past === null) return <span className="ep__past">前回の評価はAnnictで見られます</span>
+  const label = RATINGS.find((x) => x.rating === past.rating)?.label
+  // スマホの1行に収めるため、今年の記録は月日だけ
+  const d = new Date(past.createdAt)
+  const date = d.getFullYear() === new Date().getFullYear() ? `${d.getMonth() + 1}/${d.getDate()}` : `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`
+  return <span className="ep__past">{label ? `前回：${label}（${date}）` : `前回：評価なし（${date}）`}</span>
+}
+
+// again: 記録済みの話をもう一度記録する（記録がもう1つ増える）。枠を点線にして、付け替えではないと分かるようにする
+function Ratings(props: { label: string; again?: boolean; onRate: (rating: RatingState) => void }) {
   return (
-    <div className="mini-ratings" role="group" aria-label={props.label}>
+    <div className={props.again ? 'mini-ratings mini-ratings--again' : 'mini-ratings'} role="group" aria-label={props.label}>
       {RATINGS.map((r) => (
         <button key={r.rating} type="button" className={`mini-rating mini-rating--${r.rating.toLowerCase()}`} onClick={() => props.onRate(r.rating)}>
           {r.label}
