@@ -84,7 +84,7 @@
           </li>
           <li>
             <strong>作品情報の提供元</strong>（現在は<a href="https://shikimori.io/" rel="noreferrer">Shikimori</a>）:
-            ジャンル、似た作品、関連作品、表紙の画像、声優・スタッフ・制作会社の参加作品などの公開データ。本アプリの中継の仕組みを通して取得し、利用者を特定する情報は送りません。
+            ジャンル、似た作品、関連作品、表紙の画像の場所、声優・スタッフ・制作会社の参加作品などの公開データ。本アプリの中継の仕組みを通して取得し、利用者を特定する情報は送りません。
             参加作品を探すときは、作品の詳細に載っている人物の名前（Annictに公開されている名前）を送ります。
           </li>
           <li>
@@ -97,6 +97,10 @@
           </li>
           <li>
             <strong>Google Fonts</strong>: 画面の文字の表示のために、フォントを読み込みます。
+          </li>
+          <li>
+            <strong>画像の提供元</strong>: 表紙（Shikimoriのポスターと、AnnictのAPIが返す各作品の公式サイトなどの画像）と、Annictのプロフィールの画像は、
+            ブラウザがそれぞれの提供元から直接読み込みます。そのとき、ふつうのWebページで画像を表示するときと同じく、IPアドレスやブラウザの種類が提供元に届きます。
           </li>
           <li>
             <strong>Vercel Web Analytics</strong>: 開いた画面の集計のために、画面の名前などを送ります（上の「1」）。
@@ -169,10 +173,11 @@
           <h2>3. Services Anipair connects to</h2>
           <ul>
             <li><strong>Annict</strong>: login, reading and writing your watch records and ratings, and anime information, using only Annict's public API. Your records are stored in your own Annict account.</li>
-            <li><strong>Anime data provider</strong> (currently Shikimori): public data such as genres, similar and related anime, cover images, and the works of voice actors, staff and studios, fetched through Anipair's proxy without any information that identifies you. To look up the works of a person, Anipair sends that person's public name as listed on Annict.</li>
+            <li><strong>Anime data provider</strong> (currently Shikimori): public data such as genres, similar and related anime, cover image locations, and the works of voice actors, staff and studios, fetched through Anipair's proxy without any information that identifies you. To look up the works of a person, Anipair sends that person's public name as listed on Annict.</li>
             <li><strong>Wikipedia</strong>: when you open the details of an anime, its synopsis is read from the article through Wikipedia's public API, without any information that identifies you.</li>
             <li><strong>GitHub</strong>, only if you connect it: your pass, skip and "not watched" records, your priority marks and notes on "want to watch" anime, and backups are saved to your own repository.</li>
             <li><strong>Google Fonts</strong>: web fonts used to display the app.</li>
+            <li><strong>Image hosts</strong>: cover images (Shikimori posters, and images such as official websites' images returned by Annict's API) and your Annict profile image are loaded by your browser directly from where they are hosted. As with any image on a web page, your IP address and browser type reach that host.</li>
             <li><strong>Vercel Web Analytics</strong>: the name of the screen you open and the other items in 1, for aggregated usage statistics, under <a href="https://vercel.com/docs/analytics/privacy-policy" rel="noreferrer">Vercel Web Analytics privacy information</a>.</li>
             <li><strong>Feedback</strong>, only when you send it: what you send goes through Anipair's server function to an issue in the operator's private GitHub repository (see 1).</li>
           </ul>

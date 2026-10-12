@@ -117,11 +117,16 @@ export async function writeJson(conn: GithubConnection, path: string, value: unk
   if (!res.ok) throw new GitHubError(`GitHubに保存できませんでした（HTTP ${res.status}）`, 'api')
 }
 
-// トークンでデータのリポジトリに届くかを確かめる
+// トークンでデータのリポジトリに届くかと、private かを確かめる
+// （公開のリポジトリだと、バックアップの評価・感想・パスが誰でも読める。2026-10-12 の総点検）
 export async function checkAccess(conn: GithubConnection): Promise<void> {
   const res = await call(`https://api.github.com/repos/${conn.repo}`, { headers: headers(conn.token) })
   if (res.status === 404) {
     throw new GitHubError(`このトークンでは${conn.repo}が見えません。リポジトリ名と、トークンの対象リポジトリを確認してください`, 'auth')
   }
   if (!res.ok) throw new GitHubError(`GitHubがエラーを返しました（HTTP ${res.status}）`, 'api')
+  const repo = (await res.json().catch(() => null)) as { private?: unknown } | null
+  if (repo?.private === false) {
+    throw new GitHubError(`${conn.repo}は公開のリポジトリです。記録が誰からも見えてしまうので、privateのリポジトリを指定してください`, 'auth')
+  }
 }

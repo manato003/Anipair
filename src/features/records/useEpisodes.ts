@@ -74,7 +74,8 @@ export function useEpisodes(token: string, workIds: readonly string[], enqueue: 
       patchEpisode(workId, episode.id, 1)
       if (comment) setCommented((cur) => new Set(cur).add(episode.id))
       let resolveId: (id: string | null) => void = () => undefined
-      recordIds.current.set(episode.id, new Promise((resolve) => (resolveId = resolve)))
+      const created = new Promise<string | null>((resolve) => (resolveId = resolve))
+      recordIds.current.set(episode.id, created)
       setUndoable((cur) => new Set(cur).add(episode.id))
       const since = Date.now()
       recordedAt.current.set(episode.id, since)
@@ -83,7 +84,11 @@ export function useEpisodes(token: string, workIds: readonly string[], enqueue: 
         async () => {
           try {
             // 前回の記録が届いたか分からない話なら、まず確かめる（二重に記録しない。lib/uncertainWrites.ts）
-            resolveId(await createRecordGuarded(token, episode.id, rating, comment))
+            const id = await createRecordGuarded(token, episode.id, rating, comment)
+            resolveId(id)
+            // 1回目が失敗して null に決まったあと、「もう一度」で届いたとき。取り消していなければ、届いた ID に差し替える
+            // （差し替えないと、取り消しが消すものを知らず、Annict に記録が残る。2026-10-12 の総点検）
+            if (recordIds.current.get(episode.id) === created) recordIds.current.set(episode.id, Promise.resolve(id))
           } catch (e) {
             resolveId(null)
             throw e

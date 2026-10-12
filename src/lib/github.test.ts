@@ -57,6 +57,15 @@ describe('github functions use the repository they are given', () => {
     expect(fetchMock.mock.calls[0][0]).toBe('https://api.github.com/repos/someone/their-data')
   })
 
+  it('checkAccess refuses a public repository, so the records are not readable by anyone', async () => {
+    fetchMock.mockResolvedValue(reply(200, { private: false }))
+    const err = await checkAccess(conn).catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(GitHubError)
+    expect((err as GitHubError).message).toContain('someone/their-dataは公開のリポジトリです')
+    fetchMock.mockResolvedValue(reply(200, { private: true }))
+    await expect(checkAccess(conn)).resolves.toBeUndefined()
+  })
+
   it('checkAccess names the repository in the error when it cannot be seen', async () => {
     fetchMock.mockResolvedValue(reply(404))
     const err = await checkAccess(conn).catch((e: unknown) => e)

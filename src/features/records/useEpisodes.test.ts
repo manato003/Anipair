@@ -135,6 +135,21 @@ describe('useEpisodes', () => {
     expect(fetchRecentActivity).toHaveBeenCalledTimes(1)
   })
 
+  it('undoing a record that failed and was then sent again deletes the record that arrived', async () => {
+    fetchEpisodes.mockResolvedValue(new Map([['W1', work()]]))
+    // 届いていないことがはっきりした失敗のあと、「もう一度」で届いた
+    createRecord.mockRejectedValueOnce(new AnnictError('Annictがエラーを返しました: busy', 'api')).mockResolvedValueOnce('REC5')
+    const q = queue()
+    const { result } = renderHook(() => useEpisodes('t', ['W1'], q.enqueue))
+    await waitFor(() => expect(result.current.byWork.has('W1')).toBe(true))
+    act(() => result.current.record('作品', 'W1', ep(3), 'GOOD'))
+    await expect(q.tasks[0].run()).rejects.toThrow('busy')
+    await q.tasks[0].run()
+    act(() => result.current.undo('作品', 'W1', ep(3)))
+    await q.tasks[1].run()
+    expect(deleteRecord).toHaveBeenCalledWith('t', 'REC5')
+  })
+
   it('undoing a record that failed with a 502 deletes it if it had arrived after all', async () => {
     fetchEpisodes.mockResolvedValue(new Map([['W1', work()]]))
     createRecord.mockRejectedValueOnce(new AnnictError('Annictに接続できませんでした', 'network'))

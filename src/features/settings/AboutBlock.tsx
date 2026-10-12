@@ -50,9 +50,9 @@ export function AboutBlock({ showTagline = true, welcome = false }: { showTaglin
       <details className="settings__fold">
         <summary>通信先・画像について</summary>
         <ul className="settings__list settings__lead">
-          <li>通信先はAnnictとShikimori（このサイトの中継を経由）とWikipediaです。GitHubと連携した場合は、GitHubにも送信します。問い合わせを送ったときは、その内容だけが、このサイトの関数を通して運営者の非公開のGitHubリポジトリに届きます。開いた画面の集計のために、画面の名前・参照元・国や地域・端末とブラウザの種類をVercel Web Analyticsに送ります。</li>
+          <li>通信先はAnnictとShikimori（このサイトの中継を経由）とWikipedia、文字のためのGoogle Fontsです。GitHubと連携した場合は、GitHubにも送信します。問い合わせを送ったときは、その内容だけが、このサイトの関数を通して運営者の非公開のGitHubリポジトリに届きます。開いた画面の集計のために、画面の名前・参照元・国や地域・端末とブラウザの種類をVercel Web Analyticsに送ります。</li>
           <li>作品の詳細のあらすじは、Wikipediaの記事の冒頭を、出典とライセンス（CC BY-SA 4.0）を添えて表示しています。</li>
-          <li>表紙には、Shikimoriのポスターと、AnnictのAPIが返す各作品の公式サイトの画像を表示しています。権利は各権利者に帰属します。</li>
+          <li>表紙には、Shikimoriのポスターと、AnnictのAPIが返す各作品の公式サイトの画像を表示しています。画像はブラウザが提供元から直接読み込みます。権利は各権利者に帰属します。</li>
         </ul>
       </details>
       <p className="settings__lead settings__about-foot">
