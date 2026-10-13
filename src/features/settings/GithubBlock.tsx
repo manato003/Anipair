@@ -83,7 +83,7 @@ export function GithubBlock(props: { github: GithubConnection | null; onChange: 
         <>
           {/* なぜ GitHub なのか（連携しようとしている人にだけ） */}
           <p className="settings__lead">
-            興味なし・保留・見てないはAnipairだけの記録で、Annictには置けません。Anipairは運営サーバーを持たないので、あなた自身のGitHubのリポジトリに保存します。連携しない場合は、この端末の中にだけ残ります。
+            興味なし・保留・見てない・見たいの印とメモ・見るサービスはAnipairだけの記録で、Annictには置けません。Anipairは記録を置く運営サーバーを持たないので、あなた自身のGitHubのリポジトリに保存します。連携しない場合は、この端末の中にだけ残ります。
           </p>
           <details className="settings__fold" open>
             <summary>連携の手順（3ステップ）</summary>
