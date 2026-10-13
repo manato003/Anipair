@@ -161,22 +161,46 @@ export interface NextBroadcast {
   more: boolean
 }
 
+// 同じ時刻に複数あるときに先に出す名前: 配信サービス（選ぶ一覧の順）、そのあと局（地方局より先に配信を出す。2026-10-13 に「とちぎテレビほか」と出た）
+function labelRank(label: string): number {
+  const i = SERVICES.findIndex((s) => s.label === label)
+  return i >= 0 ? i : SERVICES.length
+}
+const firstLabel = (labels: Iterable<string>): string => [...labels].sort((a, b) => labelRank(a) - labelRank(b))[0]
+
 function labelOf(slot: Slot): string {
   return serviceOf(slot)?.label ?? slot.ch.trim()
 }
 
-// 選んだチャンネルの中で、いまより後に始まる一番早い放送
+// 選んだチャンネルの、これからの放送のうち、まだどのチャンネルでも流れていない回だけ（同じ回の遅れた配信を除く）。
+// k（チャンネルごとの通し番号）が同じなら同じ回。選んだチャンネルのどれかで、これからの最初の放送の k がそれより大きければ、
+// その回はもう流れている（例: 日曜0:30 に dアニメストアで第2話、火曜12:00 に Netflix で第2話 → 火曜の Netflix は出さない。2026-10-13）。
+// k の無い予定（終わりの側から読んだ）は、そのまま残す
+export function freshSlots(slots: readonly Slot[], p: BroadcastChoice, now: Date): Slot[] {
+  const upcoming = slots.filter((slot) => {
+    const at = Date.parse(slot.at)
+    return Number.isFinite(at) && at > now.getTime() && matches(slot, p)
+  })
+  const firstK = new Map<string, number>()
+  for (const slot of upcoming) {
+    if (slot.k === undefined) continue
+    const cur = firstK.get(slot.ch)
+    if (cur === undefined || slot.k < cur) firstK.set(slot.ch, slot.k)
+  }
+  const aired = (k: number) => [...firstK.values()].some((first) => first > k)
+  return upcoming.filter((slot) => slot.k === undefined || !aired(slot.k))
+}
+
+// 選んだチャンネルの中で、いまより後に始まる一番早い放送（まだ流れていない回の）
 export function nextBroadcast(slots: readonly Slot[], p: BroadcastChoice, now: Date): NextBroadcast | null {
   let best: { at: number; labels: Set<string> } | null = null
-  for (const slot of slots) {
+  for (const slot of freshSlots(slots, p, now)) {
     const at = Date.parse(slot.at)
-    if (!Number.isFinite(at) || at <= now.getTime() || !matches(slot, p)) continue
     if (!best || at < best.at) best = { at, labels: new Set([labelOf(slot)]) }
     else if (at === best.at) best.labels.add(labelOf(slot))
   }
   if (!best) return null
-  const [channel] = best.labels
-  return { at: new Date(best.at), channel, more: best.labels.size > 1 }
+  return { at: new Date(best.at), channel: firstLabel(best.labels), more: best.labels.size > 1 }
 }
 
 // 選んだチャンネルごとの、次の放送（早い順）。配信サービスは選んだときの名前でまとめる（ABEMA の2つのチャンネルなど）
@@ -219,10 +243,10 @@ export function formatBroadcast(at: Date, now: Date): string {
 }
 
 // ── 今週の放送予定（見てるの作品の、これから7日の放送を日ごとに） ──
-// 作品ごとに、同じ回はサービスが違っても1回だけ（一番早いもの）並べる。
-// 回の数は、1つのチャンネルが7日のうちに放送する回数の最大（毎週の作品は1回、毎日の作品は7回）。
-// i 回目は、各チャンネルの i 番目の放送のうち一番早いもの（地上波の翌日に BS、数日後に配信、のような遅れを同じ回にまとめる。
-// 2026-10-13: 時刻の間隔で分けたら、金曜の地上波と土曜の BS が別の回として2回並んだ）
+// 作品ごとに、同じ回はサービスが違っても1回だけ（一番早いもの）並べる。ほかのサービスで流れ終わった回の、遅れた配信は出さない（freshSlots）。
+// 回は、チャンネルごとの通し番号（k）で見分ける。k の無い予定は、1つのチャンネルが7日のうちに放送する回数で回を数え、
+// i 回目は各チャンネルの i 番目の放送のうち一番早いもの（2026-10-13: 時刻の間隔で分けたら、金曜の地上波と土曜の BS が別の回として2回並んだ。
+// 7日だけを見ると、日曜の dアニメストアで流れた回の火曜の Netflix も新しい回に見えた）
 export interface WeekItem<T> {
   work: T
   at: Date
@@ -233,23 +257,33 @@ export interface WeekItem<T> {
 export function weekSchedule<T>(works: readonly { work: T; slots: readonly Slot[] }[], p: BroadcastChoice, now: Date): { day: string; items: WeekItem<T>[] }[] {
   const until = now.getTime() + 7 * 86400 * 1000
   const items: WeekItem<T>[] = []
+  const add = (work: T, here: { at: number; label: string }[]) => {
+    const first = Math.min(...here.map((x) => x.at))
+    const labels = new Set(here.filter((x) => x.at === first).map((x) => x.label))
+    items.push({ work, at: new Date(first), channel: firstLabel(labels), more: labels.size > 1 })
+  }
   for (const { work, slots } of works) {
+    const fresh = freshSlots(slots, p, now).filter((slot) => Date.parse(slot.at) <= until)
+    // 回の番号（k）が分かる予定は、回ごとに一番早い放送を1回
+    const byK = new Map<number, { at: number; label: string }[]>()
+    for (const slot of fresh) {
+      if (slot.k === undefined) continue
+      const list = byK.get(slot.k) ?? []
+      list.push({ at: Date.parse(slot.at), label: labelOf(slot) })
+      byK.set(slot.k, list)
+    }
+    for (const here of byK.values()) add(work, here)
+    // 分からない予定（終わりの側から読んだ）は、チャンネルごとの放送の順番で回をそろえる
     const byChannel = new Map<string, { at: number; label: string }[]>()
-    for (const slot of slots) {
-      const at = Date.parse(slot.at)
-      if (!Number.isFinite(at) || at <= now.getTime() || at > until || !matches(slot, p)) continue
+    for (const slot of fresh) {
+      if (slot.k !== undefined) continue
       const list = byChannel.get(slot.ch) ?? []
-      list.push({ at, label: labelOf(slot) })
+      list.push({ at: Date.parse(slot.at), label: labelOf(slot) })
       byChannel.set(slot.ch, list)
     }
     const lists = [...byChannel.values()].map((l) => l.sort((a, b) => a.at - b.at))
     const rounds = Math.max(0, ...lists.map((l) => l.length))
-    for (let i = 0; i < rounds; i++) {
-      const here = lists.flatMap((l) => (l[i] ? [l[i]] : []))
-      const first = Math.min(...here.map((x) => x.at))
-      const labels = [...new Set(here.filter((x) => x.at === first).map((x) => x.label))]
-      items.push({ work, at: new Date(first), channel: labels[0], more: labels.length > 1 })
-    }
+    for (let i = 0; i < rounds; i++) add(work, lists.flatMap((l) => (l[i] ? [l[i]] : [])))
   }
   items.sort((a, b) => a.at.getTime() - b.at.getTime())
   const days: { day: string; items: WeekItem<T>[] }[] = []

@@ -13,6 +13,10 @@ Annictの非公式の個人開発アプリで、Annictの運営とは関係が�
 |---|---|---|---|
 | <img src="screenshots/rate-phone.png" width="200" alt="評価の画面"> | <img src="screenshots/match-phone.png" width="200" alt="マッチングの画面"> | <img src="screenshots/detail-phone.png" width="200" alt="作品の詳細"> | <img src="screenshots/episodes-phone.png" width="200" alt="話ごとの記録"> |
 
+| 見てる（次の放送） | 今週の放送 |
+|---|---|
+| <img src="screenshots/records-airing-phone.png" width="200" alt="見てるの作品に次の放送日が出た記録の画面"> | <img src="screenshots/records-week-phone.png" width="200" alt="これから7日の放送を日ごとに並べた画面"> |
+
 <img src="screenshots/rate-pc.png" width="720" alt="PCの画面">
 
 ## できること

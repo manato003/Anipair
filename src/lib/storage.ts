@@ -650,7 +650,7 @@ export function saveStoredBroadcast(value: unknown): void {
 // partial: これから先の分を読み切れなかった（次に開いたときに読み直す）
 export interface StoredPrograms {
   at: string
-  slots: { at: string; ch: string; g: string }[]
+  slots: { at: string; ch: string; g: string; k?: number }[]
   partial?: boolean
 }
 
@@ -670,7 +670,8 @@ export function loadPrograms(): Map<string, StoredPrograms> {
         typeof (s as { at?: unknown }).at === 'string' &&
         Number.isFinite(Date.parse((s as { at: string }).at)) &&
         typeof (s as { ch?: unknown }).ch === 'string' &&
-        typeof (s as { g?: unknown }).g === 'string',
+        typeof (s as { g?: unknown }).g === 'string' &&
+        ((s as { k?: unknown }).k === undefined || Number.isInteger((s as { k?: unknown }).k)),
     )
     out.set(id, partial === true ? { at, slots: ok, partial: true } : { at, slots: ok })
   }

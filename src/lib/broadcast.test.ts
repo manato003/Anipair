@@ -71,7 +71,7 @@ describe('nextBroadcast', () => {
   it('says ほか when another chosen channel starts at the same time, and nothing without a match', () => {
     const at = '2026-10-19T15:00:00Z'
     const next = nextBroadcast([slot(at, 'dアニメストア'), slot(at, 'Netflix')], prefs, NOW)!
-    expect(broadcastLabel(next, NOW)).toBe('次の放送 10/20(火) 0:00 dアニメストアほか')
+    expect(broadcastLabel(next, NOW)).toBe('次の放送 10/20(火) 0:00 Netflixほか')
     expect(nextBroadcast([slot(at, 'Hulu')], prefs, NOW)).toBeNull()
   })
 })
@@ -127,6 +127,37 @@ describe('weekSchedule', () => {
       ['明日', ['B Netflix']],
       ['10/16(金)', ['A dアニメストア', 'D 日本テレビ']],
     ])
+  })
+})
+
+// 2026-10-13: 日曜0:30 に dアニメストアで流れた第2話を、火曜12:00 の Netflix で新しい回のように出していた（『生徒会にも穴はある！』）
+describe('fresh broadcasts (an episode already shown on another chosen service is not new)', () => {
+  // いまは火曜 10:00。第2話は日曜に dアニメストアで流れ済み。Netflix は今日 12:00 に第2話、dアニメストアは次の日曜に第3話
+  const now = new Date('2026-10-13T01:00:00Z')
+  const slots = [
+    { at: '2026-10-13T03:00:00Z', ch: 'Netflix', g: '動画サービス', k: 2 },
+    { at: '2026-10-20T03:00:00Z', ch: 'Netflix', g: '動画サービス', k: 3 },
+    { at: '2026-10-17T15:30:00Z', ch: 'dアニメストア', g: '動画サービス', k: 3 },
+  ]
+  const both = { services: ['danime' as const, 'netflix' as const], region: null, satellites: [] }
+  it('skips the delayed showing, and lists the next new episode once', () => {
+    expect(nextBroadcast(slots, both, now)).toEqual({ at: new Date('2026-10-17T15:30:00Z'), channel: 'dアニメストア', more: false })
+    const days = weekSchedule([{ work: 'S', slots }], both, now)
+    expect(days.map((d) => [d.day, d.items.map((i) => i.channel)])).toEqual([['10/18(日)', ['dアニメストア']]])
+  })
+  it('keeps the showing when only that service is chosen', () => {
+    const netflix = { services: ['netflix' as const], region: null, satellites: [] }
+    expect(nextBroadcast(slots, netflix, now)?.channel).toBe('Netflix')
+    expect(nextBroadcast(slots, netflix, now)?.at).toEqual(new Date('2026-10-13T03:00:00Z'))
+  })
+})
+
+describe('which name comes first at the same time', () => {
+  it('names a chosen streaming service before a local station', () => {
+    const p = { services: ['danime' as const], region: '関東' as const, satellites: [] }
+    const at = '2026-10-17T15:30:00Z'
+    const next = nextBroadcast([slot(at, 'とちぎテレビ', 'テレビ 関東'), slot(at, 'dアニメストア'), slot(at, 'TOKYO MX', 'テレビ 関東')], p, NOW)
+    expect(next).toMatchObject({ channel: 'dアニメストア', more: true })
   })
 })
 

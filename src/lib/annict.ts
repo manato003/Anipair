@@ -390,10 +390,14 @@ const PROGRAMS_PER_PAGE = 100
 const MAX_PROGRAM_PAGES = 8
 const HORIZON_DAYS = 28
 
+// k: そのチャンネルで何回目の放送か（始まりから数えた初回放送の通し番号。同じ時刻に重ねて登録された分は1回と数える）。
+// チャンネルごとに第1話から順に毎週流れるので、k が同じなら同じ回（2026-10-13 に今期の作品で確かめた）。
+// 終わりの側から読んだとき（始まりからの数が分からない）は無い
 export interface ProgramSlot {
   at: string
   ch: string
   g: string
+  k?: number
 }
 
 interface ProgramPage {
@@ -426,11 +430,22 @@ export async function fetchUpcomingPrograms(token: string, workIds: readonly str
   const out = new Map<string, UpcomingPrograms>()
   const from = now.getTime() - 3600 * 1000
   const until = now.getTime() + HORIZON_DAYS * 86400 * 1000
-  const keep = (page: ProgramPage, into: ProgramSlot[]) => {
+  // counts: 始まりから読んでいるときの、チャンネルごとの初回放送の数と最後の時刻（同じ時刻の重複を1回にする）
+  const keep = (page: ProgramPage, into: ProgramSlot[], counts?: Map<string, { n: number; at: number }>) => {
     for (const p of page.nodes) {
       const at = Date.parse(p.startedAt)
-      if (p.rebroadcast || !p.channel || !Number.isFinite(at) || at < from || at > until) continue
-      into.push({ at: p.startedAt, ch: p.channel.name, g: p.channel.channelGroup.name })
+      if (p.rebroadcast || !p.channel || !Number.isFinite(at)) continue
+      let k: number | undefined
+      if (counts) {
+        const c = counts.get(p.channel.name) ?? { n: 0, at: Number.NaN }
+        if (c.at === at) continue
+        counts.set(p.channel.name, { n: c.n + 1, at })
+        k = c.n + 1
+      } else if (into.some((s) => s.ch === p.channel!.name && Date.parse(s.at) === at)) {
+        continue
+      }
+      if (at < from || at > until) continue
+      into.push(k === undefined ? { at: p.startedAt, ch: p.channel.name, g: p.channel.channelGroup.name } : { at: p.startedAt, ch: p.channel.name, g: p.channel.channelGroup.name, k })
     }
   }
   const reachedEnd = (page: ProgramPage) => {
@@ -451,13 +466,14 @@ export async function fetchUpcomingPrograms(token: string, workIds: readonly str
     for (const n of data.nodes) {
       if (!n) continue
       const slots: ProgramSlot[] = []
+      const counts = new Map<string, { n: number; at: number }>()
       let page = n.programs
-      keep(page, slots)
+      keep(page, slots, counts)
       for (let pages = 1; !reachedEnd(page) && pages < MAX_PROGRAM_PAGES; pages++) {
         const more = await nextPrograms(token, n.id, page.pageInfo.endCursor, 'ASC')
         if (!more) break
         page = more
-        keep(page, slots)
+        keep(page, slots, counts)
       }
       if (reachedEnd(page)) {
         out.set(n.id, { slots, complete: true })

@@ -459,7 +459,8 @@ describe('fetchUpcomingPrograms', () => {
     const got = await fetchUpcomingPrograms('tok', ['W1'], NOW)
     expect(fetchMock).toHaveBeenCalledTimes(2)
     expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).variables).toEqual({ id: 'W1', after: 'c1' })
-    expect(got.get('W1')).toEqual({ slots: [{ at: '2026-10-16T15:00:00Z', ch: 'dアニメストア', g: '動画サービス' }], complete: true })
+    // 始まりから読んだので、チャンネルごとの通し番号（3回目の放送）が付く
+    expect(got.get('W1')).toEqual({ slots: [{ at: '2026-10-16T15:00:00Z', ch: 'dアニメストア', g: '動画サービス', k: 3 }], complete: true })
   })
 
   // #34: 過去の予定が多い作品（長く続く作品）は、始まりから8ページで届かない。終わりの側から読み、届かなければ読み切れなかったと返す
