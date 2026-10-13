@@ -58,6 +58,9 @@ import type { GithubConnection } from '../../lib/github'
 import { useCoalescedTask } from '../../lib/useCoalescedTask'
 import { noteOf, priorityFirst } from './wannaNotes'
 import { loadLocalWannaNotes, setWannaNote, syncWannaNotes } from './wannaNoteStore'
+import { broadcastLabel, hasChoice, nextBroadcast, syncBroadcastPrefs, useBroadcastPrefs } from '../../lib/broadcast'
+import { BroadcastSheet } from '../../components/BroadcastSheet'
+import { isAiringCandidate, useUpcomingPrograms } from './useUpcomingPrograms'
 import { WannaNoteSheet } from './WannaNoteSheet'
 import { StaleNote } from '../../components/StaleNote'
 import { SortRow } from '../../components/SortRow'
@@ -174,6 +177,42 @@ export function Records({ token, github = null, active }: { token: string; githu
   // 見てる作品の1話の長さ（残りの時間の目安）。見てるを開いたときだけ、見てる作品の分を読む
   const watchingEntries = useMemo(() => watchingRows.map((row) => row.entry), [watchingRows])
   const watchMedia = useMediaInfo(watchingEntries, showWatching)
+  // 見てる作品の次の放送（Issue #32）。見るサービスを選んだ人だけ、放送中の作品の放送予定を読む
+  const broadcastPrefs = useBroadcastPrefs()
+  const wantsBroadcast = hasChoice(broadcastPrefs)
+  const [servicesOpen, setServicesOpen] = useState(false)
+  // GitHub と連携していれば、開いたときと選び直したあとに同期する（設定の画面で選び直した分も、ここで送る）
+  const broadcastSyncedAt = useRef<string | null | undefined>(undefined)
+  const syncBroadcast = useMemo(
+    () =>
+      github
+        ? async () => {
+            broadcastSyncedAt.current = (await syncBroadcastPrefs(github)).at
+          }
+        : null,
+    [github],
+  )
+  const syncBroadcastLater = useCoalescedTask(r.enqueue, '見るサービスのGitHubへの保存', syncBroadcast)
+  useEffect(() => {
+    if (!active || !github || broadcastSyncedAt.current === broadcastPrefs.at) return
+    broadcastSyncedAt.current = broadcastPrefs.at
+    syncBroadcastLater()
+  }, [active, github, broadcastPrefs.at, syncBroadcastLater])
+  const programWorkIds = useMemo(() => {
+    if (!wantsBroadcast) return []
+    const now = new Date()
+    return watchingRows
+      .filter((row) => isAiringCandidate(row.entry, watchMedia.info?.get(malIdOf(row.entry) ?? -1)?.airing === true, now))
+      .map((row) => row.entry.workId)
+  }, [wantsBroadcast, watchingRows, watchMedia.info])
+  const programs = useUpcomingPrograms(token, programWorkIds, showWatching && wantsBroadcast)
+  const broadcastOf = (row: RecordRow): string | null => {
+    if (!wantsBroadcast) return null
+    const slots = programs.slots.get(row.entry.workId)
+    const now = new Date()
+    const next = slots ? nextBroadcast(slots, broadcastPrefs, now) : null
+    return next ? broadcastLabel(next, now) : null
+  }
   // 見てるのカードから記録した話（作品ごと。取り消せるあいだ「取り消す」を出す）
   // 作品ごとに、この画面で記録した話（古い順）。取り消すと、ひとつ前に記録した話を取り消せるようになる
   const [lastRecorded, setLastRecorded] = useState<ReadonlyMap<string, readonly Episode[]>>(new Map())
@@ -440,6 +479,14 @@ export function Records({ token, github = null, active }: { token: string; githu
                   ))}
                 </ul>
               ) : bucket === 'watching' ? (
+                <>
+                {/* 見るサービスの入口は、使う場所に置く（設定の奥だけだと気づかれない） */}
+                <p className="watchcards__broadcast">
+                  {wantsBroadcast ? '次の放送日は、Annictの放送予定から出しています。' : '見るサービスを選ぶと、次の放送日が出ます。'}
+                  <button type="button" className="link" onClick={() => setServicesOpen(true)}>
+                    {wantsBroadcast ? '見るサービスを変える' : '選ぶ'}
+                  </button>
+                </p>
                 <ul className="watchcards">
                   {visible.map((row) => {
                     const data = eps.byWork.get(row.entry.workId)
@@ -450,6 +497,7 @@ export function Records({ token, github = null, active }: { token: string; githu
                         key={row.entry.annictId}
                         row={row}
                         next={watchNext(row)}
+                        broadcast={broadcastOf(row)}
                         episodes={episodes}
                         episodesError={eps.errors.get(row.entry.workId) ?? null}
                         noEpisodes={data?.noEpisodes === true}
@@ -466,6 +514,7 @@ export function Records({ token, github = null, active }: { token: string; githu
                     )
                   })}
                 </ul>
+                </>
               ) : (
                 <ul className="shelf">
                   {visible.map((row) => (
@@ -535,6 +584,7 @@ export function Records({ token, github = null, active }: { token: string; githu
         />
       )}
 
+      {servicesOpen && <BroadcastSheet onClose={() => setServicesOpen(false)} />}
 
       {open && (
         <WorkDetail
@@ -652,6 +702,8 @@ function ShelfItem(props: {
 function WatchCard(props: {
   row: RecordRow
   next: string | null
+  // 次の放送（見るサービスを選んでいて、予定があるときだけ）
+  broadcast: string | null
   // 話の一覧（読み込んだら）。読めなかったときの理由と、Annict に話の情報が無い作品か
   episodes: readonly Episode[] | null
   episodesError: string | null
@@ -689,6 +741,7 @@ function WatchCard(props: {
           {entry.title}
         </button>
         {props.next && <p className="watchcard__next">{props.next}</p>}
+        {props.broadcast && <p className="watchcard__air">{props.broadcast}</p>}
         {left && <p className="watchcard__left">{left}</p>}
         {progress && (
           <span className="watchcard__bar" role="img" aria-label={`${progress.total}話のうち${progress.done}話まで`}>

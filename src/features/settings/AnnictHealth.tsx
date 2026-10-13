@@ -19,7 +19,7 @@ export function AnnictHealth(props: { token: string }) {
   async function check() {
     setChecking(true)
     try {
-      await fetchViewer(props.token)
+      await fetchViewer(props.token, { fresh: true })
     } catch {
       // 結果は調子の記録に入る（失敗も含めて、ここでは何もしない）
     } finally {

@@ -36,6 +36,6 @@ describe('AnnictHealth', () => {
       fireEvent.click(screen.getByRole('button', { name: 'いま確かめる' }))
     })
     expect(fetchViewer).toHaveBeenCalledTimes(1)
-    expect(fetchViewer).toHaveBeenCalledWith('t')
+    expect(fetchViewer).toHaveBeenCalledWith('t', { fresh: true })
   })
 })

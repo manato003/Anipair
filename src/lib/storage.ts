@@ -29,6 +29,8 @@ const KEYS = {
   // Annict から最後に読んだ自分のライブラリと、評価の画面のクールの作品（起動したらまずこれで出す。lib/offlineCache.ts）。
   // 今のトークンの持ち主のもので、トークンが変わったら消す
   library: 'animax.library.v1',
+  // 作品の詳細の控え（キャスト・スタッフ・シリーズなど。自分の状態は、使うときにライブラリから入れ直す。lib/annict.ts）
+  workDetails: 'animax.workDetails.v1',
   seasonWorks: 'animax.seasonWorks.v1',
   // Annict に送る前・送れなかった書き込み（最終的にどうしたいか）。次に開いたときに送り直せるように（lib/writeJournal.ts）。
   // 届いたか分からない作成の印（lib/uncertainWrites.ts）。どちらも今のトークンの持ち主のもので、トークンが変わったら消す
@@ -54,6 +56,10 @@ const KEYS = {
   buttonLabels: 'animax.buttonLabels.v1',
   // 画面の色（テーマの色・明るさ・時刻・片手操作）。端末ごと。読み書きは lib/theme.ts
   theme: 'animax.theme.v1',
+  // 見るサービス（配信・地上波の地域・BS・CS）。人ごと（GitHub で共有する）。形を確かめるのは lib/broadcast.ts
+  broadcast: 'animax.broadcast.v1',
+  // 見てる作品の放送予定の控え（Annict の programs を、これから先の分だけ。作品の ID → 読んだ時刻と予定）
+  programs: 'animax.programs.v1',
   // 下の「人ごとの記録」がいま誰のものか（Annict のユーザー名）
   owner: 'animax.owner.v1',
   // ログアウト・アカウントの切り替えで退避した、人ごとの記録（ユーザー名 → 鍵 → 値）。同じ人がログインし直したら戻す
@@ -196,7 +202,7 @@ export function saveAnnictToken(token: string | null): void {
 // なので Annict のユーザー名で持ち主を覚え、別の人に替わるときだけ、前の人の分を退避して次の人の分を戻す
 // （2026-10-06 の点検: 共有の端末で、前の人の称号やパスが次の人に引き継がれ、GitHub のバックアップにも混ざっていた）
 // Annict から読んだ自分の記録の写し（トークンが変わったら消す）
-const ANNICT_COPIES: readonly string[] = [KEYS.reviews, KEYS.library, KEYS.seasonWorks]
+const ANNICT_COPIES: readonly string[] = [KEYS.reviews, KEYS.library, KEYS.seasonWorks, KEYS.workDetails]
 
 const PERSONAL_KEYS: readonly string[] = [
   KEYS.writeJournal,
@@ -218,6 +224,9 @@ const PERSONAL_KEYS: readonly string[] = [
   KEYS.backup,
   KEYS.titles,
   KEYS.feats,
+  // 放送予定の控えは、見ている作品が分かる。見るサービスは GitHub で共有するので、人ごとに分ける
+  KEYS.programs,
+  KEYS.broadcast,
 ]
 
 // GitHub のトークンは、退避の控えにも残さない（ログアウトで消す。次の人が端末の中を覗いても読めない。もう一度つなぐときに入れ直す）
@@ -529,6 +538,14 @@ export function saveStoredLibraryRaw(value: unknown): void {
   write(KEYS.library, JSON.stringify(value))
 }
 
+export function loadWorkDetailsRaw(): unknown {
+  return readJson(KEYS.workDetails)
+}
+
+export function saveWorkDetailsRaw(value: unknown): void {
+  write(KEYS.workDetails, JSON.stringify(value))
+}
+
 export function loadSeasonWorksRaw(): unknown {
   return readJson(KEYS.seasonWorks)
 }
@@ -619,6 +636,41 @@ export function applyEffectLevel(level: EffectLevel): void {
   if (typeof document === 'undefined') return
   if (level === 'full') delete document.documentElement.dataset.effects
   else document.documentElement.dataset.effects = level
+}
+
+export function readStoredBroadcast(): unknown {
+  return readJson(KEYS.broadcast)
+}
+
+export function saveStoredBroadcast(value: unknown): void {
+  write(KEYS.broadcast, JSON.stringify(value))
+}
+
+// 放送予定の控え。形が違う分は捨てる（読み直せばよい）
+export interface StoredPrograms {
+  at: string
+  slots: { at: string; ch: string; g: string }[]
+}
+
+export function loadPrograms(): Map<string, StoredPrograms> {
+  const out = new Map<string, StoredPrograms>()
+  const v = readJson(KEYS.programs)
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return out
+  for (const [id, e] of Object.entries(v as Record<string, unknown>)) {
+    if (!e || typeof e !== 'object') continue
+    const { at, slots } = e as { at?: unknown; slots?: unknown }
+    if (typeof at !== 'string' || !Array.isArray(slots)) continue
+    const ok = slots.filter(
+      (s): s is StoredPrograms['slots'][number] =>
+        !!s && typeof s === 'object' && typeof (s as { at?: unknown }).at === 'string' && typeof (s as { ch?: unknown }).ch === 'string' && typeof (s as { g?: unknown }).g === 'string',
+    )
+    out.set(id, { at, slots: ok })
+  }
+  return out
+}
+
+export function savePrograms(programs: ReadonlyMap<string, StoredPrograms>): void {
+  write(KEYS.programs, JSON.stringify(Object.fromEntries(programs)))
 }
 
 export type ButtonLabels = 'both' | 'icon' | 'text'

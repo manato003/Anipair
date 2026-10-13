@@ -9,6 +9,9 @@ import { changeRating } from '../../lib/reviewOps'
 import { fetchMedia, shikimoriUrl, type Media } from '../../lib/shikimori'
 import type { Cover } from '../../lib/storage'
 import { vodSearchLinks } from '../../lib/vodSearch'
+import { formatBroadcast, hasChoice, upcomingByChannel, useBroadcastPrefs } from '../../lib/broadcast'
+import { BroadcastSheet } from '../../components/BroadcastSheet'
+import { isAiringCandidate, useUpcomingPrograms } from '../records/useUpcomingPrograms'
 import { episodeFacts, formatMinutes } from '../../lib/watchFacts'
 import { useFontsReady } from '../../lib/useFontsReady'
 import { messageOf } from '../../lib/useWriteQueue'
@@ -97,6 +100,11 @@ export function WorkDetail(
   const [wiki, setWiki] = useState<WikiSynopsis | null | undefined>(undefined)
   // あらすじの全文を広げているか（ネタバレを含むことがあるので、押したときだけ）
   const [wikiOpen, setWikiOpen] = useState(false)
+  // 放送中の作品の、見るサービスごとの次の放送（Issue #32。記録の「見てる」のカードは一番早いものだけなので、ここで全部を並べる）
+  const broadcastPrefs = useBroadcastPrefs()
+  const [servicesOpen, setServicesOpen] = useState(false)
+  const airing = shiki?.status === 'RELEASING' || isAiringCandidate(work, false, new Date())
+  const programs = useUpcomingPrograms(token, airing ? [work.id] : [], airing && hasChoice(broadcastPrefs) && props.active !== false)
   // 関連作品から重ねて開いている作品。開いているあいだ、このシートは Esc と「戻る」に反応しない（上のシートだけが閉じる）
   const [related, setRelated] = useState<RelatedTarget | null>(null)
   // 関連作品のシートで変えた状態（関連作品の一覧の印にすぐ映す）
@@ -108,7 +116,7 @@ export function WorkDetail(
   }
   // キャスト・スタッフ・制作会社から重ねて開いている参加作品の一覧
   const [credit, setCredit] = useState<CreditTarget | null>(null)
-  const active = (props.active ?? true) && related === null && credit === null
+  const active = (props.active ?? true) && related === null && credit === null && !servicesOpen
   const [shikiDone, setShikiDone] = useState(() => !malIdOf(work))
   const [waitedLong, setWaitedLong] = useState(false)
   // Annict は未記録を null ではなく NO_STATE で返す。画面では「記録なし」にそろえる
@@ -614,6 +622,15 @@ export function WorkDetail(
                 <ExternalIcon />
                 ほかのサイトで見る
               </h3>
+              {airing && (
+                <BroadcastSection
+                  chosen={hasChoice(broadcastPrefs)}
+                  slots={programs.slots.get(work.id) ?? null}
+                  failed={programs.failed}
+                  list={upcomingByChannel(programs.slots.get(work.id) ?? [], broadcastPrefs, new Date())}
+                  onChoose={() => setServicesOpen(true)}
+                />
+              )}
               {/* 配信サービスの検索への入り口（配信しているかは確かめない。lib/vodSearch.ts）。v0.7.1 で外した「配信」と同じ場所 */}
               {vodLinks.length > 0 && (
                 <section className="detail__section">
@@ -674,7 +691,55 @@ export function WorkDetail(
       ) : (
         <CreditWorks readOnly token={token} target={credit} active={props.active ?? true} onClose={() => setCredit(null)} />
       ))}
+    {servicesOpen && <BroadcastSheet onClose={() => setServicesOpen(false)} />}
     </>
+  )
+}
+
+// 見るサービスごとの次の放送（早い順）。選ぶ前は入口だけ、読めないときは黙らずに言う
+function BroadcastSection(props: {
+  chosen: boolean
+  slots: readonly unknown[] | null
+  failed: boolean
+  list: readonly { channel: string; at: Date }[]
+  onChoose: () => void
+}) {
+  const now = new Date()
+  return (
+    <section className="detail__section">
+      <h3 className="detail__label">次の放送</h3>
+      {!props.chosen ? (
+        <p className="detail__hint">
+          見るサービスを選ぶと、ここに次の放送日が出ます。
+          <button type="button" className="link" onClick={props.onChoose}>
+            選ぶ
+          </button>
+        </p>
+      ) : props.slots === null ? (
+        <p className="detail__hint">{props.failed ? '放送予定を読み込めませんでした。' : '放送予定を読み込み中…'}</p>
+      ) : (
+        <>
+          {props.list.length > 0 ? (
+            <ul className="airings">
+              {props.list.map((x) => (
+                <li key={x.channel}>
+                  <span className="airings__channel">{x.channel}</span>
+                  <span className="airings__at">{formatBroadcast(x.at, now)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="detail__hint">選んだサービスの放送予定は、Annictにありません。</p>
+          )}
+          <p className="detail__hint">
+            Annictの放送予定より。
+            <button type="button" className="link" onClick={props.onChoose}>
+              見るサービスを変える
+            </button>
+          </p>
+        </>
+      )}
+    </section>
   )
 }
 

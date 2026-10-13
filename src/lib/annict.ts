@@ -4,7 +4,8 @@ import { annictImageOf } from './covers'
 import { delay, parseRetryAfter } from './retry'
 import { createThrottle, type ScheduleOptions } from './throttle'
 import { patchStoredStatus, saveStoredLibrary, saveStoredSeasonWorks } from './offlineCache'
-import { pageIsCurrent } from './storage'
+import { loadWorkDetailsRaw, pageIsCurrent, saveWorkDetailsRaw } from './storage'
+import { previousSeason, seasonOf } from './season'
 
 // Annict GraphQL API。型は annict/annict の rails/app/graphql/beta/schema.graphql が正
 const ENDPOINT = 'https://api.annict.com/graphql'
@@ -125,9 +126,20 @@ async function gql<T>(token: string, query: string, variables: Record<string, un
   }
 }
 
-export async function fetchViewer(token: string): Promise<{ annictId: number; username: string; name: string }> {
-  const data = await gql<{ viewer: { annictId: number; username: string; name: string } }>(token, '{ viewer { annictId username name } }')
-  return data.viewer
+// 自分の情報は、1回の起動で1回だけ読む（起動の確かめと設定の「連携中」で同じものを使う。2026-10-13 に測ると、別々に読んでいた）。
+// fresh なら必ず読む（設定の「いま確かめる」は、Annict への接続を確かめるのが目的）。失敗したものは控えない
+type Viewer = { annictId: number; username: string; name: string }
+const viewerCache = new Map<string, Promise<Viewer>>()
+
+export function fetchViewer(token: string, opts: { fresh?: boolean } = {}): Promise<Viewer> {
+  const hit = viewerCache.get(token)
+  if (hit && !opts.fresh) return hit
+  const p = gql<{ viewer: Viewer }>(token, '{ viewer { annictId username name } }').then((d) => d.viewer)
+  viewerCache.set(token, p)
+  p.catch(() => {
+    if (viewerCache.get(token) === p) viewerCache.delete(token)
+  })
+  return p
 }
 
 // 端末の人ごとの記録の持ち主の鍵（Annict の数字の ID。ユーザー名は変えられるので使わない）
@@ -364,6 +376,78 @@ export async function fetchEpisodes(token: string, workIds: readonly string[]): 
         page = more.node.episodes.pageInfo
       }
       out.set(n.id, { workId: n.id, noEpisodes: n.noEpisodes, episodes })
+    }
+  }
+  return out
+}
+
+// ── 放送予定（Issue #32） ──
+// 作品の programs は、チャンネルごと・毎週の分が放送の始まりから並ぶ（人気の作品は40局を超え、1クールで500件を超える）。
+// チャンネルで絞って頼めないので、始まりから順に読み、これから先の分（HORIZON_DAYS 日まで）に届いたら止める。再放送は外す
+const PROGRAM_WORKS_PER_QUERY = 10
+const PROGRAMS_PER_PAGE = 100
+// 1作品で読むページの上限（クールの終わりごろでも、40局 × 13週 ≒ 6ページ）
+const MAX_PROGRAM_PAGES = 8
+const HORIZON_DAYS = 28
+
+export interface ProgramSlot {
+  at: string
+  ch: string
+  g: string
+}
+
+interface ProgramPage {
+  pageInfo: { hasNextPage: boolean; endCursor: string | null }
+  nodes: { startedAt: string; rebroadcast: boolean; channel: { name: string; channelGroup: { name: string } } | null }[]
+}
+
+const PROGRAM_FIELDS = 'pageInfo { hasNextPage endCursor } nodes { startedAt rebroadcast channel { name channelGroup { name } } }'
+
+export async function fetchUpcomingPrograms(token: string, workIds: readonly string[], now: Date = new Date()): Promise<Map<string, ProgramSlot[]>> {
+  const out = new Map<string, ProgramSlot[]>()
+  const from = now.getTime() - 3600 * 1000
+  const until = now.getTime() + HORIZON_DAYS * 86400 * 1000
+  const keep = (page: ProgramPage, into: ProgramSlot[]) => {
+    for (const p of page.nodes) {
+      const at = Date.parse(p.startedAt)
+      if (p.rebroadcast || !p.channel || !Number.isFinite(at) || at < from || at > until) continue
+      into.push({ at: p.startedAt, ch: p.channel.name, g: p.channel.channelGroup.name })
+    }
+  }
+  const reachedEnd = (page: ProgramPage) => {
+    const last = page.nodes.at(-1)
+    return !page.pageInfo.hasNextPage || !page.pageInfo.endCursor || (last !== undefined && Date.parse(last.startedAt) > until)
+  }
+  const unique = [...new Set(workIds)]
+  for (let i = 0; i < unique.length; i += PROGRAM_WORKS_PER_QUERY) {
+    const chunk = unique.slice(i, i + PROGRAM_WORKS_PER_QUERY)
+    const data = await gql<{ nodes: ({ id: string; programs: ProgramPage } | null)[] }>(
+      token,
+      `query($ids: [ID!]!) { nodes(ids: $ids) { ... on Work { id
+        programs(first: ${PROGRAMS_PER_PAGE}, orderBy: {field: STARTED_AT, direction: ASC}) { ${PROGRAM_FIELDS} }
+      } } }`,
+      { ids: chunk },
+      { background: true },
+    )
+    for (const n of data.nodes) {
+      if (!n) continue
+      const slots: ProgramSlot[] = []
+      let page = n.programs
+      keep(page, slots)
+      for (let pages = 1; !reachedEnd(page) && pages < MAX_PROGRAM_PAGES; pages++) {
+        const more = await gql<{ node: { programs: ProgramPage } | null }>(
+          token,
+          `query($id: ID!, $after: String) { node(id: $id) { ... on Work {
+            programs(first: ${PROGRAMS_PER_PAGE}, after: $after, orderBy: {field: STARTED_AT, direction: ASC}) { ${PROGRAM_FIELDS} }
+          } } }`,
+          { id: n.id, after: page.pageInfo.endCursor },
+          { background: true },
+        )
+        if (!more.node) break
+        page = more.node.programs
+        keep(page, slots)
+      }
+      out.set(n.id, slots)
     }
   }
   return out
@@ -654,6 +738,8 @@ export interface LibraryEntry {
 
 // 最後に読んだ自分のライブラリ（起動中だけ）。参加作品の一覧に、自分の記録の印を付けるのに使う（そのためだけに読み直さない）
 let lastLibrary: LibraryEntry[] | null = null
+// lastLibrary を読んだときの libraryGen（このあとに状態を書いていたら、作品の詳細の控えに状態を入れるのには使わない）
+let lastLibraryGen = -1
 
 export function peekLibrary(): readonly LibraryEntry[] | null {
   return lastLibrary
@@ -686,6 +772,7 @@ export function fetchLibrary(token: string, opts: { fresh?: boolean } = {}): Pro
       if (gen !== libraryGen) return value
       libraryCache = { token, at: Date.now(), value }
       lastLibrary = value
+      lastLibraryGen = gen
       // 次の起動ですぐ出せるように、端末にもとっておく（lib/offlineCache.ts）
       saveStoredLibrary(value)
       return value
@@ -697,6 +784,8 @@ export function fetchLibrary(token: string, opts: { fresh?: boolean } = {}): Pro
   return promise.then((v) => [...v])
 }
 
+// 記録の一覧は、開くたびに全部を読む（状態ごとに分けて一部を控えから出すと、Annict のサイトやほかの端末での変更とずれることがある。
+// 2026-10-13 に試して、利用者の判断で戻した: 記録のずれは不可、手で読み直すのも無し）
 async function readLibrary(token: string): Promise<LibraryEntry[]> {
   const out: LibraryEntry[] = []
   let after: string | null = null
@@ -1043,7 +1132,8 @@ export function fetchWorkDetail(token: string, workId: string): Promise<WorkDeta
   const key = `${token}\u0000${workId}`
   const hit = detailCache.get(key)
   if (hit && Date.now() - hit.at < DETAIL_TTL_MS) return hit.value
-  const value = readWorkDetail(token, workId)
+  const kept = keptWorkDetail(workId)
+  const value = kept ? Promise.resolve(kept) : readWorkDetail(token, workId).then(keepWorkDetail)
   detailCache.delete(key)
   detailCache.set(key, { at: Date.now(), value })
   // 古いものから捨てて、控えの数を抑える
@@ -1052,6 +1142,56 @@ export function fetchWorkDetail(token: string, workId: string): Promise<WorkDeta
     if (detailCache.get(key)?.value === value) detailCache.delete(key)
   })
   return value
+}
+
+// ── 作品の詳細を端末に控える（2026-10-13。Annict への問い合わせを減らす） ──
+// キャスト・スタッフ・シリーズは変わりにくいので、放送中の作品は1週間、それ以外は30日控える（Annict の再取得の目安の範囲）。
+// 自分の状態（作品とシリーズの作品の viewerStatusState）は控えのものを使わず、この起動で読んだライブラリから入れ直す。
+// ライブラリをまだ読んでいない・読んだあとに状態を書いたなら、控えは使わずに Annict から読む（古い状態の印を出さない）
+const KEPT_DETAILS = 30
+const KEPT_AIRING_MS = 7 * 86400_000
+const KEPT_OTHER_MS = 30 * 86400_000
+
+function libraryStates(): Map<number, StatusState> | null {
+  if (!lastLibrary || lastLibraryGen !== libraryGen) return null
+  return new Map(lastLibrary.map((e) => [e.annictId, e.state]))
+}
+
+function keptDetails(): Record<string, { at: string; detail: WorkDetail }> {
+  const v = loadWorkDetailsRaw()
+  return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, { at: string; detail: WorkDetail }>) : {}
+}
+
+function isAiringSeason(d: { seasonYear: number | null; seasonName: string | null }, now: Date): boolean {
+  const cur = seasonOf(now)
+  return [cur, previousSeason(cur)].some((s) => s.year === d.seasonYear && s.name === d.seasonName?.toLowerCase())
+}
+
+function keptWorkDetail(workId: string, now = new Date()): WorkDetail | null {
+  const states = libraryStates()
+  if (!states) return null
+  const e = keptDetails()[workId]
+  const d = e?.detail
+  if (!d || typeof d.annictId !== 'number' || !Array.isArray(d.casts) || !Array.isArray(d.staffs) || !Array.isArray(d.series)) return null
+  const age = now.getTime() - Date.parse(e.at)
+  if (!(age >= 0 && age < (isAiringSeason(d, now) ? KEPT_AIRING_MS : KEPT_OTHER_MS))) return null
+  const stateOf = (annictId: number): StatusState => states.get(annictId) ?? 'NO_STATE'
+  return {
+    ...d,
+    viewerStatusState: stateOf(d.annictId),
+    series: d.series.map((s) => ({ ...s, works: s.works.map((w) => ({ ...w, viewerStatusState: stateOf(w.annictId) })) })),
+  }
+}
+
+function keepWorkDetail(detail: WorkDetail): WorkDetail {
+  const all = keptDetails()
+  all[detail.id] = { at: new Date().toISOString(), detail }
+  // 新しく読んだ順に KEPT_DETAILS 件まで
+  const newest = Object.entries(all)
+    .sort((a, b) => Date.parse(b[1].at) - Date.parse(a[1].at))
+    .slice(0, KEPT_DETAILS)
+  saveWorkDetailsRaw(Object.fromEntries(newest))
+  return detail
 }
 
 async function readWorkDetail(token: string, workId: string): Promise<WorkDetail> {

@@ -1624,6 +1624,23 @@
   font-weight: 700;
 }
 
+/* 次の放送（Issue #32）。次の話のすぐ下に、少し控えめに */
+.watchcard__air {
+  color: var(--fg);
+  font-size: 0.8rem;
+}
+
+/* 見てるの一覧の上: 見るサービスの入口（選んだあとは、出どころと変える入口） */
+.watchcards__broadcast {
+  margin-bottom: 12px;
+  color: var(--sub);
+  font-size: 0.8rem;
+}
+
+.watchcards__broadcast .link {
+  margin-left: 4px;
+}
+
 .watchcard__left {
   color: var(--sub);
   font-size: 0.75rem;

@@ -87,6 +87,15 @@ const fetchMediaMock = vi.fn(async () => new Map())
 const fetchCreditsMock = vi.fn(async () => new Map())
 vi.mock('../../lib/shikimori', async (orig) => ({ ...(await orig<typeof import('../../lib/shikimori')>()), fetchMedia: () => fetchMediaMock() }))
 vi.mock('../../lib/annict', async (orig) => ({ ...(await orig<typeof import('../../lib/annict')>()), fetchCredits: () => fetchCreditsMock() }))
+// 見てる作品の放送予定（ネットワークに出さない）。読んだ作品の ID を控える
+const { programCalls } = vi.hoisted(() => ({ programCalls: [] as { ids: readonly string[]; enabled: boolean }[] }))
+vi.mock('./useUpcomingPrograms', async (orig) => ({
+  ...(await orig<typeof import('./useUpcomingPrograms')>()),
+  useUpcomingPrograms: (_t: string, ids: readonly string[], enabled: boolean) => {
+    programCalls.push({ ids, enabled })
+    return { slots: new Map([['W9', [{ at: '2099-01-03T15:00:00Z', ch: 'dアニメストア', g: '動画サービス' }]]]), failed: false }
+  },
+}))
 vi.mock('../achievements/Achievements', () => ({ Achievements: () => <div data-testid="achievements" /> }))
 
 const { Records } = await import('./Records')
@@ -121,6 +130,32 @@ describe('Records: the list it opens on', () => {
     render(<Records token="t" active />)
     expect(screen.getByRole('tab', { name: '見た' }).getAttribute('aria-selected')).toBe('true')
     expect(screen.getByRole('heading', { name: /^見た/ }).textContent).toBe('見た1')
+  })
+})
+
+// Issue #32: 見るサービスの入口は見てるの上に。選んだら、放送中の作品に次の放送を出す
+describe('Records: 次の放送（見るサービス）', () => {
+  it('offers to choose services, and after choosing shows the next broadcast on the card', async () => {
+    const { resetBroadcastPrefs } = await import('../../lib/broadcast')
+    localStorage.removeItem('animax.broadcast.v1')
+    resetBroadcastPrefs()
+    const airing = new Date()
+    rows.push(row({ ...entry(9, 'WATCHING', '2026-10-01T00:00:00Z'), seasonYear: airing.getFullYear(), seasonName: ['WINTER', 'SPRING', 'SUMMER', 'AUTUMN'][Math.floor(airing.getMonth() / 3)] }))
+    try {
+      render(<Records token="t" active />)
+      expect(screen.getByText('見るサービスを選ぶと、次の放送日が出ます。')).toBeTruthy()
+      expect(document.querySelector('.watchcard__air')).toBeNull()
+      fireEvent.click(screen.getByRole('button', { name: '選ぶ' }))
+      fireEvent.click(screen.getByRole('button', { name: 'dアニメストア' }))
+      fireEvent.click(screen.getByRole('button', { name: '決める' }))
+      expect(screen.getByText('次の放送日は、Annictの放送予定から出しています。')).toBeTruthy()
+      expect(document.querySelector('.watchcard__air')?.textContent).toBe('次の放送 1/4(日) 0:00 dアニメストア')
+      expect(programCalls.at(-1)).toEqual({ ids: ['W9'], enabled: true })
+    } finally {
+      rows.pop()
+      localStorage.removeItem('animax.broadcast.v1')
+      resetBroadcastPrefs()
+    }
   })
 })
 

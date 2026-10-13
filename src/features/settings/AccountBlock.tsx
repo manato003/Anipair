@@ -3,16 +3,16 @@ import { annictCollectionsUrl, fetchViewer } from '../../lib/annict'
 import { AnnictHealth } from './AnnictHealth'
 import { Section, StatusChip } from './Section'
 
-// 連携しているアカウントの名前（Annict に1回だけ聞く。読めなくても「連携中」とは出せる）
-const viewerCache = new Map<string, Promise<{ name: string; username: string }>>()
 
 export function AccountBlock(props: { token: string; onChange: (token: string | null, opts?: { forget?: boolean }) => void }) {
   const [viewer, setViewer] = useState<{ name: string; username: string } | null>(null)
   useEffect(() => {
     let cancelled = false
-    const p = viewerCache.get(props.token) ?? fetchViewer(props.token)
-    viewerCache.set(props.token, p)
-    p.then((v) => !cancelled && setViewer(v)).catch(() => viewerCache.delete(props.token))
+    // 連携しているアカウントの名前（起動の確かめで読んだものを使う。読めなくても「連携中」とは出せる）
+    fetchViewer(props.token).then(
+      (v) => !cancelled && setViewer(v),
+      () => undefined,
+    )
     return () => {
       cancelled = true
     }

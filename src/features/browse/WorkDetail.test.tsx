@@ -60,6 +60,12 @@ vi.mock('../records/useEpisodes', () => ({
     }
   },
 }))
+// 放送予定（ネットワークに出さない）
+let programSlots: { at: string; ch: string; g: string }[] | null = null
+vi.mock('../records/useUpcomingPrograms', async (orig) => ({
+  ...(await orig<typeof import('../records/useUpcomingPrograms')>()),
+  useUpcomingPrograms: () => ({ slots: new Map(programSlots ? [['W1', programSlots]] : []), failed: false }),
+}))
 vi.mock('../../lib/myReviews', () => ({
   getMyReviews: vi.fn(() => reviewsPromise),
   rememberReview: vi.fn(async () => undefined),
@@ -489,3 +495,33 @@ describe('WorkDetail: when it was recorded', () => {
     expect(screen.queryByText(/にした日時/)).toBeNull()
   })
 })
+
+// Issue #32: 放送中の作品は、見るサービスごとの次の放送を早い順に並べる（見てるのカードは一番早いものだけ）
+describe('WorkDetail: 次の放送', () => {
+  it('offers to choose services, then lists each chosen service by its next broadcast', async () => {
+    const { resetBroadcastPrefs, setBroadcastPrefs } = await import('../../lib/broadcast')
+    localStorage.removeItem('animax.broadcast.v1')
+    resetBroadcastPrefs()
+    const now = new Date()
+    const airingWork = { ...work, seasonYear: now.getFullYear(), seasonName: ['WINTER', 'SPRING', 'SUMMER', 'AUTUMN'][Math.floor(now.getMonth() / 3)] }
+    programSlots = [
+      { at: '2099-01-10T15:00:00Z', ch: 'Netflix', g: '動画サービス' },
+      { at: '2099-01-03T15:00:00Z', ch: 'dアニメストア', g: '動画サービス' },
+      { at: '2099-01-02T14:00:00Z', ch: 'TOKYO MX', g: 'テレビ 関東' },
+    ]
+    try {
+      const { unmount } = render(<WorkDetail token="t" work={airingWork} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
+      expect(screen.getByText(/見るサービスを選ぶと、ここに次の放送日が出ます/)).toBeTruthy()
+      unmount()
+      setBroadcastPrefs({ services: ['netflix', 'danime'], region: null, satellites: [] })
+      render(<WorkDetail token="t" work={airingWork} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
+      expect([...document.querySelectorAll('.airings__channel')].map((e) => e.textContent)).toEqual(['dアニメストア', 'Netflix'])
+      expect(document.querySelector('.airings__at')?.textContent).toBe('1/4(日) 0:00')
+    } finally {
+      programSlots = null
+      localStorage.removeItem('animax.broadcast.v1')
+      resetBroadcastPrefs()
+    }
+  })
+})
+

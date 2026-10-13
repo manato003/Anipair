@@ -326,6 +326,26 @@ img.cover--contain {
 }
 
 /* 配信サービスで探す（検索ページへのリンク）。外のサイトを開くので ↗ を添え、記録のボタンと見分ける */
+/* 見るサービスごとの次の放送（Issue #32）。名前と日時を1行ずつ、細い線で区切る */
+.airings {
+  display: grid;
+  list-style: none;
+  font-size: 0.9rem;
+}
+
+.airings li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.airings__at {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .vods {
   display: flex;
   flex-wrap: wrap;

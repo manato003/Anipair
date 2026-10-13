@@ -10,6 +10,7 @@ import { useSwipeIntercept } from '../../lib/useSwipeNav'
 import { AboutBlock } from './AboutBlock'
 import { AccountBlock } from './AccountBlock'
 import { BackupBlock } from './BackupBlock'
+import { BroadcastBlock } from './BroadcastBlock'
 import { ButtonLabelsBlock } from './ButtonLabelsBlock'
 import { ContactBlock } from './ContactBlock'
 import { ThemeBlock } from './ThemeBlock'
@@ -26,7 +27,7 @@ type GroupId = 'account' | 'display' | 'backup' | 'keys' | 'contact' | 'news' | 
 
 const GROUPS: readonly { id: GroupId; label: string; sub: string; icon: ReactNode; sections: readonly string[] }[] = [
   { id: 'account', label: 'アカウント', sub: 'AnnictとGitHubの連携', icon: <UserIcon />, sections: ['settings-account', 'settings-github'] },
-  { id: 'display', label: '表示', sub: 'テーマの色・明るさ・片手操作・ボタン・演出', icon: <PaletteIcon />, sections: ['settings-theme', 'settings-buttons', 'settings-effects'] },
+  { id: 'display', label: '表示', sub: 'テーマの色・明るさ・片手操作・ボタン・演出・見るサービス', icon: <PaletteIcon />, sections: ['settings-theme', 'settings-buttons', 'settings-effects', 'settings-broadcast'] },
   { id: 'backup', label: 'バックアップ', sub: 'ファイルに書き出す・毎日のバックアップ', icon: <BoxIcon />, sections: ['settings-backup'] },
   { id: 'keys', label: 'キー', sub: 'PCで答えるキーの割り当て', icon: <KeyIcon />, sections: ['settings-keys'] },
   { id: 'contact', label: 'お問い合わせ', sub: '質問・不具合・要望を送る・よくある質問', icon: <CommentIcon />, sections: ['settings-contact', 'settings-faq'] },
@@ -188,6 +189,7 @@ function SignedInSettings(props: {
                 <ThemeBlock />
                 <ButtonLabelsBlock />
                 <EffectsBlock />
+                <BroadcastBlock />
               </>
             )}
             {current.id === 'backup' && <BackupBlock annictToken={props.annictToken} github={props.github} />}

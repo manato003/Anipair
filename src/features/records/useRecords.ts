@@ -14,7 +14,8 @@ import type { RecordRow } from './recordList'
 // （full は利用者が読み直しを求めたときだけ。全部を読み直す）。
 // 何が現在の感想かは、この控えだけが持つ（送信のときもここから読む）
 async function fetchRecords(token: string, full = false) {
-  const library = await fetchLibrary(token)
+  // full（「もう一度読み込む」）なら、1分の使い回しも使わずに読む
+  const library = await fetchLibrary(token, { fresh: full })
   const myReviews = await refreshMyReviews(token, { full })
   return { library, myReviews }
 }

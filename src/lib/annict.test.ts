@@ -13,6 +13,7 @@ vi.mock('./throttle', () => ({
     },
 }))
 
+const { fetchUpcomingPrograms } = await import('./annict')
 const { AnnictError, fetchLibrary, fetchRecentActivity, fetchWorkReviews, findMyEpisodeRecord, fetchSeasonWorks, fetchViewer, fetchWorkDetail, forgetLibrary, forgetShortCaches, scanMyReviews, updateStatus } = await import('./annict')
 const { onAnnictAuthFailed } = await import('./authEvents')
 const { annictHealthSamples, resetAnnictHealth } = await import('./annictHealth')
@@ -37,7 +38,7 @@ afterEach(() => {
 describe('gql: Annict server errors', () => {
   it('says in words that Annict seems busy or down on 5xx', async () => {
     fetchMock.mockResolvedValue(json({}, 502))
-    await expect(fetchViewer('t')).rejects.toMatchObject({ kind: 'api', message: expect.stringContaining('Annictから応答を受け取れませんでした（HTTP 502）') })
+    await expect(fetchViewer('t', { fresh: true })).rejects.toMatchObject({ kind: 'api', message: expect.stringContaining('Annictから応答を受け取れませんでした（HTTP 502）') })
   })
 })
 
@@ -46,7 +47,7 @@ describe('gql: 401', () => {
     fetchMock.mockResolvedValue(json({}, 401))
     const heard: string[] = []
     const off = onAnnictAuthFailed((t) => heard.push(t))
-    const err = await fetchViewer('bad-token').catch((e: unknown) => e)
+    const err = await fetchViewer('bad-token', { fresh: true }).catch((e: unknown) => e)
     off()
     expect(err).toBeInstanceOf(AnnictError)
     expect((err as InstanceType<typeof AnnictError>).kind).toBe('auth')
@@ -57,7 +58,7 @@ describe('gql: 401', () => {
     fetchMock.mockResolvedValue(json({}, 500))
     const heard: string[] = []
     const off = onAnnictAuthFailed((t) => heard.push(t))
-    await expect(fetchViewer('t')).rejects.toThrow('HTTP 500')
+    await expect(fetchViewer('t', { fresh: true })).rejects.toThrow('HTTP 500')
     off()
     expect(heard).toEqual([])
   })
@@ -69,7 +70,7 @@ describe('gql: 429 (rack-attack)', () => {
   it('waits for Retry-After seconds and sends again, scheduling each attempt on its own', async () => {
     vi.useFakeTimers()
     fetchMock.mockResolvedValueOnce(json({}, 429, { 'Retry-After': '4' })).mockResolvedValueOnce(json(viewer))
-    const p = fetchViewer('t')
+    const p = fetchViewer('t', { fresh: true })
     await vi.advanceTimersByTimeAsync(3999)
     expect(fetchMock).toHaveBeenCalledTimes(1)
     await vi.advanceTimersByTimeAsync(1)
@@ -82,7 +83,7 @@ describe('gql: 429 (rack-attack)', () => {
   it('waits 2 seconds when there is no header, and gives up after two retries', async () => {
     vi.useFakeTimers()
     fetchMock.mockResolvedValue(json({}, 429))
-    const p = expect(fetchViewer('t')).rejects.toMatchObject({ kind: 'api', message: expect.stringContaining('利用制限') })
+    const p = expect(fetchViewer('t', { fresh: true })).rejects.toMatchObject({ kind: 'api', message: expect.stringContaining('利用制限') })
     await vi.advanceTimersByTimeAsync(1999)
     expect(fetchMock).toHaveBeenCalledTimes(1)
     await vi.advanceTimersByTimeAsync(1)
@@ -100,7 +101,7 @@ describe('gql: reads time out, writes run alone', () => {
     fetchMock.mockImplementation(
       (_url, init) => new Promise((_, reject) => init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')))),
     )
-    const p = expect(fetchViewer('t')).rejects.toMatchObject({ kind: 'timeout', message: expect.stringContaining('応答を受け取れませんでした') })
+    const p = expect(fetchViewer('t', { fresh: true })).rejects.toMatchObject({ kind: 'timeout', message: expect.stringContaining('応答を受け取れませんでした') })
     // 20 秒では切らない（Annict が重い日は、ライブラリの1ページに 24.6 秒かかった）
     await vi.advanceTimersByTimeAsync(89_999)
     await vi.advanceTimersByTimeAsync(1)
@@ -124,14 +125,14 @@ describe('gql: what it tells the Annict health record', () => {
 
   it('records answers (even 401) as answered, 5xx as a server failure with its status, and leaves 429 out', async () => {
     fetchMock.mockResolvedValueOnce(json(viewer))
-    await fetchViewer('t')
+    await fetchViewer('t', { fresh: true })
     fetchMock.mockResolvedValueOnce(json({}, 401))
-    await fetchViewer('t').catch(() => undefined)
+    await fetchViewer('t', { fresh: true }).catch(() => undefined)
     fetchMock.mockResolvedValueOnce(json({}, 502))
-    await fetchViewer('t').catch(() => undefined)
+    await fetchViewer('t', { fresh: true }).catch(() => undefined)
     vi.useFakeTimers()
     fetchMock.mockResolvedValueOnce(json({}, 429, { 'Retry-After': '1' })).mockResolvedValueOnce(json(viewer))
-    const p = fetchViewer('t')
+    const p = fetchViewer('t', { fresh: true })
     await vi.advanceTimersByTimeAsync(1000)
     await p
     expect(annictHealthSamples().map((x) => (x.ok ? 'ok' : `${x.failure} ${x.status ?? ''}`.trim()))).toEqual(['ok', 'ok', 'server 502', 'ok'])
@@ -139,12 +140,12 @@ describe('gql: what it tells the Annict health record', () => {
 
   it('records a connection failure and a read that never answered', async () => {
     fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'))
-    await fetchViewer('t').catch(() => undefined)
+    await fetchViewer('t', { fresh: true }).catch(() => undefined)
     vi.useFakeTimers()
     fetchMock.mockImplementationOnce(
       (_url, init) => new Promise((_, reject) => init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')))),
     )
-    const p = fetchViewer('t').catch(() => undefined)
+    const p = fetchViewer('t', { fresh: true }).catch(() => undefined)
     await vi.advanceTimersByTimeAsync(90_000)
     await p
     expect(annictHealthSamples().map((x) => x.failure)).toEqual(['network', 'timeout'])
@@ -189,6 +190,28 @@ describe('short caches: not reading the same thing again right away', () => {
     await expect(fetchWorkDetail('t', 'W2')).rejects.toThrow('HTTP 502')
     await fetchWorkDetail('t', 'W2')
     expect(fetchMock).toHaveBeenCalledTimes(5)
+  })
+  // 2026-10-13: 詳細は端末にも控える（開き直したとき・次の起動）。自分の状態は、この起動で読んだライブラリから入れ直す
+  it('keeps a detail on the device, with the state taken from the library read in this launch', async () => {
+    forgetLibrary()
+    const lib = (state: string) =>
+      json({ data: { viewer: { libraryEntries: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [{ status: { state, createdAt: null }, note: null, nextEpisode: null, work: { id: 'W1', annictId: 1, title: 't', malAnimeId: null, seasonYear: 2026, seasonName: 'AUTUMN', media: 'TV', watchersCount: 1, episodesCount: null, image: null } }] } } } })
+    // ライブラリを読む前は、控えがあっても Annict から読む
+    fetchMock.mockImplementation(async () => json(detail))
+    await fetchWorkDetail('kept', 'W1')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    forgetShortCaches()
+    fetchMock.mockImplementationOnce(async () => lib('WATCHING'))
+    await fetchLibrary('kept', { fresh: true })
+    const kept = await fetchWorkDetail('kept', 'W1')
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(kept.viewerStatusState).toBe('WATCHING')
+    // 状態を書いたあとは、ライブラリを読み直すまで控えを使わない
+    fetchMock.mockImplementationOnce(async () => json({ data: { updateStatus: { work: { id: 'W1' } } } }))
+    await updateStatus('kept', 'W1', 'WATCHED')
+    await fetchWorkDetail('kept', 'W1')
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+    forgetLibrary()
   })
 })
 
@@ -411,3 +434,46 @@ describe('fetchLibrary: one read for screens that ask together', () => {
     forgetLibrary()
   })
 })
+
+// 放送予定（Issue #32）: 始まりから順に読み、これから先の分に届いたら止める。過ぎた分・再放送・28日より先は外す
+describe('fetchUpcomingPrograms', () => {
+  const NOW = new Date('2026-10-13T03:00:00Z')
+  const prog = (at: string, ch = 'dアニメストア', rebroadcast = false) => ({ startedAt: at, rebroadcast, channel: { name: ch, channelGroup: { name: '動画サービス' } } })
+  it('pages until the schedule passes the horizon, and keeps only upcoming first runs', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        json({ data: { nodes: [{ id: 'W1', programs: { pageInfo: { hasNextPage: true, endCursor: 'c1' }, nodes: [prog('2026-10-02T15:00:00Z'), prog('2026-10-09T15:00:00Z')] } }] } }),
+      )
+      .mockResolvedValueOnce(
+        json({
+          data: {
+            node: {
+              programs: {
+                pageInfo: { hasNextPage: true, endCursor: 'c2' },
+                nodes: [prog('2026-10-16T15:00:00Z'), prog('2026-10-16T15:00:00Z', 'TOKYO MX', true), prog('2026-12-31T15:00:00Z')],
+              },
+            },
+          },
+        }),
+      )
+    const got = await fetchUpcomingPrograms('tok', ['W1'], NOW)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).variables).toEqual({ id: 'W1', after: 'c1' })
+    expect(got.get('W1')).toEqual([{ at: '2026-10-16T15:00:00Z', ch: 'dアニメストア', g: '動画サービス' }])
+  })
+})
+
+// 自分の情報は1回の起動で1回だけ読む（起動の確かめと設定の「連携中」）。fresh なら必ず読む。失敗は控えない
+describe('fetchViewer: once per launch', () => {
+  it('reuses the answer for the same token, reads again when fresh, and does not keep a failure', async () => {
+    fetchMock.mockResolvedValueOnce(json({}, 502))
+    await expect(fetchViewer('once')).rejects.toBeTruthy()
+    fetchMock.mockImplementation(async () => json({ data: { viewer: { annictId: 1, username: 'me', name: 'Me' } } }))
+    expect((await fetchViewer('once')).username).toBe('me')
+    await fetchViewer('once')
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    await fetchViewer('once', { fresh: true })
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+})
+
