@@ -606,3 +606,21 @@ describe('when the device storage is full', () => {
     expect(Math.min(...saved)).toBe(11)
   })
 })
+
+// #34: 読んだ日時が読めない控えは、古いと判断できず読み直されないので捨てる。予定の日時も確かめる
+describe('loadPrograms', () => {
+  it('drops entries whose time cannot be read, and keeps the partial mark', async () => {
+    const { loadPrograms } = await import('./storage')
+    localStorage.setItem(
+      'animax.programs.v1',
+      JSON.stringify({
+        W1: { at: 'not a date', slots: [] },
+        W2: { at: '2026-10-13T00:00:00.000Z', slots: [{ at: 'bad', ch: 'x', g: 'y' }, { at: '2026-10-16T14:00:00Z', ch: 'dアニメストア', g: '動画サービス' }], partial: true },
+      }),
+    )
+    const got = loadPrograms()
+    expect([...got.keys()]).toEqual(['W2'])
+    expect(got.get('W2')).toEqual({ at: '2026-10-13T00:00:00.000Z', slots: [{ at: '2026-10-16T14:00:00Z', ch: 'dアニメストア', g: '動画サービス' }], partial: true })
+    localStorage.removeItem('animax.programs.v1')
+  })
+})

@@ -15,7 +15,8 @@ export const SERVICES = [
   { id: 'netflix', label: 'Netflix', channels: ['Netflix'] },
   { id: 'unext', label: 'U-NEXT', channels: ['U-NEXT'] },
   { id: 'prime', label: 'Prime Video', channels: ['Amazon プライム・ビデオ'] },
-  { id: 'abema', label: 'ABEMA', channels: ['ABEMAビデオ', 'ABEMA アニメ'] },
+  // ABEMA はチャンネルが多い（ABEMA アニメLIVE・ABEMA みんなのアニメなど）ので、Annict のチャンネルのまとまり「ABEMA」で見る（#34）
+  { id: 'abema', label: 'ABEMA', channels: ['ABEMAビデオ', 'ABEMA アニメ'], group: 'ABEMA' },
   { id: 'danime', label: 'dアニメストア', channels: ['dアニメストア'] },
   { id: 'nico', label: 'ニコニコ', channels: ['ニコニコチャンネル', 'ニコニコ生放送', 'dアニメストア ニコニコ支店'] },
   { id: 'hulu', label: 'Hulu', channels: ['Hulu'] },
@@ -138,11 +139,18 @@ export function resetBroadcastPrefs(): void {
 // 放送予定の1件（Annict の Program を短くしたもの。lib/annict.ts）。at は ISO の日時、ch はチャンネルの名前、g はチャンネルのまとまり
 export type Slot = ProgramSlot
 
+// サービスに当たるか（チャンネルの名前か、まとまり）
+function serviceOf(slot: Slot): (typeof SERVICES)[number] | undefined {
+  return SERVICES.find((s) => (s.channels as readonly string[]).includes(slot.ch) || ('group' in s && s.group === slot.g))
+}
+
 export function matches(slot: Slot, p: BroadcastChoice): boolean {
-  if (p.region && slot.g === `テレビ ${p.region}`) return true
+  // 地域を選んだら、その地域の局と、全国の局（NHK など。Annict のまとまり「テレビ 全国」。#34）
+  if (p.region && (slot.g === `テレビ ${p.region}` || slot.g === 'テレビ 全国')) return true
   if (p.satellites.includes('bs') && slot.g.startsWith('BS')) return true
   if (p.satellites.includes('cs') && slot.g === 'スカパー') return true
-  return SERVICES.some((s) => p.services.includes(s.id) && (s.channels as readonly string[]).includes(slot.ch))
+  const service = serviceOf(slot)
+  return service !== undefined && p.services.includes(service.id)
 }
 
 export interface NextBroadcast {
@@ -154,7 +162,7 @@ export interface NextBroadcast {
 }
 
 function labelOf(slot: Slot): string {
-  return SERVICES.find((s) => (s.channels as readonly string[]).includes(slot.ch))?.label ?? slot.ch.trim()
+  return serviceOf(slot)?.label ?? slot.ch.trim()
 }
 
 // 選んだチャンネルの中で、いまより後に始まる一番早い放送
@@ -186,17 +194,72 @@ export function upcomingByChannel(slots: readonly Slot[], p: BroadcastChoice, no
 
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土']
 
-// 日本の時刻で「今日 23:30」「明日 0:00」「10/18(土) 0:00」
-export function formatBroadcast(at: Date, now: Date): string {
-  const jst = (d: Date) => new Date(d.getTime() + 9 * 3600 * 1000)
+// 日本の時刻で
+const jst = (d: Date) => new Date(d.getTime() + 9 * 3600 * 1000)
+const dayNumber = (d: Date) => Math.floor(jst(d).getTime() / 86400000)
+
+// 「23:30」
+export function formatTime(at: Date): string {
   const a = jst(at)
-  const n = jst(now)
-  const day = (d: Date) => Math.floor(d.getTime() / 86400000)
-  const time = `${a.getUTCHours()}:${String(a.getUTCMinutes()).padStart(2, '0')}`
-  const diff = day(a) - day(n)
-  if (diff === 0) return `今日 ${time}`
-  if (diff === 1) return `明日 ${time}`
-  return `${a.getUTCMonth() + 1}/${a.getUTCDate()}(${WEEKDAYS[a.getUTCDay()]}) ${time}`
+  return `${a.getUTCHours()}:${String(a.getUTCMinutes()).padStart(2, '0')}`
+}
+
+// 「今日」「明日」「10/18(日)」
+export function formatDay(at: Date, now: Date): string {
+  const diff = dayNumber(at) - dayNumber(now)
+  if (diff === 0) return '今日'
+  if (diff === 1) return '明日'
+  const a = jst(at)
+  return `${a.getUTCMonth() + 1}/${a.getUTCDate()}(${WEEKDAYS[a.getUTCDay()]})`
+}
+
+// 「今日 23:30」「明日 0:00」「10/18(日) 0:00」
+export function formatBroadcast(at: Date, now: Date): string {
+  return `${formatDay(at, now)} ${formatTime(at)}`
+}
+
+// ── 今週の放送予定（見てるの作品の、これから7日の放送を日ごとに） ──
+// 作品ごとに、同じ回はサービスが違っても1回だけ（一番早いもの）並べる。
+// 回の数は、1つのチャンネルが7日のうちに放送する回数の最大（毎週の作品は1回、毎日の作品は7回）。
+// i 回目は、各チャンネルの i 番目の放送のうち一番早いもの（地上波の翌日に BS、数日後に配信、のような遅れを同じ回にまとめる。
+// 2026-10-13: 時刻の間隔で分けたら、金曜の地上波と土曜の BS が別の回として2回並んだ）
+export interface WeekItem<T> {
+  work: T
+  at: Date
+  channel: string
+  more: boolean
+}
+
+export function weekSchedule<T>(works: readonly { work: T; slots: readonly Slot[] }[], p: BroadcastChoice, now: Date): { day: string; items: WeekItem<T>[] }[] {
+  const until = now.getTime() + 7 * 86400 * 1000
+  const items: WeekItem<T>[] = []
+  for (const { work, slots } of works) {
+    const byChannel = new Map<string, { at: number; label: string }[]>()
+    for (const slot of slots) {
+      const at = Date.parse(slot.at)
+      if (!Number.isFinite(at) || at <= now.getTime() || at > until || !matches(slot, p)) continue
+      const list = byChannel.get(slot.ch) ?? []
+      list.push({ at, label: labelOf(slot) })
+      byChannel.set(slot.ch, list)
+    }
+    const lists = [...byChannel.values()].map((l) => l.sort((a, b) => a.at - b.at))
+    const rounds = Math.max(0, ...lists.map((l) => l.length))
+    for (let i = 0; i < rounds; i++) {
+      const here = lists.flatMap((l) => (l[i] ? [l[i]] : []))
+      const first = Math.min(...here.map((x) => x.at))
+      const labels = [...new Set(here.filter((x) => x.at === first).map((x) => x.label))]
+      items.push({ work, at: new Date(first), channel: labels[0], more: labels.length > 1 })
+    }
+  }
+  items.sort((a, b) => a.at.getTime() - b.at.getTime())
+  const days: { day: string; items: WeekItem<T>[] }[] = []
+  for (const item of items) {
+    const day = formatDay(item.at, now)
+    const last = days.at(-1)
+    if (last?.day === day) last.items.push(item)
+    else days.push({ day, items: [item] })
+  }
+  return days
 }
 
 export function broadcastLabel(next: NextBroadcast, now: Date): string {

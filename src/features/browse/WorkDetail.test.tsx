@@ -64,7 +64,7 @@ vi.mock('../records/useEpisodes', () => ({
 let programSlots: { at: string; ch: string; g: string }[] | null = null
 vi.mock('../records/useUpcomingPrograms', async (orig) => ({
   ...(await orig<typeof import('../records/useUpcomingPrograms')>()),
-  useUpcomingPrograms: () => ({ slots: new Map(programSlots ? [['W1', programSlots]] : []), failed: false }),
+  useUpcomingPrograms: () => ({ slots: new Map(programSlots ? [['W1', programSlots]] : []), partial: new Set(), failed: false, retry: () => undefined }),
 }))
 vi.mock('../../lib/myReviews', () => ({
   getMyReviews: vi.fn(() => reviewsPromise),

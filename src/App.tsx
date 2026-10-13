@@ -39,6 +39,7 @@ import { rememberScroll, restoreScroll, scrollToTop } from './lib/pageScroll'
 import { MascotPeek } from './components/MascotPeek'
 import { ToTop } from './components/ToTop'
 import { Analytics } from '@vercel/analytics/react'
+import { syncBroadcastPrefs, useBroadcastPrefs } from './lib/broadcast'
 import { analyticsEnabled, screenPath, withoutQuery } from './lib/analytics'
 
 type Tab = 'rate' | 'match' | 'records' | 'browse' | 'settings'
@@ -162,14 +163,28 @@ export default function App() {
   const [switching, setSwitching] = useState(false)
   // 端末の容量が足りず、切り替えられなかった
   const [switchFailed, setSwitchFailed] = useState(false)
-  // ログインした直後の知らせ（読むのは描画のとき、消すのは描画のあと。開発の二重の呼び出しで消えないように）
+  // ログインした直後の知らせ（読むのは描画のとき、消すのは描画のあと。開発の二重の呼び出しで消えないように）。
+  // 意図したアカウントか確かめるためのものなので、閉じるまで残す（前は6秒で消えた。#33・#34）
   const [signedInAs, setSignedInAsShown] = useState(() => (token ? loadSignedInAs() : null))
   useEffect(() => {
-    if (!signedInAs) return
-    setSignedInAs(null)
-    const timer = window.setTimeout(() => setSignedInAsShown(null), 6000)
-    return () => window.clearTimeout(timer)
+    if (signedInAs) setSignedInAs(null)
   }, [signedInAs])
+  // 見るサービスを GitHub と同期する（開いたときと、選び直したあと。どの画面で選び直しても。#34: 記録の画面を開くまで送っていなかった）
+  const broadcastPrefs = useBroadcastPrefs()
+  const broadcastSyncedAt = useRef<string | null | undefined>(undefined)
+  useEffect(() => {
+    if (!token || !github || broadcastSyncedAt.current === broadcastPrefs.at) return
+    broadcastSyncedAt.current = broadcastPrefs.at
+    syncBroadcastPrefs(github).then(
+      (merged) => {
+        broadcastSyncedAt.current = merged.at
+      },
+      () => {
+        // 送れなかったら、次に開いたとき・選び直したときにまた送る
+        broadcastSyncedAt.current = undefined
+      },
+    )
+  }, [token, github, broadcastPrefs.at])
 
   // ログイン・ログアウト（next が null）。手順（2026-10-06 のセキュリティの点検で作り直した）:
   // 1. 送信待ちを送り切る（前の人の答えを失わない。ログアウトのあとに前の人のトークンで書かない）
@@ -218,7 +233,8 @@ export default function App() {
       setSwitchFailed(true)
       return
     }
-    setSignedInAs(viewer ? (viewer.name ? `${viewer.name}（@${viewer.username}）` : `@${viewer.username}`) : null)
+    // 名前を読めなかったログインは '?'（ログインはできている）
+    setSignedInAs(viewer ? (viewer.name ? `${viewer.name}（@${viewer.username}）` : `@${viewer.username}`) : next ? '?' : null)
     freezeStorage()
     reloadPage()
   }
@@ -355,7 +371,9 @@ export default function App() {
         )}
         {signedInAs && !switching && (
           <div className="auth-banner" role="status">
-            <p className="auth-banner__text">{signedInAs}でログインしました。</p>
+            <p className="auth-banner__text">
+              {signedInAs === '?' ? 'ログインしました。アカウント名を確かめられなかったので、設定の「Annict連携」で確かめてください。' : `${signedInAs}でログインしました。`}
+            </p>
             <div className="auth-banner__actions">
               <button type="button" className="link" onClick={() => setSignedInAsShown(null)}>
                 閉じる

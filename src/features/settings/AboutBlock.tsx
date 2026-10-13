@@ -37,7 +37,7 @@ export function AboutBlock({ showTagline = true, welcome = false }: { showTaglin
       {/* 要点は3つの短い文に。細かいこと（サーバーの処理・通信先・画像・権利）は畳む（#30: 6つの長い箇条書きだった） */}
       <ul className="settings__list settings__lead">
         <li>個人が開発した、Annictの非公式アプリです。Annictの運営とは関係ありません。</li>
-        <li>運営サーバーに、利用者の記録は置きません。トークンはこの端末の中だけにあります。</li>
+        <li>運営サーバーに、利用者の記録やトークンは置きません。トークンはこの端末のブラウザに保存します。</li>
         <li>どの画面がどれくらい開かれたかだけを、Vercel Web Analyticsで数えています（Cookieなし）。</li>
       </ul>
       <details className="settings__fold">

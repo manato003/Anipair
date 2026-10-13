@@ -38,6 +38,8 @@ function allowedRedirects(env: TokenEnv): string[] {
 
 // code は短い英数字の文字列。長すぎるものや変な文字は Annict に渡さない
 const CODE_PATTERN = /^[A-Za-z0-9._~+/=-]{1,512}$/
+// Annict のトークン交換を待つ上限
+const UPSTREAM_TIMEOUT_MS = 10_000
 // 受け付ける要求の大きさ（code と redirectUri だけなので小さい）
 const MAX_REQUEST_BYTES = 4 * 1024
 
@@ -107,6 +109,8 @@ export async function exchangeToken(request: Request, env: TokenEnv, fetchFn: Fe
   let res: Response
   try {
     res = await fetchFn(ANNICT_TOKEN_URL, {
+      // Annict が答えないとき、ログインを待たせ続けない（#34）
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
       body: new URLSearchParams({

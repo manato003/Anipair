@@ -1,0 +1,32 @@
+# 公開用のリポジトリで、push のたびに lint・型検査と単体テスト・ビルドを流す（#33・#34 のレビュー）。
+# 偽の Annict を使う通しテスト（E2E）は、開発用のリポジトリの CI で流している（そのスクリプトは公開していない）
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      # build は型検査（tsc -b）を含む
+      - run: npm run build

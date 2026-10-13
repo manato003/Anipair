@@ -381,7 +381,7 @@ describe('Settings about block', () => {
     show({ section: 'settings-about' })
     const text = screen.getByRole('heading', { name: 'このアプリについて' }).parentElement!.textContent!
     expect(text).toContain('個人が開発した、Annictの非公式アプリです')
-    expect(text).toContain('運営サーバーに、利用者の記録は置きません。トークンはこの端末の中だけにあります')
+    expect(text).toContain('運営サーバーに、利用者の記録やトークンは置きません。トークンはこの端末のブラウザに保存します')
     expect(text).toContain('サーバーで動くのは、ログインの受け渡し・Shikimoriへの中継・問い合わせの受け付けの3つの処理だけです')
     expect(text).toContain('問い合わせの内容は、送ったときだけ開発者に届きます（公開はされません）')
     expect(text).toContain('通信先はAnnict・Shikimori・Wikipedia・Google Fontsです。Shikimoriの作品データは、上に書いたサーバーの処理（Vercel）を通して受け取ります。GitHubと連携した場合は、GitHubにも送信します')

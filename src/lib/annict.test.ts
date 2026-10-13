@@ -459,7 +459,36 @@ describe('fetchUpcomingPrograms', () => {
     const got = await fetchUpcomingPrograms('tok', ['W1'], NOW)
     expect(fetchMock).toHaveBeenCalledTimes(2)
     expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).variables).toEqual({ id: 'W1', after: 'c1' })
-    expect(got.get('W1')).toEqual([{ at: '2026-10-16T15:00:00Z', ch: 'dアニメストア', g: '動画サービス' }])
+    expect(got.get('W1')).toEqual({ slots: [{ at: '2026-10-16T15:00:00Z', ch: 'dアニメストア', g: '動画サービス' }], complete: true })
+  })
+
+  // #34: 過去の予定が多い作品（長く続く作品）は、始まりから8ページで届かない。終わりの側から読み、届かなければ読み切れなかったと返す
+  it('reads from the end when the start does not reach today, and says when it could not read everything', async () => {
+    const past = (cursor: string) => ({ pageInfo: { hasNextPage: true, endCursor: cursor }, nodes: [prog('2020-01-01T00:00:00Z')] })
+    const asked: string[] = []
+    fetchMock.mockImplementation(async (_url, init) => {
+      const q = JSON.parse(String(init?.body)).query as string
+      asked.push(q.includes('DESC') ? 'DESC' : 'ASC')
+      if (q.includes('nodes(ids')) return json({ data: { nodes: [{ id: 'W1', programs: past('a0') }] } })
+      if (q.includes('DESC')) {
+        const first = asked.filter((d) => d === 'DESC').length === 1
+        return json({ data: { node: { programs: first ? { pageInfo: { hasNextPage: true, endCursor: 'd1' }, nodes: [prog('2026-12-31T15:00:00Z'), prog('2026-10-20T15:00:00Z')] } : { pageInfo: { hasNextPage: true, endCursor: 'd2' }, nodes: [prog('2026-10-12T15:00:00Z')] } } } })
+      }
+      return json({ data: { node: { programs: past('a') } } })
+    })
+    const got = await fetchUpcomingPrograms('tok', ['W1'], NOW)
+    expect(asked.filter((d) => d === 'ASC')).toHaveLength(8)
+    expect(got.get('W1')).toEqual({ slots: [{ at: '2026-10-20T15:00:00Z', ch: 'dアニメストア', g: '動画サービス' }], complete: true })
+
+    // 終わりの側からも届かない
+    asked.length = 0
+    fetchMock.mockImplementation(async (_url, init) => {
+      const q = JSON.parse(String(init?.body)).query as string
+      asked.push(q.includes('DESC') ? 'DESC' : 'ASC')
+      if (q.includes('nodes(ids')) return json({ data: { nodes: [{ id: 'W1', programs: past('a0') }] } })
+      return json({ data: { node: { programs: q.includes('DESC') ? { pageInfo: { hasNextPage: true, endCursor: 'd' }, nodes: [prog('2027-06-01T00:00:00Z')] } : past('a') } } })
+    })
+    expect((await fetchUpcomingPrograms('tok', ['W1'], NOW)).get('W1')?.complete).toBe(false)
   })
 })
 

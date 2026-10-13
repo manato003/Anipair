@@ -34,6 +34,8 @@ const DAY_MS = 24 * 60 * 60 * 1000
 // 受け付ける要求の大きさ（文字数の上限より十分大きく、それ以上は読まない）
 const MAX_REQUEST_BYTES = 16 * 1024
 
+// GitHub への問い合わせを待つ上限（#34。答えが来ないとき、問い合わせを待たせ続けない）
+const UPSTREAM_TIMEOUT_MS = 10_000
 const REPO_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/
 
 // 本文を上限のバイト数まで読む。超えたら読むのをやめて null（Content-Length が無い・偽りでも、上限より多くは読まない。
@@ -145,7 +147,7 @@ async function recentCount(repo: string, headers: Record<string, string>, fetchF
   const since = new Date(at - DAY_MS).toISOString()
   const url = `https://api.github.com/repos/${repo}/issues?state=all&per_page=100&labels=${encodeURIComponent(FROM_USERS_LABEL)}&since=${encodeURIComponent(since)}`
   try {
-    const res = await fetchFn(url, { method: 'GET', headers })
+    const res = await fetchFn(url, { method: 'GET', headers, signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS) })
     if (!res.ok) return null
     const list = (await res.json()) as { created_at?: string }[]
     return Array.isArray(list) ? list.filter((i) => typeof i.created_at === 'string' && Date.parse(i.created_at) >= at - DAY_MS).length : null
@@ -193,8 +195,10 @@ export async function handleFeedback(request: Request, env: FeedbackEnv, fetchFn
 
   let res: Response
   try {
-    res = await fetchFn(`https://api.github.com/repos/${repo}/issues`, { method: 'POST', headers, body: JSON.stringify(issueOf(input)) })
-  } catch {
+    res = await fetchFn(`https://api.github.com/repos/${repo}/issues`, { method: 'POST', headers, body: JSON.stringify(issueOf(input)), signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS) })
+  } catch (e) {
+    // 時間切れは、届いているかもしれない（GitHub が作り終えてから答えが遅れた）。送り直しで二重にならないよう、別の答えにする
+    if (e instanceof DOMException && e.name === 'TimeoutError') return fail(504, 'timeout')
     return fail(502, 'upstream_unreachable')
   }
   if (!res.ok) return fail(502, 'upstream_error')

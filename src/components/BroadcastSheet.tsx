@@ -11,7 +11,7 @@ export function BroadcastSheet(props: { onClose: () => void }) {
   return (
     <Sheet label="見るサービス" onClose={props.onClose}>
       <h2 className="detail__title">見るサービス</h2>
-      <p className="note">選んだサービスで、記録の「見てる」の作品に次の放送日を出します。放送予定は、Annictに登録された情報です。</p>
+      <p className="note">選んだサービスで、記録の「見てる」の作品に次の放送日を出します。選ぶとすぐ反映されます。放送予定は、Annictに登録された情報です。</p>
       <ChipSection
         title="配信"
         items={SERVICES}
@@ -33,7 +33,7 @@ export function BroadcastSheet(props: { onClose: () => void }) {
       />
       <div className="filtersheet__foot">
         <button type="button" className="btn btn--primary" onClick={props.onClose}>
-          決める
+          完了
         </button>
       </div>
     </Sheet>

@@ -58,7 +58,9 @@ import type { GithubConnection } from '../../lib/github'
 import { useCoalescedTask } from '../../lib/useCoalescedTask'
 import { noteOf, priorityFirst } from './wannaNotes'
 import { loadLocalWannaNotes, setWannaNote, syncWannaNotes } from './wannaNoteStore'
-import { broadcastLabel, hasChoice, nextBroadcast, syncBroadcastPrefs, useBroadcastPrefs } from '../../lib/broadcast'
+import { broadcastLabel, formatTime, hasChoice, nextBroadcast, useBroadcastPrefs, weekSchedule, type WeekItem } from '../../lib/broadcast'
+import { useClock } from '../../lib/useClock'
+import { Choices } from '../../components/QuickSettings'
 import { BroadcastSheet } from '../../components/BroadcastSheet'
 import { isAiringCandidate, useUpcomingPrograms } from './useUpcomingPrograms'
 import { WannaNoteSheet } from './WannaNoteSheet'
@@ -181,23 +183,6 @@ export function Records({ token, github = null, active }: { token: string; githu
   const broadcastPrefs = useBroadcastPrefs()
   const wantsBroadcast = hasChoice(broadcastPrefs)
   const [servicesOpen, setServicesOpen] = useState(false)
-  // GitHub と連携していれば、開いたときと選び直したあとに同期する（設定の画面で選び直した分も、ここで送る）
-  const broadcastSyncedAt = useRef<string | null | undefined>(undefined)
-  const syncBroadcast = useMemo(
-    () =>
-      github
-        ? async () => {
-            broadcastSyncedAt.current = (await syncBroadcastPrefs(github)).at
-          }
-        : null,
-    [github],
-  )
-  const syncBroadcastLater = useCoalescedTask(r.enqueue, '見るサービスのGitHubへの保存', syncBroadcast)
-  useEffect(() => {
-    if (!active || !github || broadcastSyncedAt.current === broadcastPrefs.at) return
-    broadcastSyncedAt.current = broadcastPrefs.at
-    syncBroadcastLater()
-  }, [active, github, broadcastPrefs.at, syncBroadcastLater])
   const programWorkIds = useMemo(() => {
     if (!wantsBroadcast) return []
     const now = new Date()
@@ -206,10 +191,14 @@ export function Records({ token, github = null, active }: { token: string; githu
       .map((row) => row.entry.workId)
   }, [wantsBroadcast, watchingRows, watchMedia.info])
   const programs = useUpcomingPrograms(token, programWorkIds, showWatching && wantsBroadcast)
+  // 放送の時刻を過ぎたら、次の回へ進める（開いたままでも古い「次の放送」を出し続けない。#34）
+  const now = useClock(showWatching && wantsBroadcast)
+  // 見てるの表示: カード（次の話を記録する）か、今週の放送（これから7日の放送を日ごとに）。見るサービスを選んでいるときだけ切り替えられる
+  const [watchView, setWatchView] = useState<'cards' | 'week'>('cards')
+  const showWeek = wantsBroadcast && watchView === 'week'
   const broadcastOf = (row: RecordRow): string | null => {
     if (!wantsBroadcast) return null
     const slots = programs.slots.get(row.entry.workId)
-    const now = new Date()
     const next = slots ? nextBroadcast(slots, broadcastPrefs, now) : null
     return next ? broadcastLabel(next, now) : null
   }
@@ -481,12 +470,41 @@ export function Records({ token, github = null, active }: { token: string; githu
               ) : bucket === 'watching' ? (
                 <>
                 {/* 見るサービスの入口は、使う場所に置く（設定の奥だけだと気づかれない） */}
-                <p className="watchcards__broadcast">
-                  {wantsBroadcast ? '次の放送日は、Annictの放送予定から出しています。' : '見るサービスを選ぶと、次の放送日が出ます。'}
-                  <button type="button" className="link" onClick={() => setServicesOpen(true)}>
-                    {wantsBroadcast ? '見るサービスを変える' : '選ぶ'}
-                  </button>
-                </p>
+                <div className="watchcards__head">
+                  <p className="watchcards__broadcast">
+                    {wantsBroadcast ? '次の放送日は、Annictの放送予定から出しています。' : '見るサービスを選ぶと、次の放送日が出ます。'}
+                    <button type="button" className="link" onClick={() => setServicesOpen(true)}>
+                      {wantsBroadcast ? '見るサービスを変える' : '選ぶ'}
+                    </button>
+                    {/* 読めなかったときは黙らずに言い、その場でやり直せるようにする（#34） */}
+                    {wantsBroadcast && programs.failed && (
+                      <>
+                        <br />
+                        放送予定を読み込めませんでした。
+                        <button type="button" className="link" onClick={programs.retry}>
+                          もう一度
+                        </button>
+                      </>
+                    )}
+                  </p>
+                  {wantsBroadcast && <Choices label="見てるの表示" choices={WATCH_VIEWS} value={watchView} onChoose={setWatchView} />}
+                </div>
+                {showWeek ? (
+                  <WeekSchedule
+                    days={weekSchedule(
+                      visible.flatMap((row) => {
+                        const slots = programs.slots.get(row.entry.workId)
+                        return slots && programWorkIds.includes(row.entry.workId) ? [{ work: row, slots }] : []
+                      }),
+                      broadcastPrefs,
+                      now,
+                    )}
+                    loading={programWorkIds.some((id) => !programs.slots.has(id)) && !programs.failed}
+                    failed={programs.failed}
+                    onRetry={programs.retry}
+                    onOpen={openRow}
+                  />
+                ) : (
                 <ul className="watchcards">
                   {visible.map((row) => {
                     const data = eps.byWork.get(row.entry.workId)
@@ -514,6 +532,7 @@ export function Records({ token, github = null, active }: { token: string; githu
                     )
                   })}
                 </ul>
+                )}
                 </>
               ) : (
                 <ul className="shelf">
@@ -699,6 +718,51 @@ function ShelfItem(props: {
 
 // 見てる作品のカード: 次の話・残りの話数と時間の目安・進み具合。次の話は、その場で4段階の評価を押して記録する
 // （詳細の「話ごとの記録」と同じく、評価が記録の一部。評価を付けずに記録されてしまわないように）
+const WATCH_VIEWS = [
+  { value: 'cards', label: 'カード' },
+  { value: 'week', label: '今週の放送' },
+] as const
+
+// 今週の放送予定（Issue #32）。これから7日の放送を、日ごとに時刻の順で。押すと作品の詳細
+function WeekSchedule(props: { days: { day: string; items: WeekItem<RecordRow>[] }[]; loading: boolean; failed: boolean; onRetry: () => void; onOpen: (row: RecordRow) => void }) {
+  return (
+    <div className="week">
+      {props.days.map((d) => (
+        <section key={d.day} className="week__day">
+          <h3 className="week__date">{d.day}</h3>
+          <ul className="week__items">
+            {d.items.map((it) => (
+              <li key={`${it.work.entry.workId}-${it.at.getTime()}`}>
+                <button type="button" className="week__item" onClick={() => props.onOpen(it.work)}>
+                  <span className="week__time">{formatTime(it.at)}</span>
+                  <span className="week__title">{it.work.entry.title}</span>
+                  <span className="week__channel">
+                    {it.channel}
+                    {it.more ? 'ほか' : ''}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+      {props.loading ? (
+        <p className="week__note">放送予定を読み込み中…</p>
+      ) : props.failed ? (
+        <p className="week__note">
+          放送予定を読み込めませんでした。
+          <button type="button" className="link" onClick={props.onRetry}>
+            もう一度
+          </button>
+        </p>
+      ) : (
+        props.days.length === 0 && <p className="week__note">これから7日のうちに、選んだサービスでの放送予定は見つかりませんでした。</p>
+      )}
+      <p className="week__note">見てるの作品のうち、放送中の作品だけを並べています。Annictに登録されていない予定は出ません。</p>
+    </div>
+  )
+}
+
 function WatchCard(props: {
   row: RecordRow
   next: string | null

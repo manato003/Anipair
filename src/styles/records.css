@@ -1630,9 +1630,71 @@
   font-size: 0.8rem;
 }
 
-/* 見てるの一覧の上: 見るサービスの入口（選んだあとは、出どころと変える入口） */
-.watchcards__broadcast {
+/* 見てるの一覧の上: 見るサービスの入口（選んだあとは、出どころと変える入口）と、カード・今週の放送の切り替え */
+.watchcards__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
   margin-bottom: 12px;
+}
+
+.watchcards__broadcast {
+  color: var(--sub);
+  font-size: 0.8rem;
+}
+
+/* 今週の放送予定: 日ごとの見出しの下に、時刻・題名・チャンネルを1行ずつ */
+.week__day + .week__day {
+  margin-top: 20px;
+}
+
+.week__date {
+  margin-bottom: 4px;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.week__items {
+  list-style: none;
+}
+
+.week__item {
+  display: grid;
+  grid-template-columns: 3.5em minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.week__time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.week__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.week__channel {
+  color: var(--sub);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.week__note {
+  margin-top: 16px;
   color: var(--sub);
   font-size: 0.8rem;
 }

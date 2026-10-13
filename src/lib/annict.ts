@@ -403,8 +403,27 @@ interface ProgramPage {
 
 const PROGRAM_FIELDS = 'pageInfo { hasNextPage endCursor } nodes { startedAt rebroadcast channel { name channelGroup { name } } }'
 
-export async function fetchUpcomingPrograms(token: string, workIds: readonly string[], now: Date = new Date()): Promise<Map<string, ProgramSlot[]>> {
-  const out = new Map<string, ProgramSlot[]>()
+async function nextPrograms(token: string, id: string, after: string | null, direction: 'ASC' | 'DESC'): Promise<ProgramPage | null> {
+  const more = await gql<{ node: { programs: ProgramPage } | null }>(
+    token,
+    `query($id: ID!, $after: String) { node(id: $id) { ... on Work {
+      programs(first: ${PROGRAMS_PER_PAGE}, after: $after, orderBy: {field: STARTED_AT, direction: ${direction}}) { ${PROGRAM_FIELDS} }
+    } } }`,
+    { id, after },
+    { background: true },
+  )
+  return more.node?.programs ?? null
+}
+
+// complete: これから先の分（HORIZON_DAYS 日まで）を読み切れたか。始まりから8ページで届かなければ、終わりの側から読み直す
+// （長く続く作品は、過去の予定が多い）。それでも届かなければ false（「予定なし」とは区別する。#34）
+export interface UpcomingPrograms {
+  slots: ProgramSlot[]
+  complete: boolean
+}
+
+export async function fetchUpcomingPrograms(token: string, workIds: readonly string[], now: Date = new Date()): Promise<Map<string, UpcomingPrograms>> {
+  const out = new Map<string, UpcomingPrograms>()
   const from = now.getTime() - 3600 * 1000
   const until = now.getTime() + HORIZON_DAYS * 86400 * 1000
   const keep = (page: ProgramPage, into: ProgramSlot[]) => {
@@ -435,19 +454,29 @@ export async function fetchUpcomingPrograms(token: string, workIds: readonly str
       let page = n.programs
       keep(page, slots)
       for (let pages = 1; !reachedEnd(page) && pages < MAX_PROGRAM_PAGES; pages++) {
-        const more = await gql<{ node: { programs: ProgramPage } | null }>(
-          token,
-          `query($id: ID!, $after: String) { node(id: $id) { ... on Work {
-            programs(first: ${PROGRAMS_PER_PAGE}, after: $after, orderBy: {field: STARTED_AT, direction: ASC}) { ${PROGRAM_FIELDS} }
-          } } }`,
-          { id: n.id, after: page.pageInfo.endCursor },
-          { background: true },
-        )
-        if (!more.node) break
-        page = more.node.programs
+        const more = await nextPrograms(token, n.id, page.pageInfo.endCursor, 'ASC')
+        if (!more) break
+        page = more
         keep(page, slots)
       }
-      out.set(n.id, slots)
+      if (reachedEnd(page)) {
+        out.set(n.id, { slots, complete: true })
+        continue
+      }
+      // 始まりから読み切れなかった: 終わりの側（いちばん先の予定）から、いまより前に届くまで読む
+      const fromEnd: ProgramSlot[] = []
+      let back: ProgramPage | null = await nextPrograms(token, n.id, null, 'DESC')
+      let complete = false
+      for (let pages = 0; back && pages < MAX_PROGRAM_PAGES; pages++) {
+        keep(back, fromEnd)
+        const last = back.nodes.at(-1)
+        if (!back.pageInfo.hasNextPage || !back.pageInfo.endCursor || (last !== undefined && Date.parse(last.startedAt) < from)) {
+          complete = true
+          break
+        }
+        back = await nextPrograms(token, n.id, back.pageInfo.endCursor, 'DESC')
+      }
+      out.set(n.id, complete ? { slots: fromEnd.reverse(), complete } : { slots, complete })
     }
   }
   return out
@@ -1145,7 +1174,8 @@ export function fetchWorkDetail(token: string, workId: string): Promise<WorkDeta
 }
 
 // ── 作品の詳細を端末に控える（2026-10-13。Annict への問い合わせを減らす） ──
-// キャスト・スタッフ・シリーズは変わりにくいので、放送中の作品は1週間、それ以外は30日控える（Annict の再取得の目安の範囲）。
+// キャスト・スタッフ・シリーズは変わりにくいので、今期・前期の作品は1週間、それ以前の作品は30日控える（Annict の再取得の目安の範囲。
+// 作品の放送時期で決める。前から続いている作品も30日になるが、キャスト・スタッフはまず変わらない）。
 // 自分の状態（作品とシリーズの作品の viewerStatusState）は控えのものを使わず、この起動で読んだライブラリから入れ直す。
 // ライブラリをまだ読んでいない・読んだあとに状態を書いたなら、控えは使わずに Annict から読む（古い状態の印を出さない）
 const KEPT_DETAILS = 30
@@ -1157,9 +1187,18 @@ function libraryStates(): Map<number, StatusState> | null {
   return new Map(lastLibrary.map((e) => [e.annictId, e.state]))
 }
 
+// 形の壊れた項目は捨てる（並べ替えや読み出しで落ちないように。#34）
 function keptDetails(): Record<string, { at: string; detail: WorkDetail }> {
   const v = loadWorkDetailsRaw()
-  return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, { at: string; detail: WorkDetail }>) : {}
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return {}
+  const out: Record<string, { at: string; detail: WorkDetail }> = {}
+  for (const [id, e] of Object.entries(v as Record<string, unknown>)) {
+    const item = e as { at?: unknown; detail?: unknown } | null
+    if (item && typeof item.at === 'string' && Number.isFinite(Date.parse(item.at)) && item.detail && typeof item.detail === 'object') {
+      out[id] = { at: item.at, detail: item.detail as WorkDetail }
+    }
+  }
+  return out
 }
 
 function isAiringSeason(d: { seasonYear: number | null; seasonName: string | null }, now: Date): boolean {

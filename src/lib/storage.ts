@@ -647,9 +647,11 @@ export function saveStoredBroadcast(value: unknown): void {
 }
 
 // 放送予定の控え。形が違う分は捨てる（読み直せばよい）
+// partial: これから先の分を読み切れなかった（次に開いたときに読み直す）
 export interface StoredPrograms {
   at: string
   slots: { at: string; ch: string; g: string }[]
+  partial?: boolean
 }
 
 export function loadPrograms(): Map<string, StoredPrograms> {
@@ -658,13 +660,19 @@ export function loadPrograms(): Map<string, StoredPrograms> {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return out
   for (const [id, e] of Object.entries(v as Record<string, unknown>)) {
     if (!e || typeof e !== 'object') continue
-    const { at, slots } = e as { at?: unknown; slots?: unknown }
-    if (typeof at !== 'string' || !Array.isArray(slots)) continue
+    const { at, slots, partial } = e as { at?: unknown; slots?: unknown; partial?: unknown }
+    // 読んだ日時が読めない控えは捨てる（古いと判断できず、読み直されないまま残るので。#34）
+    if (typeof at !== 'string' || !Number.isFinite(Date.parse(at)) || !Array.isArray(slots)) continue
     const ok = slots.filter(
       (s): s is StoredPrograms['slots'][number] =>
-        !!s && typeof s === 'object' && typeof (s as { at?: unknown }).at === 'string' && typeof (s as { ch?: unknown }).ch === 'string' && typeof (s as { g?: unknown }).g === 'string',
+        !!s &&
+        typeof s === 'object' &&
+        typeof (s as { at?: unknown }).at === 'string' &&
+        Number.isFinite(Date.parse((s as { at: string }).at)) &&
+        typeof (s as { ch?: unknown }).ch === 'string' &&
+        typeof (s as { g?: unknown }).g === 'string',
     )
-    out.set(id, { at, slots: ok })
+    out.set(id, partial === true ? { at, slots: ok, partial: true } : { at, slots: ok })
   }
   return out
 }

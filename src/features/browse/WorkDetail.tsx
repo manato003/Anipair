@@ -10,6 +10,7 @@ import { fetchMedia, shikimoriUrl, type Media } from '../../lib/shikimori'
 import type { Cover } from '../../lib/storage'
 import { vodSearchLinks } from '../../lib/vodSearch'
 import { formatBroadcast, hasChoice, upcomingByChannel, useBroadcastPrefs } from '../../lib/broadcast'
+import { useClock } from '../../lib/useClock'
 import { BroadcastSheet } from '../../components/BroadcastSheet'
 import { isAiringCandidate, useUpcomingPrograms } from '../records/useUpcomingPrograms'
 import { episodeFacts, formatMinutes } from '../../lib/watchFacts'
@@ -105,6 +106,7 @@ export function WorkDetail(
   const [servicesOpen, setServicesOpen] = useState(false)
   const airing = shiki?.status === 'RELEASING' || isAiringCandidate(work, false, new Date())
   const programs = useUpcomingPrograms(token, airing ? [work.id] : [], airing && hasChoice(broadcastPrefs) && props.active !== false)
+  const clock = useClock(airing && hasChoice(broadcastPrefs) && props.active !== false)
   // 関連作品から重ねて開いている作品。開いているあいだ、このシートは Esc と「戻る」に反応しない（上のシートだけが閉じる）
   const [related, setRelated] = useState<RelatedTarget | null>(null)
   // 関連作品のシートで変えた状態（関連作品の一覧の印にすぐ映す）
@@ -627,7 +629,10 @@ export function WorkDetail(
                   chosen={hasChoice(broadcastPrefs)}
                   slots={programs.slots.get(work.id) ?? null}
                   failed={programs.failed}
-                  list={upcomingByChannel(programs.slots.get(work.id) ?? [], broadcastPrefs, new Date())}
+                  partial={programs.partial.has(work.id)}
+                  now={clock}
+                  list={upcomingByChannel(programs.slots.get(work.id) ?? [], broadcastPrefs, clock)}
+                  onRetry={programs.retry}
                   onChoose={() => setServicesOpen(true)}
                 />
               )}
@@ -701,10 +706,14 @@ function BroadcastSection(props: {
   chosen: boolean
   slots: readonly unknown[] | null
   failed: boolean
+  // これから先の分を読み切れなかった（Annict の予定が多すぎる作品）
+  partial: boolean
+  now: Date
   list: readonly { channel: string; at: Date }[]
   onChoose: () => void
+  onRetry: () => void
 }) {
-  const now = new Date()
+  const now = props.now
   return (
     <section className="detail__section">
       <h3 className="detail__label">次の放送</h3>
@@ -716,7 +725,16 @@ function BroadcastSection(props: {
           </button>
         </p>
       ) : props.slots === null ? (
-        <p className="detail__hint">{props.failed ? '放送予定を読み込めませんでした。' : '放送予定を読み込み中…'}</p>
+        props.failed ? (
+          <p className="detail__hint">
+            放送予定を読み込めませんでした。
+            <button type="button" className="link" onClick={props.onRetry}>
+              もう一度
+            </button>
+          </p>
+        ) : (
+          <p className="detail__hint">放送予定を読み込み中…</p>
+        )
       ) : (
         <>
           {props.list.length > 0 ? (
@@ -729,10 +747,13 @@ function BroadcastSection(props: {
               ))}
             </ul>
           ) : (
-            <p className="detail__hint">選んだサービスの放送予定は、Annictにありません。</p>
+            // 見つからないことと、Annict に無いことは同じではない（読むのは4週間先までで、Annict の登録が無い作品もある。#34）
+            <p className="detail__hint">
+              {props.partial ? '放送予定が多く、これから先の分を読み切れませんでした。' : 'これから4週間のうちに、選んだサービスでの放送予定は見つかりませんでした。'}
+            </p>
           )}
           <p className="detail__hint">
-            Annictの放送予定より。
+            Annictの放送予定より（登録されていない予定は出ません）。
             <button type="button" className="link" onClick={props.onChoose}>
               見るサービスを変える
             </button>

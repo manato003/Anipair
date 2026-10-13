@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest'
-import { broadcastLabel, EMPTY_PREFS, upcomingByChannel, formatBroadcast, hasChoice, matches, nextBroadcast, parseBroadcastPrefs, resetBroadcastPrefs, setBroadcastPrefs, type Slot } from './broadcast'
+import { broadcastLabel, EMPTY_PREFS, upcomingByChannel, weekSchedule, formatBroadcast, hasChoice, matches, nextBroadcast, parseBroadcastPrefs, resetBroadcastPrefs, setBroadcastPrefs, type Slot } from './broadcast'
 import { readStoredBroadcast } from './storage'
 
 beforeEach(() => {
@@ -40,6 +40,15 @@ describe('matches', () => {
     expect(matches(slot('x', 'MBS毎日放送', 'テレビ 近畿'), p)).toBe(false)
     expect(matches(slot('x', 'BS11イレブン', 'BSデジタル'), p)).toBe(true)
     expect(matches(slot('x', 'AT-X', 'スカパー'), p)).toBe(false)
+  })
+
+  // #34: 地域を選んだら全国の局（NHK など）も。ABEMA はまとまりで見る（ABEMA アニメLIVE など名前の違うチャンネルも）
+  it('includes nationwide stations with any region, and every ABEMA channel', () => {
+    const p = { services: ['abema' as const], region: '近畿' as const, satellites: [] }
+    expect(matches(slot('x', 'NHK総合', 'テレビ 全国'), p)).toBe(true)
+    expect(matches(slot('x', 'ABEMA アニメLIVE', 'ABEMA'), p)).toBe(true)
+    expect(nextBroadcast([slot('2026-10-20T03:00:00Z', 'ABEMA みんなのアニメ', 'ABEMA')], p, NOW)?.channel).toBe('ABEMA')
+    expect(matches(slot('x', 'NHK総合', 'テレビ 全国'), { ...p, region: null })).toBe(false)
   })
 })
 
@@ -92,6 +101,31 @@ describe('upcomingByChannel', () => {
     expect(list).toEqual([
       { channel: 'ABEMA', at: new Date('2026-10-16T15:00:00Z') },
       { channel: 'Netflix', at: new Date('2026-10-20T03:00:00Z') },
+    ])
+  })
+})
+
+describe('weekSchedule', () => {
+  it('lists each work once per broadcast within 7 days, by day and time, at its earliest chosen channel', () => {
+    const p = { services: ['danime' as const, 'netflix' as const], region: '関東' as const, satellites: ['bs' as const] }
+    const days = weekSchedule(
+      [
+        // 金曜 23:00 に配信、土曜 0:00 に Netflix（同じ回なので、早い方だけ）。翌週の分は7日より先
+        { work: 'A', slots: [slot('2026-10-16T14:00:00Z', 'dアニメストア'), slot('2026-10-16T15:00:00Z', 'Netflix'), slot('2026-10-23T14:00:00Z', 'dアニメストア')] },
+        // 毎日の作品（回ごとに出す）
+        { work: 'B', slots: [slot('2026-10-13T10:00:00Z', 'Netflix'), slot('2026-10-14T10:00:00Z', 'Netflix')] },
+        // 選んでいないチャンネルだけ
+        { work: 'C', slots: [slot('2026-10-14T10:00:00Z', 'Hulu')] },
+        // 金曜の地上波と、翌日の BS（同じ回。2026-10-13 に2回並んでいた）
+        { work: 'D', slots: [slot('2026-10-16T14:00:00Z', '日本テレビ', 'テレビ 関東'), slot('2026-10-17T14:00:00Z', 'BS日テレ', 'BSデジタル')] },
+      ],
+      p,
+      NOW,
+    )
+    expect(days.map((d) => [d.day, d.items.map((i) => `${i.work} ${i.channel}`)])).toEqual([
+      ['今日', ['B Netflix']],
+      ['明日', ['B Netflix']],
+      ['10/16(金)', ['A dアニメストア', 'D 日本テレビ']],
     ])
   })
 })

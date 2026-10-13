@@ -40,7 +40,7 @@ const TOURS: Record<HelpTopic, readonly TourStep[]> = {
   ],
   records: [
     { target: '.app__screen:not([hidden]) .rtabs, .app__screen:not([hidden]) .rrail', title: '記録の項目', body: '見てる・見た・見たい・視聴中断で分けて見られます。傾向・ふり返り・実績はスマホでは「まとめ」の中にあります。スマホでは左右に払っても替わります。' },
-    { target: '.app__screen:not([hidden]) .watchcard, .app__screen:not([hidden]) .shelf__item', title: '作品', body: '表紙か題名を押すと詳細が開きます。見てるの作品は、次の話をその場で記録できます。一覧の上で見るサービスを選ぶと、放送中の作品に次の放送日が出ます。見た・見てるの作品は、詳細の「話ごとの記録」で話を4段階で評価して記録できます。' },
+    { target: '.app__screen:not([hidden]) .watchcard, .app__screen:not([hidden]) .shelf__item', title: '作品', body: '表紙か題名を押すと詳細が開きます。見てるの作品は、次の話をその場で記録できます。一覧の上で見るサービスを選ぶと、放送中の作品に次の放送日が出ます。「今週の放送」で、これから7日の放送を日ごとに見られます。見た・見てるの作品は、詳細の「話ごとの記録」で話を4段階で評価して記録できます。' },
     { target: '.app__screen:not([hidden]) .records__filterbtn', title: '絞り込み', body: '評価・放送年・季節・形式・ジャンル・制作会社で絞り込めます。かけた条件は一覧の上に出て、押すと外せます。' },
     { target: '.app__screen:not([hidden]) .rsort', title: '並べ替え', body: '押している並べ替えをもう一度押すと、新しい順と古い順（高い順と低い順）が入れ替わります。いまの並べ方は下に1行で出ます。' },
     { target: '.app__screen:not([hidden]) .rhead__edit', title: '編集', body: '一覧のまま、状態や評価を変えたり、見たいにメモを付けたりできます。' },

@@ -97,6 +97,18 @@ describe('handleFeedback', () => {
     })
     expect((await handleFeedback(req(GOOD), ENV, down)).status).toBe(502)
   })
+
+  // #34: GitHub が答えないときは待ち続けず、時間切れは「届いたかもしれない」として 504（送り直しで二重にしない）
+  it('gives up waiting for GitHub, and tells a timeout apart from a failure', async () => {
+    const slow = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(async (_url, init) => {
+      if (init.method === 'GET') return new Response('[]', { status: 200 })
+      expect(init.signal).toBeInstanceOf(AbortSignal)
+      throw new DOMException('timed out', 'TimeoutError')
+    })
+    const res = await handleFeedback(req(GOOD), ENV, slow)
+    expect(res.status).toBe(504)
+    expect(await res.json()).toMatchObject({ error: 'timeout' })
+  })
 })
 
 describe('parseFeedback and issueOf', () => {
