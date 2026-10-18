@@ -7,7 +7,7 @@ import type { Affinity, AxisWeight, GenreAxis, Summary, YearReview } from '../re
 // 共有の画像（傾向のまとめ・称号）の中身。端末の中で canvas に描く（drawShareCard.ts）。サーバーには送らない。
 // 作品の表紙は入れない（権利は各権利者にあり、外に出す画像には使わない）。ここは中身を決めるだけの純粋な関数
 
-export const SHARE_URL = 'https://anipair.vercel.app/'
+export const SHARE_URL = 'https://anipair.com/'
 
 
 export interface ShareCard {

@@ -3,7 +3,9 @@ import { analyticsEnabled, screenPath, withoutQuery } from './analytics'
 
 describe('analytics', () => {
   it('sends only from the deployments on Vercel, not from local development', () => {
+    expect(analyticsEnabled('anipair.com')).toBe(true)
     expect(analyticsEnabled('anipair.vercel.app')).toBe(true)
+    expect(analyticsEnabled('anipair.com.example')).toBe(false)
     expect(analyticsEnabled('animax-git-preview-manatemis-5508s-projects.vercel.app')).toBe(true)
     expect(analyticsEnabled('localhost')).toBe(false)
     expect(analyticsEnabled('127.0.0.1')).toBe(false)

@@ -187,7 +187,7 @@ export async function handleFeedback(request: Request, env: FeedbackEnv, fetchFn
     Accept: 'application/vnd.github+json',
     'X-GitHub-Api-Version': '2022-11-28',
     'Content-Type': 'application/json',
-    'User-Agent': 'Anipair feedback (https://anipair.vercel.app/)',
+    'User-Agent': 'Anipair feedback (https://anipair.com/)',
   }
   const recent = await recentCount(repo, headers, fetchFn, now())
   if (recent === null) return fail(502, 'upstream_error')

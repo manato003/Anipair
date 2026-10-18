@@ -55,7 +55,7 @@ describe('handleShiki animes', () => {
     expect(url).toBe('https://shikimori.io/api/graphql')
     expect(init.method).toBe('POST')
     const headers = init.headers as Record<string, string>
-    expect(headers['User-Agent']).toBe('Anipair (https://anipair.vercel.app/)')
+    expect(headers['User-Agent']).toBe('Anipair (https://anipair.com/)')
     const body = JSON.parse(String(init.body))
     expect(body.variables).toEqual({ ids: '9253,52991' })
     expect(body.query).toContain('animes(ids: $ids, limit: 50)')
@@ -182,7 +182,7 @@ describe('handleShiki similar', () => {
     const res = await handleShiki(req('?op=similar&id=52991'), fetchFn)
     const [url, init] = fetchFn.mock.calls[0]
     expect(url).toBe('https://shikimori.io/api/animes/52991/similar')
-    expect((init.headers as Record<string, string>)['User-Agent']).toBe('Anipair (https://anipair.vercel.app/)')
+    expect((init.headers as Record<string, string>)['User-Agent']).toBe('Anipair (https://anipair.com/)')
     expect(res.status).toBe(200)
     expect(res.headers.get('cache-control')).toContain('s-maxage=604800')
     expect(await json(res)).toEqual({ ids: [33352, 41025, 35851] })

@@ -7,7 +7,7 @@
 
 [Annict](https://annict.com/)の視聴記録を、タップだけで付けていくためのアプリです。見たアニメを1タップで評価でき、評価から好みを推定して、まだ見ていない作品も提案します。記録はすべて自分のAnnictに保存されます。
 
-Annictの非公式の個人開発アプリで、Annictの運営とは関係がありません。公開版: https://anipair.vercel.app/
+Annictの非公式の個人開発アプリで、Annictの運営とは関係がありません。公開版: https://anipair.com/
 
 | 評価 | マッチング | 作品の詳細 | 話ごとの記録 |
 |---|---|---|---|
@@ -120,5 +120,5 @@ npm run build
 
 ソースコードは[MIT](LICENSE)です。ただし、**Anipairの名前とロゴ、キャラクターのアニとペア（絵・名前・設定）はMITライセンスの対象外**で、著作権は作者が保持しています。無断の使用・改変・再配布はできません（詳しくは[LICENSE](LICENSE)の「例外」）。フォークして公開するときは、名前・ロゴ・キャラクターを差し替えてください。
 
-- [利用規約](https://anipair.vercel.app/terms.html)
-- [プライバシーポリシー](https://anipair.vercel.app/privacy.html)
+- [利用規約](https://anipair.com/terms.html)
+- [プライバシーポリシー](https://anipair.com/privacy.html)

@@ -28,7 +28,7 @@
 const GRAPHQL_URL = 'https://shikimori.io/api/graphql'
 const REST_URL = 'https://shikimori.io/api/animes'
 const PEOPLE_URL = 'https://shikimori.io/api/people'
-const USER_AGENT = 'Anipair (https://anipair.vercel.app/)'
+const USER_AGENT = 'Anipair (https://anipair.com/)'
 const MAX_IDS = 50
 const MAX_SIMILAR = 100
 const MAX_RELATED = 30

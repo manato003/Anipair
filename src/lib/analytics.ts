@@ -4,9 +4,11 @@ import type { BeforeSendEvent } from '@vercel/analytics/react'
 // Cookie を使わず、IP アドレスも残さない集計（Vercel の説明）。独自のイベント（ボタンを押した回数など）は送らない。
 // 画面は URL を変えずに切り替えるので、開いた画面を「/rate」のような道筋にして、こちらから1回ずつ送る
 
-// 送るのは Vercel に置いた本番と preview だけ（手元の開発・E2E では、存在しない解析のスクリプトを読みに行かない）
+// 送るのは Vercel に置いた本番（anipair.com。2026-10-19 に vercel.app から移した）と preview だけ
+// （手元の開発・E2E では、存在しない解析のスクリプトを読みに行かない）
+export const PRODUCTION_HOST = 'anipair.com'
 export function analyticsEnabled(hostname: string): boolean {
-  return hostname.endsWith('.vercel.app')
+  return hostname === PRODUCTION_HOST || hostname.endsWith('.vercel.app')
 }
 
 // 開いている画面の道筋。ログイン前の最初の画面は「/welcome」
