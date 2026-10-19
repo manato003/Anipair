@@ -573,5 +573,7 @@ describe('Settings news', () => {
       ['Annictの記録をタップで付けて、次に見るアニメを理由つきで提案するWebアプリを作った', 'https://zenn.dev/manato003/articles/anipair-annict-anime-app'],
       ['公開APIを使わせてもらう側として、負担をかけないクライアント作りで意識したこと', 'https://zenn.dev/manato003/articles/anipair-gentle-api-client'],
     ])
+    // 新しい記事は、アプリを直さなくてもプロフィールからたどれる
+    expect((screen.getByRole('link', { name: 'Zennの記事をすべて見る' }) as HTMLAnchorElement).href).toBe('https://zenn.dev/manato003')
   })
 })

@@ -174,10 +174,18 @@ export function HelpSheet(props: { topic: HelpTopic; active?: boolean; onClose: 
       </section>
       <section className="help__section">
         <h3 className="help__heading">よくある質問</h3>
-        {FAQ.map(([q, a]) => (
+        {FAQ.map(([q, short, detail]) => (
           <details key={q} className="help__more">
             <summary>{q}</summary>
-            <p className="help__answer">{a}</p>
+            <p className="help__answer">
+              <strong>{short}</strong>
+              {detail && (
+                <>
+                  <br />
+                  {detail}
+                </>
+              )}
+            </p>
           </details>
         ))}
         {props.onFeedback && (
