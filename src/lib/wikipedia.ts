@@ -1,12 +1,17 @@
-import { t } from './i18n'
+import { getLang, t, type Lang } from './i18n'
 
 // 作品のあらすじを、日本語版 Wikipedia の公式の API（MediaWiki）から読む。
 // 記事の URL は Annict の API が返す `wikipediaUrl`。文章は CC BY-SA 4.0 なので、出典（記事名とリンク）とライセンスを添えて出す。
 // ネタバレを避けるため、「あらすじ」の節の冒頭の段落だけを使う（後ろの段落ほど物語の先まで書かれている）。
 // Annict・Shikimori・MyAnimeList には、日本語で権利のはっきりしたあらすじが無い（設計の原則）
+// 英語の画面では、日本語版の記事から英語版の記事（言語間リンク）をたどり、英語版の「Plot」などの節の冒頭を使う。
+// 英語版の記事か、その節が無ければ、日本語版のあらすじを出す（2026-10-20 利用者）
 
-const API = 'https://ja.wikipedia.org/w/api.php'
-const LICENSE_URL = 'https://creativecommons.org/licenses/by-sa/4.0/deed.ja'
+const HOSTS: Record<Lang, string> = { ja: 'ja.wikipedia.org', en: 'en.wikipedia.org' }
+const LICENSE_URLS: Record<Lang, string> = {
+  ja: 'https://creativecommons.org/licenses/by-sa/4.0/deed.ja',
+  en: 'https://creativecommons.org/licenses/by-sa/4.0/',
+}
 
 // あらすじの節の中身の1かたまり（小見出しか段落）
 export interface WikiBlock {
@@ -24,11 +29,14 @@ export interface WikiSynopsis {
   // あらすじの節へのリンク（出典）
   url: string
   licenseUrl: string
+  // どちらの言語版の記事から取ったか（英語の画面でも、英語版が無ければ日本語版）
+  lang: Lang
 }
 
 // あらすじに当たる節の名前
 // 日本語版 Wikipedia の節の名前と照合する（データ）
 const SECTION = /^(あらすじ|ストーリー|物語|概要・あらすじ|ストーリー・あらすじ)$/ // i18n-ok: 日本語版 Wikipedia の節名との照合
+const SECTION_EN = /^(plot|synopsis|story|premise|plot summary|plot overview|setting and plot)$/i
 
 // Annict の wikipediaUrl から、日本語版の記事名を取り出す。日本語版でなければ null
 export function wikiTitleOf(url: string | null | undefined): string | null {
@@ -50,8 +58,9 @@ export function wikiTitleOf(url: string | null | undefined): string | null {
 }
 
 // 節の一覧から、あらすじの節を選ぶ（いちばん最初に出てくるもの）
-export function pickSynopsisSection(sections: readonly { line: string; index: string; anchor: string }[]): { index: string; anchor: string } | null {
-  const hit = sections.find((s) => SECTION.test(stripTags(s.line).trim()))
+export function pickSynopsisSection(sections: readonly { line: string; index: string; anchor: string }[], lang: Lang = 'ja'): { index: string; anchor: string } | null {
+  const pattern = lang === 'en' ? SECTION_EN : SECTION
+  const hit = sections.find((s) => pattern.test(stripTags(s.line).trim()))
   return hit ? { index: hit.index, anchor: hit.anchor } : null
 }
 
@@ -61,9 +70,12 @@ function stripTags(html: string): string {
 
 // 出す長さの目安。文の区切り（。）で切り、これを超えたら「…」にする（長い段落の後ろは、解決や結末まで書かれていることが多い）
 const MAX_CHARS = 160
+// 英語は同じ内容でも字数が多い（日本語の 160 字はおよそ英語の 2 倍）
+const MAX_CHARS_EN = 320
 
 // 記事の説明で、あらすじではない段落（「本稿では…と記述する」など）
 const META = /^(本稿|本項|本節|この節|以下)|記述する/ // i18n-ok: 日本語版 Wikipedia の本文との照合
+const META_EN = /^(this (article|section)|the following|see also)\b/i
 
 function tidy(text: string | null): string {
   return (text ?? '')
@@ -77,7 +89,9 @@ function tidy(text: string | null): string {
 // 全文は、節の見出しのあとの小見出しと段落の並び（記事の説明の段落は除く）。冒頭の段落が無ければ null。
 // ownHeading: 節そのものの見出し（節が h3 のとき、その見出しを小見出しとして並べない。2026-10-06 の点検で見つけた:
 // 短い1段落でも「続きを読む」が出て、開くと「あらすじ」が小見出しとして重なっていた）
-export function parseSynopsis(html: string, ownHeading?: string): { text: string; blocks: WikiBlock[] } | null {
+export function parseSynopsis(html: string, ownHeading?: string, lang: Lang = 'ja'): { text: string; blocks: WikiBlock[] } | null {
+  const meta = lang === 'en' ? META_EN : META
+  const minLead = lang === 'en' ? 60 : 30
   const doc = new DOMParser().parseFromString(html, 'text/html')
   for (const el of doc.querySelectorAll('sup.reference, .mw-editsection, .hatnote, table, figure, .thumb, style, script')) el.remove()
   const blocks: WikiBlock[] = []
@@ -87,8 +101,8 @@ export function parseSynopsis(html: string, ownHeading?: string): { text: string
     const text = tidy(el.textContent)
     if (!text) continue
     if (el.tagName === 'P') {
-      if (META.test(text)) continue
-      if (lead === null && text.length >= 30) lead = text
+      if (meta.test(text)) continue
+      if (lead === null && text.length >= minLead) lead = text
       if (lead !== null) blocks.push({ heading: false, text })
     } else if (ownHeading !== undefined && text === tidy(ownHeading)) {
       continue
@@ -98,7 +112,7 @@ export function parseSynopsis(html: string, ownHeading?: string): { text: string
   }
   if (lead === null) return null
   // 冒頭より前の小見出しは、全文の先頭に残す（「第1巻」など、最初の段落の見出し）
-  return { text: clip(lead), blocks }
+  return { text: clip(lead, lang), blocks }
 }
 
 // 冒頭の段落だけ（parseSynopsis の text）
@@ -107,51 +121,72 @@ export function firstParagraph(html: string): string | null {
 }
 
 // 文の区切りで、MAX_CHARS に収まるところまで（最初の1文は必ず残す）
-export function clip(text: string): string {
-  if (text.length <= MAX_CHARS) return text
-  const sentences = text.match(/[^。]+。?/g) ?? [text] // i18n-ok: 日本語版 Wikipedia の本文を文で区切る
+export function clip(text: string, lang: Lang = 'ja'): string {
+  const max = lang === 'en' ? MAX_CHARS_EN : MAX_CHARS
+  if (text.length <= max) return text
+  // i18n-ok: 本文を文で区切る（日本語は「。」、英語は . ! ?）
+  const sentences = (lang === 'en' ? text.match(/[^.!?]+[.!?]+["”’)]*\s*|[^.!?]+$/g) : text.match(/[^。]+。?/g)) ?? [text] // i18n-ok
   let out = ''
   for (const s of sentences) {
-    if (out && (out + s).length > MAX_CHARS) break
+    if (out && (out + s).length > max) break
     out += s
   }
-  return out.length < text.length ? `${out}…` : out
+  out = out.trimEnd()
+  return out.length < text.trimEnd().length ? `${out}…` : out
 }
 
-async function call<T>(params: Record<string, string>): Promise<T> {
+async function call<T>(lang: Lang, params: Record<string, string>): Promise<T> {
   const q = new URLSearchParams({ ...params, format: 'json', formatversion: '2', origin: '*' })
-  const res = await fetch(`${API}?${q.toString()}`, { credentials: 'omit' })
+  const res = await fetch(`https://${HOSTS[lang]}/w/api.php?${q.toString()}`, { credentials: 'omit' })
   if (!res.ok) throw new Error(t(`Wikipediaを読めませんでした（HTTP ${res.status}）`, `Could not load Wikipedia (HTTP ${res.status}).`))
   return (await res.json()) as T
 }
 
 const cache = new Map<string, Promise<WikiSynopsis | null>>()
 
-// 記事ごとに1回だけ読む（節の一覧と、あらすじの節の2回の問い合わせ）。あらすじの節が無い記事は null
-export function fetchWikiSynopsis(wikipediaUrl: string | null | undefined): Promise<WikiSynopsis | null> {
+// 1つの言語版の記事から、あらすじの節を読む（節の一覧と、あらすじの節の2回の問い合わせ）。節が無ければ null
+async function readSynopsis(lang: Lang, page: string): Promise<WikiSynopsis | null> {
+  const s = await call<{ parse?: { title: string; sections: { line: string; index: string; anchor: string }[] } }>(lang, { action: 'parse', page, prop: 'sections', redirects: '1' })
+  if (!s.parse) return null
+  const section = pickSynopsisSection(s.parse.sections, lang)
+  if (!section) return null
+  const body = await call<{ parse?: { text: string } }>(lang, { action: 'parse', page: s.parse.title, section: section.index, prop: 'text', disableeditsection: '1' })
+  const parsed = body.parse ? parseSynopsis(body.parse.text, section.anchor.replace(/_/g, ' '), lang) : null
+  if (!parsed) return null
+  const title = s.parse.title
+  return {
+    text: parsed.text,
+    blocks: parsed.blocks,
+    title,
+    url: `https://${HOSTS[lang]}/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}#${encodeURIComponent(section.anchor)}`,
+    licenseUrl: LICENSE_URLS[lang],
+    lang,
+  }
+}
+
+// 日本語版の記事名から、英語版の記事名（言語間リンク）。無ければ null
+async function englishTitleOf(page: string): Promise<string | null> {
+  const r = await call<{ query?: { pages?: { langlinks?: { title: string }[] }[] } }>('ja', { action: 'query', titles: page, prop: 'langlinks', lllang: 'en', redirects: '1' })
+  return r.query?.pages?.[0]?.langlinks?.[0]?.title ?? null
+}
+
+// 記事ごと・言語ごとに1回だけ読む。英語の画面では英語版を先に試し、無ければ日本語版。あらすじの節が無い記事は null
+export function fetchWikiSynopsis(wikipediaUrl: string | null | undefined, lang: Lang = getLang()): Promise<WikiSynopsis | null> {
   const page = wikiTitleOf(wikipediaUrl)
   if (!page) return Promise.resolve(null)
-  let p = cache.get(page)
+  const key = `${lang}:${page}`
+  let p = cache.get(key)
   if (!p) {
     p = (async () => {
-      const s = await call<{ parse?: { title: string; sections: { line: string; index: string; anchor: string }[] } }>({ action: 'parse', page, prop: 'sections', redirects: '1' })
-      if (!s.parse) return null
-      const section = pickSynopsisSection(s.parse.sections)
-      if (!section) return null
-      const t = await call<{ parse?: { text: string } }>({ action: 'parse', page: s.parse.title, section: section.index, prop: 'text', disableeditsection: '1' })
-      const parsed = t.parse ? parseSynopsis(t.parse.text, section.anchor.replace(/_/g, ' ')) : null
-      if (!parsed) return null
-      const title = s.parse.title
-      return {
-        text: parsed.text,
-        blocks: parsed.blocks,
-        title,
-        url: `https://ja.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}#${encodeURIComponent(section.anchor)}`,
-        licenseUrl: LICENSE_URL,
+      if (lang === 'en') {
+        const en = await englishTitleOf(page).catch(() => null)
+        const synopsis = en ? await readSynopsis('en', en).catch(() => null) : null
+        if (synopsis) return synopsis
       }
+      return readSynopsis('ja', page)
     })()
-    p.catch(() => cache.delete(page))
-    cache.set(page, p)
+    p.catch(() => cache.delete(key))
+    cache.set(key, p)
   }
   return p
 }

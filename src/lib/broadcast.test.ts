@@ -161,3 +161,15 @@ describe('which name comes first at the same time', () => {
   })
 })
 
+
+// 英語の画面では、放送局を英語名で出す（表に無い局は Annict の名前のまま）
+describe('channel names in English', () => {
+  it('uses the English name of a TV station, and keeps an unknown one as is', async () => {
+    const { resetLangForTests } = await import('./i18n')
+    resetLangForTests('en')
+    const prefs = { services: [], region: '関東' as const, satellites: [] }
+    const at = '2026-10-19T15:00:00Z'
+    expect(nextBroadcast([slot(at, 'テレビ東京', 'テレビ 関東')], prefs, NOW)?.channel).toBe('TV Tokyo')
+    expect(nextBroadcast([slot(at, '未知の局', 'テレビ 関東')], prefs, NOW)?.channel).toBe('未知の局')
+  })
+})

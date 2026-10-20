@@ -3,7 +3,7 @@ import type { ProgramSlot } from './annict'
 import type { GithubConnection } from './github'
 import { syncJson } from './syncStore'
 import { readStoredBroadcast, saveStoredBroadcast } from './storage'
-import { t, weekdayShort } from './i18n'
+import { getLang, t, weekdayShort } from './i18n'
 
 // 見るサービスと、見てる作品の次の放送（Issue #32。2026-10-13）。
 // 放送予定は Annict の公開の API（作品の programs）にある。チャンネルごと・毎週の分が入っていて、配信（動画サービス・ABEMA）と
@@ -204,8 +204,89 @@ function labelRank(label: string): number {
 }
 const firstLabel = (labels: Iterable<string>): string => [...labels].sort((a, b) => labelRank(a) - labelRank(b))[0]
 
+// 放送局の英語名（英語の画面だけ。鍵は Annict のチャンネル名。2026-10-20 に最近5クールの人気作の放送局を集めて作った）。
+// 表に無い局は Annict の名前のまま出す
+const CHANNELS_EN: Record<string, string> = {
+  'TOKYO MX': 'Tokyo MX', // i18n-ok
+  'BS11イレブン': 'BS11', // i18n-ok
+  'ABEMAビデオ': 'ABEMA Video', // i18n-ok
+  'ABEMA アニメ': 'ABEMA Anime', // i18n-ok
+  'MBS毎日放送': 'MBS', // i18n-ok
+  'テレビ東京': 'TV Tokyo', // i18n-ok
+  'テレビ大阪': 'TV Osaka', // i18n-ok
+  'HBC北海道放送': 'HBC', // i18n-ok
+  'BS日テレ': 'BS NTV', // i18n-ok
+  '群馬テレビ': 'Gunma TV', // i18n-ok
+  'サンテレビ': 'Sun TV', // i18n-ok
+  'BS朝日': 'BS Asahi', // i18n-ok
+  'とちぎテレビ': 'Tochigi TV', // i18n-ok
+  'ABCテレビ': 'ABC TV', // i18n-ok
+  'HTB北海道テレビ': 'HTB', // i18n-ok
+  '関西テレビ': 'Kansai TV', // i18n-ok
+  'テレビ愛知': 'TV Aichi', // i18n-ok
+  '日本テレビ': 'Nippon TV', // i18n-ok
+  'CBC中部日本放送': 'CBC TV', // i18n-ok
+  '読売テレビ': 'Yomiuri TV', // i18n-ok
+  'ニコニコチャンネル': 'Niconico Channel', // i18n-ok
+  'ABA青森朝日放送': 'ABA', // i18n-ok
+  'IAT岩手朝日テレビ': 'IAT', // i18n-ok
+  'AAB秋田朝日放送': 'AAB', // i18n-ok
+  'テレビ北海道': 'TV Hokkaido', // i18n-ok
+  'ATV青森テレビ': 'ATV', // i18n-ok
+  'IBC岩手放送': 'IBC', // i18n-ok
+  'ニコニコ生放送': 'Niconico Live', // i18n-ok
+  'KBS京都': 'KBS Kyoto', // i18n-ok
+  'テレビ朝日': 'TV Asahi', // i18n-ok
+  'TUYテレビユー山形': 'TUY', // i18n-ok
+  'dアニメストア ニコニコ支店': 'd Anime Store on Niconico', // i18n-ok
+  '岩手めんこいテレビ': 'Iwate Menkoi TV', // i18n-ok
+  'フジテレビ': 'Fuji TV', // i18n-ok
+  'メ～テレ': 'Nagoya TV', // i18n-ok
+  '北海道文化放送': 'UHB', // i18n-ok
+  '青森放送': 'RAB', // i18n-ok
+  'テレビ岩手': 'TVI', // i18n-ok
+  'BSフジ': 'BS Fuji', // i18n-ok
+  'TUFテレビユー福島': 'TUF', // i18n-ok
+  '仙台放送': 'Sendai Broadcasting', // i18n-ok
+  'AKT秋田テレビ': 'AKT', // i18n-ok
+  'BSテレ東': 'BS TV Tokyo', // i18n-ok
+  'YBC山形放送': 'YBC', // i18n-ok
+  'テレビせとうち': 'TV Setouchi', // i18n-ok
+  'YTS山形テレビ': 'YTS', // i18n-ok
+  'TVQ九州放送': 'TVQ', // i18n-ok
+  'RKB毎日放送': 'RKB', // i18n-ok
+  'テレ玉': 'TV Saitama', // i18n-ok
+  '札幌テレビ放送': 'STV', // i18n-ok
+  '中京テレビ': 'Chukyo TV', // i18n-ok
+  'NBC長崎放送': 'NBC Nagasaki', // i18n-ok
+  'UTYテレビ山梨': 'UTY', // i18n-ok
+  'SBC信越放送': 'SBC', // i18n-ok
+  'テレビ神奈川 (tvk)': 'tvk', // i18n-ok
+  'チバテレビ': 'Chiba TV', // i18n-ok
+  'MMTミヤギテレビ': 'MMT', // i18n-ok
+  '東海テレビ': 'Tokai TV', // i18n-ok
+  'NHK総合': 'NHK General TV', // i18n-ok
+  'NHK Eテレ': 'NHK E-TV', // i18n-ok
+  'NHK BSプレミアム': 'NHK BS Premium', // i18n-ok
+  '広島ホームテレビ': 'Hiroshima Home TV', // i18n-ok
+  'さくらんぼテレビ': 'Sakuranbo TV', // i18n-ok
+  'YBS山梨放送': 'YBS', // i18n-ok
+  'BSS山陰放送': 'BSS', // i18n-ok
+  'ABS秋田放送': 'ABS', // i18n-ok
+  'テレビ西日本': 'TNC', // i18n-ok
+  'TUTチューリップテレビ': 'TUT', // i18n-ok
+  '愛媛朝日テレビ': 'eat', // i18n-ok
+  'アニマックス': 'Animax', // i18n-ok
+  'キッズステーション': 'Kids Station', // i18n-ok
+  'BSアニマックス': 'BS Animax', // i18n-ok
+  'ファミリー劇場': 'Family Gekijo', // i18n-ok
+}
+
 function labelOf(slot: Slot): string {
-  return serviceOf(slot)?.label ?? slot.ch.trim()
+  const service = serviceOf(slot)?.label
+  if (service) return service
+  const ch = slot.ch.trim()
+  return getLang() === 'en' ? (CHANNELS_EN[ch] ?? ch) : ch
 }
 
 // 選んだチャンネルの、これからの放送のうち、まだどのチャンネルでも流れていない回だけ（同じ回の遅れた配信を除く）。

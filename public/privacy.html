@@ -20,7 +20,7 @@
       </div>
 
       <h1>プライバシーポリシー</h1>
-      <p class="date">制定日: 2026年10月2日 / 更新日: 2026年10月13日</p>
+      <p class="date">制定日: 2026年10月2日 / 更新日: 2026年10月20日</p>
 
       <p class="lead">
         Anipair（以下「本アプリ」）は、個人が開発・運営する、無料・非商用の非公式アプリです。
@@ -89,8 +89,8 @@
             中継は、Shikimoriの公開データの控えと、Shikimoriへの問い合わせの回数を数えるために、Upstash（Redis）を使います。そこに利用者の情報は置きません。
           </li>
           <li>
-            <strong>Wikipedia</strong>（<a href="https://ja.wikipedia.org/" rel="noreferrer">ja.wikipedia.org</a>）:
-            作品の詳細を開いたときに、その作品の記事のあらすじを、Wikipediaの公開しているAPIから読み込みます。利用者を特定する情報は送りません。
+            <strong>Wikipedia</strong>（<a href="https://ja.wikipedia.org/" rel="noreferrer">ja.wikipedia.org</a>。英語の画面では<a href="https://en.wikipedia.org/" rel="noreferrer">en.wikipedia.org</a>も）:
+            作品の詳細を開いたときに、その作品の記事のあらすじを、Wikipediaの公開しているAPIから読み込みます。英語の画面では、日本語版の記事から英語版の記事をたどって読みます。利用者を特定する情報は送りません。
           </li>
           <li>
             <strong>GitHub</strong>（利用者が任意で連携した場合だけ）:
@@ -151,7 +151,7 @@
 
       <section class="en" lang="en">
         <h1>Privacy Policy (English)</h1>
-        <p class="date">Effective date: October 2, 2026 / Last updated: October 13, 2026</p>
+        <p class="date">Effective date: October 2, 2026 / Last updated: October 20, 2026</p>
         <p>
           Anipair is a free, non-commercial, unofficial app developed and run by an individual. The operator does not collect or store any user information, except what you send through the feedback form and anonymous, aggregated usage statistics.
         </p>
@@ -175,7 +175,7 @@
           <ul>
             <li><strong>Annict</strong>: login, reading and writing your watch records and ratings, and anime information, using only Annict's public API. Your records are stored in your own Annict account.</li>
             <li><strong>Anime data provider</strong> (currently Shikimori): public data such as genres, similar and related anime, cover image locations, and the works of voice actors, staff and studios, fetched through Anipair's proxy without any information that identifies you. To look up the works of a person, Anipair sends that person's public name as listed on Annict. The proxy uses Upstash (Redis) to keep copies of Shikimori's public data and to count requests to Shikimori; no information about you is stored there.</li>
-            <li><strong>Wikipedia</strong>: when you open the details of an anime, its synopsis is read from the article through Wikipedia's public API, without any information that identifies you.</li>
+            <li><strong>Wikipedia</strong> (ja.wikipedia.org, and en.wikipedia.org on the English screen): when you open the details of an anime, its synopsis is read from the article through Wikipedia's public API, without any information that identifies you. On the English screen, the English article linked from the Japanese article is used when there is one.</li>
             <li><strong>GitHub</strong>, only if you connect it: your pass, skip and "not watched" records, your priority marks and notes on "want to watch" anime, the streaming services you choose, and backups are saved to your own repository.</li>
             <li><strong>Google Fonts</strong>: web fonts used to display the app.</li>
             <li><strong>Image hosts</strong>: cover images (Shikimori posters, and images such as official websites' images returned by Annict's API) and your Annict profile image are loaded by your browser directly from where they are hosted. As with any image on a web page, your IP address and browser type reach that host.</li>

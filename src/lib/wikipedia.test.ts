@@ -96,3 +96,19 @@ describe('parseSynopsis (the whole section for 続きを読む)', () => {
   })
 })
 
+
+// 英語の画面は、英語版の記事の「Plot」などの節を使い、英語の文で区切る
+describe('English Wikipedia', () => {
+  it('finds the plot section and clips at an English sentence end', () => {
+    const sections = [
+      { line: 'Characters', index: '1', anchor: 'Characters' },
+      { line: 'Plot', index: '2', anchor: 'Plot' },
+    ]
+    expect(pickSynopsisSection(sections, 'en')).toEqual({ index: '2', anchor: 'Plot' })
+    expect(pickSynopsisSection(sections, 'ja')).toBeNull()
+    const long = 'First sentence is here. '.repeat(20).trim()
+    const out = clip(long, 'en')
+    expect(out.endsWith('here.…')).toBe(true)
+    expect(out.length).toBeLessThanOrEqual(321)
+  })
+})

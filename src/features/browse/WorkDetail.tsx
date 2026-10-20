@@ -522,7 +522,7 @@ export function WorkDetail(
                 {/* あらすじ: Wikipedia の冒頭の段落（ネタバレを避ける）。続きは押したときだけ、その場で広げる。出典とライセンス（CC BY-SA 4.0）を添える */}
                 {wiki && (
                   <section className="detail__section">
-                    <h3 className="detail__label">{t('あらすじ', 'Synopsis (from Japanese Wikipedia)')}</h3>
+                    <h3 className="detail__label">{wiki.lang === 'en' ? 'Synopsis' : t('あらすじ', 'Synopsis (from Japanese Wikipedia)')}</h3>
                     {wikiOpen ? (
                       <div className="detail__wiki">
                         {wiki.blocks.map((b, i) =>
