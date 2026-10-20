@@ -1,3 +1,4 @@
+import { t } from '../../lib/i18n'
 import { FORMAT_GROUPS, FROM_YEARS, type FormatGroup, type MatchFilter } from './matchFilter'
 
 // マッチングの絞り込み（形式と放送年）。変えても提案は作り直さない（次に提案するときに効く）
@@ -15,7 +16,7 @@ export function MatchFilterControls(props: { filter: MatchFilter; onChange: (nex
   return (
     <div className="filter">
       <fieldset className="filter__group">
-        <legend className="detail__label">形式</legend>
+        <legend className="detail__label">{t('形式', 'Format')}</legend>
         <div className="filter__options">
           {FORMAT_GROUPS.map((g) => {
             const on = filter.formats.includes(g.id)
@@ -29,7 +30,7 @@ export function MatchFilterControls(props: { filter: MatchFilter; onChange: (nex
         </div>
       </fieldset>
       <label className="filter__group">
-        <span className="detail__label">放送年</span>
+        <span className="detail__label">{t('放送年', 'Air year')}</span>
         <select
           value={filter.fromYear ?? ''}
           onChange={(e) => props.onChange({ ...filter, fromYear: e.target.value === '' ? null : Number(e.target.value) })}

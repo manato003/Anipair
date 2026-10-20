@@ -1,6 +1,7 @@
 import { delay, parseRetryAfter } from './retry'
 import { createThrottle, type ScheduleOptions } from './throttle'
 import { loadSimilar, saveSimilar, type Cover, type SimilarEntry } from './storage'
+import { t, tx, type Text } from './i18n'
 
 // 作品データの出どころ（いまは Shikimori）。この1ファイルと、サーバー側の api/shiki.ts だけが出どころを知っていて、
 // ほかは下の WorkDataProvider の3つ（fetchMedia = 作品の情報、fetchSimilar = 似た作品、fetchRelated = 関連作品）だけを使う。
@@ -145,6 +146,11 @@ export function shikimoriUrl(malId: number): string {
   return `https://shikimori.io/animes/${malId}`
 }
 
+// 中継の応答の形が違うとき
+function badResponse(): Error {
+  return new Error(t('Shikimoriの応答を読めませんでした', 'Could not read Shikimori’s response.'))
+}
+
 async function call(query: string, opts: FetchOptions = {}): Promise<unknown> {
   for (let attempt = 0; ; attempt++) {
     // 待つあいだは列を握らない（1回ごとに列に並べ直す）。待っている間に、画面の問い合わせが先に進める
@@ -153,7 +159,7 @@ async function call(query: string, opts: FetchOptions = {}): Promise<unknown> {
       try {
         res = await fetch(`${ENDPOINT}?${query}`)
       } catch {
-        throw new Error('Shikimoriに接続できませんでした。通信を確認してください')
+        throw new Error(t('Shikimoriに接続できませんでした。通信を確認してください', 'Could not connect to Shikimori. Check your connection.'))
       }
       if (res.status === 429) {
         return { retryAfterMs: parseRetryAfter(res.headers.get('Retry-After'), RATE_LIMIT_DEFAULT_WAIT_MS, RATE_LIMIT_MAX_WAIT_MS) }
@@ -163,16 +169,22 @@ async function call(query: string, opts: FetchOptions = {}): Promise<unknown> {
         body = await res.json()
       } catch {
         // 中継が無い（関数の動かない環境）と、JSON でない 404 が返る
-        throw new Error('Shikimoriへの中継が動いていません。ローカルでは「npm run dev」か「vercel dev」で起動してください')
+        throw new Error(
+          t(
+            'Shikimoriへの中継が動いていません。ローカルでは「npm run dev」か「vercel dev」で起動してください',
+            'The Shikimori relay isn’t running. Locally, start the app with “npm run dev” or “vercel dev”.',
+          ),
+        )
       }
       if (!res.ok) {
         const code = body && typeof body === 'object' ? (body as { error?: unknown }).error : null
-        throw new Error(`Shikimoriから読めませんでした（${typeof code === 'string' ? code : `HTTP ${res.status}`}）`)
+        const what = typeof code === 'string' ? code : `HTTP ${res.status}`
+        throw new Error(t(`Shikimoriから読めませんでした（${what}）`, `Could not load from Shikimori (${what}).`))
       }
       return { body }
     }, opts)
     if ('body' in outcome) return outcome.body
-    if (attempt >= RATE_LIMIT_RETRIES) throw new Error('Shikimoriの利用制限に達しました。1分ほど待ってからもう一度試してください')
+    if (attempt >= RATE_LIMIT_RETRIES) throw new Error(t('Shikimoriの利用制限に達しました。1分ほど待ってからもう一度試してください', 'Shikimori’s rate limit was reached. Please wait about a minute and try again.'))
     await delay(outcome.retryAfterMs)
   }
 }
@@ -194,7 +206,7 @@ export async function fetchMedia(malIds: readonly number[], opts: FetchOptions =
     // v=6: 中継の応答に点数を付けた人の数（sc）が加わった版（v=5 は話数など、v=4 は人気 pop）。
     // CDN に1週間残る前の形の控えを使わないよう、問い合わせの URL を変える
     const body = (await call(`op=animes&ids=${chunk.join(',')}&v=6`, opts)) as { animes?: RawAnime[] }
-    if (!body || !Array.isArray(body.animes)) throw new Error('Shikimoriの応答を読めませんでした')
+    if (!body || !Array.isArray(body.animes)) throw badResponse()
     for (const id of chunk) mediaCache.set(id, null)
     for (const raw of body.animes) {
       const m = normalize(raw)
@@ -211,7 +223,7 @@ export async function fetchMedia(malIds: readonly number[], opts: FetchOptions =
 
 // 名前の照合に使う形（全角・半角をそろえ、空白と中黒・イコールを除く）。Annict の「上坂すみれ」と Shikimori の「上坂 すみれ」を同じにする
 export function personKey(name: string): string {
-  return name.normalize('NFKC').replace(/[\s・=＝]/g, '').toLowerCase()
+  return name.normalize('NFKC').replace(/[\s・=＝]/g, '').toLowerCase() // i18n-ok: 日本語の名前の照合用（画面には出さない）
 }
 
 export interface ShikimoriPerson {
@@ -226,54 +238,56 @@ export async function findPerson(name: string, opts: FetchOptions = {}): Promise
   const key = personKey(name)
   if (!key) return null
   const body = (await call(`op=people&q=${encodeURIComponent(name.trim())}`, opts)) as { people?: unknown }
-  if (!body || !Array.isArray(body.people)) throw new Error('Shikimoriの応答を読めませんでした')
+  if (!body || !Array.isArray(body.people)) throw badResponse()
   for (const raw of body.people as ShikimoriPerson[]) {
     if (raw && Number.isInteger(raw.id) && typeof raw.japanese === 'string' && personKey(raw.japanese) === key) return raw
   }
   return null
 }
 
-// Shikimori のスタッフの役割（ロシア語）を日本語に。よく出るものだけ。知らないものは null（画面では「スタッフ」）
-const ROLE_JA: Record<string, string> = {
-  'Исполнение гл. муз. темы': '主題歌',
-  'Исполнение муз. темы': '主題歌',
-  'Музыкальное сопровождение': '挿入歌',
-  'Композитор гл. муз. темы': '主題歌の作曲',
-  'Лирика гл. муз. темы': '主題歌の作詞',
-  'Аранжировка гл. муз. темы': '主題歌の編曲',
-  Музыка: '音楽',
-  Режиссёр: '監督',
-  'Главный режиссёр': '総監督',
-  'Режиссёр эпизодов': '演出',
-  'Автор оригинала': '原作',
-  Автор: '原作',
-  Сюжет: 'ストーリー',
-  Сценарий: '脚本',
-  'Компоновка серий': 'シリーズ構成',
-  Раскадровка: '絵コンテ',
-  'Дизайн персонажей': 'キャラクターデザイン',
-  'Оригинал. дизайн персонажей': 'キャラクター原案',
-  'Режиссёр анимации': '作画監督',
-  'Главный режиссёр анимации': '総作画監督',
-  'Помощник режиссёра анимации': '作画監督補佐',
-  'Ключевая анимация': '原画',
-  'Второстепен. анимация': '第二原画',
-  'Фоновая рисовка': '背景',
-  'Арт-директор': '美術監督',
-  'Дизайн макетов': 'レイアウト',
-  Вёрстка: 'レイアウト',
-  Монтаж: '編集',
-  Звукорежиссёр: '音響監督',
-  'Звуковые эффекты': '効果',
-  Планирование: '企画',
-  Продюсер: 'プロデューサー',
-  'Исполнительн. продюсер': '製作総指揮',
-  'Продюсер планирования': '企画プロデューサー',
-  'Директор по производству': '制作',
+// Shikimori のスタッフの役割（ロシア語）を日本語と英語に。よく出るものだけ。知らないものは null（画面では「スタッフ」）
+const ROLES: Record<string, Text> = {
+  'Исполнение гл. муз. темы': { ja: '主題歌', en: 'Theme song' },
+  'Исполнение муз. темы': { ja: '主題歌', en: 'Theme song' },
+  'Музыкальное сопровождение': { ja: '挿入歌', en: 'Insert song' },
+  'Композитор гл. муз. темы': { ja: '主題歌の作曲', en: 'Theme song composer' },
+  'Лирика гл. муз. темы': { ja: '主題歌の作詞', en: 'Theme song lyrics' },
+  'Аранжировка гл. муз. темы': { ja: '主題歌の編曲', en: 'Theme song arrangement' },
+  Музыка: { ja: '音楽', en: 'Music' },
+  Режиссёр: { ja: '監督', en: 'Director' },
+  'Главный режиссёр': { ja: '総監督', en: 'Chief director' },
+  'Режиссёр эпизодов': { ja: '演出', en: 'Episode director' },
+  'Автор оригинала': { ja: '原作', en: 'Original work' },
+  Автор: { ja: '原作', en: 'Original work' },
+  Сюжет: { ja: 'ストーリー', en: 'Story' },
+  Сценарий: { ja: '脚本', en: 'Screenplay' },
+  'Компоновка серий': { ja: 'シリーズ構成', en: 'Series composition' },
+  Раскадровка: { ja: '絵コンテ', en: 'Storyboard' },
+  'Дизайн персонажей': { ja: 'キャラクターデザイン', en: 'Character design' },
+  'Оригинал. дизайн персонажей': { ja: 'キャラクター原案', en: 'Original character design' },
+  'Режиссёр анимации': { ja: '作画監督', en: 'Animation director' },
+  'Главный режиссёр анимации': { ja: '総作画監督', en: 'Chief animation director' },
+  'Помощник режиссёра анимации': { ja: '作画監督補佐', en: 'Assistant animation director' },
+  'Ключевая анимация': { ja: '原画', en: 'Key animation' },
+  'Второстепен. анимация': { ja: '第二原画', en: 'Second key animation' },
+  'Фоновая рисовка': { ja: '背景', en: 'Background art' },
+  'Арт-директор': { ja: '美術監督', en: 'Art director' },
+  'Дизайн макетов': { ja: 'レイアウト', en: 'Layout' },
+  Вёрстка: { ja: 'レイアウト', en: 'Layout' },
+  Монтаж: { ja: '編集', en: 'Editing' },
+  Звукорежиссёр: { ja: '音響監督', en: 'Sound director' },
+  'Звуковые эффекты': { ja: '効果', en: 'Sound effects' },
+  Планирование: { ja: '企画', en: 'Planning' },
+  Продюсер: { ja: 'プロデューサー', en: 'Producer' },
+  'Исполнительн. продюсер': { ja: '製作総指揮', en: 'Executive producer' },
+  'Продюсер планирования': { ja: '企画プロデューサー', en: 'Planning producer' },
+  'Директор по производству': { ja: '制作', en: 'Production' },
 }
 
-export function roleJa(role: string): string | null {
-  return ROLE_JA[role] ?? null
+// 役割の名前（いまの言語で）。知らない役割は null
+export function roleLabel(role: string): string | null {
+  const text = ROLES[role]
+  return text ? tx(text) : null
 }
 
 // 人物の参加作品（MyAnimeList の ID）。cast は声の出演、staff はスタッフとしての作品と役割（日本語。知らない役割は「スタッフ」）
@@ -285,7 +299,7 @@ export async function fetchPersonWorks(
   const body = (await call(`op=person&id=${id}&v=4`, opts)) as { cast?: unknown; staff?: unknown }
   const castRaw = Array.isArray(body?.cast) ? (body.cast as { id?: unknown; ch?: unknown }[]) : null
   const staffRaw = Array.isArray(body?.staff) ? (body.staff as { id?: unknown; r?: unknown }[]) : null
-  if (!castRaw || !staffRaw) throw new Error('Shikimoriの応答を読めませんでした')
+  if (!castRaw || !staffRaw) throw badResponse()
   const cast = castRaw.flatMap((x) => {
     if (!x || !Number.isInteger(x.id) || (x.id as number) <= 0) return []
     const characters = (Array.isArray(x.ch) ? (x.ch as { i?: unknown; n?: unknown }[]) : []).flatMap((c) =>
@@ -295,8 +309,8 @@ export async function fetchPersonWorks(
   })
   const staff = staffRaw.flatMap((x) => {
     if (!x || !Number.isInteger(x.id) || (x.id as number) <= 0) return []
-    const roles = [...new Set((Array.isArray(x.r) ? x.r : []).filter((r): r is string => typeof r === 'string').map((r) => roleJa(r) ?? 'スタッフ'))]
-    return [{ id: x.id as number, roles: roles.length > 0 ? roles : ['スタッフ'] }]
+    const roles = [...new Set((Array.isArray(x.r) ? x.r : []).filter((r): r is string => typeof r === 'string').map((r) => roleLabel(r) ?? t('スタッフ', 'Staff')))]
+    return [{ id: x.id as number, roles: roles.length > 0 ? roles : [t('スタッフ', 'Staff')] }]
   })
   return { cast, staff }
 }
@@ -310,7 +324,7 @@ export async function fetchCharacterNames(ids: readonly number[], opts: FetchOpt
   for (let i = 0; i < missing.length; i += BATCH) {
     const chunk = missing.slice(i, i + BATCH)
     const body = (await call(`op=characters&ids=${chunk.join(',')}`, opts)) as { characters?: { id?: unknown; ja?: unknown }[] }
-    if (!body || !Array.isArray(body.characters)) throw new Error('Shikimoriの応答を読めませんでした')
+    if (!body || !Array.isArray(body.characters)) throw badResponse()
     for (const id of chunk) characterCache.set(id, null)
     for (const c of body.characters) if (Number.isInteger(c?.id) && typeof c.ja === 'string' && c.ja) characterCache.set(c.id as number, c.ja)
   }
@@ -329,7 +343,7 @@ export async function fetchStudioWorks(id: number, opts: FetchOptions = {}): Pro
   const out: Media[] = []
   for (let page = 1; page <= STUDIO_PAGES; page++) {
     const body = (await call(`op=studio&id=${id}&page=${page}&v=6`, opts)) as { animes?: RawAnime[] }
-    if (!body || !Array.isArray(body.animes)) throw new Error('Shikimoriの応答を読めませんでした')
+    if (!body || !Array.isArray(body.animes)) throw badResponse()
     for (const raw of body.animes) {
       const m = normalize(raw)
       if (!m) continue
@@ -357,7 +371,7 @@ export async function fetchSimilar(malId: number, opts: FetchOptions = {}): Prom
   const hit = store().get(malId)
   if (hit) return hit.ids
   const body = (await call(`op=similar&id=${malId}`, opts)) as { ids?: unknown }
-  if (!body || !Array.isArray(body.ids) || !body.ids.every((n) => Number.isInteger(n) && n > 0)) throw new Error('Shikimoriの応答を読めませんでした')
+  if (!body || !Array.isArray(body.ids) || !body.ids.every((n) => Number.isInteger(n) && n > 0)) throw badResponse()
   const ids = body.ids as number[]
   store().set(malId, { at: Date.now(), ids })
   saveSimilar(store())

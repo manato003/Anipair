@@ -1,3 +1,5 @@
+import { t } from './i18n'
+
 // 作品のあらすじを、日本語版 Wikipedia の公式の API（MediaWiki）から読む。
 // 記事の URL は Annict の API が返す `wikipediaUrl`。文章は CC BY-SA 4.0 なので、出典（記事名とリンク）とライセンスを添えて出す。
 // ネタバレを避けるため、「あらすじ」の節の冒頭の段落だけを使う（後ろの段落ほど物語の先まで書かれている）。
@@ -25,7 +27,8 @@ export interface WikiSynopsis {
 }
 
 // あらすじに当たる節の名前
-const SECTION = /^(あらすじ|ストーリー|物語|概要・あらすじ|ストーリー・あらすじ)$/
+// 日本語版 Wikipedia の節の名前と照合する（データ）
+const SECTION = /^(あらすじ|ストーリー|物語|概要・あらすじ|ストーリー・あらすじ)$/ // i18n-ok: 日本語版 Wikipedia の節名との照合
 
 // Annict の wikipediaUrl から、日本語版の記事名を取り出す。日本語版でなければ null
 export function wikiTitleOf(url: string | null | undefined): string | null {
@@ -60,12 +63,12 @@ function stripTags(html: string): string {
 const MAX_CHARS = 160
 
 // 記事の説明で、あらすじではない段落（「本稿では…と記述する」など）
-const META = /^(本稿|本項|本節|この節|以下)|記述する/
+const META = /^(本稿|本項|本節|この節|以下)|記述する/ // i18n-ok: 日本語版 Wikipedia の本文との照合
 
 function tidy(text: string | null): string {
   return (text ?? '')
     .replace(/\s+/g, ' ')
-    .replace(/（\s*）|\(\s*\)/g, '')
+    .replace(/（\s*）|\(\s*\)/g, '') // i18n-ok: 日本語版 Wikipedia の本文から空の括弧を除く
     .trim()
 }
 
@@ -106,7 +109,7 @@ export function firstParagraph(html: string): string | null {
 // 文の区切りで、MAX_CHARS に収まるところまで（最初の1文は必ず残す）
 export function clip(text: string): string {
   if (text.length <= MAX_CHARS) return text
-  const sentences = text.match(/[^。]+。?/g) ?? [text]
+  const sentences = text.match(/[^。]+。?/g) ?? [text] // i18n-ok: 日本語版 Wikipedia の本文を文で区切る
   let out = ''
   for (const s of sentences) {
     if (out && (out + s).length > MAX_CHARS) break
@@ -118,7 +121,7 @@ export function clip(text: string): string {
 async function call<T>(params: Record<string, string>): Promise<T> {
   const q = new URLSearchParams({ ...params, format: 'json', formatversion: '2', origin: '*' })
   const res = await fetch(`${API}?${q.toString()}`, { credentials: 'omit' })
-  if (!res.ok) throw new Error(`Wikipediaを読めませんでした（HTTP ${res.status}）`)
+  if (!res.ok) throw new Error(t(`Wikipediaを読めませんでした（HTTP ${res.status}）`, `Could not load Wikipedia (HTTP ${res.status}).`))
   return (await res.json()) as T
 }
 

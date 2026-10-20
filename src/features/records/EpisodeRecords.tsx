@@ -6,6 +6,7 @@ import { RATINGS } from '../rate/queue'
 import { clearEpisodeDraft, loadEpisodeDraft, saveEpisodeDraft } from './episodeDrafts'
 import { episodeLabel, episodeProgress, episodeWindow, startIndex } from './episodes'
 import { Loading } from '../../components/Loading'
+import { t } from '../../lib/i18n'
 
 // 作品の詳細のシート（見た・見てるの作品）の、話ごとの記録欄。
 // 高さを固定した3段（選んでいる話・4段階のボタン・直前の記録）で、評価を押すと同じ位置のまま次の話に切り替わる
@@ -57,15 +58,15 @@ export function EpisodeRecorder(props: {
   if (props.error) {
     return (
       <p className="ep__note">
-        話の一覧を読めませんでした（{props.error}）。
+        {t(`話の一覧を読めませんでした（${props.error}）。`, `Couldn’t load the episode list (${props.error}). `)}
         <button type="button" className="link" onClick={props.onRetry}>
-          もう一度
+          {t('もう一度', 'Retry')}
         </button>
       </p>
     )
   }
-  if (!data) return <Loading className="ep__note" label="話の一覧を読み込み中" />
-  if (data.noEpisodes || data.episodes.length === 0) return <p className="ep__note">この作品には話の情報がありません。</p>
+  if (!data) return <Loading className="ep__note" label={t('話の一覧を読み込み中', 'Loading episodes')} />
+  if (data.noEpisodes || data.episodes.length === 0) return <p className="ep__note">{t('この作品には話の情報がありません。', 'There’s no episode information for this anime.')}</p>
 
   const episodes = data.episodes
   // 最初に選ぶ話: 次に見る話。見てる作品で全部記録し終えていたら、終わりの位置（「見た」にする案内か、放送中なら続きの案内）。
@@ -157,27 +158,27 @@ export function EpisodeRecorder(props: {
   const commentButtonLabel = !commentTarget
     ? ''
     : loadEpisodeDraft(commentTarget.episode.id)
-      ? '感想の下書きを開く'
+      ? t('感想の下書きを開く', 'Open review draft')
       : commentTarget.mode !== 'before' && props.commented.has(commentTarget.episode.id)
-        ? '感想を直す'
-        : '感想を書く'
+        ? t('感想を直す', 'Edit review')
+        : t('感想を書く', 'Write a review')
 
   return (
     <div className="ep">
-      <div className="ep__progress" aria-label={`${tracked}/${total}話を記録`}>
+      <div className="ep__progress" aria-label={t(`${tracked}/${total}話を記録`, `${tracked} of ${total} episodes recorded`)}>
         <span className="ep__bar" aria-hidden>
           <span className="ep__fill" style={{ transform: `scaleX(${total ? tracked / total : 0})` }} />
         </span>
         <span className="ep__count" aria-hidden>
           {tracked}
-          <span className="count__of">/{total}話</span>
+          <span className="count__of">{t(`/${total}話`, `/${total} eps`)}</span>
         </span>
       </div>
 
       <div className="ep__box">
         {/* 1段目: 選んでいる話。◀ ▶ で前後の話に */}
         <div className="ep__head">
-          <button type="button" className="ep__step" onClick={() => select(at - 1)} disabled={at === 0} aria-label="前の話">
+          <button type="button" className="ep__step" onClick={() => select(at - 1)} disabled={at === 0} aria-label={t('前の話', 'Previous episode')}>
             ‹
           </button>
           <p className="ep__current" aria-live="polite">
@@ -185,13 +186,13 @@ export function EpisodeRecorder(props: {
               <>
                 <strong>{episodeLabel(current)}</strong>
                 {current.title && <span className="ep__title">{current.title}</span>}
-                {current.viewerDidTrack && <span className="ep__tracked">記録済み</span>}
+                {current.viewerDidTrack && <span className="ep__tracked">{t('記録済み', 'Recorded')}</span>}
               </>
             ) : (
-              <strong>{props.airing ? '放送中の最新話まで記録しました' : '最終話まで記録しました'}</strong>
+              <strong>{props.airing ? t('放送中の最新話まで記録しました', 'Recorded up to the latest aired episode') : t('最終話まで記録しました', 'Recorded up to the last episode')}</strong>
             )}
           </p>
-          <button type="button" className="ep__step" onClick={() => select(at + 1)} disabled={at >= episodes.length} aria-label="次の話">
+          <button type="button" className="ep__step" onClick={() => select(at + 1)} disabled={at >= episodes.length} aria-label={t('次の話', 'Next episode')}>
             ›
           </button>
         </div>
@@ -201,19 +202,19 @@ export function EpisodeRecorder(props: {
           locked ? (
             <div className="ep__locked">
               <button type="button" className="ep__againbtn" onClick={() => setAgainFor(current.id)}>
-                もう一度記録する（{current.viewerRecordsCount + 1}回目）
+                {t(`もう一度記録する（${current.viewerRecordsCount + 1}回目）`, `Record again (time ${current.viewerRecordsCount + 1})`)}
               </button>
               {props.workAnnictId !== undefined && (
                 <a className="ep__annict" href={annictEpisodeUrl(props.workAnnictId, current.annictId)} target="_blank" rel="noreferrer">
-                  Annictで直す
+                  {t('Annictで直す', 'Edit on Annict')}
                 </a>
               )}
             </div>
           ) : (
-            <Ratings label={adding ? `${episodeLabel(current)}をもう一度記録する評価` : `${episodeLabel(current)}の評価`} again={adding} onRate={rate} />
+            <Ratings label={adding ? t(`${episodeLabel(current)}をもう一度記録する評価`, `Rating to record ${episodeLabel(current)} again`) : t(`${episodeLabel(current)}の評価`, `Rating for ${episodeLabel(current)}`)} again={adding} onRate={rate} />
           )
         ) : props.watching && !props.airing ? (
-          <Ratings label="作品の評価" onRate={(r) => props.onFinish(r)} />
+          <Ratings label={t('作品の評価', 'Rating for this anime')} onRate={(r) => props.onFinish(r)} />
         ) : (
           <div className="ep__placeholder" aria-hidden />
         )}
@@ -223,29 +224,30 @@ export function EpisodeRecorder(props: {
           <p className="ep__msg" role="status">
             {shown ? (
               <>
-                {episodeLabel(shown.episode)}を「{ratingLabel(shown.rating)}」で記録{savedFor === shown.episode.id || props.commented.has(shown.episode.id) ? '・感想つき' : ''}
+                {t(`${episodeLabel(shown.episode)}を「${ratingLabel(shown.rating)}」で記録`, `Recorded ${episodeLabel(shown.episode)} as “${ratingLabel(shown.rating)}”`)}
+                {savedFor === shown.episode.id || props.commented.has(shown.episode.id) ? t('・感想つき', ' · with review') : ''}
                 {props.undoable.has(shown.episode.id) && (
                   <button type="button" className="link" onClick={() => undo(shown)}>
-                    取り消す
+                    {t('取り消す', 'Undo')}
                   </button>
                 )}
               </>
             ) : adding && current ? (
               <>
-                <span className="ep__again">{current.viewerRecordsCount + 1}回目の記録を付けます</span>
+                <span className="ep__again">{t(`${current.viewerRecordsCount + 1}回目の記録を付けます`, `Adding record #${current.viewerRecordsCount + 1}`)}</span>
                 <button type="button" className="link" onClick={() => setAgainFor(null)}>
-                  やめる
+                  {t('やめる', 'Cancel')}
                 </button>
               </>
             ) : locked && current ? (
               <PastRating key={current.id} episodeId={current.id} past={props.past?.get(current.id)} onLookup={props.onLookupPast} />
             ) : !current && props.watching && props.airing ? (
-              <>次の話がAnnictに登録されたら、ここで続けて記録できます。</>
+              <>{t('次の話がAnnictに登録されたら、ここで続けて記録できます。', 'Once the next episode is added on Annict, you can keep recording here.')}</>
             ) : !current && props.watching ? (
               <>
-                作品の評価を付けて「見た」にします。
+                {t('作品の評価を付けて「見た」にします。', 'Rate this anime to mark it as watched. ')}
                 <button type="button" className="link" onClick={() => props.onFinish(null)}>
-                  評価せずに「見た」にする
+                  {t('評価せずに「見た」にする', 'Mark as watched without rating')}
                 </button>
               </>
             ) : null}
@@ -262,16 +264,16 @@ export function EpisodeRecorder(props: {
       {writing && (
         <div className="ep__comment">
           <label className="ep__comment-label" htmlFor={`ep-comment-${writing.episode.id}`}>
-            {episodeLabel(writing.episode)}の感想
-            {writing.mode === 'before' && <span className="ep__comment-hint">書いたら、上の評価を押してください。感想と一緒に記録します</span>}
-            {writing.mode === 'existing' && <span className="ep__comment-hint">前に付けたこの話の記録に、感想を付けます</span>}
+            {t(`${episodeLabel(writing.episode)}の感想`, `Review of ${episodeLabel(writing.episode)}`)}
+            {writing.mode === 'before' && <span className="ep__comment-hint">{t('書いたら、上の評価を押してください。感想と一緒に記録します', 'When you’re done, tap a rating above. It will be recorded with your review')}</span>}
+            {writing.mode === 'existing' && <span className="ep__comment-hint">{t('前に付けたこの話の記録に、感想を付けます', 'Adds a review to your earlier record of this episode')}</span>}
           </label>
           <textarea
             id={`ep-comment-${writing.episode.id}`}
             className="ep__comment-text"
             rows={3}
             value={text}
-            placeholder="この話の感想（Annictの記録に付きます）"
+            placeholder={t('この話の感想（Annictの記録に付きます）', 'Your thoughts on this episode (added to your Annict record)')}
             onChange={(e) => {
               setText(e.target.value)
               saveEpisodeDraft(writing.episode.id, e.target.value)
@@ -279,11 +281,11 @@ export function EpisodeRecorder(props: {
           />
           <div className="ep__comment-actions">
             <button type="button" className="link" onClick={() => setWriting(null)}>
-              閉じる
+              {t('閉じる', 'Close')}
             </button>
             {writing.mode !== 'before' && (
               <button type="button" className="btn btn--primary" disabled={!text.trim()} onClick={saveComment}>
-                保存
+                {t('保存', 'Save')}
               </button>
             )}
           </div>
@@ -305,13 +307,17 @@ function PastRating(props: { episodeId: string; past: PastRecord | null | 'loadi
   useEffect(() => {
     if (past === undefined) onLookup?.(episodeId)
   }, [episodeId, past, onLookup])
-  if (past === undefined || past === 'loading') return <span className="ep__past">前回の評価を探しています…</span>
-  if (past === null) return <span className="ep__past">前回の評価はAnnictで見られます</span>
+  if (past === undefined || past === 'loading') return <span className="ep__past">{t('前回の評価を探しています…', 'Looking for your last rating…')}</span>
+  if (past === null) return <span className="ep__past">{t('前回の評価はAnnictで見られます', 'You can see your last rating on Annict')}</span>
   const label = RATINGS.find((x) => x.rating === past.rating)?.label
   // スマホの1行に収めるため、今年の記録は月日だけ
   const d = new Date(past.createdAt)
   const date = d.getFullYear() === new Date().getFullYear() ? `${d.getMonth() + 1}/${d.getDate()}` : `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`
-  return <span className="ep__past">{label ? `前回：${label}（${date}）` : `前回：評価なし（${date}）`}</span>
+  return (
+    <span className="ep__past">
+      {label ? t(`前回：${label}（${date}）`, `Last time: ${label} (${date})`) : t(`前回：評価なし（${date}）`, `Last time: not rated (${date})`)}
+    </span>
+  )
 }
 
 // again: 記録済みの話をもう一度記録する（記録がもう1つ増える）。枠を点線にして、付け替えではないと分かるようにする
@@ -327,6 +333,9 @@ function Ratings(props: { label: string; again?: boolean; onRate: (rating: Ratin
   )
 }
 
+// 記録した回数（2回以上のときだけ）
+const trackedTimes = (n: number) => (n > 1 ? t(` ${n}回`, ` ×${n}`) : '')
+
 // 一度に並べる話の数（長い作品は、次の話の少し前から。前後は押して広げる）
 const WINDOW = 12
 
@@ -338,23 +347,23 @@ function EpisodeList(props: { episodes: readonly Episode[]; selected: Episode | 
     <div className="eplist__wrap">
       {range.start > 0 && (
         <button type="button" className="link eplist__more" onClick={() => setRange((r) => ({ ...r, start: Math.max(0, r.start - WINDOW) }))}>
-          前の話を見る
+          {t('前の話を見る', 'Show earlier episodes')}
         </button>
       )}
-      <ol className="eplist" aria-label="話の一覧">
+      <ol className="eplist" aria-label={t('話の一覧', 'Episodes')}>
         {episodes.slice(range.start, range.end).map((e) => (
           <li key={e.id}>
             <button type="button" className="eplist__item" aria-current={e === props.selected ? 'true' : undefined} onClick={() => props.onSelect(e)}>
               <span className="eplist__label">{episodeLabel(e)}</span>
               <span className="eplist__title">{e.title ?? ''}</span>
-              <span className="eplist__done">{e.viewerDidTrack ? `✓${e.viewerRecordsCount > 1 ? ` ${e.viewerRecordsCount}回` : ''}` : ''}</span>
+              <span className="eplist__done">{e.viewerDidTrack ? `✓${trackedTimes(e.viewerRecordsCount)}` : ''}</span>
             </button>
           </li>
         ))}
       </ol>
       {range.end < episodes.length && (
         <button type="button" className="link eplist__more" onClick={() => setRange((r) => ({ ...r, end: Math.min(episodes.length, r.end + WINDOW) }))}>
-          後の話を見る
+          {t('後の話を見る', 'Show later episodes')}
         </button>
       )}
     </div>

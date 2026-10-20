@@ -1,4 +1,5 @@
 import { useEffect, useState, type RefObject } from 'react'
+import { t } from '../lib/i18n'
 import { scrollToTop } from '../lib/pageScroll'
 
 // スマホで、いま見ているもの（クールと並べ替え）の帯が画面の上へ流れて見えなくなったら、上の端に細い1行で出す（「2026年 秋 · 人気順」）。
@@ -36,7 +37,7 @@ export function PinnedLine(props: { target: RefObject<HTMLElement | null>; under
     <button type="button" className={state.top > 0 ? 'pinline' : 'pinline pinline--top'} style={{ top: state.top }} onClick={back}>
       {props.label}
       <span className="pinline__hint" aria-hidden>
-        選び直す
+        {t('選び直す', 'Change')}
       </span>
     </button>
   )

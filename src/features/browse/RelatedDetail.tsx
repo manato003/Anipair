@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { CoverImage } from '../../components/CoverImage'
 import { Sheet } from '../../components/Sheet'
 import { annictMissingLinks, type SeriesWork, type WorkRef } from '../../lib/annict'
+import { t } from '../../lib/i18n'
+import { shikiTitle } from '../../lib/names'
 import { fetchCovers } from '../../lib/covers'
 import type { Media } from '../../lib/shikimori'
 import type { Cover } from '../../lib/storage'
@@ -14,7 +16,7 @@ import { Loading } from '../../components/Loading'
 // 関連作品から開く先。Annict のシリーズの作品か、Shikimori の関連作品（Annict の作品を先に探す）
 export type RelatedTarget = { kind: 'annict'; work: SeriesWork } | { kind: 'shiki'; media: Media }
 
-type Found = { kind: 'loading' } | { kind: 'found'; ref: WorkRef } | { kind: 'missing' } | { kind: 'error'; message: string }
+type Found = { kind: 'loading' } | { kind: 'found'; ref: WorkRef & { titleEn?: string | null } } | { kind: 'missing' } | { kind: 'error'; message: string }
 
 // 関連作品の詳細。元の作品の詳細の上に、もう1枚のシートとして重ねて開く（Annict のサイトへは移らない）。
 // 状態や評価は、元の画面が送り先の列（enqueue）を渡したときに変えられる（評価画面・マッチングから開いても変えられる）。
@@ -29,7 +31,7 @@ export function RelatedDetail(
 ) {
   const { token, target } = props
   const [found, setFound] = useState<Found>(() =>
-    target.kind === 'annict' ? { kind: 'found', ref: { id: target.work.id, annictId: target.work.annictId, title: target.work.title, malAnimeId: target.work.malAnimeId } } : { kind: 'loading' },
+    target.kind === 'annict' ? { kind: 'found', ref: { id: target.work.id, annictId: target.work.annictId, title: target.work.title, titleEn: target.work.titleEn, malAnimeId: target.work.malAnimeId } } : { kind: 'loading' },
   )
   const [cover, setCover] = useState<Cover | null>(() => (target.kind === 'shiki' ? target.media.cover : null))
 
@@ -64,7 +66,7 @@ export function RelatedDetail(
     if (found.kind !== 'found') return null
     if (target.kind !== 'annict') return found.ref
     const w = target.work
-    return { id: w.id, annictId: w.annictId, title: w.title, malAnimeId: w.malAnimeId, media: w.media, seasonYear: w.seasonYear, seasonName: w.seasonName, viewerStatusState: w.viewerStatusState }
+    return { id: w.id, annictId: w.annictId, title: w.title, titleEn: w.titleEn, malAnimeId: w.malAnimeId, media: w.media, seasonYear: w.seasonYear, seasonName: w.seasonName, viewerStatusState: w.viewerStatusState }
   }, [found, target])
 
   if (seed) {
@@ -86,7 +88,9 @@ export function RelatedDetail(
 
   // 探しているあいだと、見つからなかったとき（Shikimori の関連作品だけ）
   const media = target.kind === 'shiki' ? target.media : null
-  const title = media ? (media.title.native ?? media.title.romaji ?? media.title.english ?? `MAL ${media.idMal}`) : ''
+  const title = media ? shikiTitle(media.title, `MAL ${media.idMal}`) : ''
+  // Annict の検索リンクには日本語の題名を使う（表示だけ英語にする）
+  const searchTitle = media ? (media.title.native ?? media.title.romaji ?? media.title.english ?? `MAL ${media.idMal}`) : ''
   return (
     <Sheet label={title} size="page" active={props.active} onClose={props.onClose}>
       <header className="detail__head">
@@ -95,11 +99,11 @@ export function RelatedDetail(
           <h2 className="detail__title">
             <Phrase text={title} />
           </h2>
-          {found.kind === 'loading' && <Loading className="detail__meta" label="Annictで作品を検索中" />}
+          {found.kind === 'loading' && <Loading className="detail__meta" label={t('Annictで作品を検索中', 'Searching Annict for this anime')} />}
           {found.kind === 'missing' && (
             <>
-              <p className="detail__meta">Annictで作品を見つけられませんでした。</p>
-              {annictMissingLinks(title).map((l) => (
+              <p className="detail__meta">{t('Annictで作品を見つけられませんでした。', 'Couldn’t find this anime on Annict.')}</p>
+              {annictMissingLinks(searchTitle).map((l) => (
                 <a key={l.href} className="detail__source" href={l.href} target="_blank" rel="noreferrer">
                   {l.text}
                 </a>

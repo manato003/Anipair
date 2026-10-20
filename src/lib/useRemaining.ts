@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { t } from './i18n'
 
 // 残り時間を出し始めるまでに、進んだ数と経った時間がこれだけ要る（最初の数件では速さが定まらない）
 const ESTIMATE_MIN_STEPS = 3
@@ -6,9 +7,9 @@ const ESTIMATE_MIN_MS = 2000
 
 // 残り時間の言い方。細かい数字は約束できないので、1分未満は10秒刻み、それより長ければ分で丸める
 export function formatRemaining(seconds: number): string {
-  if (seconds < 10) return 'もうすぐ終わります'
-  if (seconds < 60) return `残り約${Math.ceil(seconds / 10) * 10}秒`
-  return `残り約${Math.round(seconds / 60)}分`
+  if (seconds < 10) return t('もうすぐ終わります', 'Almost done')
+  if (seconds < 60) return t(`残り約${Math.ceil(seconds / 10) * 10}秒`, `About ${Math.ceil(seconds / 10) * 10} s left`)
+  return t(`残り約${Math.round(seconds / 60)}分`, `About ${Math.round(seconds / 60)} min left`)
 }
 
 // 進み具合（done / total）から残りの秒数を見積もる。数え始めてからの平均の速さ × 残りの数。

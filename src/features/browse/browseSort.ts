@@ -1,4 +1,5 @@
 import type { BrowseWork } from '../../lib/annict'
+import { t } from '../../lib/i18n'
 import type { Media } from '../../lib/shikimori'
 import { collectPool, malIdOf } from '../match/taste'
 import type { Taste } from '../match/tasteLoader'
@@ -18,10 +19,10 @@ export const SORTS: readonly {
   label: string
   modes: readonly BrowseMode[]
 }[] = [
-  { id: 'popular', label: '人気順', modes: ['cour', 'period', 'search'] },
-  { id: 'score', label: '評価順', modes: ['cour', 'period', 'search'] },
-  { id: 'taste', label: 'おすすめ順', modes: ['cour', 'period'] },
-  { id: 'newest', label: '放送日順', modes: ['period', 'search'] },
+  { id: 'popular', get label() { return t('人気順', 'Popular') }, modes: ['cour', 'period', 'search'] },
+  { id: 'score', get label() { return t('評価順', 'Top rated') }, modes: ['cour', 'period', 'search'] },
+  { id: 'taste', get label() { return t('おすすめ順', 'Suggested') }, modes: ['cour', 'period'] },
+  { id: 'newest', get label() { return t('放送日順', 'Air date') }, modes: ['period', 'search'] },
 ]
 
 // いまの場合で使えない並べ方は、人気順にする
@@ -68,7 +69,7 @@ export interface BrowseScore {
 // 満足度の 0 は「計算されていない」のと見分けがつかないので、点数なしとして扱う
 export function scoreOf(w: BrowseWork, shikimori: ReadonlyMap<number, number | null>): BrowseScore | null {
   const rate = w.satisfactionRate
-  if (typeof rate === 'number' && rate > 0) return { value: rate, label: `満足度 ${Math.round(rate)}%` }
+  if (typeof rate === 'number' && rate > 0) return { value: rate, label: t(`満足度 ${Math.round(rate)}%`, `Satisfaction ${Math.round(rate)}%`) }
   const mal = malIdOf(w)
   const s = mal ? shikimori.get(mal) : null
   if (typeof s === 'number' && s > 0) return { value: s * 10, label: `Shikimori ${s.toFixed(1)}` }

@@ -2,6 +2,7 @@ import type { LibraryEntry, MyReview, RatingState, StatusState } from '../../lib
 import { RATING_ORDER } from '../../lib/reviewOps'
 import type { Cover } from '../../lib/storage'
 import type { Season } from '../../lib/season'
+import { t } from '../../lib/i18n'
 
 // 記録ページの分類と並べ替え。すべて純粋な関数
 
@@ -15,11 +16,11 @@ export type Bucket = 'watched' | 'wanna' | 'watching' | 'other'
 
 // 並びは最初に開く「見てる」から
 export const BUCKETS: readonly { id: Bucket; label: string }[] = [
-  { id: 'watching', label: '見てる' },
-  { id: 'watched', label: '見た' },
-  { id: 'wanna', label: '見たい' },
+  { id: 'watching', get label() { return t('見てる', 'Watching') } },
+  { id: 'watched', get label() { return t('見た', 'Watched') } },
+  { id: 'wanna', get label() { return t('見たい', 'Want to watch') } },
   // Annict の一時中断と視聴中止をまとめて「視聴中断」（STATUS_LABEL と同じ考え方）
-  { id: 'other', label: '視聴中断' },
+  { id: 'other', get label() { return t('視聴中断', 'Dropped') } },
 ]
 
 export function bucketOf(state: StatusState): Bucket {
@@ -52,7 +53,13 @@ export interface SortChoice {
   dir: SortDir
 }
 
-const SORT_LABEL: Record<SortKey, string> = { rating: '好きな順', popular: '人気順', recorded: '記録順', aired: '放送日順', taste: 'おすすめ順' }
+const SORT_LABEL: Record<SortKey, string> = {
+  get rating() { return t('好きな順', 'Favorites first') },
+  get popular() { return t('人気順', 'Popular') },
+  get recorded() { return t('記録順', 'Date recorded') },
+  get aired() { return t('放送日順', 'Air date') },
+  get taste() { return t('おすすめ順', 'Suggested') },
+}
 
 // 状態ごとに選べる並べ替え（先頭が最初に選ばれているもの）
 export function sortOptions(bucket: Bucket): { key: SortKey; label: string }[] {
@@ -66,15 +73,25 @@ export function sortNote({ key, dir }: SortChoice): string {
   const desc = dir === 'desc'
   switch (key) {
     case 'rating':
-      return desc ? 'あなたの評価の高い順です。評価の無い作品は最後に並びます。' : 'あなたの評価の低い順です。評価の無い作品は最後に並びます。'
+      return desc
+        ? t('あなたの評価の高い順です。評価の無い作品は最後に並びます。', 'Sorted by your rating, highest first. Unrated anime come last.')
+        : t('あなたの評価の低い順です。評価の無い作品は最後に並びます。', 'Sorted by your rating, lowest first. Unrated anime come last.')
     case 'popular':
-      return desc ? 'Annictでこの作品を記録した人の多い順です。' : 'Annictでこの作品を記録した人の少ない順です。'
+      return desc
+        ? t('Annictでこの作品を記録した人の多い順です。', 'Sorted by how many people recorded it on Annict, most first.')
+        : t('Annictでこの作品を記録した人の少ない順です。', 'Sorted by how many people recorded it on Annict, fewest first.')
     case 'recorded':
-      return desc ? 'Annictに記録した日の新しい順です。' : 'Annictに記録した日の古い順です。'
+      return desc
+        ? t('Annictに記録した日の新しい順です。', 'Sorted by the date you recorded it on Annict, newest first.')
+        : t('Annictに記録した日の古い順です。', 'Sorted by the date you recorded it on Annict, oldest first.')
     case 'aired':
-      return desc ? '放送の新しい順です。放送時期の分からない作品は最後に並びます。' : '放送の古い順です。放送時期の分からない作品は最後に並びます。'
+      return desc
+        ? t('放送の新しい順です。放送時期の分からない作品は最後に並びます。', 'Sorted by air date, newest first. Anime with no known air date come last.')
+        : t('放送の古い順です。放送時期の分からない作品は最後に並びます。', 'Sorted by air date, oldest first. Anime with no known air date come last.')
     case 'taste':
-      return desc ? 'あなたの評価から、好みに合いそうな順です。' : 'あなたの評価から、好みに合いそうな作品を後ろにした順です。'
+      return desc
+        ? t('あなたの評価から、好みに合いそうな順です。', 'Sorted by how well they match your taste, based on your ratings.')
+        : t('あなたの評価から、好みに合いそうな作品を後ろにした順です。', 'Sorted by how well they match your taste, best matches last.')
   }
 }
 
@@ -151,16 +168,16 @@ export const EMPTY_FILTER: RecordFilter = { ratings: [], yearFrom: null, yearTo:
 
 export const MEDIA_KINDS: readonly { id: MediaKind; label: string }[] = [
   { id: 'tv', label: 'TV' },
-  { id: 'movie', label: '劇場版' },
-  { id: 'ova', label: 'OVA・配信' },
-  { id: 'other', label: 'その他' },
+  { id: 'movie', get label() { return t('劇場版', 'Movie') } },
+  { id: 'ova', get label() { return t('OVA・配信', 'OVA / ONA') } },
+  { id: 'other', get label() { return t('その他', 'Other') } },
 ]
 
 export const SEASON_KEYS: readonly { id: SeasonKey; label: string }[] = [
-  { id: 'WINTER', label: '冬' },
-  { id: 'SPRING', label: '春' },
-  { id: 'SUMMER', label: '夏' },
-  { id: 'AUTUMN', label: '秋' },
+  { id: 'WINTER', get label() { return t('冬', 'Winter') } },
+  { id: 'SPRING', get label() { return t('春', 'Spring') } },
+  { id: 'SUMMER', get label() { return t('夏', 'Summer') } },
+  { id: 'AUTUMN', get label() { return t('秋', 'Fall') } },
 ]
 
 // Annict の Media を、絞り込みの形式に寄せる（WEB は配信なので OVA と同じまとまり）
@@ -245,15 +262,17 @@ export function filterChoices(
 
 export function filterRows(rows: RecordRow[], bucket: Bucket, query: string): RecordRow[] {
   const q = query.trim().normalize('NFKC').toLowerCase()
-  return rows.filter((r) => bucketOf(r.entry.state) === bucket && (!q || r.entry.title.normalize('NFKC').toLowerCase().includes(q)))
+  // 題名は日本語でも英語（titleEn）でも探せる（画面の言語に関わらず）
+  const hit = (s: string | null | undefined) => !!s && s.normalize('NFKC').toLowerCase().includes(q)
+  return rows.filter((r) => bucketOf(r.entry.state) === bucket && (!q || hit(r.entry.title) || hit(r.entry.titleEn)))
 }
 
 // 状態を選ぶ選択肢。「視聴中断」は1つだけ（STOP_WATCHING で保存する）
 export const STATE_OPTIONS: readonly { state: StatusState; label: string }[] = [
-  { state: 'WATCHED', label: '見た' },
-  { state: 'WATCHING', label: '見てる' },
-  { state: 'WANNA_WATCH', label: '見たい' },
-  { state: 'STOP_WATCHING', label: '視聴中断' },
+  { state: 'WATCHED', get label() { return t('見た', 'Watched') } },
+  { state: 'WATCHING', get label() { return t('見てる', 'Watching') } },
+  { state: 'WANNA_WATCH', get label() { return t('見たい', 'Want to watch') } },
+  { state: 'STOP_WATCHING', get label() { return t('視聴中断', 'Dropped') } },
 ]
 
 // 選択肢の上でどれを選んでいるか。Annict のサイトで付けた一時中断（ON_HOLD）は「視聴中断」を選んでいることにする

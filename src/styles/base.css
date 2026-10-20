@@ -1396,6 +1396,30 @@ input[type='radio'] {
   margin-left: 0;
 }
 
+/* 言語の切り替え（EN／あ）。ほかの丸いボタンと同じ大きさ・線で、文字だけ */
+.langbtn {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink-raised) 80%, transparent);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .langbtn:hover {
+    border-color: var(--brand-lavender);
+    color: var(--paper);
+  }
+}
+
 .bell {
   position: relative;
   display: inline-grid;

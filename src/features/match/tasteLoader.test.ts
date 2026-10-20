@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { tx } from '../../lib/i18n'
 import type { LibraryEntry, RatingState } from '../../lib/annict'
 import type { Media } from '../../lib/shikimori'
 
@@ -119,7 +120,7 @@ describe('loadTaste', () => {
     expect(ids.slice(0, 20).sort((a, b) => a - b)).toEqual(Array.from({ length: 20 }, (_, i) => i + 1))
     expect(ids.slice(-FIRST_PASS_DISLIKED).every((id) => id > 40 && id <= 60)).toBe(true)
     expect(taste.pendingSimilar).toBe(MAX_SEEDS + 40 - FIRST_PASS_LIKED - FIRST_PASS_DISLIKED)
-    expect(notes.at(-1)).toBe(FIRST_PASS_NOTE)
+    expect(notes.at(-1)).toBe(tx(FIRST_PASS_NOTE))
     // 2回目の問い合わせは、後回しにした分を裏の優先度で
     const calls = vi.mocked(fetchSimilarMany).mock.calls
     expect(calls).toHaveLength(2)
@@ -143,7 +144,7 @@ describe('loadTaste', () => {
     ratings = new Map()
     const notes: (string | undefined)[] = []
     await loadTaste('t', (_step, note) => notes.push(note))
-    expect(notes.at(-1)).toBe(LONG_WAIT_NOTE)
+    expect(notes.at(-1)).toBe(tx(LONG_WAIT_NOTE))
 
     forgetTaste()
     vi.mocked(isSimilarCached).mockImplementation((id) => id > 10)

@@ -1,35 +1,37 @@
 import { useState } from 'react'
+import { t } from './i18n'
 import type { ButtonLabels, EffectLevel } from './storage'
 import { applyTheme, loadTheme, saveTheme, type ThemePrefs } from './theme'
 
 // 表示の設定の選択肢（設定の「表示」と、コントロールセンターのクイック設定で同じものを使う）
+// label は取り出したときの言語で返す（getter。ファイルの外側で t() を呼ばないため）
 export const COLORS = [
-  { value: 'auto', label: '自動' },
-  { value: 'spring', label: '春' },
-  { value: 'summer', label: '夏' },
-  { value: 'autumn', label: '秋' },
-  { value: 'winter', label: '冬' },
+  { value: 'auto', get label() { return t('自動', 'Auto') } },
+  { value: 'spring', get label() { return t('春', 'Spring') } },
+  { value: 'summer', get label() { return t('夏', 'Summer') } },
+  { value: 'autumn', get label() { return t('秋', 'Fall') } },
+  { value: 'winter', get label() { return t('冬', 'Winter') } },
 ] as const satisfies readonly { value: ThemePrefs['color']; label: string }[]
 export const BRIGHTNESS = [
-  { value: 'auto', label: '自動' },
-  { value: 'light', label: '明るい' },
-  { value: 'dark', label: '暗い' },
-  { value: 'darker', label: 'もっと暗い' },
+  { value: 'auto', get label() { return t('自動', 'Auto') } },
+  { value: 'light', get label() { return t('明るい', 'Light') } },
+  { value: 'dark', get label() { return t('暗い', 'Dark') } },
+  { value: 'darker', get label() { return t('もっと暗い', 'Darker') } },
 ] as const satisfies readonly { value: ThemePrefs['brightness']; label: string }[]
 export const MOTION = [
-  { value: 'auto', label: '自動' },
-  { value: 'on', label: '動かす' },
-  { value: 'reduce', label: '減らす' },
+  { value: 'auto', get label() { return t('自動', 'Auto') } },
+  { value: 'on', get label() { return t('動かす', 'On') } },
+  { value: 'reduce', get label() { return t('減らす', 'Reduce') } },
 ] as const satisfies readonly { value: ThemePrefs['motion']; label: string }[]
 export const BUTTON_LABELS = [
-  { value: 'both', label: 'アイコンと名前' },
-  { value: 'icon', label: 'アイコンだけ' },
-  { value: 'text', label: '名前だけ' },
+  { value: 'both', get label() { return t('アイコンと名前', 'Icon and name') } },
+  { value: 'icon', get label() { return t('アイコンだけ', 'Icon only') } },
+  { value: 'text', get label() { return t('名前だけ', 'Name only') } },
 ] as const satisfies readonly { value: ButtonLabels; label: string }[]
 export const EFFECTS = [
-  { value: 'full', label: 'ふつう' },
-  { value: 'subtle', label: '控えめ' },
-  { value: 'off', label: 'なし' },
+  { value: 'full', get label() { return t('ふつう', 'Normal') } },
+  { value: 'subtle', get label() { return t('控えめ', 'Subtle') } },
+  { value: 'off', get label() { return t('なし', 'Off') } },
 ] as const satisfies readonly { value: EffectLevel; label: string }[]
 
 // 選んだら保存して、すぐ画面に効かせる

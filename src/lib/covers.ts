@@ -72,7 +72,7 @@ const shikimoriPoster: Resolver = async (works, onProgress) => {
     try {
       got = await fetchMedia(chunk)
     } catch (e) {
-      console.warn('Shikimoriからポスターを取れませんでした', e)
+      console.warn('Shikimoriからポスターを取れませんでした', e) // i18n-ok: 開発者向けのログ
       break
     }
     const step = new Set<number>()

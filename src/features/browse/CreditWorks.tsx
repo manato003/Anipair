@@ -3,6 +3,8 @@ import { CoverImage } from '../../components/CoverImage'
 import { Sheet } from '../../components/Sheet'
 import { annictCreditUrl, peekLibrary, type Credit } from '../../lib/annict'
 import { fetchCharacterNames, fetchMedia, fetchPersonWorks, fetchStudioWorks, findPerson, type Media } from '../../lib/shikimori'
+import { getLang, t } from '../../lib/i18n'
+import { personName, shikiTitle } from '../../lib/names'
 import { messageOf } from '../../lib/useWriteQueue'
 import { FORMAT_LABEL, marksByMal } from './detail'
 import { RelatedDetail } from './RelatedDetail'
@@ -65,8 +67,9 @@ async function load(target: CreditTarget): Promise<Found> {
   // 作品ごとに役割をまとめる（声の出演は役名を先頭に。「フリーレン役」）
   const roles = new Map<number, string[]>()
   for (const c of cast) {
-    const names = [...new Set(c.characters.flatMap((ch) => japanese.get(ch.id) ?? ch.name ?? []))]
-    roles.set(c.id, [names.length > 0 ? `${names.join('、')}役` : '出演'])
+    const names = [...new Set(c.characters.flatMap((ch) => (getLang() === 'en' ? (ch.name ?? japanese.get(ch.id)) : (japanese.get(ch.id) ?? ch.name)) ?? []))]
+    const sep = t('、', ', ')
+    roles.set(c.id, [names.length > 0 ? t(`${names.join(sep)}役`, `Voice of ${names.join(sep)}`) : t('出演', 'Cast')])
   }
   for (const s of staff) roles.set(s.id, [...new Set([...(roles.get(s.id) ?? []), ...s.roles])])
   const works = [...roles].flatMap(([id, r]) => {
@@ -107,41 +110,41 @@ export function CreditWorks(
 
   const list = useMemo(() => (found.kind === 'found' ? orderWorks(found.works, order) : []), [found, order])
   const visible = more ? list : list.slice(0, FIRST)
-  const name = target.credit.name
+  const name = personName(target.credit)
 
   return (
     <>
       <Sheet label={name} size="page" active={props.active && open === null} onClose={props.onClose}>
         <h2 className="detail__title">{name}</h2>
         <p className="detail__meta">
-          {target.credit.kind === 'org' ? '制作した作品' : '参加した作品'}
-          {found.kind === 'found' && list.length > 0 && `（${list.length}作品）`}
+          {target.credit.kind === 'org' ? t('制作した作品', 'Anime produced') : t('参加した作品', 'Anime worked on')}
+          {found.kind === 'found' && list.length > 0 && t(`（${list.length}作品）`, ` (${list.length} anime)`)}
         </p>
 
         {found.kind === 'loading' && (
-          <Loading label="参加作品を検索中" />
+          <Loading label={t('参加作品を検索中', 'Searching for their anime')} />
         )}
         {found.kind === 'error' && <p className="settings__error">{found.message}</p>}
         {(found.kind === 'missing' || (found.kind === 'found' && list.length === 0)) && (
           <div className="detail__section">
-            <p className="detail__meta">参加作品を見つけられませんでした。</p>
+            <p className="detail__meta">{t('参加作品を見つけられませんでした。', 'Couldn’t find any anime for this one.')}</p>
             <a className="detail__source" href={annictCreditUrl(target.credit)} target="_blank" rel="noreferrer">
-              Annictで見る
+              {t('Annictで見る', 'View on Annict')}
             </a>
           </div>
         )}
 
         {list.length > 1 && (
           <>
-            <div className="toggle toggle--full creditworks__order" role="group" aria-label="並べ替え">
+            <div className="toggle toggle--full creditworks__order" role="group" aria-label={t('並べ替え', 'Sort')}>
               <button type="button" aria-pressed={order === 'newest'} onClick={() => setOrder('newest')}>
-                新着順
+                {t('新着順', 'Newest')}
               </button>
               <button type="button" aria-pressed={order === 'popular'} onClick={() => setOrder('popular')}>
-                人気順
+                {t('人気順', 'Popular')}
               </button>
             </div>
-            <p className="note">{order === 'newest' ? '放送の新しい順です。' : 'Shikimoriでリストに入れている人の多い順です。'}</p>
+            <p className="note">{order === 'newest' ? t('放送の新しい順です。', 'Sorted by air date, newest first.') : t('Shikimoriでリストに入れている人の多い順です。', 'Sorted by how many people have added it to their Shikimori list.')}</p>
           </>
         )}
 
@@ -149,15 +152,15 @@ export function CreditWorks(
           <ul className="creditworks">
             {visible.map(({ media: m, roles }) => {
               const state = mine.get(m.idMal)
-              const meta = [m.seasonYear ? `${m.seasonYear}年` : null, m.format ? (FORMAT_LABEL[m.format] ?? null) : null].filter(Boolean).join(' · ')
+              const meta = [m.seasonYear ? t(`${m.seasonYear}年`, `${m.seasonYear}`) : null, m.format ? (FORMAT_LABEL[m.format] ?? null) : null].filter(Boolean).join(' · ')
               return (
                 <li key={m.idMal}>
                   <button type="button" className="creditworks__item" onClick={() => setOpen(m)}>
                     <span className="creditworks__cover">{m.cover && <CoverImage cover={m.cover} size="thumb" lazy />}</span>
                     <span className="creditworks__text">
-                      <span className="creditworks__title">{m.title.native ?? m.title.romaji ?? m.title.english ?? `MAL ${m.idMal}`}</span>
+                      <span className="creditworks__title">{shikiTitle(m.title, `MAL ${m.idMal}`)}</span>
                       {meta && <span className="creditworks__meta">{meta}</span>}
-                      {roles.length > 0 && <span className="creditworks__roles">{roles.join('・')}</span>}
+                      {roles.length > 0 && <span className="creditworks__roles">{roles.join(t('・', ', '))}</span>}
                     </span>
                     {state && <span className="creditworks__mine">{state}</span>}
                   </button>
@@ -168,10 +171,10 @@ export function CreditWorks(
         )}
         {!more && list.length > FIRST && (
           <button type="button" className="btn creditworks__more" onClick={() => setMore(true)}>
-            ほかの{list.length - FIRST}作品も見る
+            {t(`ほかの${list.length - FIRST}作品も見る`, `Show ${list.length - FIRST} more anime`)}
           </button>
         )}
-        {found.kind === 'found' && list.length > 0 && <p className="detail__source">作品の一覧はShikimoriの情報です。</p>}
+        {found.kind === 'found' && list.length > 0 && <p className="detail__source">{t('作品の一覧はShikimoriの情報です。', 'The anime list is from Shikimori.')}</p>}
       </Sheet>
 
       {open &&

@@ -1,3 +1,6 @@
+import { t } from '../../lib/i18n'
+import { countText } from './trends'
+
 // 傾向のシートの図。SVG と HTML だけで描く（図のライブラリは使わない）。
 // 決まりごと（dataviz の指針）: 棒は細く（24px まで）上端だけ丸める・線は2px・点は半径4で背景色の輪・塗りは1割の濃さ・
 // 数値や名前は文字の色で、系列の色は図形だけ・1系列の図に凡例は付けない。押さえたいところだけ数を添え、残りは title（ホバー）で読める
@@ -31,7 +34,7 @@ export function Radar(props: { axes: readonly { label: string; sub: string; valu
         const [x, y] = point(i, (a.value ?? 0) * R)
         return (
           <circle key={a.label} className="chart__dot" cx={x} cy={y} r={4}>
-            <title>{`${a.label}（${a.sub}）`}</title>
+            <title>{t(`${a.label}（${a.sub}）`, `${a.label} (${a.sub})`)}</title>
           </circle>
         )
       })}
@@ -108,7 +111,7 @@ export function RankBars(props: { items: readonly { key: string; name: string; c
             <span className="rankbars__fill" style={{ width: `${(it.count / max) * 100}%` }} />
           </span>
           <span className="rankbars__value">
-            {it.valueText ?? `${it.count}${it.unit ?? '本'}`}
+            {it.valueText ?? (it.unit !== undefined ? `${it.count}${it.unit}` : countText(it.count))}
             {it.note && <span className="rankbars__note">{it.note}</span>}
           </span>
         </li>
@@ -154,7 +157,7 @@ export function Stack(props: { parts: readonly { label: string; value: number }[
       <div className="stack__bar" role="img" aria-label={props.title}>
         {props.parts.map((p, i) =>
           p.value > 0 ? (
-            <span key={p.label} className="stack__part" style={{ flexGrow: p.value, background: CATEGORY_COLORS[i] }} title={`${p.label} ${p.value}本`} />
+            <span key={p.label} className="stack__part" style={{ flexGrow: p.value, background: CATEGORY_COLORS[i] }} title={`${p.label} ${countText(p.value)}`} />
           ) : null,
         )}
       </div>
@@ -164,7 +167,7 @@ export function Stack(props: { parts: readonly { label: string; value: number }[
             <span className="stack__swatch" style={{ background: CATEGORY_COLORS[i] }} aria-hidden />
             {p.label}
             <span className="stack__value">
-              {p.value}本（{Math.round((p.value / total) * 100)}%）
+              {t(`${countText(p.value)}（${Math.round((p.value / total) * 100)}%）`, `${countText(p.value)} (${Math.round((p.value / total) * 100)}%)`)}
             </span>
           </li>
         ))}
@@ -199,7 +202,7 @@ export function Balance(props: { value: number; left: string; right: string }) {
       </div>
       <div className="balance__labels" aria-hidden>
         <span>{props.left}</span>
-        <span>世間と同じ</span>
+        <span>{t('世間と同じ', 'Same as most')}</span>
         <span>{props.right}</span>
       </div>
     </div>

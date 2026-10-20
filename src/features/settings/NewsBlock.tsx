@@ -1,3 +1,4 @@
+import { t } from '../../lib/i18n'
 import { Section } from './Section'
 
 // 設定の「最新情報」。公式の X と、開発日誌（Zenn の記事）。
@@ -7,11 +8,12 @@ const X_URL = 'https://x.com/anipairAPP'
 const ZENN_PROFILE_URL = 'https://zenn.dev/manato003'
 const ARTICLES = [
   {
-    title: 'Annictの記録をタップで付けて、次に見るアニメを理由つきで提案するWebアプリを作った',
+    // Zenn の記事は日本語で書いたもの（英語の画面では、題の後ろに「(in Japanese)」を足す）
+    title: 'Annictの記録をタップで付けて、次に見るアニメを理由つきで提案するWebアプリを作った', // i18n-ok
     url: 'https://zenn.dev/manato003/articles/anipair-annict-anime-app',
   },
   {
-    title: '公開APIを使わせてもらう側として、負担をかけないクライアント作りで意識したこと',
+    title: '公開APIを使わせてもらう側として、負担をかけないクライアント作りで意識したこと', // i18n-ok
     url: 'https://zenn.dev/manato003/articles/anipair-gentle-api-client',
   },
 ] as const
@@ -19,26 +21,27 @@ const ARTICLES = [
 export function NewsBlock() {
   return (
     <>
-      <Section id="settings-x" title="公式X" summary="最新情報や、Anipairを使うときに役立つことを投稿しています。">
+      <Section id="settings-x" title={t('公式X', 'Official X account')} summary={t('最新情報や、Anipairを使うときに役立つことを投稿しています。', 'Posts news and tips for using Anipair.')}>
         <div className="settings__actions">
           <a className="btn" href={X_URL} target="_blank" rel="noreferrer">
-            Xで@anipairAPPを見る
+            {t('Xで@anipairAPPを見る', 'View @anipairAPP on X')}
           </a>
         </div>
       </Section>
-      <Section id="settings-devlog" title="Anipair開発日誌" summary="作ったものの仕組みや、作りながら考えたことをZennに書いています。">
+      <Section id="settings-devlog" title={t('Anipair開発日誌', 'Anipair dev log')} summary={t('作ったものの仕組みや、作りながら考えたことをZennに書いています。', 'How Anipair works and what I thought about while building it, written on Zenn (in Japanese).')}>
         <ul className="devlog">
           {ARTICLES.map((a) => (
             <li key={a.url}>
               <a href={a.url} target="_blank" rel="noreferrer">
                 {a.title}
+                {t('', ' (in Japanese)')}
               </a>
             </li>
           ))}
         </ul>
         <div className="settings__actions">
           <a className="btn" href={ZENN_PROFILE_URL} target="_blank" rel="noreferrer">
-            Zennの記事をすべて見る
+            {t('Zennの記事をすべて見る', 'See all articles on Zenn')}
           </a>
         </div>
       </Section>

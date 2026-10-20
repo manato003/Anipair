@@ -1,10 +1,13 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import App from './App'
-import { ErrorBoundary } from './components/ErrorBoundary'
+import { Root } from './Root'
+import { applyFirstRunParam } from './lib/welcomePreview'
 import './index.css'
 import { applyButtonLabels, applyEffectLevel, loadButtonLabels, loadEffectLevel } from './lib/storage'
 import { startTheme } from './lib/theme'
+
+// preview で ?firstrun を付けたときは、初めての案内をもう一度出す（App が案内を見たかを読む前に）
+applyFirstRunParam()
 
 // 画面の色（テーマ）、設定の「演出」の強さと「ボタンの表示」を、描く前に反映する
 startTheme()
@@ -39,8 +42,6 @@ for (const link of document.querySelectorAll<HTMLLinkElement>('link[rel="preload
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ErrorBoundary>
-      <App />
-    </ErrorBoundary>
+    <Root />
   </StrictMode>,
 )

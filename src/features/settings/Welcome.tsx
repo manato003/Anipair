@@ -1,18 +1,22 @@
+import { Fragment } from 'react'
 import { fetchViewer } from '../../lib/annict'
 import { Logo } from '../../components/Logo'
 import { WatchingScene } from '../../components/Mascot'
 import { startLogin } from '../../lib/annictLogin'
-import { TAGLINE_PHRASES } from '../../lib/brand'
+import { TAGLINE_PHRASES, TAGLINE_PHRASES_EN } from '../../lib/brand'
+import { getLang, t } from '../../lib/i18n'
+import { LangToggle } from '../../components/LangToggle'
 import { AboutBlock } from './AboutBlock'
 import { TokenForm } from './TokenForm'
 import { Spinner } from '../../components/Loading'
 
 async function verifyAnnictToken(token: string): Promise<string> {
   const v = await fetchViewer(token)
-  return `${v.name}（@${v.username}）で連携しました`
+  return t(`${v.name}（@${v.username}）で連携しました`, `Connected as ${v.name} (@${v.username})`)
 }
 
 // ログインする前の最初の画面
+// 右上の「EN／あ」で言語を切り替える（ほかの画面では、右上の並びにある同じボタン。components/LangToggle.tsx）
 // loggedOut: この端末でログアウトしたあと。「Annictでログイン」は、ブラウザで Annict にログインしているアカウントでそのまま入るので、
 // 別のアカウントに替えたい人に入り方を添える（Anipair からは Annict のログインを見られも消せもしないので、状態は言わずに手順だけ。2026-10-13 利用者）
 export function Welcome(props: {
@@ -22,36 +26,53 @@ export function Welcome(props: {
   loggedOut?: boolean
   onAnnictTokenChange: (token: string | null) => void
 }) {
+  const en = getLang() === 'en'
   // 開発者向け: 個人用アクセストークン（ログインのボタンが無いときは、最初から開いておく）
   const devToken = (
     <details className="settings__dev" open={!props.clientId}>
-      <summary>開発者向け: 個人用アクセストークンで使う</summary>
+      <summary>{t('開発者向け: 個人用アクセストークンで使う', 'For developers: use a personal access token')}</summary>
       <p className="settings__lead">
-        Annictの
+        {t('Annictの', 'In Annict’s ')}
         <a href="https://annict.com/settings/apps" target="_blank" rel="noreferrer">
-          アプリケーション設定
+          {t('アプリケーション設定', 'application settings')}
         </a>
-        で、スコープを「読み込み + 書き込み」にして個人用アクセストークンを作成し、下の欄に貼り付けてください。
+        {t(
+          'で、スコープを「読み込み + 書き込み」にして個人用アクセストークンを作成し、下の欄に貼り付けてください。',
+          ', create a personal access token with the “Read + Write” scope, and paste it below.',
+        )}
       </p>
       <TokenForm
-        label="Annictの個人用アクセストークン"
+        label={t('Annictの個人用アクセストークン', 'Annict personal access token')}
         verify={verifyAnnictToken}
-        save={(t) => props.onAnnictTokenChange(t)}
+        save={(token) => props.onAnnictTokenChange(token)}
       />
     </details>
   )
+  const tagline = en ? TAGLINE_PHRASES_EN : TAGLINE_PHRASES
   return (
     <div className="settings__block welcome">
+      <LangToggle className="welcome__lang" />
       <h1 className="welcome__logo">
         <Logo size="large" />
       </h1>
       <WatchingScene className="scene-art welcome__art" />
       <p className="welcome__tagline">
-        {TAGLINE_PHRASES.map((phrase) => (
-          <span key={phrase}>{phrase}</span>
+        {tagline.map((phrase, i) => (
+          <Fragment key={phrase}>
+            {/* 英語は語のあいだに空白が要る（日本語の句は詰めて並べる） */}
+            {en && i > 0 && ' '}
+            <span>{phrase}</span>
+          </Fragment>
         ))}
       </p>
-      <p className="settings__lead">Annictの視聴記録を、タップだけで付けられるアプリです。見たアニメを評価していくと、好みに合う作品を提案します。</p>
+      <p className="settings__lead">
+        {t(
+          'Annictの視聴記録を、タップだけで付けられるアプリです。見たアニメを評価していくと、好みに合う作品を提案します。',
+          'Anipair lets you log your anime on Annict with just a tap. Rate the anime you’ve watched, and it suggests new ones that match your taste.',
+        )}
+      </p>
+      {/* 英語のとき: 作品名はローマ字の題名で出し、作品のデータの一部は日本語のままであることを、ログインの前に伝える */}
+      {en && <p className="settings__lead welcome__lang-note">Anime titles are shown in romanized Japanese. Some details, like episode titles and synopses, stay in Japanese.</p>}
       {props.clientId && (
         <button
           type="button"
@@ -62,10 +83,10 @@ export function Welcome(props: {
           {props.busy ? (
             <>
               <Spinner />
-              ログインしています…
+              {t('ログインしています…', 'Logging in…')}
             </>
           ) : (
-            'Annictでログイン'
+            t('Annictでログイン', 'Log in with Annict')
           )}
         </button>
       )}
@@ -78,23 +99,26 @@ export function Welcome(props: {
           主役はキャッチコピーとログインのボタン（2026-10-13 利用者「できるだけシンプルに」） */}
       <ul className="welcome__notes">
         <li>
-          アカウントをお持ちでない方は、
+          {t('アカウントをお持ちでない方は、', 'Anipair uses your Annict account, an anime tracking service from Japan. If you don’t have one, ')}
           <a href="https://annict.com/sign_up" target="_blank" rel="noreferrer">
-            Annictで新規登録
+            {t('Annictで新規登録', 'sign up on Annict')}
           </a>
-          してください。
+          {t('してください。', '.')}
         </li>
         {props.clientId && props.loggedOut && (
           <li>
-            別のアカウントで連携するときは、先にAnnictのサイトでそのアカウントにログインしてください。
+            {t(
+              '別のアカウントで連携するときは、先にAnnictのサイトでそのアカウントにログインしてください。',
+              'To connect a different account, first log in to that account on the Annict website. ',
+            )}
             {/* 同じ画面のまま開く（ホーム画面に置いたアプリは Safari と別にログインを持つので、新しいタブだとアプリの中のログインを替えられない） */}
-            <a href="https://annict.com/">Annictを開く</a>
+            <a href="https://annict.com/">{t('Annictを開く', 'Open Annict')}</a>
           </li>
         )}
       </ul>
       {/* アプリの説明・規約・開発者向けは、開いたときだけ */}
       <details className="welcome__about">
-        <summary>このアプリについて</summary>
+        <summary>{t('このアプリについて', 'About this app')}</summary>
         <AboutBlock showTagline={false} welcome />
         {props.clientId && devToken}
       </details>

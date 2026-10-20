@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Section } from './Section'
 import { DEFAULT_KEYMAP, KEY_ACTIONS, RESERVED_KEYS, assignKey, clash, getKeymap, hadReservedKeys, keyLabel, normalizeKey, setKeymap, useKeymap, type KeyAction } from '../../lib/keymap'
+import { t } from '../../lib/i18n'
 import { loadKeymapRaw } from '../../lib/storage'
 
 // タッチの端末（指で触る画面）では、キーボードの設定は使わないので畳んでおく
@@ -30,17 +31,18 @@ export function Keybinds() {
       }
       if (e.ctrlKey || e.metaKey || e.altKey) return
       if (RESERVED_KEYS.includes(e.key)) {
-        setMessage('← → は画面の切り替えに使うので、割り当てられません。ほかのキーを押してください')
+        setMessage(t('← → は画面の切り替えに使うので、割り当てられません。ほかのキーを押してください', '← → are used to switch screens, so they can’t be assigned. Press another key'))
         return
       }
       const key = normalizeKey(e.key)
       if (!key) {
-        setMessage(`${e.key === ' ' ? 'Space' : e.key}は割り当てられません。英数字・↑ ↓・BackSpaceのいずれかを押してください`)
+        const pressed = e.key === ' ' ? 'Space' : e.key
+        setMessage(t(`${pressed}は割り当てられません。英数字・↑ ↓・BackSpaceのいずれかを押してください`, `${pressed} can’t be assigned. Press a letter, a number, ↑ ↓ or BackSpace`))
         return
       }
       const holder = KEY_ACTIONS.find((a) => keymap[a.action] === key && clash(a.action, waiting))
       setKeymap(assignKey(keymap, waiting, key))
-      setMessage(holder ? `「${holder.label}」のキーと入れ替えました` : null)
+      setMessage(holder ? t(`「${holder.label}」のキーと入れ替えました`, `Swapped keys with “${holder.label}”`) : null)
       setWaiting(null)
     }
     // 他の画面のショートカットより先に受け取る
@@ -51,13 +53,21 @@ export function Keybinds() {
   const isDefault = KEY_ACTIONS.every(({ action }) => keymap[action] === DEFAULT_KEYMAP[action])
 
   return (
-    <Section id="settings-keys" title="キーバインド（PC）" summary="評価とマッチングで使うキーを変えられます。">
+    <Section id="settings-keys" title={t('キーバインド（PC）', 'Keybindings (PC)')} summary={t('評価とマッチングで使うキーを変えられます。', 'Change the keys used in Rate and Match.')}>
       <details className="settings__fold" open={!isTouchDevice()}>
-        <summary>キーの割り当て</summary>
+        <summary>{t('キーの割り当て', 'Key assignments')}</summary>
       <p className="settings__lead">
-        変えたい操作のキーを押してから、新しいキーを押します。使っているキーを選ぶと入れ替わります。Escで取り消せます（← →は画面の切り替え用です）。
+        {t(
+          '変えたい操作のキーを押してから、新しいキーを押します。使っているキーを選ぶと入れ替わります。Escで取り消せます（← →は画面の切り替え用です）。',
+          'Press the key of the action you want to change, then press the new key. Choosing a key that’s already in use swaps the two. Press Esc to cancel (← → are reserved for switching screens).',
+        )}
       </p>
-      {moved && <p className="settings__lead settings__lead--notice">← → で画面を切り替えられるようにしたので、← → に割り当てていた操作を、空いているキーに移しました。下で確かめてください。</p>}
+      {moved && <p className="settings__lead settings__lead--notice">
+          {t(
+            '← → で画面を切り替えられるようにしたので、← → に割り当てていた操作を、空いているキーに移しました。下で確かめてください。',
+            '← → now switch screens, so the actions that were assigned to them have moved to free keys. Please check below.',
+          )}
+        </p>}
       <ul className="keybinds">
         {KEY_ACTIONS.map(({ action, label, where }) => (
           <li key={action} className="keybind">
@@ -69,13 +79,13 @@ export function Keybinds() {
               type="button"
               className="keycap"
               aria-pressed={waiting === action}
-              aria-label={`${label}のキー（今は ${keyLabel(keymap[action])}）を変える`}
+              aria-label={t(`${label}のキー（今は ${keyLabel(keymap[action])}）を変える`, `Change the key for ${label} (currently ${keyLabel(keymap[action])})`)}
               onClick={() => {
                 setMessage(null)
                 setWaiting(waiting === action ? null : action)
               }}
             >
-              {waiting === action ? 'キーを押す' : keyLabel(keymap[action])}
+              {waiting === action ? t('キーを押す', 'Press a key') : keyLabel(keymap[action])}
             </button>
           </li>
         ))}
@@ -88,10 +98,10 @@ export function Keybinds() {
           onClick={() => {
             setKeymap({ ...DEFAULT_KEYMAP })
             setWaiting(null)
-            setMessage('初期設定に戻しました')
+            setMessage(t('初期設定に戻しました', 'Reset to defaults'))
           }}
         >
-          初期設定に戻す
+          {t('初期設定に戻す', 'Reset to defaults')}
         </button>
         {message && <p className="settings__note">{message}</p>}
       </div>

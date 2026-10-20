@@ -5,6 +5,7 @@ import { annictClientId } from '../../lib/annictLogin'
 import type { GithubConnection } from '../../lib/github'
 import { rememberScroll, restoreScroll } from '../../lib/pageScroll'
 import { isLoggedOut } from '../../lib/storage'
+import { t } from '../../lib/i18n'
 import { useWide } from '../../lib/useWide'
 import { useSwipeIntercept } from '../../lib/useSwipeNav'
 import { AboutBlock } from './AboutBlock'
@@ -26,13 +27,69 @@ import { reducedMotion } from '../../lib/theme'
 type GroupId = 'account' | 'display' | 'backup' | 'keys' | 'contact' | 'news' | 'about'
 
 const GROUPS: readonly { id: GroupId; label: string; sub: string; icon: ReactNode; sections: readonly string[] }[] = [
-  { id: 'account', label: 'アカウント', sub: 'AnnictとGitHubの連携', icon: <UserIcon />, sections: ['settings-account', 'settings-github'] },
-  { id: 'display', label: '表示', sub: 'テーマの色・明るさ・片手操作・ボタン・演出・見るサービス', icon: <PaletteIcon />, sections: ['settings-theme', 'settings-buttons', 'settings-effects', 'settings-broadcast'] },
-  { id: 'backup', label: 'バックアップ', sub: 'ファイルに書き出す・毎日のバックアップ', icon: <BoxIcon />, sections: ['settings-backup'] },
-  { id: 'keys', label: 'キー', sub: 'PCで答えるキーの割り当て', icon: <KeyIcon />, sections: ['settings-keys'] },
-  { id: 'contact', label: 'お問い合わせ', sub: '質問・不具合・要望を送る・よくある質問', icon: <CommentIcon />, sections: ['settings-contact', 'settings-faq'] },
-  { id: 'news', label: '最新情報', sub: '公式X・Anipair開発日誌', icon: <NewsIcon />, sections: ['settings-x', 'settings-devlog'] },
-  { id: 'about', label: 'このアプリ', sub: '非公式であること・データの行き先・規約', icon: <InfoIcon />, sections: ['settings-about'] },
+  {
+    id: 'account',
+    get label() {
+      return t('アカウント', 'Account')
+    },
+    get sub() {
+      return t('AnnictとGitHubの連携', 'Annict and GitHub connections')
+    },
+    icon: <UserIcon />, sections: ['settings-account', 'settings-github'] },
+  {
+    id: 'display',
+    get label() {
+      return t('表示', 'Display')
+    },
+    get sub() {
+      return t('言語・テーマの色・明るさ・片手操作・ボタン・演出・見るサービス', 'Language, theme color, brightness, one-handed mode, buttons, effects, where I watch')
+    },
+    icon: <PaletteIcon />, sections: ['settings-theme', 'settings-buttons', 'settings-effects', 'settings-broadcast'] },
+  {
+    id: 'backup',
+    get label() {
+      return t('バックアップ', 'Backup')
+    },
+    get sub() {
+      return t('ファイルに書き出す・毎日のバックアップ', 'Export to file, daily backup')
+    },
+    icon: <BoxIcon />, sections: ['settings-backup'] },
+  {
+    id: 'keys',
+    get label() {
+      return t('キー', 'Keys')
+    },
+    get sub() {
+      return t('PCで答えるキーの割り当て', 'Key assignments for answering on a PC')
+    },
+    icon: <KeyIcon />, sections: ['settings-keys'] },
+  {
+    id: 'contact',
+    get label() {
+      return t('お問い合わせ', 'Contact')
+    },
+    get sub() {
+      return t('質問・不具合・要望を送る・よくある質問', 'Send feedback, FAQ')
+    },
+    icon: <CommentIcon />, sections: ['settings-contact', 'settings-faq'] },
+  {
+    id: 'news',
+    get label() {
+      return t('最新情報', 'News')
+    },
+    get sub() {
+      return t('公式X・Anipair開発日誌', 'Official X account, Anipair dev log')
+    },
+    icon: <NewsIcon />, sections: ['settings-x', 'settings-devlog'] },
+  {
+    id: 'about',
+    get label() {
+      return t('このアプリ', 'About')
+    },
+    get sub() {
+      return t('非公式であること・データの行き先・規約', 'Unofficial status, where data goes, terms')
+    },
+    icon: <InfoIcon />, sections: ['settings-about'] },
 ]
 
 const groupOf = (section: string): GroupId | null => GROUPS.find((g) => g.sections.includes(section))?.id ?? null
@@ -140,9 +197,9 @@ function SignedInSettings(props: {
 
   return (
     <section className="settings settings--groups">
-      <h1 className="visually-hidden">設定</h1>
+      <h1 className="visually-hidden">{t('設定', 'Settings')}</h1>
       {wide && (
-        <nav className="rrail" aria-label="設定の項目">
+        <nav className="rrail" aria-label={t('設定の項目', 'Settings sections')}>
           {groups.map((g) => (
             <button key={g.id} type="button" className="rrail__item" aria-current={group === g.id ? 'true' : undefined} onClick={() => select(g.id)}>
               {g.icon}
@@ -156,10 +213,10 @@ function SignedInSettings(props: {
           {!wide && current && (
             <button type="button" className="rhead__back" onClick={() => select(null)}>
               <BackIcon />
-              設定
+              {t('設定', 'Settings')}
             </button>
           )}
-          <h2 className="rhead__title">{current ? current.label : '設定'}</h2>
+          <h2 className="rhead__title">{current ? current.label : t('設定', 'Settings')}</h2>
           <span className="rhead__actions">
             <HeadActions topic="settings" active={props.active} />
           </span>

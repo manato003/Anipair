@@ -9,6 +9,8 @@ import { HeadActions } from '../../components/ControlCenter'
 import { SaveStatus } from '../../components/SaveStatus'
 import type { Episode, RatingState, StatusState } from '../../lib/annict'
 import { RATING_LABEL } from '../../lib/reviewOps'
+import { plural, t } from '../../lib/i18n'
+import { workTitle } from '../../lib/names'
 import type { Media } from '../../lib/shikimori'
 import type { Cover } from '../../lib/storage'
 import { rememberScroll, restoreScroll, scrollToTop } from '../../lib/pageScroll'
@@ -51,6 +53,7 @@ import { useMediaInfo } from './useMediaInfo'
 import { useRecords } from './useRecords'
 import { useTaste, useWannaScores } from './useTaste'
 import { useTrendsData } from './useTrendsData'
+import { joinList } from './trends'
 import { orderByScore } from './wannaRank'
 import { Loading } from '../../components/Loading'
 import { episodeLabel, episodesLeft, nextEpisode, nextLabel } from './episodes'
@@ -79,9 +82,9 @@ type SummaryItem = 'trends' | 'year' | 'achievements'
 type Item = Bucket | 'summary' | SummaryItem
 
 const SUMMARY: readonly { id: SummaryItem; label: string; sub: string; icon: ReactNode }[] = [
-  { id: 'trends', label: '傾向', sub: 'ジャンル・声優・季節の図。画像で共有', icon: <ChartIcon /> },
-  { id: 'year', label: 'ふり返り', sub: '1年に見た本数と、よかった作品', icon: <CalendarIcon /> },
-  { id: 'achievements', label: '実績', sub: '称号の一覧と、掲げる称号', icon: <TrophyIcon /> },
+  { id: 'trends', get label() { return t('傾向', 'Trends') }, get sub() { return t('ジャンル・声優・季節の図。画像で共有', 'Charts of genres, voice actors, and seasons. Share as an image') }, icon: <ChartIcon /> },
+  { id: 'year', get label() { return t('ふり返り', 'Year in review') }, get sub() { return t('1年に見た本数と、よかった作品', 'Anime watched in a year, and your favorites') }, icon: <CalendarIcon /> },
+  { id: 'achievements', get label() { return t('実績', 'Achievements') }, get sub() { return t('称号の一覧と、掲げる称号', 'All your titles, and the one you display') }, icon: <TrophyIcon /> },
 ]
 
 const BUCKET_ICON: Record<Bucket, ReactNode> = { watching: <PlayIcon />, watched: <CheckIcon />, wanna: <Bookmark />, other: <PauseIcon /> }
@@ -91,7 +94,7 @@ const isSummary = (item: Item): item is SummaryItem | 'summary' => item === 'sum
 const order = (item: Item) => (isSummary(item) ? BUCKETS.length + Math.max(0, SUMMARY.findIndex((s) => s.id === item)) : BUCKETS.findIndex((b) => b.id === item))
 
 function labelOf(item: Item): string {
-  if (item === 'summary') return 'まとめ'
+  if (item === 'summary') return t('まとめ', 'Summary')
   return BUCKETS.find((b) => b.id === item)?.label ?? SUMMARY.find((s) => s.id === item)?.label ?? ''
 }
 
@@ -104,7 +107,7 @@ export function Records({ token, github = null, active }: { token: string; githu
   const [notes, setNotes] = useState(() => loadLocalWannaNotes())
   const [noteFor, setNoteFor] = useState<RecordRow | null>(null)
   const syncNotes = useMemo(() => (github ? async () => setNotes(await syncWannaNotes(github)) : null), [github])
-  const syncNotesLater = useCoalescedTask(r.enqueue, '見たいの印とメモのGitHubへの保存', syncNotes)
+  const syncNotesLater = useCoalescedTask(r.enqueue, t('見たいの印とメモのGitHubへの保存', 'Saving want-to-watch stars and notes to GitHub'), syncNotes)
   const syncedWith = useRef<GithubConnection | null>(null)
   useEffect(() => {
     if (!active || !github || syncedWith.current === github) return
@@ -154,7 +157,7 @@ export function Records({ token, github = null, active }: { token: string; githu
       }
     : undefined
   const openRow = ({ entry, cover }: RecordRow) =>
-    setOpen({ seed: { id: entry.workId, annictId: entry.annictId, title: entry.title, malAnimeId: entry.malAnimeId, viewerStatusState: entry.state }, cover })
+    setOpen({ seed: { id: entry.workId, annictId: entry.annictId, title: entry.title, titleEn: entry.titleEn, malAnimeId: entry.malAnimeId, viewerStatusState: entry.state }, cover })
 
   // 絞り込んだあとの記録（状態ごとの件数も、これで数える）
   const filtered = useMemo(() => applyFilter(r.rows ?? [], filter, media.info), [r.rows, filter, media.info])
@@ -246,7 +249,7 @@ export function Records({ token, github = null, active }: { token: string; githu
     const data = eps.byWork.get(row.entry.workId)
     if (data && !data.noEpisodes && data.episodes.length > 0) {
       const n = nextEpisode(data.episodes)
-      return n ? nextLabel(n) : '最後の話まで記録しました'
+      return n ? nextLabel(n) : t('最後の話まで記録しました', 'Recorded up to the last episode')
     }
     return row.entry.nextEpisode ? nextLabel(row.entry.nextEpisode) : null
   }
@@ -304,14 +307,15 @@ export function Records({ token, github = null, active }: { token: string; githu
   }, active)
 
   const countOf = (b: Bucket) => counts[b]
-  const dot = achievementsUnseen && <span className="viewswitch__dot" aria-label="まだ見ていません" />
+  const dot = achievementsUnseen && <span className="viewswitch__dot" aria-label={t('まだ見ていません', 'Not viewed yet')} />
+  const courName = filter.cour ? seasonLabel(filter.cour) : t('すべてのクール', 'All seasons')
 
   return (
     <section className="records records--items">
-      <h1 className="visually-hidden">記録</h1>
+      <h1 className="visually-hidden">{t('記録', 'Records')}</h1>
       {wide ? (
         // PC: 右端の縦の列（ブラウザの縦タブの形）
-        <nav className="rrail" aria-label="記録の項目">
+        <nav className="rrail" aria-label={t('記録の項目', 'Record sections')}>
           {[...BUCKETS.map((b) => ({ id: b.id as Item, label: b.label, icon: BUCKET_ICON[b.id] })), ...SUMMARY].map((x) => (
             <button key={x.id} type="button" className="rrail__item" aria-current={item === x.id ? 'true' : undefined} onClick={() => select(x.id)}>
               {x.icon}
@@ -322,7 +326,7 @@ export function Records({ token, github = null, active }: { token: string; githu
         </nav>
       ) : (
         // スマホ: 上に作品の4つ＋まとめ
-        <div className="rtabs" role="tablist" aria-label="記録の項目" ref={rtabsRef}>
+        <div className="rtabs" role="tablist" aria-label={t('記録の項目', 'Record sections')} ref={rtabsRef}>
           {BUCKETS.map((b) => (
             <button key={b.id} type="button" role="tab" className="rtabs__tab" aria-selected={item === b.id} onClick={() => select(b.id)}>
               {BUCKET_ICON[b.id]}
@@ -331,7 +335,7 @@ export function Records({ token, github = null, active }: { token: string; githu
           ))}
           <button type="button" role="tab" className="rtabs__tab rtabs__tab--summary" aria-selected={isSummary(item)} onClick={() => select('summary')}>
             <ChartIcon />
-            <span>まとめ</span>
+            <span>{t('まとめ', 'Summary')}</span>
             {dot}
           </button>
         </div>
@@ -342,7 +346,7 @@ export function Records({ token, github = null, active }: { token: string; githu
           {!wide && isSummary(item) && item !== 'summary' && (
             <button type="button" className="rhead__back" onClick={() => select('summary')}>
               <BackIcon />
-              まとめ
+              {t('まとめ', 'Summary')}
             </button>
           )}
           <h2 className="rhead__title">
@@ -354,7 +358,7 @@ export function Records({ token, github = null, active }: { token: string; githu
             <span className="rhead__slot" ref={setHeadSlot} />
             {bucket && (
               <button type="button" className={editing ? 'btn btn--primary rhead__edit' : 'btn rhead__edit'} onClick={() => setEditing((e) => !e)} disabled={!r.rows}>
-                {editing ? '完了' : '編集'}
+                {editing ? t('完了', 'Done') : t('編集', 'Edit')}
               </button>
             )}
             <HeadActions topic="records" active={active} />
@@ -368,14 +372,14 @@ export function Records({ token, github = null, active }: { token: string; githu
                 <input
                   className="search"
                   type="search"
-                  placeholder="タイトルで絞り込む"
+                  placeholder={t('タイトルで絞り込む', 'Filter by title')}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  aria-label="タイトルで絞り込む"
+                  aria-label={t('タイトルで絞り込む', 'Filter by title')}
                 />
                 <button type="button" className="btn records__filterbtn" aria-pressed={filterCount > 0} onClick={() => setFilterOpen(true)}>
                   <FilterIcon />
-                  絞り込み
+                  {t('絞り込み', 'Filter')}
                   {filterCount > 0 && <span className="chip__count">{filterCount}</span>}
                 </button>
               </div>
@@ -391,19 +395,19 @@ export function Records({ token, github = null, active }: { token: string; githu
               target={barRef}
               under={rtabsRef}
               enabled={active && !wide}
-              label={`${filter.cour ? seasonLabel(filter.cour) : 'すべてのクール'} · ${sortOptions(bucket).find((o) => o.key === sort.key)?.label ?? ''}${sort.dir === 'desc' ? '↓' : '↑'}`}
+              label={`${courName} · ${sortOptions(bucket).find((o) => o.key === sort.key)?.label ?? ''}${sort.dir === 'desc' ? '↓' : '↑'}`}
             />
 
             <div className="records__controls records__controls--notes">
               <p className="note records__sortnote">
                 {sortNote(sort)}
-                {bucket === 'wanna' && visible.some((row) => noteOf(notes, row.entry.annictId)?.priority) ? '★優先の作品を先に並べています。' : ''}
+                {bucket === 'wanna' && visible.some((row) => noteOf(notes, row.entry.annictId)?.priority) ? t('★優先の作品を先に並べています。', ' Starred (★) anime are listed first.') : ''}
               </p>
               {filterCount > 0 && <ActiveFilters filter={filter} onChange={setFilter} />}
-              {tasteLoading && <Loading label="好みを分析しています" />}
+              {tasteLoading && <Loading label={t('好みを分析しています', 'Analyzing your taste')} />}
               {tasteError && (
                 <p className="note">
-                  好みを調べられませんでした（{tasteError}）。新しい順で並べています。
+                  {t(`好みを調べられませんでした（${tasteError}）。新しい順で並べています。`, `Couldn’t analyze your taste (${tasteError}). Sorted newest first. `)}
                   <button
                     type="button"
                     className="link"
@@ -412,7 +416,7 @@ export function Records({ token, github = null, active }: { token: string; githu
                       wanna.retry()
                     }}
                   >
-                    もう一度
+                    {t('もう一度', 'Retry')}
                   </button>
                 </p>
               )}
@@ -420,33 +424,39 @@ export function Records({ token, github = null, active }: { token: string; githu
 
             <div className="records__list">
               {r.loadError ? (
-                <Empty mood="trouble" title="記録を読み込めませんでした" body={r.loadError}>
+                <Empty mood="trouble" title={t('記録を読み込めませんでした', 'Couldn’t load your records')} body={r.loadError}>
                   <button type="button" className="btn" onClick={r.reload}>
-                    もう一度読み込む
+                    {t('もう一度読み込む', 'Retry')}
                   </button>
                 </Empty>
               ) : !r.rows ? (
-                <Loading block label="Annictの記録を読み込み中" />
+                <Loading block label={t('Annictの記録を読み込み中', 'Loading your Annict records')} />
               ) : visible.length === 0 ? (
                 query || filterCount > 0 || filter.cour ? (
                   <Empty
                     mood="empty"
-                    title="当てはまる作品がありません"
-                    body={filterCount > 0 ? '絞り込みの条件をゆるめてください。' : filter.cour ? `${seasonLabel(filter.cour)}の作品は、ここにはありません。` : '別の言葉で絞り込んでください。'}
+                    title={t('当てはまる作品がありません', 'No matching anime')}
+                    body={
+                      filterCount > 0
+                        ? t('絞り込みの条件をゆるめてください。', 'Try loosening the filters.')
+                        : filter.cour
+                          ? t(`${seasonLabel(filter.cour)}の作品は、ここにはありません。`, `There are no anime from ${seasonLabel(filter.cour)} here.`)
+                          : t('別の言葉で絞り込んでください。', 'Try different words.')
+                    }
                   >
                     {filterCount > 0 && (
                       <button type="button" className="btn" onClick={() => setFilter({ ...EMPTY_FILTER, cour: filter.cour ?? null })}>
-                        絞り込みを解除する
+                        {t('絞り込みを解除する', 'Clear filters')}
                       </button>
                     )}
                     {filter.cour && (
                       <button type="button" className="btn" onClick={() => chooseCour(null)}>
-                        すべてのクールにする
+                        {t('すべてのクールにする', 'Show all seasons')}
                       </button>
                     )}
                   </Empty>
                 ) : (
-                  <Empty mood="empty" title="まだありません" body="評価画面やマッチングで記録すると、ここに並びます。" />
+                  <Empty mood="empty" title={t('まだありません', 'Nothing yet')} body={t('評価画面やマッチングで記録すると、ここに並びます。', 'Anime you record from Rate or Match will show up here.')} />
                 )
               ) : editing ? (
                 // 編集は1行ずつの形（評価・状態・記録から外す・見たいのメモを、その場で変える）
@@ -472,22 +482,22 @@ export function Records({ token, github = null, active }: { token: string; githu
                 {/* 見るサービスの入口は、使う場所に置く（設定の奥だけだと気づかれない） */}
                 <div className="watchcards__head">
                   <p className="watchcards__broadcast">
-                    {wantsBroadcast ? '次の放送日は、Annictの放送予定から出しています。' : '見るサービスを選ぶと、次の放送日が出ます。'}
+                    {wantsBroadcast ? t('次の放送日は、Annictの放送予定から出しています。', 'Next air dates come from Annict’s broadcast schedule. ') : t('見るサービスを選ぶと、次の放送日が出ます。', 'Pick where you watch to see next air dates. ')}
                     <button type="button" className="link" onClick={() => setServicesOpen(true)}>
-                      {wantsBroadcast ? '見るサービスを変える' : '選ぶ'}
+                      {wantsBroadcast ? t('見るサービスを変える', 'Change where I watch') : t('選ぶ', 'Choose')}
                     </button>
                     {/* 読めなかったときは黙らずに言い、その場でやり直せるようにする（#34） */}
                     {wantsBroadcast && programs.failed && (
                       <>
                         <br />
-                        放送予定を読み込めませんでした。
+                        {t('放送予定を読み込めませんでした。', 'Couldn’t load the airing schedule. ')}
                         <button type="button" className="link" onClick={programs.retry}>
-                          もう一度
+                          {t('もう一度', 'Retry')}
                         </button>
                       </>
                     )}
                   </p>
-                  {wantsBroadcast && <Choices label="見てるの表示" choices={WATCH_VIEWS} value={watchView} onChoose={setWatchView} />}
+                  {wantsBroadcast && <Choices label={t('見てるの表示', 'Watching view')} choices={WATCH_VIEWS} value={watchView} onChoose={setWatchView} />}
                 </div>
                 {showWeek ? (
                   <WeekSchedule
@@ -524,10 +534,10 @@ export function Records({ token, github = null, active }: { token: string; githu
                         undoable={undoable}
                         onOpen={() => openRow(row)}
                         onRecord={(ep, rating) => {
-                          eps.record(row.entry.title, row.entry.workId, ep, rating)
+                          eps.record(workTitle(row.entry), row.entry.workId, ep, rating)
                           setLastRecorded((cur) => new Map(cur).set(row.entry.workId, [...(cur.get(row.entry.workId) ?? []).filter((e) => e.id !== ep.id), ep]))
                         }}
-                        onUndo={(ep) => eps.undo(row.entry.title, row.entry.workId, ep)}
+                        onUndo={(ep) => eps.undo(workTitle(row.entry), row.entry.workId, ep)}
                       />
                     )
                   })}
@@ -563,23 +573,23 @@ export function Records({ token, github = null, active }: { token: string; githu
                   <b>{s.label}</b>
                   <small>{s.sub}</small>
                   {/* まとめのタブの光る点が、どれのことかを言葉で示す（点だけでは、どれを押せば消えるか分からなかった。Issue #23） */}
-                  {s.id === 'achievements' && achievementsUnseen && <span className="folder__new">まだ開いていません</span>}
+                  {s.id === 'achievements' && achievementsUnseen && <span className="folder__new">{t('まだ開いていません', 'Not opened yet')}</span>}
                 </button>
               </li>
             ))}
           </ul>
         ) : !r.rows ? (
           r.loadError ? (
-            <Empty mood="trouble" title="記録を読み込めませんでした" body={r.loadError}>
+            <Empty mood="trouble" title={t('記録を読み込めませんでした', 'Couldn’t load your records')} body={r.loadError}>
               <button type="button" className="btn" onClick={r.reload}>
-                もう一度読み込む
+                {t('もう一度読み込む', 'Retry')}
               </button>
             </Empty>
           ) : (
-            <Loading block label="Annictの記録を読み込み中" />
+            <Loading block label={t('Annictの記録を読み込み中', 'Loading your Annict records')} />
           )
         ) : (
-          <Suspense fallback={<Loading block label="読み込み中" />}>
+          <Suspense fallback={<Loading block label={t('読み込み中', 'Loading')} />}>
             {item === 'trends' && <TrendsView rows={r.rows} data={trendsData} active={active} actions={headSlot} />}
             {item === 'year' && <YearReview rows={r.rows} media={trendsData.media ?? EMPTY_MEDIA} credits={trendsData.credits} active={active} actions={headSlot} />}
             {item === 'achievements' && <Achievements token={token} rows={r.rows} loadError={r.loadError} onReload={r.reload} active={active} />}
@@ -624,7 +634,7 @@ export function Records({ token, github = null, active }: { token: string; githu
       {/* メモのシートは、詳細の上に重ねて開くことがあるので、詳細より後に描く */}
       {noteFor && (
         <WannaNoteSheet
-          title={noteFor.entry.title}
+          title={workTitle(noteFor.entry)}
           priority={noteOf(notes, noteFor.entry.annictId)?.priority ?? false}
           memo={noteOf(notes, noteFor.entry.annictId)?.memo ?? ''}
           githubRepo={github?.repo ?? null}
@@ -644,28 +654,41 @@ const EMPTY_MEDIA: ReadonlyMap<number, Media> = new Map()
 function ActiveFilters({ filter: f, onChange }: { filter: RecordFilter; onChange: (next: RecordFilter) => void }) {
   const items: { label: string; clear: () => void }[] = []
   if (f.ratings.length > 0)
-    items.push({ label: `評価: ${f.ratings.map((x) => (x === 'NONE' ? '評価なし' : RATING_LABEL[x])).join('・')}`, clear: () => onChange({ ...f, ratings: [] }) })
-  if (f.yearFrom !== null || f.yearTo !== null)
     items.push({
-      label: f.yearFrom !== null && f.yearTo !== null ? `${f.yearFrom}〜${f.yearTo}年` : f.yearFrom !== null ? `${f.yearFrom}年〜` : `〜${f.yearTo}年`,
-      clear: () => onChange({ ...f, yearFrom: null, yearTo: null }),
+      label: `${t('評価', 'Rating')}: ${joinList(f.ratings.map((x) => (x === 'NONE' ? t('評価なし', 'Not rated') : RATING_LABEL[x])))}`,
+      clear: () => onChange({ ...f, ratings: [] }),
     })
+  if (f.yearFrom !== null || f.yearTo !== null) {
+    const years =
+      f.yearFrom !== null && f.yearTo !== null
+        ? t(`${f.yearFrom}〜${f.yearTo}年`, `${f.yearFrom}–${f.yearTo}`)
+        : f.yearFrom !== null
+          ? t(`${f.yearFrom}年〜`, `${f.yearFrom} or later`)
+          : t(`〜${f.yearTo}年`, `${f.yearTo} or earlier`)
+    items.push({ label: years, clear: () => onChange({ ...f, yearFrom: null, yearTo: null }) })
+  }
   if (f.seasons.length > 0)
-    items.push({ label: `季節: ${SEASON_KEYS.filter((x) => f.seasons.includes(x.id)).map((x) => x.label).join('・')}`, clear: () => onChange({ ...f, seasons: [] }) })
+    items.push({
+      label: `${t('季節', 'Season')}: ${joinList(SEASON_KEYS.filter((x) => f.seasons.includes(x.id)).map((x) => x.label))}`,
+      clear: () => onChange({ ...f, seasons: [] }),
+    })
   if (f.media.length > 0)
-    items.push({ label: `形式: ${MEDIA_KINDS.filter((x) => f.media.includes(x.id)).map((x) => x.label).join('・')}`, clear: () => onChange({ ...f, media: [] }) })
-  if (f.genres.length > 0) items.push({ label: `ジャンル: ${f.genres.map(genreName).join('・')}`, clear: () => onChange({ ...f, genres: [] }) })
-  if (f.studios.length > 0) items.push({ label: `制作会社: ${f.studios.join('・')}`, clear: () => onChange({ ...f, studios: [] }) })
+    items.push({
+      label: `${t('形式', 'Format')}: ${joinList(MEDIA_KINDS.filter((x) => f.media.includes(x.id)).map((x) => x.label))}`,
+      clear: () => onChange({ ...f, media: [] }),
+    })
+  if (f.genres.length > 0) items.push({ label: `${t('ジャンル', 'Genre')}: ${joinList(f.genres.map(genreName))}`, clear: () => onChange({ ...f, genres: [] }) })
+  if (f.studios.length > 0) items.push({ label: `${t('制作会社', 'Studio')}: ${joinList(f.studios)}`, clear: () => onChange({ ...f, studios: [] }) })
   return (
     <div className="activefilters">
       {items.map((it) => (
-        <button key={it.label} type="button" className="activefilter" onClick={it.clear} aria-label={`${it.label} の条件を外す`}>
+        <button key={it.label} type="button" className="activefilter" onClick={it.clear} aria-label={t(`${it.label} の条件を外す`, `Remove filter: ${it.label}`)}>
           {it.label}
           <span aria-hidden>×</span>
         </button>
       ))}
       <button type="button" className="link" onClick={() => onChange({ ...EMPTY_FILTER, cour: f.cour ?? null })}>
-        すべて解除
+        {t('すべて解除', 'Clear all')}
       </button>
     </div>
   )
@@ -684,12 +707,12 @@ function ShelfItem(props: {
   const rating = review?.ratingOverallState ?? null
   return (
     <li className="shelf__item">
-      <button type="button" className="shelf__open" onClick={props.onOpen} aria-label={`${entry.title}の詳細`}>
+      <button type="button" className="shelf__open" onClick={props.onOpen} aria-label={t(`${workTitle(entry)}の詳細`, `Details for ${workTitle(entry)}`)}>
         <span className="shelf__cover">
-          {cover ? <CoverImage cover={cover} size="thumb" lazy fallback={<span className="shelf__noimage">{entry.title}</span>} /> : <span className="shelf__noimage">{entry.title}</span>}
+          {cover ? <CoverImage cover={cover} size="thumb" lazy fallback={<span className="shelf__noimage">{workTitle(entry)}</span>} /> : <span className="shelf__noimage">{workTitle(entry)}</span>}
         </span>
         <span className="shelf__title" aria-hidden>
-          {entry.title}
+          {workTitle(entry)}
         </span>
       </button>
       {/* 見たいの作品は右上を優先の印に使う（ふつう評価は付かないが、付いていても重ねない） */}
@@ -701,8 +724,8 @@ function ShelfItem(props: {
           type="button"
           className="shelf__star"
           aria-pressed={props.wanna.priority}
-          aria-label={`${entry.title}を優先して見る`}
-          title="優先して見る"
+          aria-label={t(`${workTitle(entry)}を優先して見る`, `Watch ${workTitle(entry)} first`)}
+          title={t('優先して見る', 'Watch first')}
           onClick={props.onWannaPriority}
         >
           <span className="shelf__ribbon" aria-hidden>
@@ -716,12 +739,18 @@ function ShelfItem(props: {
   )
 }
 
+// 見てる作品のカードの残り（残り3話 / 3 episodes left）。放送中の作品は、放送済みの話の残り
+function leftText(left: number, airing: boolean): string {
+  const n = plural(left, 'episode', 'episodes')
+  return airing ? t(`放送済みの残り${left}話`, `${n} left so far`) : t(`残り${left}話`, `${n} left`)
+}
+
 // 見てる作品のカード: 次の話・残りの話数と時間の目安・進み具合。次の話は、その場で4段階の評価を押して記録する
 // （詳細の「話ごとの記録」と同じく、評価が記録の一部。評価を付けずに記録されてしまわないように）
-const WATCH_VIEWS = [
-  { value: 'cards', label: 'カード' },
-  { value: 'week', label: '今週の放送' },
-] as const
+const WATCH_VIEWS: readonly { value: 'cards' | 'week'; label: string }[] = [
+  { value: 'cards', get label() { return t('カード', 'Cards') } },
+  { value: 'week', get label() { return t('今週の放送', 'This week') } },
+]
 
 // 今週の放送予定（Issue #32）。これから7日の放送を、日ごとに時刻の順で。押すと作品の詳細
 function WeekSchedule(props: { days: { day: string; items: WeekItem<RecordRow>[] }[]; loading: boolean; failed: boolean; onRetry: () => void; onOpen: (row: RecordRow) => void }) {
@@ -735,10 +764,10 @@ function WeekSchedule(props: { days: { day: string; items: WeekItem<RecordRow>[]
               <li key={`${it.work.entry.workId}-${it.at.getTime()}`}>
                 <button type="button" className="week__item" onClick={() => props.onOpen(it.work)}>
                   <span className="week__time">{formatTime(it.at)}</span>
-                  <span className="week__title">{it.work.entry.title}</span>
+                  <span className="week__title">{workTitle(it.work.entry)}</span>
                   <span className="week__channel">
                     {it.channel}
-                    {it.more ? 'ほか' : ''}
+                    {it.more ? t('ほか', ' & more') : ''}
                   </span>
                 </button>
               </li>
@@ -747,18 +776,18 @@ function WeekSchedule(props: { days: { day: string; items: WeekItem<RecordRow>[]
         </section>
       ))}
       {props.loading ? (
-        <p className="week__note">放送予定を読み込み中…</p>
+        <p className="week__note">{t('放送予定を読み込み中…', 'Loading airing schedule…')}</p>
       ) : props.failed ? (
         <p className="week__note">
-          放送予定を読み込めませんでした。
+          {t('放送予定を読み込めませんでした。', 'Couldn’t load the airing schedule. ')}
           <button type="button" className="link" onClick={props.onRetry}>
-            もう一度
+            {t('もう一度', 'Retry')}
           </button>
         </p>
       ) : (
-        props.days.length === 0 && <p className="week__note">これから7日のうちに、選んだサービスでの放送予定は見つかりませんでした。</p>
+        props.days.length === 0 && <p className="week__note">{t('これから7日のうちに、選んだサービスでの放送予定は見つかりませんでした。', 'No broadcasts were found on your selected services in the next 7 days.')}</p>
       )}
-      <p className="week__note">見てるの作品のうち、放送中の作品だけを並べています。Annictに登録されていない予定は出ません。</p>
+      <p className="week__note">{t('見てるの作品のうち、放送中の作品だけを並べています。Annictに登録されていない予定は出ません。', 'Only airing anime from your Watching list are shown. Broadcasts not registered on Annict don’t appear.')}</p>
     </div>
   )
 }
@@ -793,7 +822,7 @@ function WatchCard(props: {
   const undoable = props.undoable
   const left =
     counted && counted.left > 0
-      ? [`${airing ? '放送済みの残り' : '残り'}${counted.left}話`, minutes ? formatMinutes(counted.left * minutes) : null].filter(Boolean).join('・')
+      ? [leftText(counted.left, airing), minutes ? formatMinutes(counted.left * minutes) : null].filter(Boolean).join(t('・', ' · '))
       : null
   return (
     <li className="watchcard">
@@ -801,32 +830,32 @@ function WatchCard(props: {
         {cover && <CoverImage cover={cover} size="thumb" lazy />}
       </button>
       <div className="watchcard__body">
-        <button type="button" className="watchcard__title" onClick={props.onOpen} aria-label={`${entry.title}の詳細`}>
-          {entry.title}
+        <button type="button" className="watchcard__title" onClick={props.onOpen} aria-label={t(`${workTitle(entry)}の詳細`, `Details for ${workTitle(entry)}`)}>
+          {workTitle(entry)}
         </button>
         {props.next && <p className="watchcard__next">{props.next}</p>}
         {props.broadcast && <p className="watchcard__air">{props.broadcast}</p>}
         {left && <p className="watchcard__left">{left}</p>}
         {progress && (
-          <span className="watchcard__bar" role="img" aria-label={`${progress.total}話のうち${progress.done}話まで`}>
+          <span className="watchcard__bar" role="img" aria-label={t(`${progress.total}話のうち${progress.done}話まで`, `${progress.done} of ${progress.total} episodes`)}>
             <i style={{ width: `${(progress.done / progress.total) * 100}%` }} />
           </span>
         )}
         {/* 話の一覧を読むまでは、記録のボタンを出せない。読み込み中と失敗は黙らずに出す */}
-        {!eps && !props.noEpisodes && !props.episodesError && <p className="watchcard__left">話の一覧を読み込み中…</p>}
+        {!eps && !props.noEpisodes && !props.episodesError && <p className="watchcard__left">{t('話の一覧を読み込み中…', 'Loading episodes…')}</p>}
         {props.episodesError && (
           <p className="watchcard__left">
-            話の一覧を読み込めませんでした（{props.episodesError}）。
+            {t(`話の一覧を読み込めませんでした（${props.episodesError}）。`, `Couldn’t load the episode list (${props.episodesError}). `)}
             <button type="button" className="link" onClick={props.onRetry}>
-              もう一度
+              {t('もう一度', 'Retry')}
             </button>
           </p>
         )}
-        {props.noEpisodes && <p className="watchcard__left">Annictに話の情報が無いので、ここでは記録できません。</p>}
+        {props.noEpisodes && <p className="watchcard__left">{t('Annictに話の情報が無いので、ここでは記録できません。', 'Annict has no episode information for this anime, so you can’t record it here.')}</p>}
         {next && (
           <div className="watchcard__rate">
-            <p className="watchcard__ratelabel">{episodeLabel(next)}を評価して記録</p>
-            <div className="mini-ratings" role="group" aria-label={`${episodeLabel(next)}の評価`}>
+            <p className="watchcard__ratelabel">{t(`${episodeLabel(next)}を評価して記録`, `Rate and record ${episodeLabel(next)}`)}</p>
+            <div className="mini-ratings" role="group" aria-label={t(`${episodeLabel(next)}の評価`, `Rating for ${episodeLabel(next)}`)}>
               {RATINGS.map((r) => (
                 <button key={r.rating} type="button" className={`mini-rating mini-rating--${r.rating.toLowerCase()}`} onClick={() => props.onRecord(next, r.rating)}>
                   {r.label}
@@ -838,7 +867,7 @@ function WatchCard(props: {
         {undoable && (
           <div className="watchcard__actions">
             <button type="button" className="link" onClick={() => props.onUndo(undoable)}>
-              {episodeLabel(undoable)}の記録を取り消す
+              {t(`${episodeLabel(undoable)}の記録を取り消す`, `Undo record of ${episodeLabel(undoable)}`)}
             </button>
           </div>
         )}
@@ -866,24 +895,24 @@ function RecordItem(props: {
         {cover && <CoverImage cover={cover} size="thumb" lazy />}
       </button>
       <div className="row__body">
-        <button type="button" className="row__open" onClick={props.onOpen} aria-label={`${entry.title}の詳細`}>
-          <span className="row__title">{entry.title}</span>
+        <button type="button" className="row__open" onClick={props.onOpen} aria-label={t(`${workTitle(entry)}の詳細`, `Details for ${workTitle(entry)}`)}>
+          <span className="row__title">{workTitle(entry)}</span>
         </button>
         <span className="row__date">
-          {[workMeta({ seasonYear: entry.seasonYear, seasonName: entry.seasonName }), entry.stateAt ? `${formatDate(entry.stateAt)}に記録` : ''].filter(Boolean).join(' · ')}
+          {[workMeta({ seasonYear: entry.seasonYear, seasonName: entry.seasonName }), entry.stateAt ? t(`${formatDate(entry.stateAt)}に記録`, `Recorded ${formatDate(entry.stateAt)}`) : ''].filter(Boolean).join(' · ')}
         </span>
         {props.wanna && (
           <span className="row__wanna">
-            <button type="button" className="row__star" aria-pressed={props.wanna.priority} onClick={props.onWannaPriority} title="優先して見る">
-              {props.wanna.priority ? '★ 優先' : '☆ 優先'}
+            <button type="button" className="row__star" aria-pressed={props.wanna.priority} onClick={props.onWannaPriority} title={t('優先して見る', 'Watch first')}>
+              {props.wanna.priority ? t('★ 優先', '★ First') : t('☆ 優先', '☆ First')}
             </button>
             <button type="button" className="link row__memo" onClick={props.onWannaMemo}>
-              {props.wanna.memo ? props.wanna.memo : 'メモ'}
+              {props.wanna.memo ? props.wanna.memo : t('メモ', 'Note')}
             </button>
           </span>
         )}
         <div className="row__edit">
-          <div className="mini-ratings" role="group" aria-label="評価">
+          <div className="mini-ratings" role="group" aria-label={t('評価', 'Rating')}>
             {RATINGS.map((r) => (
               <button
                 key={r.rating}
@@ -891,14 +920,14 @@ function RecordItem(props: {
                 className={`mini-rating mini-rating--${r.rating.toLowerCase()}`}
                 aria-pressed={rating === r.rating}
                 onClick={() => props.onRate(rating === r.rating ? null : r.rating)}
-                title={rating === r.rating ? 'もう一度押すと評価を消します' : undefined}
+                title={rating === r.rating ? t('もう一度押すと評価を消します', 'Tap again to clear the rating') : undefined}
               >
                 {r.label}
               </button>
             ))}
           </div>
           <div className="row__actions">
-            <select value={optionState(entry.state) ?? entry.state} onChange={(e) => props.onState(e.target.value as StatusState)} aria-label="状態">
+            <select value={optionState(entry.state) ?? entry.state} onChange={(e) => props.onState(e.target.value as StatusState)} aria-label={t('状態', 'Status')}>
               {STATE_OPTIONS.map((o) => (
                 <option key={o.state} value={o.state}>
                   {o.label}
@@ -909,10 +938,10 @@ function RecordItem(props: {
               type="button"
               className="link"
               onClick={() => {
-                if (confirm(`「${entry.title}」を記録から外しますか？ 評価はAnnictに残ります。`)) props.onState('NO_STATE')
+                if (confirm(t(`「${workTitle(entry)}」を記録から外しますか？ 評価はAnnictに残ります。`, `Remove “${workTitle(entry)}” from your records? Your rating stays on Annict.`))) props.onState('NO_STATE')
               }}
             >
-              記録から外す
+              {t('記録から外す', 'Remove from records')}
             </button>
           </div>
         </div>

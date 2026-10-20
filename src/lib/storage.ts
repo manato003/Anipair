@@ -591,6 +591,12 @@ export function saveSheetHintSeen(): void {
   write(KEYS.sheetHint, JSON.stringify({ v: 1, at: new Date().toISOString() }))
 }
 
+// 初めて使う人に一度だけ出す案内（使い方のシート・シートの閉じ方）を、まだ見ていないことにする（preview の ?firstrun。lib/welcomePreview.ts）
+export function resetFirstRunHints(): void {
+  write(KEYS.onboarding, null)
+  write(KEYS.sheetHint, null)
+}
+
 // キー割り当ての検証は lib/keymap.ts の parseKeymap が行う
 // 称号まわり（形の確認は features/achievements/achievementStore.ts）
 export function loadSeasonTopsRaw(): unknown {

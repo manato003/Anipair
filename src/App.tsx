@@ -2,6 +2,7 @@ import { Fragment, lazy, Suspense, useEffect, useLayoutEffect, useRef, useState,
 import { AuthExpiredBanner } from './components/AuthExpiredBanner'
 import { TabIcon } from './components/Icons'
 import { Logo } from './components/Logo'
+import { t } from './lib/i18n'
 import { useAutoBackup } from './features/backup/useAutoBackup'
 import { ScreenBoundary } from './components/ErrorBoundary'
 import { Loading } from './components/Loading'
@@ -65,12 +66,13 @@ function preloadScreens(): () => void {
   return () => window.clearTimeout(id)
 }
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'rate', label: '評価' },
-  { id: 'match', label: 'マッチング' },
-  { id: 'records', label: '記録' },
-  { id: 'browse', label: 'ブラウズ' },
-  { id: 'settings', label: '設定' },
+// label は読んだときの言語で返す（ファイルの一番外で t() を呼ばない）
+const TABS: { id: Tab; readonly label: string }[] = [
+  { id: 'rate', get label() { return t('評価', 'Rate') } },
+  { id: 'match', get label() { return t('マッチング', 'Match') } },
+  { id: 'records', get label() { return t('記録', 'Records') } },
+  { id: 'browse', get label() { return t('ブラウズ', 'Browse') } },
+  { id: 'settings', get label() { return t('設定', 'Settings') } },
 ]
 
 // 最後に開いていた画面（ページを読み込み直したら、そこへ戻る。2026-10-12 利用者の要望）。
@@ -80,7 +82,7 @@ function loadTab(signedIn: boolean): Tab {
   if (!signedIn) return 'settings'
   try {
     const saved = sessionStorage.getItem(TAB_KEY)
-    const found = TABS.find((t) => t.id === saved)
+    const found = TABS.find((x) => x.id === saved)
     if (found) return found.id
   } catch {
     // 読めなければ、いつもの評価の画面から
@@ -125,7 +127,7 @@ function Screen(props: { active: boolean; enter: SwipeDir | null; children: Reac
     <div className={props.className ?? 'app__screen'} hidden={!props.active} data-enter={props.enter ?? undefined}>
       <SheetLayer.Provider value={layer}>
         <ScreenBoundary>
-          <Suspense fallback={<Loading block label="画面を読み込み中" />}>{props.children}</Suspense>
+          <Suspense fallback={<Loading block label={t('画面を読み込み中', 'Loading screen')} />}>{props.children}</Suspense>
         </ScreenBoundary>
       </SheetLayer.Provider>
       <div className="app__layer" ref={setLayer} />
@@ -150,8 +152,8 @@ export default function App() {
   const [enter, setEnter] = useState<SwipeDir | null>(null)
   function go(next: Tab) {
     rememberScroll(tab)
-    const from = TABS.findIndex((t) => t.id === tab)
-    const to = TABS.findIndex((t) => t.id === next)
+    const from = TABS.findIndex((x) => x.id === tab)
+    const to = TABS.findIndex((x) => x.id === next)
     setEnter(to > from ? 'next' : to < from ? 'prev' : null)
     setTab(next)
     setVisited((v) => (v.has(next) ? v : new Set(v).add(next)))
@@ -200,8 +202,8 @@ export default function App() {
     // ログイン・ログアウト・切り替えのあとは、覚えた画面（ログアウトした設定など）ではなく、いつもの評価の画面から
     forgetTab()
     await untilWritesDone()
-    const ownerOf = (t: string) =>
-      fetchViewer(t).then(
+    const ownerOf = (accessToken: string) =>
+      fetchViewer(accessToken).then(
         (v) => ownerKeyOf(v),
         () => null,
       )
@@ -234,7 +236,7 @@ export default function App() {
       return
     }
     // 名前を読めなかったログインは '?'（ログインはできている）
-    setSignedInAs(viewer ? (viewer.name ? `${viewer.name}（@${viewer.username}）` : `@${viewer.username}`) : next ? '?' : null)
+    setSignedInAs(viewer ? (viewer.name ? t(`${viewer.name}（@${viewer.username}）`, `${viewer.name} (@${viewer.username})`) : `@${viewer.username}`) : next ? '?' : null)
     freezeStorage()
     reloadPage()
   }
@@ -349,7 +351,7 @@ export default function App() {
   // 中身を左右に払うか、PC の ← → で分類を替える（ログインしていないあいだは設定だけなので替えない）
   const mainRef = useRef<HTMLElement>(null)
   const step = (dir: SwipeDir) => {
-    const i = TABS.findIndex((t) => t.id === tab)
+    const i = TABS.findIndex((x) => x.id === tab)
     const next = TABS[i + (dir === 'next' ? 1 : -1)]
     if (next) go(next.id)
   }
@@ -366,17 +368,22 @@ export default function App() {
       <div className="app__body">
         {switching && (
           <div className="auth-banner" role="status">
-            <p className="auth-banner__text">記録を送り終えてから切り替えます…</p>
+            <p className="auth-banner__text">{t('記録を送り終えてから切り替えます…', 'Switching after your records finish sending…')}</p>
           </div>
         )}
         {signedInAs && !switching && (
           <div className="auth-banner" role="status">
             <p className="auth-banner__text">
-              {signedInAs === '?' ? 'ログインしました。アカウント名を確かめられなかったので、設定の「Annict連携」で確かめてください。' : `${signedInAs}でログインしました。`}
+              {signedInAs === '?'
+                ? t(
+                    'ログインしました。アカウント名を確かめられなかったので、設定の「Annict連携」で確かめてください。',
+                    'You’re logged in. We couldn’t confirm the account name, so please check it under “Annict connection” in Settings.',
+                  )
+                : t(`${signedInAs}でログインしました。`, `Logged in as ${signedInAs}.`)}
             </p>
             <div className="auth-banner__actions">
               <button type="button" className="link" onClick={() => setSignedInAsShown(null)}>
-                閉じる
+                {t('閉じる', 'Close')}
               </button>
             </div>
           </div>
@@ -384,11 +391,14 @@ export default function App() {
         {switchFailed && !switching && (
           <div className="auth-banner" role="alert">
             <p className="auth-banner__text">
-              この端末の保存容量が足りないため、アカウントを切り替えられませんでした。記録はそのまま残っています。ほかのサイトのデータを消すなどして空きを作ってから、もう一度お試しください。
+              {t(
+                'この端末の保存容量が足りないため、アカウントを切り替えられませんでした。記録はそのまま残っています。ほかのサイトのデータを消すなどして空きを作ってから、もう一度お試しください。',
+                'This device doesn’t have enough storage, so the account couldn’t be switched. Your records are still intact. Free up some space, for example by clearing data from other sites, and try again.',
+              )}
             </p>
             <div className="auth-banner__actions">
               <button type="button" className="link" onClick={() => setSwitchFailed(false)}>
-                閉じる
+                {t('閉じる', 'Close')}
               </button>
             </div>
           </div>
@@ -396,14 +406,17 @@ export default function App() {
         {unclaimed && !switching && (
           <div className="auth-banner" role="alert">
             <p className="auth-banner__text">
-              この端末に、持ち主を確かめられなかった以前の記録（興味なし・見てない・称号など）があります。あなたの記録なら、いまの記録と合わせます。
+              {t(
+                'この端末に、持ち主を確かめられなかった以前の記録（興味なし・見てない・称号など）があります。あなたの記録なら、いまの記録と合わせます。',
+                'This device has earlier records (Not interested, Haven’t seen, titles, and so on) whose owner couldn’t be confirmed. If they’re yours, they’ll be merged with your current records.',
+              )}
             </p>
             <div className="auth-banner__actions">
               <button type="button" className="btn btn--primary" onClick={() => settle(true)}>
-                自分の記録
+                {t('自分の記録', 'These are mine')}
               </button>
               <button type="button" className="link" onClick={() => settle(false)}>
-                自分のものではない（消す）
+                {t('自分のものではない（消す）', 'Not mine (delete)')}
               </button>
             </div>
           </div>
@@ -459,22 +472,22 @@ export default function App() {
       {token && <TitleToastView />}
       {/* ログインする前は、最初の画面（設定のログイン）しか使えないので、分類の帯を出さない */}
       {token && (
-        <nav className="tabs" aria-label="画面の切り替え">
+        <nav className="tabs" aria-label={t('画面の切り替え', 'Screens')}>
           {/* 広い画面だけ、上の帯の左に出す。押すとページを読み込み直す（開いていた画面に戻る。2026-10-12 利用者の要望） */}
-          <button type="button" className="tabs__brand" aria-label="Anipair（読み込み直す）" title="読み込み直す" onClick={reloadPage}>
+          <button type="button" className="tabs__brand" aria-label={t('Anipair（読み込み直す）', 'Anipair (reload)')} title={t('読み込み直す', 'Reload')} onClick={reloadPage}>
             <Logo size="small" />
           </button>
-          {TABS.map((t) => (
+          {TABS.map((x) => (
             <button
-              key={t.id}
+              key={x.id}
               type="button"
               className="tabs__item"
-              aria-current={tab === t.id ? 'page' : undefined}
+              aria-current={tab === x.id ? 'page' : undefined}
               // いまの分類をもう一度押したら、いちばん上へ
-              onClick={() => (t.id === tab ? scrollToTop() : go(t.id))}
+              onClick={() => (x.id === tab ? scrollToTop() : go(x.id))}
             >
-              <TabIcon name={t.id} active={tab === t.id} />
-              <span className="tabs__label">{t.label}</span>
+              <TabIcon name={x.id} active={tab === x.id} />
+              <span className="tabs__label">{x.label}</span>
             </button>
           ))}
         </nav>

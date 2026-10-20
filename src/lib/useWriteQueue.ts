@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnnictError } from './annict'
 import { isFrozen, loadAnnictToken } from './storage'
 import { fieldsOf, journalDone, journalPut, narrowIntent, ticketDropped, type Field, type JournalTicket, type WriteIntent } from './writeJournal'
+import { t } from './i18n'
 
 export interface FailedWrite {
   label: string
@@ -129,7 +130,7 @@ export function useWriteQueue() {
         f.label,
         async () => {
           const token = loadAnnictToken()
-          if (!token) throw new Error('Annictにログインしていません')
+          if (!token) throw new Error(t('Annictにログインしていません', 'You’re not logged in to Annict.'))
           // reconcile は送信の列（このファイル）を使うので、読み込みの循環を避けて、使うときに読む
           const { reconcileIntent } = await import('../features/unsent/reconcile')
           for (const intent of live) await reconcileIntent(token, intent)

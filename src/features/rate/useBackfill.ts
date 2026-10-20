@@ -1,7 +1,9 @@
 import { idMalOf } from '../../lib/writeJournal'
+import { workTitle } from '../../lib/names'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fetchSeasonWorks, updateStatus, type AnnictWork, type RatingState } from '../../lib/annict'
 import { fetchCovers, quickCovers } from '../../lib/covers'
+import { t } from '../../lib/i18n'
 import type { GithubConnection } from '../../lib/github'
 import { getMyReviews, peekMyReview, rememberReview } from '../../lib/myReviews'
 import { loadStoredSeasonWorks } from '../../lib/offlineCache'
@@ -116,7 +118,7 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
             synced.current = github
             if (!cancelled) setSyncNote(null)
           } catch (e) {
-            if (!cancelled) setSyncNote(`GitHubと同期できませんでした（${messageOf(e)}）。この端末の記録だけで進めます。`)
+            if (!cancelled) setSyncNote(t(`GitHubと同期できませんでした（${messageOf(e)}）。この端末の記録だけで進めます。`, `Couldn’t sync with GitHub (${messageOf(e)}). Continuing with this device’s records only.`))
           }
         }
         const all = await worksPromise
@@ -179,7 +181,7 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
         synced.current = github
         if (!cancelled) setSyncNote(null)
       },
-      (e: unknown) => !cancelled && setSyncNote(`GitHubと同期できませんでした（${messageOf(e)}）。この端末の記録だけで進めます。`),
+      (e: unknown) => !cancelled && setSyncNote(t(`GitHubと同期できませんでした（${messageOf(e)}）。この端末の記録だけで進めます。`, `Couldn’t sync with GitHub (${messageOf(e)}). Continuing with this device’s records only.`)),
     )
     return () => {
       cancelled = true
@@ -188,7 +190,7 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
 
   // 始まる前の同期はまとめる（詳しくは useCoalescedTask）
   const syncRun = useMemo(() => (github ? async () => void (await syncUnseen(github)) : null), [github])
-  const syncLater = useCoalescedTask(enqueue, '「見てない」の記録のGitHubへの保存', syncRun)
+  const syncLater = useCoalescedTask(enqueue, t('「見てない」の記録のGitHubへの保存', 'Saving “Haven’t seen” records to GitHub'), syncRun)
 
   const goToSeason = useCallback((next: Season, forward = false) => {
     if (next.year < OLDEST_YEAR) {
@@ -247,7 +249,7 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
       const { id: workId, annictId } = card.work
       const idMal = idMalOf(card.work.malAnimeId)
       enqueue(
-        `「${card.work.title}」の記録`,
+        t(`「${workTitle(card.work)}」の記録`, `Record “${workTitle(card.work)}”`),
         async () => {
           await updateStatus(token, workId, state)
           if (a.kind !== 'rate') return
@@ -285,7 +287,7 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
     const idMal = idMalOf(entry.card.work.malAnimeId)
     const rated = entry.answer.kind === 'rate'
     enqueue(
-      `「${entry.card.work.title}」の取り消し`,
+      t(`「${workTitle(entry.card.work)}」の取り消し`, `Undo “${workTitle(entry.card.work)}”`),
       async () => {
         // 評価を付けていたら、付ける前の評価に戻す（無かったなら消す）
         if (entry.before !== undefined) {

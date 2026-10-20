@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { t } from '../lib/i18n'
 import { navigate } from '../lib/navigate'
 import { publishNotice, useNotices, withdrawNotice } from '../lib/notices'
 import { previewTitleToast } from '../features/achievements/titleToast'
@@ -30,17 +31,22 @@ export function NoticesBell(props: { active?: boolean; onOpenChange?: (open: boo
   }
   return (
     <>
-      <button type="button" className="bell" aria-label={notices.length > 0 ? `コントロールセンター（知らせ ${notices.length}件）` : 'コントロールセンター'} onClick={() => change(true)}>
+      <button type="button" className="bell" aria-label={notices.length > 0 ? t(`コントロールセンター（知らせ ${notices.length}件）`, `Control center (${notices.length} ${notices.length === 1 ? 'notification' : 'notifications'})`) : t('コントロールセンター', 'Control center')} onClick={() => change(true)}>
         <ControlsIcon />
         {notices.length > 0 && <b className={notices.some((n) => n.urgent) ? 'bell__count bell__count--urgent' : 'bell__count'}>{notices.length}</b>}
       </button>
       {open && (
-        <Sheet label="コントロールセンター" active={props.active} onClose={() => change(false)}>
+        <Sheet label={t('コントロールセンター', 'Control center')} active={props.active} onClose={() => change(false)}>
           <section className="cc">
-            <h2 className="cc__title">コントロールセンター</h2>
-            <h3 className="cc__sub">知らせ</h3>
+            <h2 className="cc__title">{t('コントロールセンター', 'Control center')}</h2>
+            <h3 className="cc__sub">{t('知らせ', 'Notifications')}</h3>
             {notices.length === 0 ? (
-              <p className="cc__empty">いま知らせはありません。保存できなかった記録や、読み直せなかったときは、ここに出ます。</p>
+              <p className="cc__empty">
+                {t(
+                  'いま知らせはありません。保存できなかった記録や、読み直せなかったときは、ここに出ます。',
+                  'No notifications right now. Records that couldn’t be saved, or data that couldn’t be reloaded, will show up here.',
+                )}
+              </p>
             ) : (
               <ul className="cc__cards">
                 {notices.map((n) => (
@@ -62,7 +68,7 @@ export function NoticesBell(props: { active?: boolean; onOpenChange?: (open: boo
                 ))}
               </ul>
             )}
-            <h3 className="cc__sub">表示</h3>
+            <h3 className="cc__sub">{t('表示', 'Display')}</h3>
             <QuickSettings />
             {__GOD_MODE__ && <GodTools onClose={() => change(false)} />}
             <button
@@ -73,7 +79,7 @@ export function NoticesBell(props: { active?: boolean; onOpenChange?: (open: boo
                 navigate({ tab: 'settings' })
               }}
             >
-              設定を開く
+              {t('設定を開く', 'Open settings')}
             </button>
           </section>
         </Sheet>
@@ -86,10 +92,10 @@ export function NoticesBell(props: { active?: boolean; onOpenChange?: (open: boo
 function GodTools(props: { onClose: () => void }) {
   const [n, setN] = useState(0)
   const sample = (id: string, title: string, body: string, urgent: boolean) =>
-    publishNotice({ id, title, body, urgent, action: { label: '消す', run: () => withdrawNotice(id) } })
+    publishNotice({ id, title, body, urgent, action: { label: t('消す', 'Dismiss'), run: () => withdrawNotice(id) } })
   return (
     <div className="cc__god">
-      <h3 className="cc__sub">Godモード（試し表示。previewだけ・何も保存しません）</h3>
+      <h3 className="cc__sub">{t('Godモード（試し表示。previewだけ・何も保存しません）', 'God mode (test display. Preview only; nothing is saved)')}</h3>
       <div className="cc__godactions">
         <button
           type="button"
@@ -98,17 +104,17 @@ function GodTools(props: { onClose: () => void }) {
             // シートを閉じて、いまの画面の上で知らせを見る。押すたびにレア度を替え、3回に1回は「ほか2つ」を付ける
             const rarity = RARITIES[n % RARITIES.length]
             props.onClose()
-            previewTitleToast(`試しの称号（${RARITY_LABEL[rarity]}）`, rarity, n % 3 === 2 ? 2 : 0)
+            previewTitleToast(t(`試しの称号（${RARITY_LABEL[rarity]}）`, `Test title (${RARITY_LABEL[rarity]})`), rarity, n % 3 === 2 ? 2 : 0)
             setN(n + 1)
           }}
         >
-          称号の知らせ
+          {t('称号の知らせ', 'Title notification')}
         </button>
-        <button type="button" className="btn" onClick={() => sample('god-plain', '試しの知らせ', '保存できなかった記録や、読み直せなかったときに、このように並びます。', false)}>
-          知らせ（ふつう）
+        <button type="button" className="btn" onClick={() => sample('god-plain', t('試しの知らせ', 'Test notification'), t('保存できなかった記録や、読み直せなかったときに、このように並びます。', 'This is how notifications appear when a record couldn’t be saved or data couldn’t be reloaded.'), false)}>
+          {t('知らせ（ふつう）', 'Notification (normal)')}
         </button>
-        <button type="button" className="btn" onClick={() => sample('god-urgent', '試しの急ぎの知らせ', 'ログインが切れたときなど、急ぐものはこの印で並びます。', true)}>
-          知らせ（急ぎ）
+        <button type="button" className="btn" onClick={() => sample('god-urgent', t('試しの急ぎの知らせ', 'Test urgent notification'), t('ログインが切れたときなど、急ぐものはこの印で並びます。', 'Urgent ones, such as an expired login, appear with this mark.'), true)}>
+          {t('知らせ（急ぎ）', 'Notification (urgent)')}
         </button>
         <button
           type="button"
@@ -118,7 +124,7 @@ function GodTools(props: { onClose: () => void }) {
             withdrawNotice('god-urgent')
           }}
         >
-          試しの知らせを消す
+          {t('試しの知らせを消す', 'Clear test notifications')}
         </button>
       </div>
     </div>

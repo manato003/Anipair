@@ -7,6 +7,7 @@ import { registerSheet } from '../lib/sheetHistory'
 import { loadSheetHintSeen, saveSheetHintSeen } from '../lib/storage'
 import { reducedMotion } from '../lib/theme'
 import { useModalFocus } from '../lib/useModalFocus'
+import { t } from '../lib/i18n'
 
 // 下から出るシートの枠。背景を押すか閉じるボタン、Esc（active のときだけ）で閉じる。
 // active が false のときは、隠れたタブに開いたまま残っているシートが Esc と「戻る」に反応しない
@@ -194,10 +195,12 @@ export function Sheet(props: { label: string; active?: boolean; size?: 'large' |
   const bar = (
     <div className="sheet__bar">
       {touch && <span className="sheet__grab" aria-hidden />}
-      <button ref={closeRef} type="button" className="sheet__close" aria-label="閉じる" onClick={close}>
+      <button ref={closeRef} type="button" className="sheet__close" aria-label={t('閉じる', 'Close')} onClick={close}>
         <CloseIcon />
       </button>
-      {touch && hint && <p className="sheet__hint">{page ? '下か右へ払っても閉じます' : '下へ払うか、空いている所をタップしても閉じます'}</p>}
+      {touch && hint && <p className="sheet__hint">{page
+            ? t('下か右へ払っても閉じます', 'Swipe down or right to close')
+            : t('下へ払うか、空いている所をタップしても閉じます', 'Swipe down or tap outside to close')}</p>}
     </div>
   )
   const cls = page ? 'sheet sheet--page' : props.size === 'large' ? 'sheet sheet--large' : 'sheet'

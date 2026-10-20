@@ -1,4 +1,5 @@
 import { episodeFacts } from '../../lib/watchFacts'
+import { workTitle } from '../../lib/names'
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Bookmark } from '../../components/Bookmark'
 import { Empty } from '../../components/Empty'
@@ -10,6 +11,7 @@ import { UsageGuide } from '../../components/UsageGuide'
 import { WorkFacts } from '../../components/WorkFacts'
 import { FlowStage, type FlowItem, type FlowPrev } from '../../components/FlowStage'
 import { keyLabel, useKeymap } from '../../lib/keymap'
+import { plural, t } from '../../lib/i18n'
 import type { GithubConnection } from '../../lib/github'
 import { useShortcuts } from '../../lib/useShortcuts'
 import { previousSeason, seasonLabel, seasonOf } from '../../lib/season'
@@ -119,13 +121,14 @@ export function Backfill({ token, github, active }: { token: string; github: Git
       setMilestone(n)
     }
   }
-  // 演出の字を先に読んでおく（初めての演出で、字があとから差し替わらないように。日本語の書体は字ごとに後から読む）
+  // 演出の字を先に読んでおく（初めての演出で、字があとから差し替わらないように。日本語の書体は字ごとに後から読む）。
+  // 読み込む字そのものが日本語なので、訳さずそのままにする
   useEffect(() => {
     const fonts = typeof document !== 'undefined' ? document.fonts : undefined
     if (!fonts) return
-    fonts.load('700 1em "Zen Maru Gothic"', '0123456789件踏破').catch(() => undefined)
-    fonts.load('700 1em "Zen Maru Gothic"', '突破人気作本、すべてに答えました。').catch(() => undefined)
-    fonts.load('500 1em "Zen Maru Gothic"', '次の目標0123456789件').catch(() => undefined)
+    fonts.load('700 1em "Zen Maru Gothic"', '0123456789件踏破').catch(() => undefined) // i18n-ok
+    fonts.load('700 1em "Zen Maru Gothic"', '突破人気作本、すべてに答えました。').catch(() => undefined) // i18n-ok
+    fonts.load('500 1em "Zen Maru Gothic"', '次の目標0123456789件').catch(() => undefined) // i18n-ok
   }, [])
   useEffect(() => {
     if (milestone === null) return
@@ -135,20 +138,20 @@ export function Backfill({ token, github, active }: { token: string; github: Git
 
   // いま出している作品を、答えの印と一緒に「直前の答え」として覚える（shown は下で決まるので、描くたびに控える）
   const shownRef = useRef<Shown | null>(null)
-  const prevOf = (label: string): FlowPrev | null => {
+  const prevOf = (a: Answer | WatchAnswer): FlowPrev | null => {
     const sh = shownRef.current
-    return sh ? { key: sh.key, title: sh.title, cover: sh.cover, mark: markOf(label) } : null
+    return sh ? { key: sh.key, title: sh.title, cover: sh.cover, mark: markOf(a) } : null
   }
   const answerB = (a: Answer) => {
     if (!b.current) return
-    push('b', prevOf(answerLabel(a)))
+    push('b', prevOf(a))
     countAnswer(1)
     seasonAnswered.current += 1
     b.answer(a)
   }
   const answerW = (a: WatchAnswer) => {
     if (!w.current) return
-    push('w', prevOf(answerLabel(a)))
+    push('w', prevOf(a))
     countAnswer(1)
     w.answer(a)
   }
@@ -174,32 +177,33 @@ export function Backfill({ token, github, active }: { token: string; github: Git
     if (wCurrent) {
       const { entry, cover } = wCurrent
       const since = formatDate(entry.stateAt)
+      const total = entry.episodesCount ? t(`（全${entry.episodesCount}話）`, ` (${plural(entry.episodesCount, 'episode', 'episodes')} total)`) : ''
       return {
         key: entry.workId,
-        title: entry.title,
+        title: workTitle(entry),
         cover,
-        seed: { id: entry.workId, annictId: entry.annictId, title: entry.title, malAnimeId: entry.malAnimeId, viewerStatusState: entry.state },
+        seed: { id: entry.workId, annictId: entry.annictId, title: entry.title, titleEn: entry.titleEn, malAnimeId: entry.malAnimeId, viewerStatusState: entry.state },
         // 「次は 第11話「題名」（全12話）」。見終えたかを答える手がかり（全話数はライブラリと一緒に読んでいる）
         meta: [
-          since ? `${since}から見てる` : '見てる',
-          entry.nextEpisode ? `${nextLabel(entry.nextEpisode)}${entry.episodesCount ? `（全${entry.episodesCount}話）` : ''}` : null,
+          since ? t(`${since}から見てる`, `Watching since ${since}`) : t('見てる', 'Watching'),
+          entry.nextEpisode ? `${nextLabel(entry.nextEpisode)}${total}` : null,
         ]
           .filter(Boolean)
-          .join('・'),
+          .join(t('・', ' · ')),
         facts: { malId: malIdOf(entry), head: [workMeta({ seasonYear: entry.seasonYear, seasonName: entry.seasonName })].filter(Boolean), note: null },
       }
     }
     if (!bCurrent) return null
     return {
       key: bCurrent.work.id,
-      title: bCurrent.work.title,
+      title: workTitle(bCurrent.work),
       cover: bCurrent.cover,
       seed: bCurrent.work,
       meta: null,
       facts: {
         malId: malIdOf(bCurrent.work),
         head: [seasonLabel(b.season), workMeta({ media: bCurrent.work.media })],
-        note: bCurrent.work.watchersCount > 0 ? `Annictで ${bCurrent.work.watchersCount.toLocaleString()}人が記録` : null,
+        note: bCurrent.work.watchersCount > 0 ? t(`Annictで ${bCurrent.work.watchersCount.toLocaleString()}人が記録`, `${bCurrent.work.watchersCount.toLocaleString()} logged on Annict`) : null,
       },
     }
   }, [bCurrent, wCurrent, b.season])
@@ -283,17 +287,21 @@ export function Backfill({ token, github, active }: { token: string; github: Git
   const loadingCard = (
     <div className="flow__loading">
       <LoadingMark />
-      <Loading className="card__step" label="作品を読み込み中" delay={600} mark={false} />
+      <Loading className="card__step" label={t('作品を読み込み中', 'Loading anime')} delay={600} mark={false} />
     </div>
   )
   const placeholder = !watchReady ? (
     loadingCard
   ) : b.finished ? (
-    <Empty mood="done" title={`${OLDEST_YEAR}年までさかのぼりました`} body="ここより前のクールは出しません。お疲れさまでした。" />
+    <Empty
+      mood="done"
+      title={t(`${OLDEST_YEAR}年までさかのぼりました`, `You’ve looked back to ${OLDEST_YEAR}`)}
+      body={t('ここより前のクールは出しません。お疲れさまでした。', 'Seasons before this aren’t shown. Nice work!')}
+    />
   ) : b.loadError ? (
-    <Empty mood="trouble" title="作品を読み込めませんでした" body={b.loadError}>
+    <Empty mood="trouble" title={t('作品を読み込めませんでした', 'Couldn’t load anime')} body={b.loadError}>
       <button type="button" className="btn" onClick={b.reload}>
-        もう一度読み込む
+        {t('もう一度読み込む', 'Retry')}
       </button>
     </Empty>
   ) : !b.cards ? (
@@ -303,21 +311,25 @@ export function Backfill({ token, github, active }: { token: string; github: Git
       <span className="clear__rays" aria-hidden />
       <Sparks count={12} />
       <p className="clear__season">{seasonLabel(b.season)}</p>
-      <p className="clear__title">踏破</p>
-      <p className="clear__body">人気作{progress.total}本、すべてに答えました。</p>
+      <p className="clear__title">{t('踏破', 'Cleared')}</p>
+      <p className="clear__body">{t(`人気作${progress.total}本、すべてに答えました。`, `You’ve answered all ${progress.total} popular anime.`)}</p>
       <button type="button" className="btn btn--primary" onClick={b.goToPrevious}>
-        {seasonLabel(previousSeason(b.season))}へ進む
+        {t(`${seasonLabel(previousSeason(b.season))}へ進む`, `Go to ${seasonLabel(previousSeason(b.season))}`)}
       </button>
       <ReviewUnseenButton count={b.unseenLeft} onClick={b.reviewUnseen} />
     </div>
   ) : (
     <Empty
       mood="done"
-      title={b.reviewing ? `${seasonLabel(b.season)}の見直しはここまで` : `${seasonLabel(b.season)}はここまで`}
-      body={b.reviewing ? '「見てない」にした作品を、すべて見直しました。' : 'このクールの人気作をすべて見ました。'}
+      title={b.reviewing ? t(`${seasonLabel(b.season)}の見直しはここまで`, `That’s all for the ${seasonLabel(b.season)} review`) : t(`${seasonLabel(b.season)}はここまで`, `That’s all for ${seasonLabel(b.season)}`)}
+      body={
+        b.reviewing
+          ? t('「見てない」にした作品を、すべて見直しました。', 'You’ve gone back through every anime you marked “Haven’t seen”.')
+          : t('このクールの人気作をすべて見ました。', 'You’ve been through all the popular anime this season.')
+      }
     >
       <button type="button" className="btn btn--primary" onClick={b.goToPrevious}>
-        {seasonLabel(previousSeason(b.season))}へ進む
+        {t(`${seasonLabel(previousSeason(b.season))}へ進む`, `Go to ${seasonLabel(previousSeason(b.season))}`)}
       </button>
       <ReviewUnseenButton count={b.unseenLeft} onClick={b.reviewUnseen} />
     </Empty>
@@ -326,7 +338,7 @@ export function Backfill({ token, github, active }: { token: string; github: Git
   return (
     <>
       <section className="rate rate--flow">
-        <h1 className="visually-hidden">評価</h1>
+        <h1 className="visually-hidden">{t('評価', 'Rate')}</h1>
         <div className="rate__top">
           <header className="rate__head rate__head--stepper">
             <SeasonPicker value={b.season} min={OLDEST_SEASON} max={thisSeason} onChange={b.jumpTo} onPrevious={b.goToPrevious} onNext={b.goToNext} />
@@ -345,7 +357,7 @@ export function Backfill({ token, github, active }: { token: string; github: Git
               <div
                 className="progress__bar"
                 role="progressbar"
-                aria-label={`${seasonLabel(b.season)}の人気作のうち、答えた作品`}
+                aria-label={t(`${seasonLabel(b.season)}の人気作のうち、答えた作品`, `Popular ${seasonLabel(b.season)} anime you’ve answered`)}
                 aria-valuemin={0}
                 aria-valuemax={progress.total}
                 aria-valuenow={progress.answered}
@@ -364,9 +376,9 @@ export function Backfill({ token, github, active }: { token: string; github: Git
               <Sparks count={8} />
               <span className="milestone__badge">
                 <span className="milestone__count">{milestone}</span>
-                <span className="milestone__unit">件突破</span>
+                <span className="milestone__unit">{t('件突破', 'answered')}</span>
               </span>
-              <span className="milestone__next">次の目標 {milestone + MILESTONE_STEP}件</span>
+              <span className="milestone__next">{t(`次の目標 ${milestone + MILESTONE_STEP}件`, `Next goal: ${milestone + MILESTONE_STEP}`)}</span>
             </div>
           )}
         </div>
@@ -392,9 +404,12 @@ export function Backfill({ token, github, active }: { token: string; github: Git
           {b.syncNote && <p className="note">{b.syncNote}</p>}
           {w.loadError && (
             <p className="note">
-              見てる作品を読み込めませんでした（{w.loadError}）。クールの作品だけで進めます。{' '}
+              {t(
+                `見てる作品を読み込めませんでした（${w.loadError}）。クールの作品だけで進めます。`,
+                `Couldn’t load the anime you’re watching (${w.loadError}). Continuing with this season’s anime only.`,
+              )}{' '}
               <button type="button" className="link" onClick={reloadWatching}>
-                読み直す
+                {t('読み直す', 'Reload')}
               </button>
             </p>
           )}
@@ -436,32 +451,36 @@ export function Backfill({ token, github, active }: { token: string; github: Git
           <div className="answers__sub">
             <button type="button" className="misc misc--quiet" disabled={!canUndo} onClick={undo}>
               <UndoIcon />
-              <ActLabel>ひとつ戻る</ActLabel> <kbd className="hint">{keyLabel(keys.undo)}</kbd>
+              <ActLabel>{t('ひとつ戻る', 'Undo')}</ActLabel> <kbd className="hint">{keyLabel(keys.undo)}</kbd>
             </button>
             <button
               type="button"
               className="sub"
               disabled={!hasCurrent}
               onClick={reply.watching}
-              title={inWatching ? 'まだ見ている作品は、そのまま次へ進みます（このクールのあいだは聞き直しません）' : '「見てる」にします'}
+              title={
+                inWatching
+                  ? t('まだ見ている作品は、そのまま次へ進みます（このクールのあいだは聞き直しません）', 'Moves on to the next anime. You won’t be asked about this one again this season.')
+                  : t('「見てる」にします', 'Mark as “Watching”')
+              }
             >
               <PlayIcon />
-              <ActLabel>見てる</ActLabel> <kbd className="hint">{keyLabel(keys.watching)}</kbd>
+              <ActLabel>{t('見てる', 'Watching')}</ActLabel> <kbd className="hint">{keyLabel(keys.watching)}</kbd>
             </button>
-            <button type="button" className="sub" disabled={!hasCurrent} onClick={reply.stop} title="途中で見るのをやめた作品を「視聴中断」にします">
+            <button type="button" className="sub" disabled={!hasCurrent} onClick={reply.stop} title={t('途中で見るのをやめた作品を「視聴中断」にします', 'Mark an anime you stopped partway through as “Dropped”')}>
               <PauseIcon />
-              <ActLabel>視聴中断</ActLabel> <kbd className="hint">{keyLabel(keys.stop)}</kbd>
+              <ActLabel>{t('視聴中断', 'Dropped')}</ActLabel> <kbd className="hint">{keyLabel(keys.stop)}</kbd>
             </button>
             <button type="button" className="misc misc--quiet" disabled={!hasCurrent} onClick={toggleSheet}>
               <InfoIcon />
-              <ActLabel>詳しく</ActLabel> <kbd className="hint">{keyLabel(keys.detail)}</kbd>
+              <ActLabel>{t('詳しく', 'Details')}</ActLabel> <kbd className="hint">{keyLabel(keys.detail)}</kbd>
             </button>
           </div>
           {/* 評価の段。左端の「覚えてない」は、見たけれど評価できない作品（評価を付けずに「見た」にする）。尺度の外なので少し離す */}
           <div className="answers__ratings answers__ratings--five">
-            <button type="button" className="rating rating--none" disabled={!hasCurrent} onClick={reply.watched} title="見たけれど内容を覚えていない作品を、評価を付けずに「見た」にします">
+            <button type="button" className="rating rating--none" disabled={!hasCurrent} onClick={reply.watched} title={t('見たけれど内容を覚えていない作品を、評価を付けずに「見た」にします', 'Mark an anime you watched but don’t remember as “Watched”, without a rating')}>
               <RatingIcon rating="NONE" />
-              <ActLabel>覚えてない</ActLabel>
+              <ActLabel>{t('覚えてない', 'Don’t remember')}</ActLabel>
               <kbd className="hint">{keyLabel(keys.watched)}</kbd>
             </button>
             {RATINGS.map((r) => (
@@ -475,11 +494,11 @@ export function Backfill({ token, github, active }: { token: string; github: Git
           <div className="answers__main">
             <button type="button" className="main main--wanna" disabled={!hasCurrent || inWatching} onClick={reply.wanna}>
               <Bookmark />
-              <ActLabel>見たい</ActLabel> <kbd className="hint">{keyLabel(keys.wanna)}</kbd>
+              <ActLabel>{t('見たい', 'Want to watch')}</ActLabel> <kbd className="hint">{keyLabel(keys.wanna)}</kbd>
             </button>
             <button type="button" className="main main--skip main--span2" disabled={!hasCurrent || inWatching} onClick={reply.skip}>
               <EyeOffIcon />
-              <ActLabel>見てない</ActLabel> <kbd className="hint">{keyLabel(keys.skip)}</kbd>
+              <ActLabel>{t('見てない', 'Haven’t seen')}</ActLabel> <kbd className="hint">{keyLabel(keys.skip)}</kbd>
             </button>
           </div>
         </div>
@@ -512,46 +531,46 @@ export function Backfill({ token, github, active }: { token: string; github: Git
 // 流れの上と下に出す作品（見てる作品の山とクールの山で形が違う）
 function flowItemOf(card: Card | WatchCard | null): FlowItem | null {
   if (!card) return null
-  return 'entry' in card ? { key: card.entry.workId, title: card.entry.title, cover: card.cover } : { key: card.work.id, title: card.work.title, cover: card.cover }
+  return 'entry' in card ? { key: card.entry.workId, title: workTitle(card.entry), cover: card.cover } : { key: card.work.id, title: workTitle(card.work), cover: card.cover }
 }
 
 // 答えの名前（直前の答えの印に出す）
 function answerLabel(a: Answer | WatchAnswer): string {
   switch (a.kind) {
     case 'rate':
-      return RATINGS.find((r) => r.rating === a.rating)?.label ?? '評価'
+      return RATINGS.find((r) => r.rating === a.rating)?.label ?? t('評価', 'Rate')
     case 'watched':
-      return '覚えてない'
+      return t('覚えてない', 'Don’t remember')
     case 'wanna':
-      return '見たい'
+      return t('見たい', 'Want to watch')
     case 'watching':
-      return '見てる'
+      return t('見てる', 'Watching')
     case 'still':
-      return 'まだ見てる'
+      return t('まだ見てる', 'Still watching')
     case 'stop':
-      return '視聴中断'
+      return t('視聴中断', 'Dropped')
     case 'skip':
-      return '見てない'
+      return t('見てない', 'Haven’t seen')
   }
 }
 
-function markOf(label: string): FlowPrev['mark'] {
-  const rating = RATINGS.find((r) => r.label === label)
+// 直前の答えの印。アイコンは表示の文言でなく、答えの種類から決める
+function markOf(a: Answer | WatchAnswer): FlowPrev['mark'] {
   const icon =
-    label === '見たい' ? (
+    a.kind === 'wanna' ? (
       <Bookmark />
-    ) : label === '見てない' ? (
+    ) : a.kind === 'skip' ? (
       <EyeOffIcon />
-    ) : label === '視聴中断' ? (
+    ) : a.kind === 'stop' ? (
       <PauseIcon />
-    ) : label === '覚えてない' ? (
+    ) : a.kind === 'watched' ? (
       <RatingIcon rating="NONE" />
-    ) : rating ? (
-      <RatingIcon rating={rating.rating} />
+    ) : a.kind === 'rate' ? (
+      <RatingIcon rating={a.rating} />
     ) : (
       <PlayIcon />
     )
-  return { label, icon, strong: label === '見たい' }
+  return { label: answerLabel(a), icon, strong: a.kind === 'wanna' }
 }
 
 // クールを終えた画面の「見てないにした作品を見直す」。あとから見た作品を、評価の画面から記録できるように（押したときだけ山に足す）
@@ -559,7 +578,7 @@ function ReviewUnseenButton(props: { count: number; onClick: () => void }) {
   if (props.count === 0) return null
   return (
     <button type="button" className="btn review-unseen" onClick={props.onClick}>
-      「見てない」にした作品を見直す（{props.count}本）
+      {t(`「見てない」にした作品を見直す（${props.count}本）`, `Review anime marked “Haven’t seen” (${props.count})`)}
     </button>
   )
 }
@@ -568,7 +587,7 @@ function ReviewUnseenButton(props: { count: number; onClick: () => void }) {
 function WatchingCount(props: { index: number; total: number }) {
   return (
     <span className="count progress__count">
-      <span className="count__label">見てる</span>
+      <span className="count__label">{t('見てる', 'Watching')}</span>
       {props.index + 1}
       <span className="count__of">/{props.total}</span>
     </span>

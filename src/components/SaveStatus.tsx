@@ -1,4 +1,5 @@
 import { useEffect, useId, useState } from 'react'
+import { t, plural } from '../lib/i18n'
 import { useNotice } from '../lib/notices'
 import type { FailedWrite } from '../lib/useWriteQueue'
 import { Spinner } from './Loading'
@@ -31,9 +32,9 @@ export function SaveStatus(props: { pending: number; failed: FailedWrite[]; onRe
     first
       ? {
           id: `save${id}`,
-          title: `${props.failed.length}件を保存できませんでした`,
+          title: t(`${props.failed.length}件を保存できませんでした`, `${plural(props.failed.length, 'record', 'records')} couldn’t be saved`),
           body: first.message,
-          action: first.links?.length ? undefined : { label: 'もう一度', run: props.onRetry },
+          action: first.links?.length ? undefined : { label: t('もう一度', 'Retry'), run: props.onRetry },
           urgent: true,
         }
       : null,
@@ -42,7 +43,8 @@ export function SaveStatus(props: { pending: number; failed: FailedWrite[]; onRe
     return (
       <div className="save save--error" role="alert">
         <span>
-          {props.failed.length}件を保存できませんでした。{first.message}
+          {t(`${props.failed.length}件を保存できませんでした。`, `${plural(props.failed.length, 'record', 'records')} couldn’t be saved. `)}
+          {first.message}
         </span>
         {first.links?.length ? (
           first.links.map((l) => (
@@ -52,12 +54,12 @@ export function SaveStatus(props: { pending: number; failed: FailedWrite[]; onRe
           ))
         ) : (
           <button type="button" className="link" onClick={props.onRetry}>
-            もう一度送る
+            {t('もう一度送る', 'Send again')}
           </button>
         )}
         {props.onDismiss && (
           <button type="button" className="link" onClick={props.onDismiss}>
-            閉じる
+            {t('閉じる', 'Close')}
           </button>
         )}
       </div>
@@ -68,7 +70,7 @@ export function SaveStatus(props: { pending: number; failed: FailedWrite[]; onRe
       {pendingShown && (
         <>
           <Spinner />
-          保存中（残り{props.pending}件）
+          {t(`保存中（残り${props.pending}件）`, `Saving (${props.pending} left)`)}
         </>
       )}
     </div>

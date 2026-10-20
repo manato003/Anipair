@@ -3,6 +3,7 @@ import type { Cover } from '../lib/storage'
 import { CoverImage } from './CoverImage'
 import { InfoIcon } from './Icons'
 import { Phrase } from './Phrase'
+import { t } from '../lib/i18n'
 import { reducedMotion } from '../lib/theme'
 
 // 評価とマッチングの「縦の流れ」。
@@ -110,13 +111,13 @@ export function FlowStage(props: {
           </span>
         </div>
       ) : (
-        <p className="flow__row flow__row--empty">{props.emptyPrev ?? '答えた作品は、ここに印を付けて残ります'}</p>
+        <p className="flow__row flow__row--empty">{props.emptyPrev ?? t('答えた作品は、ここに印を付けて残ります', 'Anime you answer stay here with a mark')}</p>
       )}
 
       {current ? (
         <>
           {/* 作品ごとに作り直す（同じ img の src を差し替えると、新しい画像を読み終えるまで前の作品の表紙が出たままになる） */}
-          <button key={current.key} type="button" className="flow__art" data-flip={current.key} onClick={current.onOpen} aria-label="詳しく見る">
+          <button key={current.key} type="button" className="flow__art" data-flip={current.key} onClick={current.onOpen} aria-label={t('詳しく見る', 'View details')}>
             {current.cover ? <CoverImage cover={current.cover} size="large" fallback={<span className="flow__noimage">{current.title}</span>} /> : <span className="flow__noimage">{current.title}</span>}
             {/* 押すと詳しく見られる印。PC だけに出す */}
             <span className="flow__info" aria-hidden>

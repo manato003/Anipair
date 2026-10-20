@@ -1,4 +1,5 @@
 import type { Media } from './shikimori'
+import { plural, t } from './i18n'
 
 // 作品の要点（放送中・全◯話・一気見の目安）。次に見る1本を決める手がかり（2026-10-07、myanimecheck.com の「データで見る」を参考に）。
 // 話数と1話の長さは Shikimori（表紙と同じ問い合わせ）。費用も作り直しも要らない
@@ -6,10 +7,10 @@ import type { Media } from './shikimori'
 // 分を「約11時間12分」「約24分」に。OP・ED を含む長さなので「約」を付ける
 export function formatMinutes(minutes: number): string {
   const m = Math.round(minutes)
-  if (m < 60) return `約${m}分`
+  if (m < 60) return t(`約${m}分`, `~${m} min`)
   const h = Math.floor(m / 60)
   const rest = m % 60
-  return rest === 0 ? `約${h}時間` : `約${h}時間${rest}分`
+  return rest === 0 ? t(`約${h}時間`, `~${h} h`) : t(`約${h}時間${rest}分`, `~${h} h ${rest} min`)
 }
 
 type EpisodeSource = Pick<Media, 'format' | 'status'> & Partial<Pick<Media, 'episodes' | 'episodesAired' | 'duration'>>
@@ -23,13 +24,13 @@ export function bingeMinutes(m: EpisodeSource, fallbackEpisodes?: number): numbe
 
 // 画面に並べる短い要点。劇場版は上映時間だけ。fallbackEpisodes は Shikimori に話数が無いときの Annict の話数
 export function episodeFacts(m: EpisodeSource, fallbackEpisodes?: number): string[] {
-  if (m.format === 'MOVIE') return m.duration ? [`上映 ${formatMinutes(m.duration)}`] : []
+  if (m.format === 'MOVIE') return m.duration ? [t(`上映 ${formatMinutes(m.duration)}`, `Runtime ${formatMinutes(m.duration)}`)] : []
   const episodes = m.episodes || fallbackEpisodes || 0
   const out: string[] = []
-  if (m.status === 'RELEASING') out.push(m.episodesAired ? `放送中（第${m.episodesAired}話まで）` : '放送中')
-  if (episodes > 0) out.push(`全${episodes}話`)
+  if (m.status === 'RELEASING') out.push(m.episodesAired ? t(`放送中（第${m.episodesAired}話まで）`, `Airing (through ep. ${m.episodesAired})`) : t('放送中', 'Airing'))
+  if (episodes > 0) out.push(t(`全${episodes}話`, plural(episodes, 'episode', 'episodes')))
   const binge = bingeMinutes(m, fallbackEpisodes)
-  if (binge) out.push(`一気見 ${formatMinutes(binge)}`)
+  if (binge) out.push(t(`一気見 ${formatMinutes(binge)}`, `Binge ${formatMinutes(binge)}`))
   else if (episodes === 1 && m.duration && m.status !== 'RELEASING') out.push(formatMinutes(m.duration))
   return out
 }

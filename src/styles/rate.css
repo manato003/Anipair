@@ -531,6 +531,12 @@
   white-space: nowrap;
 }
 
+/* 英語の「Don’t remember」は5つ並びの幅に1行で収まらないので、語の切れ目で2行にする */
+:root[lang='en'] .answers__ratings--five .rating {
+  white-space: normal;
+  line-height: 1.15;
+}
+
 @media (max-width: 440px) {
   .answers__ratings--five .rating {
     font-size: min(0.8rem, 3.1vw);

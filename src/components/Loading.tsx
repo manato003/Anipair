@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Ani } from './Mascot'
+import { t } from '../lib/i18n'
 import { formatRemaining, useRemaining } from '../lib/useRemaining'
 
 // 読み込み中の表示。止まっている（固まった）のではなく動いていると分かるように、動くロゴを出し、長くかかったら一言添える（このまま待てば続くこと）。
@@ -46,7 +47,8 @@ export function Remaining(props: { done: number; total: number }) {
   const seconds = useRemaining(props)
   return seconds === null ? null : (
     <span className="loading__time" aria-hidden>
-      ・{formatRemaining(seconds)}
+      {t('・', ' · ')}
+      {formatRemaining(seconds)}
     </span>
   )
 }
@@ -76,12 +78,13 @@ export function Loading(props: {
         {/* 残り時間は読み上げない（進むたびに読まれてしまう） */}
         {left !== null && (
           <span className="loading__time" aria-hidden>
-            ・{formatRemaining(left)}
+            {t('・', ' · ')}
+            {formatRemaining(left)}
           </span>
         )}
       </span>
       {/* 残り時間を出しているときは、続いていることが分かるので添えない */}
-      {seconds >= SLOW_AFTER && left === null && <span className="loading__slow">通信に時間がかかっています。このまま待つと続きます。</span>}
+      {seconds >= SLOW_AFTER && left === null && <span className="loading__slow">{t('通信に時間がかかっています。このまま待つと続きます。', 'The connection is slow. Just keep waiting and it will continue.')}</span>}
     </div>
   )
 }

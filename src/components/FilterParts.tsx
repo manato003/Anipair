@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { t } from '../lib/i18n'
 import { Loading, Spinner } from './Loading'
 
 // 絞り込みのシート（記録・ブラウズ）で共通の部品。項目の中は「どれか」に当てはまるもの
@@ -30,7 +31,7 @@ export function ChipSection<T extends string>(props: {
       </div>
       {props.items.length > limit && (
         <button type="button" className="link filtersheet__more" onClick={() => setAll(true)}>
-          {props.moreLabel ? props.moreLabel(props.items.length - limit) : `ほかの${props.items.length - limit}件も見る`}
+          {props.moreLabel ? props.moreLabel(props.items.length - limit) : t(`ほかの${props.items.length - limit}件も見る`, `Show ${props.items.length - limit} more`)}
         </button>
       )}
     </section>
@@ -41,22 +42,22 @@ export function ChipSection<T extends string>(props: {
 export function YearRange(props: { years: readonly number[]; from: number | null; to: number | null; onChange: (from: number | null, to: number | null) => void }) {
   return (
     <section className="filtersheet__group">
-      <h3 className="detail__label">放送年</h3>
+      <h3 className="detail__label">{t('放送年', 'Air year')}</h3>
       <div className="filtersheet__years">
-        <select value={props.from ?? ''} onChange={(e) => props.onChange(e.target.value ? Number(e.target.value) : null, props.to)} aria-label="放送年（から）">
-          <option value="">指定なし</option>
+        <select value={props.from ?? ''} onChange={(e) => props.onChange(e.target.value ? Number(e.target.value) : null, props.to)} aria-label={t('放送年（から）', 'Air year (from)')}>
+          <option value="">{t('指定なし', 'Any')}</option>
           {[...props.years].reverse().map((y) => (
             <option key={y} value={y}>
-              {y}年
+              {t(`${y}年`, `${y}`)}
             </option>
           ))}
         </select>
-        <span aria-hidden>〜</span>
-        <select value={props.to ?? ''} onChange={(e) => props.onChange(props.from, e.target.value ? Number(e.target.value) : null)} aria-label="放送年（まで）">
-          <option value="">指定なし</option>
+        <span aria-hidden>{t('〜', '–')}</span>
+        <select value={props.to ?? ''} onChange={(e) => props.onChange(props.from, e.target.value ? Number(e.target.value) : null)} aria-label={t('放送年（まで）', 'Air year (to)')}>
+          <option value="">{t('指定なし', 'Any')}</option>
           {props.years.map((y) => (
             <option key={y} value={y}>
-              {y}年
+              {t(`${y}年`, `${y}`)}
             </option>
           ))}
         </select>
@@ -72,9 +73,9 @@ export function InfoNote(props: { title: string; loading: boolean; error: string
     <section className="filtersheet__group">
       <h3 className="detail__label">{props.title}</h3>
       {props.error ? (
-        <p className="note">作品の情報を読めませんでした（{props.error}）</p>
+        <p className="note">{t(`作品の情報を読めませんでした（${props.error}）`, `Couldn’t load anime info (${props.error})`)}</p>
       ) : (
-        <Loading label="作品の情報を読み込み中" />
+        <Loading label={t('作品の情報を読み込み中', 'Loading anime info')} />
       )}
     </section>
   )
@@ -85,16 +86,16 @@ export function FilterFoot(props: { resultCount: number | null; onClear: () => v
   return (
     <div className="filtersheet__foot">
       <button type="button" className="link" onClick={props.onClear}>
-        すべて解除
+        {t('すべて解除', 'Clear all')}
       </button>
       <button type="button" className="btn btn--primary" onClick={props.onClose}>
         {props.resultCount === null ? (
           <>
             <Spinner />
-            読み込み中（閉じて待てます）
+            {t('読み込み中（閉じて待てます）', 'Loading (you can close and wait)')}
           </>
         ) : (
-          `${props.resultCount}件を表示`
+          t(`${props.resultCount}件を表示`, `Show ${props.resultCount} anime`)
         )}
       </button>
     </div>

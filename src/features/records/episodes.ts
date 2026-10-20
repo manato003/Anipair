@@ -1,19 +1,22 @@
 import type { Episode } from '../../lib/annict'
+import { getLang, t } from '../../lib/i18n'
+import { episodeNumber } from '../../lib/names'
 
 // 記録ページの「見てる」で、話ごとに記録するための純粋な関数
 
 // 話の呼び名。Annict の表記（「#6」「第6話」）を優先し、無ければ番号、それも無ければ題名
 export function episodeLabel(e: Pick<Episode, 'number' | 'numberText' | 'title'>): string {
+  if (getLang() === 'en' && typeof e.number === 'number') return episodeNumber(e)
   if (e.numberText?.trim()) return e.numberText.trim()
-  if (typeof e.number === 'number') return `第${e.number}話`
-  return e.title?.trim() || '話'
+  if (typeof e.number === 'number') return t(`第${e.number}話`, `Ep. ${e.number}`)
+  return e.title?.trim() || t('話', 'Episode')
 }
 
 // 「次は 第5話「題名」」（見てる作品の行と、評価の画面の見てるカード）
 export function nextLabel(e: Pick<Episode, 'number' | 'numberText' | 'title'>): string {
   const label = episodeLabel(e)
   const title = e.title?.trim()
-  return title && title !== label ? `次は ${label}「${title}」` : `次は ${label}`
+  return title && title !== label ? t(`次は ${label}「${title}」`, `Next: ${label} “${title}”`) : t(`次は ${label}`, `Next: ${label}`)
 }
 
 // 進み具合（記録した話の数と、全部の話の数）

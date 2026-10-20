@@ -1,14 +1,16 @@
 import { Choices, MotionNote } from '../../components/QuickSettings'
+import { LangChoices } from '../../components/LangToggle'
 import { BRIGHTNESS, COLORS, MOTION, useThemePrefs } from '../../lib/displayPrefs'
+import { t } from '../../lib/i18n'
 import { Section, SettingRow } from './Section'
 
 const TOD = [
-  { value: true, label: 'する' },
-  { value: false, label: 'しない' },
+  { value: true, get label() { return t('する', 'On') } },
+  { value: false, get label() { return t('しない', 'Off') } },
 ] as const
 const HAND = [
-  { value: 'right', label: '右手' },
-  { value: 'left', label: '左手' },
+  { value: 'right', get label() { return t('右手', 'Right') } },
+  { value: 'left', get label() { return t('左手', 'Left') } },
 ] as const
 
 // 画面の色・動きと、片手操作。どれも既定は自動（めんどうな人は触らなくてよい）。よく変えるものは、コントロールセンターでも変えられる
@@ -17,20 +19,24 @@ export function ThemeBlock() {
   return (
     // 見出しは画面の名前（表示）と重なるので付けず、行を並べる（#30）
     <Section id="settings-theme">
-      <SettingRow label="テーマの色" hint="自動は、見ているクールの季節の色">
-        <Choices label="テーマの色" choices={COLORS} value={prefs.color} onChoose={(v) => choose('color', v)} />
+      {/* 見出しは両方の言語で（読めない言語になっていても見つけられるように） */}
+      <SettingRow label="言語 / Language"> {/* i18n-ok */}
+        <LangChoices />
       </SettingRow>
-      <SettingRow label="明るさ" hint="自動は端末の設定どおり">
-        <Choices label="明るさ" choices={BRIGHTNESS} value={prefs.brightness} onChoose={(v) => choose('brightness', v)} />
+      <SettingRow label={t('テーマの色', 'Theme color')} hint={t('自動は、見ているクールの季節の色', 'Auto uses the color of the season you’re viewing')}>
+        <Choices label={t('テーマの色', 'Theme color')} choices={COLORS} value={prefs.color} onChoose={(v) => choose('color', v)} />
       </SettingRow>
-      <SettingRow label="時刻で色を変える" hint="深夜ほど少し暗く">
-        <Choices label="時刻で色を変える" choices={TOD} value={prefs.tod} onChoose={(v) => choose('tod', v)} />
+      <SettingRow label={t('明るさ', 'Brightness')} hint={t('自動は端末の設定どおり', 'Auto follows your device setting')}>
+        <Choices label={t('明るさ', 'Brightness')} choices={BRIGHTNESS} value={prefs.brightness} onChoose={(v) => choose('brightness', v)} />
       </SettingRow>
-      <SettingRow label="画面の動き" hint="自動は端末の「動きを減らす」どおり" after={<MotionNote motion={prefs.motion} />}>
-        <Choices label="画面の動き" choices={MOTION} value={prefs.motion} onChoose={(v) => choose('motion', v)} />
+      <SettingRow label={t('時刻で色を変える', 'Shift color by time of day')} hint={t('深夜ほど少し暗く', 'A little darker late at night')}>
+        <Choices label={t('時刻で色を変える', 'Shift color by time of day')} choices={TOD} value={prefs.tod} onChoose={(v) => choose('tod', v)} />
       </SettingRow>
-      <SettingRow label="片手操作" hint="よく押すボタンを親指の側に">
-        <Choices label="片手操作" choices={HAND} value={prefs.hand} onChoose={(v) => choose('hand', v)} />
+      <SettingRow label={t('画面の動き', 'Motion')} hint={t('自動は端末の「動きを減らす」どおり', 'Auto follows your device’s “Reduce motion” setting')} after={<MotionNote motion={prefs.motion} />}>
+        <Choices label={t('画面の動き', 'Motion')} choices={MOTION} value={prefs.motion} onChoose={(v) => choose('motion', v)} />
+      </SettingRow>
+      <SettingRow label={t('片手操作', 'One-handed mode')} hint={t('よく押すボタンを親指の側に', 'Puts the buttons you press most on your thumb’s side')}>
+        <Choices label={t('片手操作', 'One-handed mode')} choices={HAND} value={prefs.hand} onChoose={(v) => choose('hand', v)} />
       </SettingRow>
     </Section>
   )

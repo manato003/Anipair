@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { t } from '../lib/i18n'
 import type { SeasonName } from '../lib/season'
 
 // © 2026 manato003. アニとペアのデザイン・絵・名前・設定は、MIT ライセンスの対象外です（著作権を保持。LICENSE の「例外」）。
@@ -239,7 +240,7 @@ function Cel({ x, y, w, h, rot = 0, empty = false }: { x: number; y: number; w: 
 // ログイン前: 2人で並んでテレビを見ている後ろ姿
 export function WatchingScene(props: { className?: string }) {
   return (
-    <Svg viewBox="0 0 300 170" className={props.className} label="アニとペアが並んでアニメを見ている">
+    <Svg viewBox="0 0 300 170" className={props.className} label={t('アニとペアが並んでアニメを見ている', 'Ani and Pair sit side by side watching anime')}>
       <rect className="m-tv" x="70" y="14" width="160" height="96" rx="12" />
       <rect className="m-screen" x="80" y="24" width="140" height="76" rx="7" />
       <path className="m-play" d="M141 47v30l26-15Z" />

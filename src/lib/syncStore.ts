@@ -1,4 +1,5 @@
 import { GitHubError, readJson, writeJson, type GithubConnection } from './github'
+import { t } from './i18n'
 
 // GitHub の JSON と端末の控えを合わせて、両方を同じにする（パスと「見てない」で共通）。
 // 他の端末と同時に書いたら取り直して合わせ直す（3回まで）
@@ -29,5 +30,5 @@ export async function syncJson<T>(conn: GithubConnection, spec: SyncSpec<T>): Pr
       throw e
     }
   }
-  throw new GitHubError('他の端末との同期が続けて衝突しました。少し待ってからもう一度試してください', 'conflict')
+  throw new GitHubError(t('他の端末との同期が続けて衝突しました。少し待ってからもう一度試してください', 'Syncing with another device kept conflicting. Please wait a moment and try again.'), 'conflict')
 }

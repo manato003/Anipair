@@ -6,6 +6,8 @@ import { Sheet } from '../../components/Sheet'
 import { annictWorkUrl, fetchWorkDetail, peekLibrary, updateStatus, type Credit, type RatingState, type StatusState, type WorkDetail as Detail } from '../../lib/annict'
 import { getMyReviews, rememberReview } from '../../lib/myReviews'
 import { changeRating } from '../../lib/reviewOps'
+import { getLang, t } from '../../lib/i18n'
+import { personName, staffRole, workTitle } from '../../lib/names'
 import { fetchMedia, shikimoriUrl, type Media } from '../../lib/shikimori'
 import type { Cover } from '../../lib/storage'
 import { vodSearchLinks } from '../../lib/vodSearch'
@@ -38,6 +40,8 @@ export interface WorkSeed {
   id: string
   annictId: number
   title: string
+  // 英語の画面に出す題名（Annict の titleEn。無ければ詳細を読んだあとの値を使う）
+  titleEn?: string | null
   malAnimeId: string | null
   media?: string
   seasonYear?: number | null
@@ -95,6 +99,8 @@ export function WorkDetail(
   const { token, work } = props
   const readOnly = props.readOnly === true
   const [detail, setDetail] = useState<Detail | null>(null)
+  // 画面に出す題名（英語の画面では英語名。開いた元に英語名が無ければ、詳細を読んだあとの英語名）
+  const shownTitle = workTitle({ title: work.title, titleEn: work.titleEn ?? detail?.titleEn })
   const [error, setError] = useState<string | null>(null)
   const [shiki, setShiki] = useState<Media | null>(null)
   // あらすじ（Wikipedia の「あらすじ」の節の冒頭の段落）。読み込み中は undefined、無い・読めないときは null
@@ -205,7 +211,7 @@ export function WorkDetail(
     setState(value === 'NO_STATE' ? null : value)
     setStateAt(value === 'NO_STATE' ? null : new Date().toISOString())
     props.onChange({ state: value === 'NO_STATE' ? null : value })
-    props.enqueue(`「${work.title}」の状態`, () => updateStatus(token, work.id, value), [{ kind: 'status', workId: work.id, state: value, idMal: idMalOf(work.malAnimeId) }])
+    props.enqueue(t(`「${shownTitle}」の状態`, `Status for “${shownTitle}”`), () => updateStatus(token, work.id, value), [{ kind: 'status', workId: work.id, state: value, idMal: idMalOf(work.malAnimeId) }])
   }
 
   // 見てる作品の最終話まで記録したあと: 作品の評価を付けて（付けずに）「見た」にする
@@ -229,7 +235,7 @@ export function WorkDetail(
     }
     props.onChange({ rating: value, ...(becomesWatched ? { state: 'WATCHED' as const } : {}) })
     props.enqueue(
-      `「${work.title}」の評価`,
+      t(`「${shownTitle}」の評価`, `Rating for “${shownTitle}”`),
       async () => {
         if (becomesWatched) await updateStatus(token, work.id, 'WATCHED')
         // 送信の時点での実際の感想を、共有の控えから読む（画面は先に変えている）。
@@ -248,11 +254,14 @@ export function WorkDetail(
   const mal = malIdOf(work)
   const vodLinks = vodSearchLinks(work.title)
   // 制作会社（団体で、役職が「〜制作」のもの。製作委員会などの「製作」は含めない）は、スタッフとは別に一番上に出す
-  const isStudio = (st: { role: string; ref: Credit | null }) => st.ref?.kind === 'org' && st.role.includes('制作') && !st.role.includes('製作')
+  const isStudio = (st: { role: string; ref: Credit | null }) => st.ref?.kind === 'org' && st.role.includes('制作') && !st.role.includes('製作') // i18n-ok: Annict の役職名（日本語）との比較
   const studios = (detail?.staffs ?? []).filter(isStudio).filter((st, i, all) => all.findIndex((x) => x.name === st.name) === i)
   const staff = mainStaff((detail?.staffs ?? []).filter((st) => !isStudio(st)))
   // スタッフの表記から、Annict の人物・団体を引く（同じ役職にまとめた名前を、1人ずつ押せるようにする）
   const staffRefs = new Map((detail?.staffs ?? []).flatMap((st) => (st.ref ? [[`${st.role}\u0000${st.name}`, st.ref] as const] : [])))
+  // 英語の画面に出す名前と役職（同じ役職にまとめた名前を、1人ずつ英語名に替える）
+  const staffNameEn = new Map((detail?.staffs ?? []).map((st) => [st.name, st.nameEn ?? null] as const))
+  const staffRoleEn = new Map((detail?.staffs ?? []).map((st) => [st.role, st.roleOtherEn ?? null] as const))
   const openCredit = (c: Credit, role: string) =>
     setCredit({ credit: c, studio: c.kind === 'org' ? studioFor(c, role, shiki?.studioRefs ?? []) : null })
   // 詳細を読み込むまでは、手元の項目だけで出す
@@ -273,7 +282,7 @@ export function WorkDetail(
   ].filter((f) => !!f)
   // データで見る: 1話の長さと、シリーズの何作目か・次の作品（劇場版の上映時間は題名の下に出している）
   const dataRows: [string, string][] = [
-    ...(shiki?.duration && shiki.format !== 'MOVIE' ? [['1話の長さ', formatMinutes(shiki.duration)] as [string, string]] : []),
+    ...(shiki?.duration && shiki.format !== 'MOVIE' ? [[t('1話の長さ', 'Episode length'), formatMinutes(shiki.duration)] as [string, string]] : []),
     ...seriesFacts(detail?.series, work.annictId),
   ]
   // 表紙と題名はすぐ出す（評価の画面で出ている字なので組み直しが起きない）。それ以外は、中身と書体がそろってからまとめて出す。
@@ -289,17 +298,18 @@ export function WorkDetail(
   // （出ている分だけで全部だと思わせない）。あらすじは Annict の詳細が届いてから Wikipedia を読む
   const detailPending = detail === null && error === null
   const pending = [
-    !shikiDone && 'ジャンル',
-    (detailPending || (detail !== null && wiki === undefined)) && 'あらすじ',
-    detailPending && '制作会社・スタッフ・声優',
+    !shikiDone && t('ジャンル', 'genres'),
+    (detailPending || (detail !== null && wiki === undefined)) && t('あらすじ', 'synopsis'),
+    detailPending && t('制作会社・スタッフ・声優', 'studios, staff, and cast'),
   ].filter((x): x is string => !!x)
 
   // 話ごとの記録（書き込めるシートの「見た」「見てる」の作品だけ）。全部の話を記録し終えたか（並び順に使う）
   const workEpisodes = eps.byWork.get(work.id)?.episodes ?? []
   const allTracked = workEpisodes.length > 0 && workEpisodes.every((e) => e.viewerDidTrack)
+  const pendingSep = t('・', ', ')
   const episodeSection = showEpisodes && (
     <section className="detail__section">
-      <h3 className="detail__label">話ごとの記録</h3>
+      <h3 className="detail__label">{t('話ごとの記録', 'Episode records')}</h3>
       <EpisodeRecorder
         data={eps.byWork.get(work.id)}
         error={eps.errors.get(work.id) ?? null}
@@ -307,10 +317,10 @@ export function WorkDetail(
         airing={shiki?.status === 'RELEASING'}
         undoable={eps.undoable}
         commented={eps.commented}
-        onRecord={(ep, r, comment) => eps.record(work.title, work.id, ep, r, comment)}
-        onComment={(ep, r, text) => eps.comment(work.title, ep, r, text)}
-        onCommentExisting={(ep, text, onSent) => eps.commentExisting(work.title, ep, text, onSent)}
-        onUndo={(ep) => eps.undo(work.title, work.id, ep)}
+        onRecord={(ep, r, comment) => eps.record(shownTitle, work.id, ep, r, comment)}
+        onComment={(ep, r, text) => eps.comment(shownTitle, ep, r, text)}
+        onCommentExisting={(ep, text, onSent) => eps.commentExisting(shownTitle, ep, text, onSent)}
+        onUndo={(ep) => eps.undo(shownTitle, work.id, ep)}
         onFinish={finish}
         onRetry={eps.retry}
         past={eps.past}
@@ -322,7 +332,7 @@ export function WorkDetail(
 
   return (
     <>
-    <Sheet label={work.title} size="page" active={active} onClose={props.onClose}>
+    <Sheet label={shownTitle} size="page" active={active} onClose={props.onClose}>
       <div ref={rootRef} className={ready ? 'detail detail--ready' : 'detail'} aria-busy={!ready}>
         <header className="detail__head">
           <div className={props.cover?.landscape ? 'detail__cover detail__cover--landscape' : 'detail__cover'}>
@@ -330,10 +340,13 @@ export function WorkDetail(
           </div>
           <div className="detail__titles">
             <h2 className="detail__title">
-              <Phrase text={work.title} />
+              <Phrase text={shownTitle} />
             </h2>
             <div className="detail__late">
-              {detail?.titleKana && <p className="detail__kana">{detail.titleKana}</p>}
+              {/* 題名の下: 日本語は読みがな。英語は、見出しを英語名にしたときだけ元の日本語の題名 */}
+              {getLang() === 'en'
+                ? shownTitle !== work.title && <p className="detail__kana">{work.title}</p>
+                : detail?.titleKana && <p className="detail__kana">{detail.titleKana}</p>}
               {headFacts.length > 0 && (
                 <p className="detail__meta">
                   {headFacts.map((f) => (
@@ -343,9 +356,9 @@ export function WorkDetail(
                   ))}
                 </p>
               )}
-              {watchers !== undefined && <p className="detail__meta">Annictで{watchers.toLocaleString()}人が記録</p>}
+              {watchers !== undefined && <p className="detail__meta">{t(`Annictで${watchers.toLocaleString()}人が記録`, `${watchers.toLocaleString()} recorded on Annict`)}</p>}
               {/* 待つのをやめて出したあとも届いていない部分を、何を読んでいるかと一緒に出す。広い画面でも開いてすぐ目に入るよう、題名の欄に置く */}
-              {pending.length > 0 && <Loading className="detail__pending" label={`${pending.join('・')}を読み込み中`} since={openedAt} />}
+              {pending.length > 0 && <Loading className="detail__pending" label={t(`${pending.join(pendingSep)}を読み込み中`, `Loading ${pending.join(pendingSep)}`)} since={openedAt} />}
             </div>
           </div>
           {/* 表紙の権利表記。表紙の列に入れると狭い画面で何行にも折れるので、表紙と題名の下に幅いっぱいで出す */}
@@ -357,7 +370,7 @@ export function WorkDetail(
             <>
               <div className="detail__loading" aria-hidden />
               {/* ふつうはすぐそろうので、少し経ってから文言と秒数を出す */}
-              <Loading className="detail__wait" label="詳しい情報を読み込み中" delay={800} since={openedAt} />
+              <Loading className="detail__wait" label={t('詳しい情報を読み込み中', 'Loading details')} delay={800} since={openedAt} />
             </>
           )}
           <div className="detail__late">
@@ -367,10 +380,10 @@ export function WorkDetail(
               <section className="group">
                 <h3 className="group__title">
                   <UserIcon />
-                  あなたの記録
+                  {t('あなたの記録', 'Your records')}
                 </h3>
                 <section className="detail__section">
-                  <h3 className="detail__label">状態</h3>
+                  <h3 className="detail__label">{t('状態', 'Status')}</h3>
                   <div className="state-chips">
                     {STATE_OPTIONS.map((o) => (
                       <button key={o.state} type="button" className="chip" aria-pressed={optionState(state) === o.state} onClick={() => changeState(o.state)}>
@@ -378,23 +391,29 @@ export function WorkDetail(
                       </button>
                     ))}
                   </div>
-                  <p className="detail__hint">{state ? `選んでいる「${STATUS_LABEL[state]}」をもう一度押すと、記録から外します。` : 'まだ記録していません。'}</p>
+                  <p className="detail__hint">
+                    {state
+                      ? t(`選んでいる「${STATUS_LABEL[state]}」をもう一度押すと、記録から外します。`, `Tap “${STATUS_LABEL[state]}” again to remove it from your records.`)
+                      : t('まだ記録していません。', 'Not recorded yet.')}
+                  </p>
                   {state && stateAt && (
                     <p className="detail__when">
-                      「{STATUS_LABEL[state]}」にした日時 <time dateTime={stateAt}>{formatDateTime(stateAt)}</time>
+                      {t('「', 'Marked “')}
+                      {STATUS_LABEL[state]}
+                      {t('」にした日時', '” on')} <time dateTime={stateAt}>{formatDateTime(stateAt)}</time>
                     </p>
                   )}
                 </section>
 
                 {state === 'WANNA_WATCH' && props.wanna && (
                   <section className="detail__section">
-                    <h3 className="detail__label">優先とメモ</h3>
+                    <h3 className="detail__label">{t('優先とメモ', 'Priority and note')}</h3>
                     <div className="wannanote">
                       <button type="button" className="chip" aria-pressed={props.wanna.priority} onClick={props.wanna.onTogglePriority}>
-                        {props.wanna.priority ? '★ 優先して見る' : '☆ 優先して見る'}
+                        {props.wanna.priority ? t('★ 優先して見る', '★ Watch first') : t('☆ 優先して見る', '☆ Watch first')}
                       </button>
                       <button type="button" className="btn" onClick={props.wanna.onEditMemo}>
-                        {props.wanna.memo ? 'メモを直す' : 'メモを書く'}
+                        {props.wanna.memo ? t('メモを直す', 'Edit note') : t('メモを書く', 'Add note')}
                       </button>
                     </div>
                     {props.wanna.memo && <p className="wannanote__memo">{props.wanna.memo}</p>}
@@ -404,13 +423,14 @@ export function WorkDetail(
                 {/* Annict のメモ: Annict の作品ページで書いたメモを読んで出す（書き直すのは Annict で。Anipair の見たいのメモとは別のもの） */}
                 {annictNote && (
                   <section className="detail__section">
-                    <h3 className="detail__label">Annictのメモ</h3>
+                    <h3 className="detail__label">{t('Annictのメモ', 'Note on Annict')}</h3>
                     <p className="wannanote__memo">{annictNote}</p>
                     <p className="detail__hint">
+                      {t('', 'You can edit it with “Record” on the ')}
                       <a href={annictWorkUrl(work.annictId)} target="_blank" rel="noreferrer">
-                        Annictの作品ページ
+                        {t('Annictの作品ページ', 'Annict anime page')}
                       </a>
-                      の「記録する」で書き直せます。
+                      {t('の「記録する」で書き直せます。', '.')}
                     </p>
                   </section>
                 )}
@@ -420,8 +440,8 @@ export function WorkDetail(
                 {state === 'WATCHING' && !allTracked && episodeSection}
 
                 <section className="detail__section">
-                  <h3 className="detail__label">評価</h3>
-                  <div className="mini-ratings" role="group" aria-label="評価">
+                  <h3 className="detail__label">{t('評価', 'Rating')}</h3>
+                  <div className="mini-ratings" role="group" aria-label={t('評価', 'Rating')}>
                     {RATINGS.map((r) => (
                       <button
                         key={r.rating}
@@ -436,21 +456,24 @@ export function WorkDetail(
                   </div>
                   {rating && reviewAt && (
                     <p className="detail__when">
-                      {reviewAt.withText ? '評価と感想を付けた日時' : '評価を付けた日時'} <time dateTime={reviewAt.at}>{formatDateTime(reviewAt.at)}</time>
+                      {reviewAt.withText ? t('評価と感想を付けた日時', 'Rated and reviewed on') : t('評価を付けた日時', 'Rated on')} <time dateTime={reviewAt.at}>{formatDateTime(reviewAt.at)}</time>
                     </p>
                   )}
-                  <ReviewEditor token={token} workId={work.id} annictId={work.annictId} idMal={idMalOf(work.malAnimeId)} title={work.title} overall={rating} enqueue={props.enqueue} />
+                  <ReviewEditor token={token} workId={work.id} annictId={work.annictId} idMal={idMalOf(work.malAnimeId)} title={shownTitle} overall={rating} enqueue={props.enqueue} />
                 </section>
 
                 {/* コレクションは Annict の機能（API では読み書きできない）。作り直さずに、Annict の作品ページへ案内する */}
                 <section className="detail__section">
-                  <h3 className="detail__label">コレクション</h3>
+                  <h3 className="detail__label">{t('コレクション', 'Collections')}</h3>
                   <p className="detail__hint">
-                    コレクションはAnnictの機能です。
+                    {t('コレクションはAnnictの機能です。', 'Collections are an Annict feature. On the ')}
                     <a href={annictWorkUrl(work.annictId)} target="_blank" rel="noreferrer">
-                      Annictの作品ページ
+                      {t('Annictの作品ページ', 'Annict anime page')}
                     </a>
-                    で、作品画像の下のメニューボタンを押すと右側に出るパネルから追加できます。
+                    {t(
+                      'で、作品画像の下のメニューボタンを押すと右側に出るパネルから追加できます。',
+                      ', tap the menu button under the cover image and add it from the panel that appears on the right.',
+                    )}
                   </p>
                 </section>
 
@@ -464,11 +487,11 @@ export function WorkDetail(
               <section className="group">
                 <h3 className="group__title">
                   <InfoIcon />
-                  作品について
+                  {t('作品について', 'About this anime')}
                 </h3>
                 {genres.length > 0 && (
                   <section className="detail__section">
-                    <h3 className="detail__label">ジャンル</h3>
+                    <h3 className="detail__label">{t('ジャンル', 'Genre')}</h3>
                     <ul className="tags">
                       {genres.map((g) => (
                         <li key={g} className="tag">
@@ -482,7 +505,7 @@ export function WorkDetail(
                 {/* データで見る: 次に見る1本を決める手がかり（myanimecheck.com を参考に。手元のデータから計算するだけ） */}
                 {dataRows.length > 0 && (
                   <section className="detail__section">
-                    <h3 className="detail__label">データで見る</h3>
+                    <h3 className="detail__label">{t('データで見る', 'By the numbers')}</h3>
                     <dl className="credits">
                       {dataRows.map(([k, v]) => (
                         <div key={k} className="credits__row">
@@ -499,7 +522,7 @@ export function WorkDetail(
                 {/* あらすじ: Wikipedia の冒頭の段落（ネタバレを避ける）。続きは押したときだけ、その場で広げる。出典とライセンス（CC BY-SA 4.0）を添える */}
                 {wiki && (
                   <section className="detail__section">
-                    <h3 className="detail__label">あらすじ</h3>
+                    <h3 className="detail__label">{t('あらすじ', 'Synopsis (from Japanese Wikipedia)')}</h3>
                     {wikiOpen ? (
                       <div className="detail__wiki">
                         {wiki.blocks.map((b, i) =>
@@ -520,22 +543,22 @@ export function WorkDetail(
                     {(wiki.blocks.length > 1 || wiki.text.endsWith('…')) && (
                       // 右端に置く（親指の届く側）。注意書きはボタンのすぐ左
                       <p className="detail__more">
-                        {!wikiOpen && <span className="detail__spoiler">ネタバレを含むことがあります</span>}
+                        {!wikiOpen && <span className="detail__spoiler">{t('ネタバレを含むことがあります', 'May contain spoilers')}</span>}
                         <button type="button" className="link" onClick={() => setWikiOpen((v) => !v)} aria-expanded={wikiOpen}>
-                          {wikiOpen ? '続きを閉じる' : '続きを読む'}
+                          {wikiOpen ? t('続きを閉じる', 'Show less') : t('続きを読む', 'Read more')}
                         </button>
                       </p>
                     )}
                     <p className="detail__source">
-                      出典: Wikipedia「
+                      {t('出典: Wikipedia「', 'Source: Wikipedia “')}
                       <a href={wiki.url} target="_blank" rel="noreferrer">
                         {wiki.title}
                       </a>
-                      」（
+                      {t('」（', '” (')}
                       <a href={wiki.licenseUrl} target="_blank" rel="noreferrer">
                         CC BY-SA 4.0
                       </a>
-                      ）
+                      {t('）', ')')}
                     </p>
                   </section>
                 )}
@@ -562,16 +585,16 @@ export function WorkDetail(
               <section className="group detail__credits">
                 <h3 className="group__title">
                   <PeopleIcon />
-                  スタッフ・キャスト
+                  {t('スタッフ・キャスト', 'Staff & cast')}
                 </h3>
                 {studios.length > 0 && (
                   <section className="detail__section">
-                    <h3 className="detail__label">制作会社</h3>
+                    <h3 className="detail__label">{t('制作会社', 'Studio')}</h3>
                     <dl className="credits">
                       {studios.map((st) => (
                         <div key={st.name} className="credits__row">
-                          <dt>{st.role}</dt>
-                          <dd>{st.ref ? <CreditName name={st.name} onOpen={() => st.ref && openCredit(st.ref, st.role)} /> : st.name}</dd>
+                          <dt>{staffRole(st.role, st.roleOtherEn)}</dt>
+                          <dd>{st.ref ? <CreditName name={personName(st)} onOpen={() => st.ref && openCredit(st.ref, st.role)} /> : personName(st)}</dd>
                         </div>
                       ))}
                     </dl>
@@ -580,18 +603,19 @@ export function WorkDetail(
 
                 {staff.length > 0 && (
                   <section className="detail__section">
-                    <h3 className="detail__label">スタッフ</h3>
+                    <h3 className="detail__label">{t('スタッフ', 'Staff')}</h3>
                     <dl className="credits">
                       {staff.map((s) => (
                         <div key={s.role} className="credits__row">
-                          <dt>{s.role}</dt>
+                          <dt>{staffRole(s.role, staffRoleEn.get(s.role))}</dt>
                           <dd>
                             {s.names.map((n, i) => {
                               const ref = staffRefs.get(`${s.role}\u0000${n}`)
+                              const shown = personName({ name: n, nameEn: staffNameEn.get(n) })
                               return (
                                 <span key={n}>
-                                  {i > 0 && '、'}
-                                  {ref ? <CreditName name={n} onOpen={() => openCredit(ref, s.role)} /> : n}
+                                  {i > 0 && t('、', ', ')}
+                                  {ref ? <CreditName name={shown} onOpen={() => openCredit(ref, s.role)} /> : shown}
                                 </span>
                               )
                             })}
@@ -604,12 +628,12 @@ export function WorkDetail(
 
                 {detail && detail.casts.length > 0 && (
                   <section className="detail__section">
-                    <h3 className="detail__label">声優</h3>
+                    <h3 className="detail__label">{t('声優', 'Cast')}</h3>
                     <dl className="credits">
                       {detail.casts.map((c) => (
                         <div key={`${c.character}-${c.name}`} className="credits__row">
-                          <dt>{c.character}</dt>
-                          <dd>{c.person ? <CreditName name={c.name} onOpen={() => c.person && openCredit(c.person, '')} /> : c.name}</dd>
+                          <dt>{personName({ name: c.character, nameEn: c.characterEn })}</dt>
+                          <dd>{c.person ? <CreditName name={personName(c)} onOpen={() => c.person && openCredit(c.person, '')} /> : personName(c)}</dd>
                         </div>
                       ))}
                     </dl>
@@ -622,7 +646,7 @@ export function WorkDetail(
             <section className="group">
               <h3 className="group__title">
                 <ExternalIcon />
-                ほかのサイトで見る
+                {t('ほかのサイトで見る', 'View on other sites')}
               </h3>
               {airing && (
                 <BroadcastSection
@@ -639,7 +663,7 @@ export function WorkDetail(
               {/* 配信サービスの検索への入り口（配信しているかは確かめない。lib/vodSearch.ts）。v0.7.1 で外した「配信」と同じ場所 */}
               {vodLinks.length > 0 && (
                 <section className="detail__section">
-                  <h3 className="detail__label">配信サービスで探す</h3>
+                  <h3 className="detail__label">{t('配信サービスで探す', 'Search on streaming services')}</h3>
                   <div className="vods">
                     {vodLinks.map((l) => (
                       <a key={l.name} className="chip chip--link" href={l.href} target="_blank" rel="noreferrer">
@@ -648,18 +672,18 @@ export function WorkDetail(
                       </a>
                     ))}
                   </div>
-                  <p className="detail__hint">各サービスで題名を検索します。配信していない作品もあります。</p>
+                  <p className="detail__hint">{t('各サービスで題名を検索します。配信していない作品もあります。', 'Searches each service by title. Some anime may not be available.')}</p>
                 </section>
               )}
               <section className="detail__section">
-                <h3 className="detail__label">作品のページ</h3>
+                <h3 className="detail__label">{t('作品のページ', 'Anime pages')}</h3>
                 <div className="detail__links">
                   <a href={annictWorkUrl(work.annictId)} target="_blank" rel="noreferrer">
                     Annict
                   </a>
                   {official && (
                     <a href={official} target="_blank" rel="noreferrer">
-                      公式サイト
+                      {t('公式サイト', 'Official site')}
                     </a>
                   )}
                   {wikipedia && (
@@ -674,7 +698,7 @@ export function WorkDetail(
                   )}
                   {mal && (
                     <a href={shikimoriUrl(mal)} target="_blank" rel="noreferrer">
-                      Shikimoriで見る
+                      {t('Shikimoriで見る', 'View on Shikimori')}
                     </a>
                   )}
                 </div>
@@ -716,24 +740,24 @@ function BroadcastSection(props: {
   const now = props.now
   return (
     <section className="detail__section">
-      <h3 className="detail__label">次の放送</h3>
+      <h3 className="detail__label">{t('次の放送', 'Next airing')}</h3>
       {!props.chosen ? (
         <p className="detail__hint">
-          見るサービスを選ぶと、ここに次の放送日が出ます。
+          {t('見るサービスを選ぶと、ここに次の放送日が出ます。', 'Choose where you watch to see upcoming air dates here.')}
           <button type="button" className="link" onClick={props.onChoose}>
-            選ぶ
+            {t('選ぶ', 'Choose')}
           </button>
         </p>
       ) : props.slots === null ? (
         props.failed ? (
           <p className="detail__hint">
-            放送予定を読み込めませんでした。
+            {t('放送予定を読み込めませんでした。', 'Couldn’t load the airing schedule.')}
             <button type="button" className="link" onClick={props.onRetry}>
-              もう一度
+              {t('もう一度', 'Retry')}
             </button>
           </p>
         ) : (
-          <p className="detail__hint">放送予定を読み込み中…</p>
+          <p className="detail__hint">{t('放送予定を読み込み中…', 'Loading airing schedule…')}</p>
         )
       ) : (
         <>
@@ -749,13 +773,15 @@ function BroadcastSection(props: {
           ) : (
             // 見つからないことと、Annict に無いことは同じではない（読むのは4週間先までで、Annict の登録が無い作品もある。#34）
             <p className="detail__hint">
-              {props.partial ? '放送予定が多く、これから先の分を読み切れませんでした。' : 'これから4週間のうちに、選んだサービスでの放送予定は見つかりませんでした。'}
+              {props.partial
+                ? t('放送予定が多く、これから先の分を読み切れませんでした。', 'There are too many scheduled airings to load everything ahead.')
+                : t('これから4週間のうちに、選んだサービスでの放送予定は見つかりませんでした。', 'No airings found on your chosen services in the next 4 weeks.')}
             </p>
           )}
           <p className="detail__hint">
-            Annictの放送予定より（登録されていない予定は出ません）。
+            {t('Annictの放送予定より（登録されていない予定は出ません）。', 'From Annict’s airing schedule (unregistered airings aren’t shown). ')}
             <button type="button" className="link" onClick={props.onChoose}>
-              見るサービスを変える
+              {t('見るサービスを変える', 'Change where I watch')}
             </button>
           </p>
         </>

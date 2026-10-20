@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { applyButtonLabels, loadButtonLabels, saveButtonLabels, type ButtonLabels } from '../../lib/storage'
 import { Choices } from '../../components/QuickSettings'
 import { BUTTON_LABELS } from '../../lib/displayPrefs'
+import { t } from '../../lib/i18n'
 import { Section, SettingRow } from './Section'
 
 
@@ -16,8 +17,8 @@ export function ButtonLabelsBlock() {
   }
   return (
     <Section id="settings-buttons">
-      <SettingRow label="答えのボタン" hint="アイコンだけでも、PCは重ねると名前が出ます">
-        <Choices label="ボタンの表示" choices={BUTTON_LABELS} value={value} onChoose={choose} />
+      <SettingRow label={t('答えのボタン', 'Answer buttons')} hint={t('アイコンだけでも、PCは重ねると名前が出ます', 'Even with icons only, hovering shows the name on a PC')}>
+        <Choices label={t('ボタンの表示', 'Button display')} choices={BUTTON_LABELS} value={value} onChoose={choose} />
       </SettingRow>
     </Section>
   )

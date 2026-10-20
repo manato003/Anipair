@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { TAGLINE } from '../../lib/brand'
+import { TAGLINE, TAGLINE_PHRASES_EN } from '../../lib/brand'
+import { resetLangForTests } from '../../lib/i18n'
 import { GitHubError, type GithubConnection } from '../../lib/github'
 
 vi.mock('../backup/backupStore', async (orig) => ({
@@ -520,6 +521,40 @@ describe('Settings layout (sections, status first, folded explanations)', () => 
     expect(items).toHaveLength(2)
     expect(items[0]).toContain('アカウントをお持ちでない方は')
     expect(items[1]).toContain('別のアカウントで連携するときは')
+  })
+})
+
+// 英語の画面（ブラウザの言語が日本語でなければ英語。2026-10-20 利用者）
+describe('Settings in English', () => {
+  it('shows the welcome in English, and says how anime titles are shown', () => {
+    resetLangForTests('en')
+    const { container } = show({ annictToken: null, clientId: 'cid' })
+    expect(container.querySelector('.welcome__tagline')?.textContent).toBe(TAGLINE_PHRASES_EN.join(' '))
+    expect(screen.getByRole('button', { name: 'Log in with Annict' })).toBeTruthy()
+    expect(screen.getByText(/Anime titles are shown in romanized Japanese/)).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'sign up on Annict' })).toBeTruthy()
+    const about = container.querySelector('details.welcome__about') as HTMLDetailsElement
+    expect(about.querySelector(':scope > summary')?.textContent).toBe('About this app')
+    expect(about.textContent).toContain('It is not affiliated with Annict')
+    expect(screen.getAllByRole('link', { name: 'Terms of Use' })[0].getAttribute('href')).toBe('/terms.html')
+  })
+
+  // 押すと言語を覚える。描き直しは根元（main.tsx）が言語を key にして行うので、ここでは描き直して確かめる
+  it('remembers the language chosen with the button', () => {
+    show({ annictToken: null, clientId: 'cid' })
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to English' }))
+    expect(localStorage.getItem('animax.lang.v1')).toBe('en')
+    cleanup()
+    show({ annictToken: null, clientId: 'cid' })
+    expect(screen.getByRole('button', { name: 'Log in with Annict' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '日本語に切り替える' }))
+    expect(localStorage.getItem('animax.lang.v1')).toBe('ja')
+  })
+
+  it('shows the signed-in settings in English too', () => {
+    resetLangForTests('en')
+    show({ section: 'settings-about' })
+    expect(screen.getAllByRole('link', { name: 'Terms of Use' }).length).toBeGreaterThan(0)
   })
 })
 

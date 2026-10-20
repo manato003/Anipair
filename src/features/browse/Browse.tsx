@@ -7,6 +7,8 @@ import { HeadActions } from '../../components/ControlCenter'
 import { FilterIcon } from '../../components/Icons'
 import { SaveStatus } from '../../components/SaveStatus'
 import type { BrowseWork } from '../../lib/annict'
+import { t } from '../../lib/i18n'
+import { workTitle } from '../../lib/names'
 import { RATING_LABEL } from '../../lib/reviewOps'
 import { seasonLabel } from '../../lib/season'
 import { SortRow } from '../../components/SortRow'
@@ -22,7 +24,7 @@ import { BrowseFilterSheet } from './BrowseFilterSheet'
 import { EMPTY_BROWSE_FILTER, MINE_CHOICES, NO_PERIOD, applyBrowseFilter, browseFilterCount, periodActive, periodLabel, type BrowseFilter, type BrowsePeriod } from './browseFilter'
 import { SORTS } from './browseSort'
 import { STATUS_LABEL, workMeta } from './detail'
-import { CAPPED_NOTE, useBrowse } from './useBrowse'
+import { cappedNote, useBrowse } from './useBrowse'
 import { WorkDetail } from './WorkDetail'
 import { Loading, Spinner } from '../../components/Loading'
 import { useViewingSeason } from '../../lib/theme'
@@ -47,6 +49,13 @@ export function Browse({ token, active = true }: { token: string; active?: boole
   // 評価の画面で「見てない」にした作品。この画面を開くたびに端末の控えを読み直す（評価の画面で押した分を映す）
   const unseen = useMemo(() => (active ? activeUnseenIds(loadLocalUnseen()) : new Set<number>()), [active])
   const works = useMemo(() => (b.works ? applyBrowseFilter(b.works, filter, media.info, unseen) : null), [b.works, filter, media.info, unseen])
+  // 上に貼りつく1行に出す、いま見ているもの
+  const pinnedWhat = b.searching ? t(`「${b.query.trim()}」`, `“${b.query.trim()}”`) : hasPeriod ? periodLabel(b.period) : seasonLabel(b.season)
+  // 評価順・おすすめ順の説明に入れる向きの言葉
+  const rateDir = b.dir === 'desc' ? t('高い', 'highest') : t('低い', 'lowest')
+  const tasteDir = b.dir === 'desc' ? { ja: '好みに合いそうな順', en: 'most likely matches first' } : { ja: '好みに合いそうな順の逆', en: 'least likely matches first' }
+  // いま読み込んでいる一覧の名前（期間かクール）
+  const listName = hasPeriod ? periodLabel(b.period) : seasonLabel(b.season)
   const clearAll = () => {
     setFilter(EMPTY_BROWSE_FILTER)
     b.setPeriod(NO_PERIOD)
@@ -55,7 +64,7 @@ export function Browse({ token, active = true }: { token: string; active?: boole
   return (
     <section className="records records--browse">
       <header className="rhead">
-        <h1 className="rhead__title">ブラウズ</h1>
+        <h1 className="rhead__title">{t('ブラウズ', 'Browse')}</h1>
         <span className="rhead__actions">
           <HeadActions topic="browse" active={active} />
         </span>
@@ -66,14 +75,14 @@ export function Browse({ token, active = true }: { token: string; active?: boole
           <input
             className="search"
             type="search"
-            placeholder="タイトルで探す"
+            placeholder={t('タイトルで探す', 'Search by Japanese title')}
             value={b.query}
             onChange={(e) => b.setQuery(e.target.value)}
-            aria-label="タイトルで探す"
+            aria-label={t('タイトルで探す', 'Search by Japanese title')}
           />
           <button type="button" className="btn records__filterbtn" aria-pressed={filterCount > 0} onClick={() => setFilterOpen(true)}>
             <FilterIcon />
-            絞り込み
+            {t('絞り込み', 'Filter')}
             {filterCount > 0 && <span className="chip__count">{filterCount}</span>}
           </button>
         </div>
@@ -86,10 +95,12 @@ export function Browse({ token, active = true }: { token: string; active?: boole
         {!b.searching && hasPeriod && (
           <div className="browse__period">
             <span>
-              <strong>{periodLabel(b.period)}</strong>の作品
+              {t('', 'Anime from ')}
+              <strong>{periodLabel(b.period)}</strong>
+              {t('の作品', '')}
             </span>
             <button type="button" className="link" onClick={() => b.setPeriod(NO_PERIOD)}>
-              1つのクールで選ぶ
+              {t('1つのクールで選ぶ', 'Pick a single season')}
             </button>
           </div>
         )}
@@ -105,25 +116,32 @@ export function Browse({ token, active = true }: { token: string; active?: boole
       <PinnedLine
         target={barRef}
         enabled={active && !wide}
-        label={`${b.searching ? `「${b.query.trim()}」` : hasPeriod ? periodLabel(b.period) : seasonLabel(b.season)} · ${SORTS.find((o) => o.id === b.sort)?.label ?? ''}${b.dir === 'desc' ? '↓' : '↑'}`}
+        label={`${pinnedWhat} · ${SORTS.find((o) => o.id === b.sort)?.label ?? ''}${b.dir === 'desc' ? '↓' : '↑'}`}
       />
 
       <div className="records__controls records__controls--notes">
         {/* いまの並べ方が何の順かを、いつも1行で出す（人気順と評価順の違い、向きが分かるように） */}
-        {b.sort === 'popular' && <p className="note records__sortnote">{b.dir === 'desc' ? 'Annictでこの作品を記録した人の多い順です。' : 'Annictでこの作品を記録した人の少ない順です。'}</p>}
-        {b.sort === 'newest' && <p className="note records__sortnote">{b.dir === 'desc' ? '放送の新しい順です。' : '放送の古い順です。'}</p>}
+        {b.sort === 'popular' && <p className="note records__sortnote">{b.dir === 'desc' ? t('Annictでこの作品を記録した人の多い順です。', 'Sorted by how many people recorded it on Annict, most first.') : t('Annictでこの作品を記録した人の少ない順です。', 'Sorted by how many people recorded it on Annict, fewest first.')}</p>}
+        {b.sort === 'newest' && <p className="note records__sortnote">{b.dir === 'desc' ? t('放送の新しい順です。', 'Sorted by air date, newest first.') : t('放送の古い順です。', 'Sorted by air date, oldest first.')}</p>}
         {b.sort === 'score' && (
           <p className="note records__sortnote">
             {b.sortNote ??
-              `ほかの人の評価が${b.dir === 'desc' ? '高い' : '低い'}順です。評価した人の少ない作品は、点数を平均に寄せて並べます（Shikimoriの点数。Annictの満足度があればそちら）。点数の無い作品は最後に並びます。`}
+              t(
+                `ほかの人の評価が${rateDir}順です。評価した人の少ない作品は、点数を平均に寄せて並べます（Shikimoriの点数。Annictの満足度があればそちら）。点数の無い作品は最後に並びます。`,
+                `Sorted by other people’s ratings, ${rateDir} first. Anime with few ratings are pulled toward the average (Shikimori scores, or Annict satisfaction when available). Anime without a score come last.`,
+              )}
           </p>
         )}
         {b.sort === 'taste' && b.works && (
           <p className="note records__sortnote">
-            {b.sortNote ?? `あなたの評価から、${b.dir === 'desc' ? '好みに合いそうな順' : '好みに合いそうな順の逆'}に並べています。情報の無い作品は最後に並びます。`}
+            {b.sortNote ??
+              t(
+                `あなたの評価から、${tasteDir.ja}に並べています。情報の無い作品は最後に並びます。`,
+                `Sorted by your ratings, ${tasteDir.en}. Anime with no data come last.`,
+              )}
           </p>
         )}
-        {b.capped && b.works && <p className="note">{CAPPED_NOTE}</p>}
+        {b.capped && b.works && <p className="note">{cappedNote()}</p>}
         {/* 期間は、クール一覧ではクールの代わりの行に出ているので、条件の並びには検索のときだけ出す */}
         {filterCount - (hasPeriod && !b.searching ? 1 : 0) > 0 && (
           <BrowseActiveFilters
@@ -139,41 +157,47 @@ export function Browse({ token, active = true }: { token: string; active?: boole
 
       <div className="records__list">
         {b.error ? (
-          <Empty mood="trouble" title="作品を読み込めませんでした" body={b.error}>
+          <Empty mood="trouble" title={t('作品を読み込めませんでした', 'Couldn’t load anime')} body={b.error}>
             <button type="button" className="btn" onClick={b.retry}>
-              もう一度読み込む
+              {t('もう一度読み込む', 'Retry')}
             </button>
           </Empty>
         ) : !b.works ? (
-          <Loading block label={b.progress ?? (b.searching ? '検索中' : `${hasPeriod ? periodLabel(b.period) : seasonLabel(b.season)}の作品を読み込み中`)} remaining={b.progressWork} />
+          <Loading block label={b.progress ?? (b.searching ? t('検索中', 'Searching') : t(`${listName}の作品を読み込み中`, `Loading anime from ${listName}`))} remaining={b.progressWork} />
         ) : b.works.length === 0 ? (
           <Empty
             mood="empty"
-            title="見つかりませんでした"
+            title={t('見つかりませんでした', 'Nothing found')}
             body={
               hasPeriod
                 ? b.searching
-                  ? '別の言葉で探すか、放送年と季節の条件をゆるめてください。'
-                  : 'この期間の作品はAnnictにありません。放送年と季節の条件をゆるめてください。'
+                  ? t('別の言葉で探すか、放送年と季節の条件をゆるめてください。', 'Try different words, or loosen the year and season filters.')
+                  : t('この期間の作品はAnnictにありません。放送年と季節の条件をゆるめてください。', 'Annict has no anime for this period. Loosen the year and season filters.')
                 : b.searching
-                  ? '別の言葉で探してください。一部だけでも探せます。'
-                  : 'このクールの作品はAnnictにまだありません。'
+                  ? t('別の言葉で探してください。一部だけでも探せます。', 'Try different words. A partial title works too.')
+                  : t('このクールの作品はAnnictにまだありません。', 'Annict doesn’t have anime for this season yet.')
             }
           />
         ) : works && works.length === 0 ? (
-          <Empty mood="empty" title="当てはまる作品がありません" body={b.hasMore ? '絞り込みの条件をゆるめるか、「もっと見る」で作品を増やしてください。' : '絞り込みの条件をゆるめてください。'}>
+          <Empty mood="empty" title={t('当てはまる作品がありません', 'No matching anime')}
+            body={
+              b.hasMore
+                ? t('絞り込みの条件をゆるめるか、「もっと見る」で作品を増やしてください。', 'Loosen the filters, or use “Show more” to load more anime.')
+                : t('絞り込みの条件をゆるめてください。', 'Try loosening the filters.')
+            }
+          >
             <button type="button" className="btn" onClick={() => setFilter(EMPTY_BROWSE_FILTER)}>
-              絞り込みを解除する
+              {t('絞り込みを解除する', 'Clear filters')}
             </button>
             {b.hasMore && (
               <button type="button" className="btn" onClick={b.loadMore} disabled={b.loadingMore}>
                 {b.loadingMore ? (
                   <>
                     <Spinner />
-                    読み込み中
+                    {t('読み込み中', 'Loading')}
                   </>
                 ) : (
-                  'もっと見る'
+                  t('もっと見る', 'Show more')
                 )}
               </button>
             )}
@@ -183,20 +207,21 @@ export function Browse({ token, active = true }: { token: string; active?: boole
             {/* 表紙の棚。自分の記録（評価・状態・見てない）は表紙の隅に、放送時期と点数・おすすめの理由は題名の下に */}
             <ul className="shelf">
               {(works ?? []).map((w) => {
+                const title = workTitle(w)
                 const rating = b.ratings.get(w.annictId)
                 const state = w.viewerStatusState && w.viewerStatusState !== 'NO_STATE' ? w.viewerStatusState : null
                 const cover = coverOf(w)
                 const score = b.scores.get(w.annictId)
                 const reason = b.sort === 'taste' ? b.reasons.get(w.annictId) : undefined
-                const mark = rating ? RATING_LABEL[rating] : state ? STATUS_LABEL[state] : unseen.has(w.annictId) ? '見てない' : null
+                const mark = rating ? RATING_LABEL[rating] : state ? STATUS_LABEL[state] : unseen.has(w.annictId) ? t('見てない', 'Haven’t seen') : null
                 return (
                   <li key={w.id} className="shelf__item">
-                    <button type="button" className="shelf__open" onClick={() => setOpen(w)} aria-label={`${w.title}の詳細`}>
+                    <button type="button" className="shelf__open" onClick={() => setOpen(w)} aria-label={t(`${title}の詳細`, `Details for ${title}`)}>
                       <span className="shelf__cover">
-                        {cover ? <CoverImage cover={cover} size="thumb" lazy fallback={<span className="shelf__noimage">{w.title}</span>} /> : <span className="shelf__noimage">{w.title}</span>}
+                        {cover ? <CoverImage cover={cover} size="thumb" lazy fallback={<span className="shelf__noimage">{title}</span>} /> : <span className="shelf__noimage">{title}</span>}
                       </span>
                       <span className="shelf__title" aria-hidden>
-                        {w.title}
+                        {title}
                       </span>
                     </button>
                     {mark && <span className={rating || state ? 'shelf__badge' : 'shelf__badge shelf__badge--quiet'}>{mark}</span>}
@@ -212,15 +237,19 @@ export function Browse({ token, active = true }: { token: string; active?: boole
             {b.hasMore && (
               <div className="more">
                 {/* 続きを読めなくても、読めている一覧はそのまま（もう一度押せば続きから読む） */}
-                {b.moreError && <p className="note" role="alert">続きを読み込めませんでした（{b.moreError}）</p>}
+                {b.moreError && (
+                  <p className="note" role="alert">
+                    {t(`続きを読み込めませんでした（${b.moreError}）`, `Couldn’t load more (${b.moreError})`)}
+                  </p>
+                )}
                 <button type="button" className="btn" onClick={b.loadMore} disabled={b.loadingMore}>
                   {b.loadingMore ? (
                   <>
                     <Spinner />
-                    読み込み中
+                    {t('読み込み中', 'Loading')}
                   </>
                 ) : (
-                  'もっと見る'
+                  t('もっと見る', 'Show more')
                 )}
                 </button>
               </div>
@@ -274,24 +303,30 @@ function BrowseActiveFilters(props: {
 }) {
   const { filter: f, onChange } = props
   const items: { label: string; clear: () => void }[] = []
+  // 複数の選びは「・」でつなぐ（英語は「, 」）
+  const sep = t('・', ', ')
+  const mineNames = MINE_CHOICES.filter((x) => f.mine.includes(x.id)).map((x) => x.label).join(sep)
+  const mediaNames = MEDIA_KINDS.filter((x) => f.media.includes(x.id)).map((x) => x.label).join(sep)
+  const genreNames = f.genres.map(genreName).join(sep)
+  const studioNames = f.studios.join(sep)
   if (periodActive(props.period))
-    items.push({ label: `期間: ${periodLabel(props.period)}`, clear: () => props.onPeriodChange(NO_PERIOD) })
+    items.push({ label: t(`期間: ${periodLabel(props.period)}`, `Period: ${periodLabel(props.period)}`), clear: () => props.onPeriodChange(NO_PERIOD) })
   if (f.mine.length > 0)
-    items.push({ label: `自分の記録: ${MINE_CHOICES.filter((x) => f.mine.includes(x.id)).map((x) => x.label).join('・')}`, clear: () => onChange({ ...f, mine: [] }) })
+    items.push({ label: t(`自分の記録: ${mineNames}`, `My records: ${mineNames}`), clear: () => onChange({ ...f, mine: [] }) })
   if (f.media.length > 0)
-    items.push({ label: `形式: ${MEDIA_KINDS.filter((x) => f.media.includes(x.id)).map((x) => x.label).join('・')}`, clear: () => onChange({ ...f, media: [] }) })
-  if (f.genres.length > 0) items.push({ label: `ジャンル: ${f.genres.map(genreName).join('・')}`, clear: () => onChange({ ...f, genres: [] }) })
-  if (f.studios.length > 0) items.push({ label: `制作会社: ${f.studios.join('・')}`, clear: () => onChange({ ...f, studios: [] }) })
+    items.push({ label: t(`形式: ${mediaNames}`, `Format: ${mediaNames}`), clear: () => onChange({ ...f, media: [] }) })
+  if (f.genres.length > 0) items.push({ label: t(`ジャンル: ${genreNames}`, `Genre: ${genreNames}`), clear: () => onChange({ ...f, genres: [] }) })
+  if (f.studios.length > 0) items.push({ label: t(`制作会社: ${studioNames}`, `Studio: ${studioNames}`), clear: () => onChange({ ...f, studios: [] }) })
   return (
     <div className="activefilters">
       {items.map((it) => (
-        <button key={it.label} type="button" className="activefilter" onClick={it.clear} aria-label={`${it.label} の条件を外す`}>
+        <button key={it.label} type="button" className="activefilter" onClick={it.clear} aria-label={t(`${it.label} の条件を外す`, `Remove filter: ${it.label}`)}>
           {it.label}
           <span aria-hidden>×</span>
         </button>
       ))}
       <button type="button" className="link" onClick={props.onClearAll}>
-        すべて解除
+        {t('すべて解除', 'Clear all')}
       </button>
     </div>
   )

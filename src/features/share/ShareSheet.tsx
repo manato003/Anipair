@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Loading } from '../../components/Loading'
 import { Sheet } from '../../components/Sheet'
 import { messageOf } from '../../lib/useWriteQueue'
+import { t } from '../../lib/i18n'
 import { drawShareCard } from './drawShareCard'
 import type { ShareCard } from './shareCard'
 
@@ -49,7 +50,7 @@ export function ShareSheet(props: { card: ShareCard; filename: string; active: b
     } catch (e) {
       // 利用者が共有の画面を閉じたときも、ここに来る（何も出さない）
       if (e instanceof DOMException && e.name === 'AbortError') return
-      setNote(`共有できませんでした（${messageOf(e)}）。画像を保存して投稿してください。`)
+      setNote(t(`共有できませんでした（${messageOf(e)}）。画像を保存して投稿してください。`, `Couldn’t share (${messageOf(e)}). Save the image and post it yourself.`))
     }
   }
 
@@ -59,40 +60,40 @@ export function ShareSheet(props: { card: ShareCard; filename: string; active: b
     a.href = image.url
     a.download = props.filename
     a.click()
-    setNote('画像を保存しました。')
+    setNote(t('画像を保存しました。', 'Image saved.'))
   }
 
   async function copyText() {
     try {
       await navigator.clipboard.writeText(props.card.text)
-      setNote('投稿文を写しました。')
+      setNote(t('投稿文を写しました。', 'Post text copied.'))
     } catch {
-      setNote('投稿文を写せませんでした。')
+      setNote(t('投稿文を写せませんでした。', 'Couldn’t copy the post text.'))
     }
   }
 
   return (
-    <Sheet label="画像で共有" size="large" active={props.active} onClose={props.onClose}>
-      <h2 className="detail__title">画像で共有</h2>
-      <p className="detail__hint">画像はこの端末の中で作ります。共有するまで、どこにも送られません。作品の表紙は入れていません。</p>
+    <Sheet label={t('画像で共有', 'Share as image')} size="large" active={props.active} onClose={props.onClose}>
+      <h2 className="detail__title">{t('画像で共有', 'Share as image')}</h2>
+      <p className="detail__hint">{t('画像はこの端末の中で作ります。共有するまで、どこにも送られません。作品の表紙は入れていません。', 'The image is made on this device and isn’t sent anywhere until you share it. Anime covers aren’t included.')}</p>
       {error ? (
-        <p className="settings__error">画像を作れませんでした（{error}）</p>
+        <p className="settings__error">{t(`画像を作れませんでした（${error}）`, `Couldn’t make the image (${error})`)}</p>
       ) : !image ? (
-        <Loading block label="画像を作成中" />
+        <Loading block label={t('画像を作成中', 'Making image')} />
       ) : (
         <>
-          <img className="share__preview" src={image.url} alt={`共有する画像: ${props.card.headline}`} />
+          <img className="share__preview" src={image.url} alt={t(`共有する画像: ${props.card.headline}`, `Image to share: ${props.card.headline}`)} />
           <div className="share__actions">
             {sharable && (
               <button type="button" className="btn btn--primary" onClick={share}>
-                共有する
+                {t('共有する', 'Share')}
               </button>
             )}
             <button type="button" className={sharable ? 'btn' : 'btn btn--primary'} onClick={save}>
-              画像を保存
+              {t('画像を保存', 'Save image')}
             </button>
             <button type="button" className="btn" onClick={copyText}>
-              投稿文を写す
+              {t('投稿文を写す', 'Copy post text')}
             </button>
           </div>
           <p className="share__text">{props.card.text}</p>

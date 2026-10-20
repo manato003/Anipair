@@ -1,4 +1,5 @@
 import type { GithubConnection } from '../../lib/github'
+import { t } from '../../lib/i18n'
 import { clearLegacySkipped, loadLegacySkippedRaw, loadUnseenRaw, parseSkipped, saveUnseenRaw } from '../../lib/storage'
 import { syncJson } from '../../lib/syncStore'
 import { fromLegacy, mergeUnseen, parseUnseen, sameUnseen, serializeUnseen, type Unseen } from './unseen'
@@ -39,6 +40,6 @@ export function syncUnseen(conn: GithubConnection): Promise<Unseen> {
     serialize: serializeUnseen,
     loadLocal: loadLocalUnseen,
     saveLocal,
-    message: (merged) => `見てないの記録を更新（${merged.size}件）`,
+    message: (merged) => t(`見てないの記録を更新（${merged.size}件）`, `Update “Haven’t seen” records (${merged.size})`),
   })
 }

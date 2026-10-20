@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { messageOf } from '../../lib/useWriteQueue'
 import { Spinner } from '../../components/Loading'
+import { t } from '../../lib/i18n'
 
 // トークンを貼って確かめて保存する欄（開発者向け）
 export function TokenForm(props: {
@@ -37,7 +38,7 @@ export function TokenForm(props: {
             type="password"
             autoComplete="off"
             spellCheck={false}
-            placeholder="トークン"
+            placeholder={t('トークン', 'Token')}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             aria-label={props.label}
@@ -46,10 +47,10 @@ export function TokenForm(props: {
             {checking ? (
             <>
               <Spinner />
-              確認しています…
+              {t('確認しています…', 'Checking…')}
             </>
           ) : (
-            '連携する'
+            t('連携する', 'Connect')
           )}
           </button>
       </form>

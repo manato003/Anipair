@@ -1,5 +1,7 @@
 import type { RatingState, WorkCredits } from '../../lib/annict'
+import { personName, workTitle } from '../../lib/names'
 import type { Media } from '../../lib/shikimori'
+import { t } from '../../lib/i18n'
 import { bucketOf, mediaKindOf, type MediaKind, type RecordRow, type SeasonKey } from './recordList'
 
 // 記録ページの「傾向」。記録・作品の情報（Shikimori）・声優と監督（Annict）を端末で集計する。すべて純粋な関数
@@ -8,6 +10,21 @@ import { bucketOf, mediaKindOf, type MediaKind, type RecordRow, type SeasonKey }
 export const RATING_POINT: Record<RatingState, number> = { BAD: 1, AVERAGE: 2, GOOD: 3, GREAT: 4 }
 // 世間の点数（Shikimori の10点満点）と比べるときの、4段階のおおよその点
 const RATING_AS_TEN: Record<RatingState, number> = { BAD: 4, AVERAGE: 6, GOOD: 7.5, GREAT: 9 }
+
+// 並べた名前のつなぎ。日本語は「・」、英語は「, 」
+export function joinList(xs: readonly string[]): string {
+  return xs.join(t('・', ', '))
+}
+
+// 月の名前（1〜12）。日本語は「10月」、英語は「Oct」
+// 作品の本数（3本 / 3 anime）。図と年のふり返りで使う
+export function countText(n: number): string {
+  return t(`${n}本`, `${n} anime`)
+}
+
+export function monthName(month: number): string {
+  return t(`${month}月`, ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][month - 1])
+}
 
 const ratingOf = (r: RecordRow): RatingState | null => r.review?.ratingOverallState ?? null
 const watched = (rows: readonly RecordRow[]) => rows.filter((r) => r.entry.state === 'WATCHED')
@@ -65,7 +82,7 @@ export function harshness(rows: readonly RecordRow[], media: ReadonlyMap<number,
   }
   const d = mean(diffs)
   if (d === null || diffs.length < 5) return null
-  const label = d >= 0.5 ? '世間より甘口' : d <= -0.5 ? '世間より辛口' : '世間とほぼ同じ'
+  const label = d >= 0.5 ? t('世間より甘口', 'More generous than most') : d <= -0.5 ? t('世間より辛口', 'Harsher than most') : t('世間とほぼ同じ', 'About the same as most')
   return { diff: d, n: diffs.length, label }
 }
 
@@ -201,7 +218,7 @@ export function mainstream(rows: readonly RecordRow[]): { median: number; label:
     .sort((a, b) => a - b)
   if (xs.length < 5) return null
   const mid = xs.length % 2 ? xs[(xs.length - 1) / 2] : (xs[xs.length / 2 - 1] + xs[xs.length / 2]) / 2
-  const label = mid >= 8000 ? '王道派' : mid <= 2000 ? '発掘派' : 'バランス派'
+  const label = mid >= 8000 ? t('王道派', 'Mainstream') : mid <= 2000 ? t('発掘派', 'Hidden gems') : t('バランス派', 'Balanced')
   return { median: Math.round(mid), label, n: xs.length }
 }
 
@@ -245,11 +262,11 @@ export function topPeople(
   )
   if (!credits) return { casts: null, directors: null, studios }
   const casts = rank(
-    w.flatMap((r) => (credits.get(r.entry.workId)?.casts ?? []).map((p) => ({ key: String(p.annictId), name: p.name, rating: ratingOf(r) }))),
+    w.flatMap((r) => (credits.get(r.entry.workId)?.casts ?? []).map((p) => ({ key: String(p.annictId), name: personName(p), rating: ratingOf(r) }))),
     max,
   )
   const directors = rank(
-    w.flatMap((r) => (credits.get(r.entry.workId)?.directors ?? []).map((p) => ({ key: String(p.annictId), name: p.name, rating: ratingOf(r) }))),
+    w.flatMap((r) => (credits.get(r.entry.workId)?.directors ?? []).map((p) => ({ key: String(p.annictId), name: personName(p), rating: ratingOf(r) }))),
     max,
   )
   return { casts, directors, studios }
@@ -273,7 +290,8 @@ export function titleHead(title: string): string {
   return title
     .normalize('NFKC')
     .toLowerCase()
-    .replace(/劇場版|映画/g, '')
+    // 日本語の題名から「劇場版」「映画」を除くための語（画面には出さない）
+    .replace(/劇場版|映画/g, '') // i18n-ok
     .replace(/[\s\p{P}\p{S}]/gu, '')
     .slice(0, 5)
 }
@@ -338,7 +356,7 @@ export function castAffinity(
   for (const c of compared) {
     for (const p of credits.get(c.row.entry.workId)?.casts ?? []) {
       const key = String(p.annictId)
-      const a = acc.get(key) ?? { names: [p.name], items: [] }
+      const a = acc.get(key) ?? { names: [personName(p)], items: [] }
       // 同じ作品に同じ声優が2役でも1本と数える
       if (!a.items.some((it) => it.c === c)) a.items.push({ c, residual: c.diff - bias })
       acc.set(key, a)
@@ -365,8 +383,8 @@ export function castAffinity(
     if (bySeries.size < minSeries) continue
     const score = [...bySeries.values()].reduce((x, rs) => x + (mean(rs) ?? 0), 0) / (bySeries.size + prior)
     const best = [...g.items].sort((x, y) => (score >= 0 ? y.residual - x.residual : x.residual - y.residual))[0]
-    const name = g.names.length > 3 ? `${g.names.slice(0, 3).join('・')} ほか` : g.names.join('・')
-    all.push({ key: g.key, name, score, n: g.items.length, series: bySeries.size, example: best ? { title: best.c.row.entry.title, rating: best.c.rating, world: best.c.world } : null })
+    const name = g.names.length > 3 ? t(`${joinList(g.names.slice(0, 3))} ほか`, `${joinList(g.names.slice(0, 3))} and others`) : joinList(g.names)
+    all.push({ key: g.key, name, score, n: g.items.length, series: bySeries.size, example: best ? { title: workTitle(best.c.row.entry), rating: best.c.rating, world: best.c.world } : null })
   }
   const liked = all
     .filter((x) => x.score >= threshold)
@@ -478,7 +496,7 @@ export function yearReview(rows: readonly RecordRow[], year: number, media: Read
       return m ? [...m.genres, ...m.themes] : []
     }),
   )
-  const casts = credits ? count(inYear.map((r) => (credits.get(r.entry.workId)?.casts ?? []).map((c) => c.name))) : []
+  const casts = credits ? count(inYear.map((r) => (credits.get(r.entry.workId)?.casts ?? []).map((c) => personName(c)))) : []
   return {
     year,
     watched: inYear.length,
@@ -497,7 +515,7 @@ export function monthlyPace(rows: readonly RecordRow[], now: Date, months = 12):
   const out: { key: string; label: string; count: number }[] = []
   for (let i = months - 1; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    out.push({ key: `${d.getFullYear()}-${d.getMonth()}`, label: `${d.getMonth() + 1}月`, count: 0 })
+    out.push({ key: `${d.getFullYear()}-${d.getMonth()}`, label: monthName(d.getMonth() + 1), count: 0 })
   }
   for (const r of watched(rows)) {
     const t = r.entry.stateAt ? new Date(r.entry.stateAt) : null

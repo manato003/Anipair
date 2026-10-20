@@ -272,6 +272,38 @@
   font-weight: 700;
 }
 
+/* 言語の切り替え（右上の「EN／あ」）。ロゴより目立たせず、指で押せる大きさは取る */
+.welcome {
+  position: relative;
+}
+
+.welcome__lang {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.welcome__lang:hover {
+  color: var(--fg);
+}
+
+/* 英語のとき、ログインしたあとの画面が日本語だと伝える一文 */
+.welcome__lang-note {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
 .welcome__tagline {
   margin-top: 28px;
   margin-bottom: 12px;

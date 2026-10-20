@@ -77,7 +77,7 @@ vi.mock('../match/tasteLoader', () => ({
   forgetTaste: () => forgetTaste(),
 }))
 
-const { useBrowse, NO_LIKES_NOTE } = await import('./useBrowse')
+const { useBrowse, noLikesNote } = await import('./useBrowse')
 
 beforeEach(() => {
   calls.length = 0
@@ -137,8 +137,8 @@ describe('useBrowse おすすめ順', () => {
     loadTaste.mockImplementation(async () => noLikesTaste)
     const hook = await setup()
     act(() => hook.result.current.setSort('taste'))
-    await waitFor(() => expect(hook.result.current.sortNote).toBe(NO_LIKES_NOTE))
-    expect(NO_LIKES_NOTE).toBe('好みの手がかりがまだありません。評価画面で、好きな作品を評価すると使えます。')
+    await waitFor(() => expect(hook.result.current.sortNote).toBe(noLikesNote()))
+    expect(noLikesNote()).toBe('好みの手がかりがまだありません。評価画面で、好きな作品を評価すると使えます。')
     expect(hook.result.current.works!.map((x) => x.annictId)).toEqual([1, 2, 3])
     expect(hook.result.current.reasons.size).toBe(0)
     expect(fetchMedia).not.toHaveBeenCalled()

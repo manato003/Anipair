@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { checkAccess, type GithubConnection } from '../../lib/github'
 import { parseRepo, saveGithubRepo, saveGithubToken } from '../../lib/storage'
 import { messageOf } from '../../lib/useWriteQueue'
+import { t } from '../../lib/i18n'
 import { Section, StatusChip } from './Section'
 import { Spinner } from '../../components/Loading'
 
@@ -20,7 +21,7 @@ export function GithubBlock(props: { github: GithubConnection | null; onChange: 
     const token = tokenDraft.trim()
     if (!token) return
     if (!repo) {
-      setMessage({ ok: false, text: 'リポジトリ名は「ユーザー名/anipair-data」の形式で入力してください' })
+      setMessage({ ok: false, text: t('リポジトリ名は「ユーザー名/anipair-data」の形式で入力してください', 'Enter the repository name as “username/anipair-data”') })
       return
     }
     setChecking(true)
@@ -33,7 +34,7 @@ export function GithubBlock(props: { github: GithubConnection | null; onChange: 
       props.onChange({ token, repo })
       setRepoDraft('')
       setTokenDraft('')
-      setMessage({ ok: true, text: `${repo}と連携しました` })
+      setMessage({ ok: true, text: t(`${repo}と連携しました`, `Connected to ${repo}`) })
     } catch (err) {
       setMessage({ ok: false, text: messageOf(err) })
     } finally {
@@ -45,64 +46,78 @@ export function GithubBlock(props: { github: GithubConnection | null; onChange: 
     saveGithubToken(null)
     saveGithubRepo(null)
     props.onChange(null)
-    setMessage({ ok: true, text: 'GitHubとの連携を解除しました。この端末からトークンとリポジトリ名を削除しました' })
+    setMessage({ ok: true, text: t('GitHubとの連携を解除しました。この端末からトークンとリポジトリ名を削除しました', 'Disconnected from GitHub. The token and repository name were removed from this device') })
   }
 
   return (
     <Section
       id="settings-github"
-      title="GitHub連携（任意）"
-      summary="興味なし・見てないなどを、PCとスマホで共有して毎日バックアップします。"
+      title={t('GitHub連携（任意）', 'GitHub sync (optional)')}
+      summary={t('興味なし・見てないなどを、PCとスマホで共有して毎日バックアップします。', 'Share Not interested, Haven’t seen and similar answers between your PC and phone, and back them up every day.')}
       status={
         props.github ? (
           <StatusChip>
             <a href={`https://github.com/${props.github.repo}`} target="_blank" rel="noreferrer">
               {props.github.repo}
             </a>
-            と連携中
+            {t('と連携中', ' connected')}
           </StatusChip>
         ) : (
-          <StatusChip tone="off">未連携</StatusChip>
+          <StatusChip tone="off">{t('未連携', 'Not connected')}</StatusChip>
         )
       }
     >
       {props.github ? (
         <div className="settings__actions">
           <button type="button" className="btn" onClick={disconnect}>
-            連携を解除
+            {t('連携を解除', 'Disconnect')}
           </button>
         </div>
       ) : !setup ? (
         // 手順と入力欄は、連携したい人が押したときだけ出す（#30: 説明・箇条書き・3つの手順が、いつも全部出ていた）
         <div className="settings__actions">
           <button type="button" className="btn" onClick={() => setSetup(true)}>
-            連携する
+            {t('連携する', 'Connect')}
           </button>
         </div>
       ) : (
         <>
           {/* なぜ GitHub なのか（連携しようとしている人にだけ） */}
           <p className="settings__lead">
-            興味なし・保留・見てない・見たいの印とメモ・見るサービスはAnipairだけの記録で、Annictには置けません。Anipairは記録を置く運営サーバーを持たないので、あなた自身のGitHubのリポジトリに保存します。連携しない場合は、この端末の中にだけ残ります。
+            {t(
+              '興味なし・保留・見てない・見たいの印とメモ・見るサービスはAnipairだけの記録で、Annictには置けません。Anipairは記録を置く運営サーバーを持たないので、あなた自身のGitHubのリポジトリに保存します。連携しない場合は、この端末の中にだけ残ります。',
+              'Not interested, Later, Haven’t seen, Want to watch marks and notes, and where you watch are records only Anipair keeps, so they can’t be stored on Annict. Anipair has no server of its own to hold them, so they’re saved in your own GitHub repository. If you don’t connect, they stay only on this device.',
+            )}
           </p>
           <details className="settings__fold" open>
-            <summary>連携の手順（3ステップ）</summary>
+            <summary>{t('連携の手順（3ステップ）', 'How to connect (3 steps)')}</summary>
             <ol className="settings__list settings__lead">
               <li>
-                GitHubでprivateリポジトリを作成します（
+                {t('GitHubでprivateリポジトリを作成します（', 'Create a private repository on GitHub (')}
                 <a href="https://github.com/new?name=anipair-data&visibility=private" target="_blank" rel="noreferrer">
-                  リポジトリの作成画面を開く
+                  {t('リポジトリの作成画面を開く', 'open the new repository page')}
                 </a>
-                ）。名前はanipair-dataのままでかまいません。公開範囲はPrivateのままにしてください。
+                {t(
+                  '）。名前はanipair-dataのままでかまいません。公開範囲はPrivateのままにしてください。',
+                  '). Keeping the name anipair-data is fine. Leave the visibility set to Private.',
+                )}
               </li>
               <li>
-                Fine-grainedトークンを作成します（
+                {t('Fine-grainedトークンを作成します（', 'Create a fine-grained token (')}
                 <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noreferrer">
-                  トークンの作成画面を開く
+                  {t('トークンの作成画面を開く', 'open the new token page')}
                 </a>
-                ）。Repository accessは「Only select repositories」にして手順1のリポジトリだけを選び、PermissionsのContentsを「Read and write」にします。
+                {t(
+                  '）。Repository accessは「Only select repositories」にして手順1のリポジトリだけを選び、PermissionsのContentsを「Read and write」にします。',
+                  '). Set Repository access to “Only select repositories” and choose only the repository from step 1, then set Contents under Permissions to “Read and write”.',
+                )}
               </li>
-              <li>下の欄にリポジトリ名（ユーザー名/anipair-data）とトークンを入力し、「連携する」を押します。</li>
+              <li>
+                {t(
+                  '下の欄にリポジトリ名（ユーザー名/anipair-data）とトークンを入力し、「連携する」を押します。',
+                  'Enter the repository name (username/anipair-data) and the token in the fields below, then press “Connect”.',
+                )}
+              </li>
             </ol>
           </details>
           <form className="settings__form" onSubmit={connect}>
@@ -111,28 +126,28 @@ export function GithubBlock(props: { github: GithubConnection | null; onChange: 
               autoComplete="off"
               autoCapitalize="off"
               spellCheck={false}
-              placeholder="ユーザー名/anipair-data"
+              placeholder={t('ユーザー名/anipair-data', 'username/anipair-data')}
               value={repoDraft}
               onChange={(e) => setRepoDraft(e.target.value)}
-              aria-label="GitHubのリポジトリ名"
+              aria-label={t('GitHubのリポジトリ名', 'GitHub repository name')}
             />
             <input
               type="password"
               autoComplete="off"
               spellCheck={false}
-              placeholder="トークン"
+              placeholder={t('トークン', 'Token')}
               value={tokenDraft}
               onChange={(e) => setTokenDraft(e.target.value)}
-              aria-label="GitHubのFine-grainedトークン"
+              aria-label={t('GitHubのFine-grainedトークン', 'GitHub fine-grained token')}
             />
             <button type="submit" className="btn btn--primary" disabled={checking || !repoDraft.trim() || !tokenDraft.trim()}>
               {checking ? (
             <>
               <Spinner />
-              確認しています…
+              {t('確認しています…', 'Checking…')}
             </>
           ) : (
-            '連携する'
+            t('連携する', 'Connect')
           )}
             </button>
           </form>

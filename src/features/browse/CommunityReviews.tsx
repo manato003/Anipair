@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { annictUserUrl, annictWorkReviewsUrl, fetchWorkReviews, type CommunityReview, type WorkReviews } from '../../lib/annict'
+import { t } from '../../lib/i18n'
 import { useNearScreen } from '../../lib/useNearScreen'
 import { RATINGS } from '../rate/queue'
 
@@ -41,18 +42,21 @@ export function CommunityReviews(props: { token: string; workId: string; annictI
 
   return (
     <section className="detail__section community">
-      <h3 className="detail__label">みんなの感想</h3>
+      <h3 className="detail__label">{t('みんなの感想', 'Reviews from others')}</h3>
       {reviewsCount === 0 && satisfactionRate === null ? (
-        <p className="detail__hint">まだAnnictに感想がありません。</p>
+        <p className="detail__hint">{t('まだAnnictに感想がありません。', 'No reviews on Annict yet.')}</p>
       ) : (
         <p className="community__summary">
           {satisfactionRate !== null && (
             <span className="community__stat">
-              満足度 <strong>{formatRate(satisfactionRate)}%</strong>
+              {t('満足度 ', 'Satisfaction ')}
+              <strong>{formatRate(satisfactionRate)}%</strong>
             </span>
           )}
           <span className="community__stat">
-            感想 <strong>{reviewsCount.toLocaleString('ja-JP')}</strong>件
+            {t('感想 ', 'Reviews ')}
+            <strong>{reviewsCount.toLocaleString(t('ja-JP', 'en-US'))}</strong>
+            {t('件', '')}
           </span>
         </p>
       )}
@@ -65,19 +69,19 @@ export function CommunityReviews(props: { token: string; workId: string; annictI
           </ol>
         ) : (
           <p className="detail__more">
-            <span className="detail__spoiler">ネタバレを含むことがあります</span>
+            <span className="detail__spoiler">{t('ネタバレを含むことがあります', 'May contain spoilers')}</span>
             <button type="button" className="link" onClick={() => setOpen(true)} aria-expanded={false}>
-              感想を読む
+              {t('感想を読む', 'Read reviews')}
             </button>
           </p>
         ))}
       {reviewsCount > 0 && (
         <p className="detail__source">
-          Annictの利用者の感想です（
+          {t('Annictの利用者の感想です（', 'Reviews by Annict users (')}
           <a href={annictWorkReviewsUrl(props.annictId)} target="_blank" rel="noreferrer">
-            Annictで感想をすべて読む
+            {t('Annictで感想をすべて読む', 'Read all reviews on Annict')}
           </a>
-          ）
+          {t('）', ')')}
         </p>
       )}
     </section>
@@ -95,12 +99,12 @@ function ReviewItem({ review }: { review: CommunityReview }) {
           {review.user.name || review.user.username}
         </a>
         {rating && <span className={`community__rating community__rating--${review.rating!.toLowerCase()}`}>{rating}</span>}
-        {review.likesCount > 0 && <span className="community__likes">いいね {review.likesCount}</span>}
+        {review.likesCount > 0 && <span className="community__likes">{t('いいね', 'Likes')} {review.likesCount}</span>}
       </p>
       <p className={long && !expanded ? 'community__body community__body--folded' : 'community__body'}>{review.body}</p>
       {long && (
         <button type="button" className="link community__more" onClick={() => setExpanded((v) => !v)} aria-expanded={expanded}>
-          {expanded ? 'たたむ' : '全文を読む'}
+          {expanded ? t('たたむ', 'Show less') : t('全文を読む', 'Read more')}
         </button>
       )}
     </li>

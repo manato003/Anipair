@@ -1,19 +1,21 @@
+import { t } from '../../lib/i18n'
+
 // マッチングの候補の絞り込み条件（形式と放送年）。端末に保存する
 
 export type FormatGroup = 'tv' | 'movie' | 'ova'
 
 export const FORMAT_GROUPS: readonly { id: FormatGroup; label: string; formats: readonly string[] }[] = [
   { id: 'tv', label: 'TV', formats: ['TV'] },
-  { id: 'movie', label: '劇場版', formats: ['MOVIE'] },
-  { id: 'ova', label: 'OVA・配信', formats: ['OVA', 'ONA'] },
+  { id: 'movie', get label() { return t('劇場版', 'Movie') }, formats: ['MOVIE'] },
+  { id: 'ova', get label() { return t('OVA・配信', 'OVA / ONA') }, formats: ['OVA', 'ONA'] },
 ]
 
 // null は「すべて」
 export const FROM_YEARS: readonly { year: number | null; label: string }[] = [
-  { year: null, label: 'すべて' },
-  { year: 2000, label: '2000年以降' },
-  { year: 2010, label: '2010年以降' },
-  { year: 2020, label: '2020年以降' },
+  { year: null, get label() { return t('すべて', 'All') } },
+  { year: 2000, get label() { return t('2000年以降', '2000 or later') } },
+  { year: 2010, get label() { return t('2010年以降', '2010 or later') } },
+  { year: 2020, get label() { return t('2020年以降', '2020 or later') } },
 ]
 
 export interface MatchFilter {

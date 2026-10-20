@@ -1,5 +1,6 @@
 import type { GithubConnection } from '../../lib/github'
 import { loadWannaNotesRaw, saveWannaNotesRaw } from '../../lib/storage'
+import { t } from '../../lib/i18n'
 import { syncJson } from '../../lib/syncStore'
 import { MEMO_MAX, mergeWannaNotes, parseWannaNotes, sameWannaNotes, serializeWannaNotes, type WannaNotes } from './wannaNotes'
 
@@ -31,6 +32,6 @@ export function syncWannaNotes(conn: GithubConnection): Promise<WannaNotes> {
     serialize: serializeWannaNotes,
     loadLocal: loadLocalWannaNotes,
     saveLocal,
-    message: (merged) => `見たいの印とメモを更新（${merged.size}件）`,
+    message: (merged) => t(`見たいの印とメモを更新（${merged.size}件）`, `Update want-to-watch stars and notes (${merged.size})`),
   })
 }

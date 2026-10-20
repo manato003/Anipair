@@ -1,4 +1,5 @@
 import type { AnnictWork, RatingState } from '../../lib/annict'
+import { t } from '../../lib/i18n'
 import type { KeyAction } from '../../lib/keymap'
 import type { Season } from '../../lib/season'
 import type { Cover } from '../../lib/storage'
@@ -29,10 +30,11 @@ export function toCards(works: AnnictWork[], covers: ReadonlyMap<number, Cover>)
   return works.map((work) => ({ work, cover: covers.get(work.annictId) ?? null }))
 }
 
-// キーの割り当ては設定画面で変えられる（lib/keymap.ts）
+// キーの割り当ては設定画面で変えられる（lib/keymap.ts）。
+// 他のファイルから使われる定数なので、label は getter にして、読んだときの言語で返す
 export const RATINGS: readonly { rating: RatingState; label: string; action: KeyAction }[] = [
-  { rating: 'BAD', label: '良くない', action: 'rateBad' },
-  { rating: 'AVERAGE', label: '普通', action: 'rateAverage' },
-  { rating: 'GOOD', label: '良い', action: 'rateGood' },
-  { rating: 'GREAT', label: 'とても良い', action: 'rateGreat' },
+  { rating: 'BAD', get label() { return t('良くない', 'Bad') }, action: 'rateBad' },
+  { rating: 'AVERAGE', get label() { return t('普通', 'Okay') }, action: 'rateAverage' },
+  { rating: 'GOOD', get label() { return t('良い', 'Good') }, action: 'rateGood' },
+  { rating: 'GREAT', get label() { return t('とても良い', 'Great') }, action: 'rateGreat' },
 ]

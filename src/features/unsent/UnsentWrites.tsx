@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Spinner } from '../../components/Loading'
+import { plural, t } from '../../lib/i18n'
 import { storedAtLabel } from '../../lib/offlineCache'
 import { useNotice } from '../../lib/notices'
 import { useWriteQueue } from '../../lib/useWriteQueue'
@@ -14,7 +15,7 @@ export function UnsentWrites(props: { token: string }) {
   const [sent, setSent] = useState(false)
   const queue = useWriteQueue()
   // コントロールセンターにも並べる（画面の上の帯を閉じずに先へ進んでも、あとから送れるように）
-  useNotice(groups.length > 0 && !sent ? { id: 'unsent', title: `前回送れなかった記録 ${groups.length}件`, body: '送ると、Annictの今の内容と比べて足りない分だけを書きます。', action: { label: '送る', run: () => send() }, urgent: true } : null)
+  useNotice(groups.length > 0 && !sent ? { id: 'unsent', title: t(`前回送れなかった記録 ${groups.length}件`, `${plural(groups.length, 'record', 'records')} couldn’t be sent last time`), body: t('送ると、Annictの今の内容と比べて足りない分だけを書きます。', 'When you send them, only what’s missing compared with Annict’s current data is written.'), action: { label: t('送る', 'Send'), run: () => send() }, urgent: true } : null)
 
   if (groups.length === 0) return null
 
@@ -45,7 +46,7 @@ export function UnsentWrites(props: { token: string }) {
       return (
         <div className="auth-banner unsent" role="status">
           <p className="auth-banner__text">
-            <Spinner /> 前回送れなかった記録を送っています（残り{queue.pending}件）
+            <Spinner /> {t(`前回送れなかった記録を送っています（残り${queue.pending}件）`, `Sending the records that couldn’t be sent last time (${queue.pending} left)`)}
           </p>
         </div>
       )
@@ -54,11 +55,11 @@ export function UnsentWrites(props: { token: string }) {
       return (
         <div className="auth-banner unsent" role="alert">
           <p className="auth-banner__text">
-            {queue.failed.length}件を送れませんでした（{queue.failed[0].message}）
+            {t(`${queue.failed.length}件を送れませんでした（${queue.failed[0].message}）`, `${plural(queue.failed.length, 'record', 'records')} couldn’t be sent (${queue.failed[0].message})`)}
           </p>
           <div className="auth-banner__actions">
             <button type="button" className="btn btn--primary" onClick={queue.retryFailed}>
-              もう一度
+              {t('もう一度', 'Retry')}
             </button>
             <button
               type="button"
@@ -68,7 +69,7 @@ export function UnsentWrites(props: { token: string }) {
                 setGroups([])
               }}
             >
-              送らない
+              {t('送らない', 'Don’t send')}
             </button>
           </div>
         </div>
@@ -82,10 +83,13 @@ export function UnsentWrites(props: { token: string }) {
     <div className="auth-banner unsent" role="alert">
       <div className="unsent__body">
         <p className="auth-banner__text">
-          前回（{storedAtLabel(new Date(oldest).toISOString())}〜）送れなかった記録が{groups.length}件あります。送ると、Annictの今の内容と比べて足りない分だけを書きます。
+          {t(
+            `前回（${storedAtLabel(new Date(oldest).toISOString())}〜）送れなかった記録が${groups.length}件あります。送ると、Annictの今の内容と比べて足りない分だけを書きます。`,
+            `${plural(groups.length, 'record', 'records')} couldn’t be sent last time (since ${storedAtLabel(new Date(oldest).toISOString())}). When you send them, only what’s missing compared with Annict’s current data is written.`,
+          )}
         </p>
         <details className="unsent__list">
-          <summary>内容を見る</summary>
+          <summary>{t('内容を見る', 'See what’s included')}</summary>
           <ul>
             {groups.map((g) => (
               <li key={g[0].seq}>{g[0].label}</li>
@@ -95,10 +99,10 @@ export function UnsentWrites(props: { token: string }) {
       </div>
       <div className="auth-banner__actions">
         <button type="button" className="btn btn--primary" onClick={send}>
-          送る
+          {t('送る', 'Send')}
         </button>
         <button type="button" className="link" onClick={discard}>
-          送らない
+          {t('送らない', 'Don’t send')}
         </button>
       </div>
     </div>

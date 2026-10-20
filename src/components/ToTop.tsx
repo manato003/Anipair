@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { t } from '../lib/i18n'
 import { scrollToTop } from '../lib/pageScroll'
 import { UpIcon } from './Icons'
 
@@ -18,7 +19,7 @@ export function ToTop(props: { enabled: boolean }) {
   }, [props.enabled])
   if (!props.enabled || !far) return null
   return (
-    <button type="button" className="totop" aria-label="いちばん上へ" title="いちばん上へ" onClick={scrollToTop}>
+    <button type="button" className="totop" aria-label={t('いちばん上へ', 'Back to top')} title={t('いちばん上へ', 'Back to top')} onClick={scrollToTop}>
       <UpIcon />
     </button>
   )

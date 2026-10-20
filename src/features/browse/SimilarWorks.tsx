@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { CoverImage } from '../../components/CoverImage'
 import { peekLibrary } from '../../lib/annict'
 import { fetchMedia, fetchSimilar, type Media } from '../../lib/shikimori'
+import { t } from '../../lib/i18n'
+import { shikiTitle } from '../../lib/names'
 import { useNearScreen } from '../../lib/useNearScreen'
 import { FORMAT_LABEL, marksByMal } from './detail'
 import type { RelatedTarget } from './RelatedDetail'
@@ -48,11 +50,11 @@ export function SimilarWorks(props: { malId: number | null; onOpen: (target: Rel
   if (current.kind !== 'done' || current.works.length === 0) return <div ref={ref} className="near-probe" aria-hidden />
   return (
     <section className="detail__section similar">
-      <h3 className="detail__label">似た作品</h3>
+      <h3 className="detail__label">{t('似た作品', 'Similar anime')}</h3>
       <ul className="similar__list">
         {current.works.map((m) => {
-          const title = m.title.native ?? m.title.romaji ?? m.title.english ?? `MAL ${m.idMal}`
-          const meta = [m.seasonYear ? `${m.seasonYear}年` : null, m.format ? (FORMAT_LABEL[m.format] ?? null) : null].filter(Boolean).join(' ')
+          const title = shikiTitle(m.title, `MAL ${m.idMal}`)
+          const meta = [m.seasonYear ? t(`${m.seasonYear}年`, `${m.seasonYear}`) : null, m.format ? (FORMAT_LABEL[m.format] ?? null) : null].filter(Boolean).join(' ')
           const state = mine.get(m.idMal)
           return (
             <li key={m.idMal}>
@@ -68,7 +70,7 @@ export function SimilarWorks(props: { malId: number | null; onOpen: (target: Rel
           )
         })}
       </ul>
-      <p className="detail__source">似た作品はShikimoriの情報です。</p>
+      <p className="detail__source">{t('似た作品はShikimoriの情報です。', 'Similar anime data is from Shikimori.')}</p>
     </section>
   )
 }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchCovers, quickCovers } from '../../lib/covers'
 import { browseWorks, fetchLibrary, type BrowseOrder, type BrowseWork, type RatingState } from '../../lib/annict'
 import { getMyReviews } from '../../lib/myReviews'
+import { t } from '../../lib/i18n'
 import { nextSeason, seasonOf, toSlug, type Season } from '../../lib/season'
 import { fetchMedia, type Media } from '../../lib/shikimori'
 import type { Cover } from '../../lib/storage'
@@ -18,10 +19,18 @@ const DEBOUNCE_MS = 400
 const MAX_FOR_SCORE = 300
 
 // おすすめ順の手がかりが無いときの注意（好きな作品が1件も無い）
-export const NO_LIKES_NOTE = '好みの手がかりがまだありません。評価画面で、好きな作品を評価すると使えます。'
+// （画面の言語で変わるので、関数にしてある）
+export function noLikesNote(): string {
+  return t('好みの手がかりがまだありません。評価画面で、好きな作品を評価すると使えます。', 'No taste data yet. Rate anime you like on the Rate screen and this will start working.')
+}
 
 // 上限まで集めたときの注意（期間が広いと、クールより作品が多い）
-export const CAPPED_NOTE = `作品が多いので、人気の上位${MAX_FOR_SCORE}作品を並べています。期間をしぼると、ほかの作品も並びます。`
+export function cappedNote(): string {
+  return t(
+    `作品が多いので、人気の上位${MAX_FOR_SCORE}作品を並べています。期間をしぼると、ほかの作品も並びます。`,
+    `There are a lot of anime, so this shows the top ${MAX_FOR_SCORE} by popularity. Narrow the period to see others.`,
+  )
+}
 
 // Annict に頼む条件。期間があればそのクールをまとめて、無ければ上のクール1つ（タイトル検索のときは期間だけ。期間が無ければ全期間）
 function filterOf(query: string, season: Season, period: BrowsePeriod): { titles?: string[]; seasons?: string[] } {
@@ -90,7 +99,7 @@ export function useBrowse(token: string, active = true) {
   const order: BrowseOrder = effectiveSort === 'newest' ? 'SEASON' : 'WATCHERS_COUNT'
 
   useEffect(() => {
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       const q = query.trim()
       if (q === searchedRef.current) return
       searchedRef.current = q
@@ -98,7 +107,7 @@ export function useBrowse(token: string, active = true) {
       setError(null)
       setSearched(q)
     }, DEBOUNCE_MS)
-    return () => clearTimeout(t)
+    return () => clearTimeout(timer)
   }, [query])
 
   // 表紙は Annict の作品 ID ごと。Annict の画像は手元にあるので先に出し、Shikimori のポスターは取れてから足す
@@ -122,20 +131,20 @@ export function useBrowse(token: string, active = true) {
         setSortNote(null)
         setCapped(false)
         if (effectiveSort === 'score') {
-          setProgress('作品を読み込み中')
+          setProgress(t('作品を読み込み中', 'Loading anime'))
           const collected = await collectAll(token, filter, () => cancelled)
           if (!collected) return
           const all = collected.works
           // Annict の満足度が無い作品だけ、Shikimori の点数を取る
           const lacking = all.filter((w) => !(typeof w.satisfactionRate === 'number' && w.satisfactionRate > 0)).map(malIdOf).filter((n): n is number => n !== null)
-          setProgress(`評価の点数を読み込み中（${all.length}作品）`)
+          setProgress(t(`評価の点数を読み込み中（${all.length}作品）`, `Loading scores (${all.length} anime)`))
           // Shikimori が読めなくても、Annict の満足度だけで並べる（一覧ごと失敗にしない）
           let media = new Map<number, Media>()
           try {
             if (lacking.length > 0) media = await fetchMedia(lacking)
           } catch (e) {
             if (cancelled) return
-            setSortNote(`Shikimoriの点数を読み込めませんでした（${messageOf(e)}）。Annictの満足度だけで並べています。`)
+            setSortNote(t(`Shikimoriの点数を読み込めませんでした（${messageOf(e)}）。Annictの満足度だけで並べています。`, `Couldn’t load Shikimori scores (${messageOf(e)}). Sorting by Annict satisfaction only.`))
           }
           if (cancelled) return
           const shikimori = new Map<number, number | null>([...media].map(([id, m]) => [id, m.score]))
@@ -155,23 +164,23 @@ export function useBrowse(token: string, active = true) {
         } else if (effectiveSort === 'taste') {
           // 評価順と同じく、全件を集めてから手元で並べる（「もっと見る」は無い）。
           // 好みは見たいのおすすめ順と共通（起動中は使い回す）。好みを調べられなくても、一覧は人気順で見せる
-          setProgress('作品を読み込み中')
+          setProgress(t('作品を読み込み中', 'Loading anime'))
           const collected = await collectAll(token, filter, () => cancelled)
           if (!collected) return
           const all = collected.works
           let ordered = all
           let why = new Map<number, string>()
           let note: string | null = null
-          setProgress('好みを分析しています')
+          setProgress(t('好みを分析しています', 'Analyzing your taste'))
           try {
             const taste = await loadTaste(token, (step, _note, work) => {
               if (!cancelled) setProgress(step, work)
             })
             if (cancelled) return
             if (!taste.seeds.some((s) => s.weight > 0)) {
-              note = NO_LIKES_NOTE
+              note = noLikesNote()
             } else {
-              setProgress(`作品のデータを整理しています（${all.length}作品）`)
+              setProgress(t(`作品のデータを整理しています（${all.length}作品）`, `Preparing anime data (${all.length} anime)`))
               const malIds = all.map(malIdOf).filter((n): n is number => n !== null)
               const details = malIds.length > 0 ? await fetchMedia(malIds) : new Map()
               if (cancelled) return
@@ -181,7 +190,7 @@ export function useBrowse(token: string, active = true) {
             }
           } catch (e) {
             if (cancelled) return
-            note = `好みを読み込めませんでした（${messageOf(e)}）。人気順で並べています。`
+            note = t(`好みを読み込めませんでした（${messageOf(e)}）。人気順で並べています。`, `Couldn’t load your taste (${messageOf(e)}). Sorting by popularity instead.`)
           }
           setReasons(why)
           setSortNote(note)
@@ -294,7 +303,7 @@ export function useBrowse(token: string, active = true) {
   const retry = useCallback(() => {
     setWorks(null)
     setError(null)
-    setReloadTick((t) => t + 1)
+    setReloadTick((n) => n + 1)
   }, [])
 
   // 届くまでに条件を変えていたら、届いた続きは捨てる（前の条件の作品を混ぜない・前の条件の続きの位置で読まない）

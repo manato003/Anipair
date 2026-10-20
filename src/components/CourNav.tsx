@@ -1,5 +1,6 @@
 import { nextSeason, previousSeason, sameSeason, seasonLabel, seasonOf, type Season } from '../lib/season'
 import { OLDEST_SEASON } from '../features/rate/queue'
+import { t } from '../lib/i18n'
 import { SeasonPicker } from './SeasonPicker'
 
 // クールを選ぶまとまり（ブラウズと記録）: 前期・今期・来期の近道と、前後の矢印と年・季節。
@@ -10,17 +11,17 @@ export function CourNav(props: { value: Season | null; onChange: (season: Season
   const today = seasonOf(new Date())
   const latest = nextSeason(today)
   const near: readonly { label: string; season: Season }[] = [
-    { label: '前期', season: previousSeason(today) },
-    { label: '今期', season: today },
-    { label: '来期', season: latest },
+    { label: t('前期', 'Last season'), season: previousSeason(today) },
+    { label: t('今期', 'This season'), season: today },
+    { label: t('来期', 'Next season'), season: latest },
   ]
   const value = props.value
   return (
     <div className={value ? 'cournav' : 'cournav cournav--all'}>
-      <div className={props.allowAll ? 'cournav__near cournav__near--all' : 'cournav__near'} role="group" aria-label="近いクール">
+      <div className={props.allowAll ? 'cournav__near cournav__near--all' : 'cournav__near'} role="group" aria-label={t('近いクール', 'Nearby seasons')}>
         {props.allowAll && (
           <button type="button" aria-pressed={value === null} onClick={() => props.onChange(null)}>
-            すべて
+            {t('すべて', 'All')}
           </button>
         )}
         {near.map((n) => (

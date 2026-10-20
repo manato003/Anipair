@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { getMyReviews, rememberReview } from '../../lib/myReviews'
 import type { GithubConnection } from '../../lib/github'
+import { t } from '../../lib/i18n'
+import { shikiTitle } from '../../lib/names'
 import { annictMissingLinks, updateStatus, type RatingState, type WorkRef } from '../../lib/annict'
 import { changeRating } from '../../lib/reviewOps'
 import { fetchMedia, type Media } from '../../lib/shikimori'
@@ -53,8 +55,14 @@ interface UndoEntry {
   rated: boolean
 }
 
+// 検索・Annict の作品探し用（日本語の題名を先に使う。ここは変えない）
 export function titleOf(m: Media): string {
   return m.title.native ?? m.title.romaji ?? m.title.english ?? `MAL ${m.idMal}`
+}
+
+// 画面に出す題名（英語の画面ではローマ字を先に）
+export function displayTitleOf(m: Media): string {
+  return shikiTitle(m.title, `MAL ${m.idMal}`)
 }
 
 export function useMatching(annictToken: string, github: GithubConnection | null) {
@@ -87,7 +95,7 @@ export function useMatching(annictToken: string, github: GithubConnection | null
     const filter = filterRef.current
     // 提案を作るたびに好みを読み直す（評価が増えたあとでも、新しい好みで提案できるように）。読んだ好みは、記録ページの傾向などが使い回す
     forgetTaste()
-    setPhase({ kind: 'loading', step: 'Annictの記録を読み込み中' })
+    setPhase({ kind: 'loading', step: t('Annictの記録を読み込み中', 'Loading your Annict records') })
     try {
       const { library, ratings, seeds, similarSeeds, similar, profile, pendingSimilar } = await loadTaste(annictToken, (step, note, work) => {
         if (alive()) setPhase({ kind: 'loading', step, note, work })
@@ -96,18 +104,18 @@ export function useMatching(annictToken: string, github: GithubConnection | null
       const liked = seeds.filter((s) => s.weight > 0).length
       setBasis({ rated: ratings.size, liked, pending: pendingSimilar })
       if (liked === 0) {
-        setPhase({ kind: 'empty', message: '好きな作品の記録がまだありません。評価画面で、見た作品を「良い」か「とても良い」で評価してください。' })
+        setPhase({ kind: 'empty', message: t('好きな作品の記録がまだありません。評価画面で、見た作品を「良い」か「とても良い」で評価してください。', 'You have no liked anime on record yet. On the Rate screen, rate anime you’ve watched as Good or Great.') })
         return
       }
 
       let passes = loadLocalPasses()
       if (github) {
-        setPhase({ kind: 'loading', step: '興味なし・保留の作品をGitHubから読み込み中' })
+        setPhase({ kind: 'loading', step: t('興味なし・保留の作品をGitHubから読み込み中', 'Loading Not interested / Later anime from GitHub') })
         try {
           passes = await syncPasses(github)
           setSyncNote(null)
         } catch (e) {
-          setSyncNote(`GitHubと同期できませんでした（${messageOf(e)}）。この端末の記録だけで進めます。`)
+          setSyncNote(t(`GitHubと同期できませんでした（${messageOf(e)}）。この端末の記録だけで進めます。`, `Couldn’t sync with GitHub (${messageOf(e)}). Continuing with the records on this device only.`))
         }
         if (!alive()) return
       }
@@ -116,7 +124,7 @@ export function useMatching(annictToken: string, github: GithubConnection | null
       const exclude = new Set([...recorded, ...activePassIds(passes, new Date()), ...answered.current])
       const pool = collectPool(similarSeeds, similar, exclude).slice(0, POOL_SIZE)
 
-      setPhase({ kind: 'loading', step: '候補を整理しています' })
+      setPhase({ kind: 'loading', step: t('候補を整理しています', 'Sorting the candidates') })
       const details = await fetchMedia(pool.map((p) => p.malId))
       if (!alive()) return
       const ranked = rankCandidates(pool, details, profile, seenMalIds(library), filter).slice(0, MAX_CARDS)
@@ -124,8 +132,8 @@ export function useMatching(annictToken: string, github: GithubConnection | null
         setPhase({
           kind: 'empty',
           message: isDefaultFilter(filter)
-            ? '今の記録からは候補が見つかりませんでした。評価した作品が増えると候補が広がります。'
-            : '条件に合う候補が見つかりませんでした。形式や放送年の条件をゆるめてみてください。',
+            ? t('今の記録からは候補が見つかりませんでした。評価した作品が増えると候補が広がります。', 'No suggestions could be found from your records yet. The more anime you rate, the more suggestions you’ll get.')
+            : t('条件に合う候補が見つかりませんでした。形式や放送年の条件をゆるめてみてください。', 'No suggestions match your filters. Try loosening the format or air year.'),
         })
         return
       }
@@ -167,7 +175,7 @@ export function useMatching(annictToken: string, github: GithubConnection | null
 
   // 始まる前の同期はまとめる（詳しくは useCoalescedTask）
   const syncRun = useMemo(() => (github ? async () => void (await syncPasses(github)) : null), [github])
-  const syncLater = useCoalescedTask(enqueue, '興味なし・保留の記録のGitHubへの保存', syncRun)
+  const syncLater = useCoalescedTask(enqueue, t('興味なし・保留の記録のGitHubへの保存', 'Save Not interested / Later records to GitHub'), syncRun)
 
   const answer = useCallback(
     (a: MatchAnswer) => {
@@ -184,15 +192,20 @@ export function useMatching(annictToken: string, github: GithubConnection | null
       }
       answered.current.add(card.media.idMal)
       const title = titleOf(card.media)
+      const shownTitle = displayTitleOf(card.media)
       const label =
-        a.kind === 'wanna' ? `「${title}」の見たいへの追加` : a.kind === 'watching' ? `「${title}」の見てるへの追加` : `「${title}」の記録`
+        a.kind === 'wanna'
+          ? t(`「${shownTitle}」の見たいへの追加`, `Add “${shownTitle}” to Want to watch`)
+          : a.kind === 'watching'
+            ? t(`「${shownTitle}」の見てるへの追加`, `Add “${shownTitle}” to Watching`)
+            : t(`「${shownTitle}」の記録`, `Record “${shownTitle}”`)
       const state = a.kind === 'wanna' ? 'WANNA_WATCH' : a.kind === 'watching' ? 'WATCHING' : a.kind === 'stop' ? 'STOP_WATCHING' : 'WATCHED'
       enqueue(
         label,
         async () => {
           entry.ref ??= await resolveCard(card)
           if (!entry.ref) {
-            throw new WriteError(`「${title}」をAnnictで見つけられませんでした。`, annictMissingLinks(title))
+            throw new WriteError(t(`「${shownTitle}」をAnnictで見つけられませんでした。`, `Couldn’t find “${shownTitle}” on Annict.`), annictMissingLinks(title))
           }
           await updateStatus(annictToken, entry.ref.id, state)
           if (a.kind === 'rate') {
@@ -222,7 +235,7 @@ export function useMatching(annictToken: string, github: GithubConnection | null
     const { media } = entry.card
     answered.current.delete(media.idMal)
     enqueue(
-      `「${titleOf(media)}」の取り消し`,
+      t(`「${displayTitleOf(media)}」の取り消し`, `Undo “${displayTitleOf(media)}”`),
       async () => {
         const ref = entry.ref
         if (!ref) return

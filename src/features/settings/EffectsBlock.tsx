@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { applyEffectLevel, loadEffectLevel, saveEffectLevel, type EffectLevel } from '../../lib/storage'
 import { Choices } from '../../components/QuickSettings'
 import { EFFECTS } from '../../lib/displayPrefs'
+import { t } from '../../lib/i18n'
 import { Section, SettingRow } from './Section'
 
 
@@ -15,8 +16,8 @@ export function EffectsBlock() {
   }
   return (
     <Section id="settings-effects">
-      <SettingRow label="演出" hint="答えた数の節目や、踏破のときの演出">
-        <Choices label="演出の強さ" choices={EFFECTS} value={level} onChoose={choose} />
+      <SettingRow label={t('演出', 'Effects')} hint={t('答えた数の節目や、踏破のときの演出', 'Effects at answer-count milestones and when you finish a season')}>
+        <Choices label={t('演出の強さ', 'Effect level')} choices={EFFECTS} value={level} onChoose={choose} />
       </SettingRow>
     </Section>
   )

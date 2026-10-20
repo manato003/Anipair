@@ -1,4 +1,5 @@
 import { loadOauthState, saveOauthState } from './storage'
+import { t } from './i18n'
 
 // 「Annict でログイン」（OAuth の認可コードフロー）。
 // ログインのボタン → Annict の画面 → このアプリの `/?code=…&state=…` に戻る → /api/annict-token で code をトークンに換える。
@@ -59,17 +60,20 @@ export function withoutCallback(pathname: string, search: string, hash: string):
 
 export type LoginResult = { kind: 'token'; token: string } | { kind: 'error'; message: string }
 
-const MESSAGES: Record<string, string> = {
-  denied: 'Annictでのログインがキャンセルされました。',
-  state: 'ログインの確認に失敗しました。もう一度「Annictでログイン」を押してください。',
-  invalid_grant: 'ログインの有効期限が切れたか、すでに使われています。もう一度「Annictでログイン」を押してください。',
-  server_not_configured: 'このサイトでは、Annictでのログインがまだ設定されていません。',
-  network: 'ログインの受け渡しに接続できませんでした。通信を確認して、もう一度試してください。',
-  unavailable: 'ログインの受け渡しが動いていません。個人用アクセストークンを使うか、少し待ってからもう一度試してください。',
+// 呼んだときの言語で返す（ファイルの外側で t() を呼ばないため、関数にしてある）
+function messages(): Record<string, string> {
+  return {
+    denied: t('Annictでのログインがキャンセルされました。', 'Logging in with Annict was canceled.'),
+    state: t('ログインの確認に失敗しました。もう一度「Annictでログイン」を押してください。', 'The login check failed. Please press “Log in with Annict” again.'),
+    invalid_grant: t('ログインの有効期限が切れたか、すでに使われています。もう一度「Annictでログイン」を押してください。', 'The login has expired or was already used. Please press “Log in with Annict” again.'),
+    server_not_configured: t('このサイトでは、Annictでのログインがまだ設定されていません。', 'Logging in with Annict isn’t set up on this site yet.'),
+    network: t('ログインの受け渡しに接続できませんでした。通信を確認して、もう一度試してください。', 'Could not connect to complete the login. Check your connection and try again.'),
+    unavailable: t('ログインの受け渡しが動いていません。個人用アクセストークンを使うか、少し待ってからもう一度試してください。', 'The login handoff isn’t working. Use a personal access token, or wait a moment and try again.'),
+  }
 }
 
 function failure(key: string): LoginResult {
-  return { kind: 'error', message: MESSAGES[key] ?? 'ログインに失敗しました。もう一度試してください。' }
+  return { kind: 'error', message: messages()[key] ?? t('ログインに失敗しました。もう一度試してください。', 'Login failed. Please try again.') }
 }
 
 // Annict から戻ってきたアドレスを処理する。state を照合し、code を関数に渡してトークンを受け取る。

@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { t } from '../lib/i18n'
 import { AniFigure, CheerScene, PairFigure, WatchingScene } from './Mascot'
 import { Sheet } from './Sheet'
 
@@ -104,53 +105,78 @@ function Figure({ screen, guide }: { screen: Screen; guide: 'ani' | 'pair' | 'bo
   )
 }
 
-const STEPS: { art: ReactNode; title: string; body: string }[] = [
-  {
-    art: <WatchingScene className="scene-art guide-scene" />,
-    title: 'ようこそ、Anipairへ',
-    body: '見たアニメを、タップでAnnictに記録していくアプリです。記録が増えるほど、あなたの好みに合う「次の1本」を見つけてきます。案内は、アニメを見る係のアニと、次の好きを見つけてくる係のペアです。',
-  },
-  {
-    art: <Figure screen="rate" guide="ani" />,
-    title: '評価: 表紙を見て、答える',
-    body: 'クールの人気作が1枚ずつ出てきます。見た作品は4段階で評価、見ていなければ「見てない」、気になれば「見たい」。上の ‹ › で、前のクールへさかのぼれます。',
-  },
-  {
-    art: <Figure screen="match" guide="pair" />,
-    title: 'マッチング: 次の好きを見つける',
-    body: 'あなたの評価から好みを調べて、まだ見ていない作品を提案します。気になれば「見たい」、違えば「興味なし」、迷ったら「保留」。提案の理由も一緒に出ます。',
-  },
-  {
-    art: <Figure screen="records" guide="ani" />,
-    title: '記録: 見てる・見た・見たい',
-    body: '記録した作品の一覧です。見てる作品は、カードから次の話をその場で記録できます。「まとめ」では、好みの傾向・年間のふり返り・実績（称号）が見られます。',
-  },
-  {
-    art: <Figure screen="browse" guide="pair" />,
-    title: 'ブラウズ: 作品を探す',
-    body: 'クールの作品の一覧と、タイトルでの検索です。表紙を押すと詳細が開き、あらすじ・キャスト・関連作品が読めて、そのまま記録もできます。',
-  },
-  {
-    art: <Figure screen="nav" guide="both" />,
-    title: '画面の行き来と、困ったとき',
-    body: '画面は下の帯で切り替えます（スマホは左右に払っても、PCは ← → でも替わります）。右上の「?」は、その画面のボタンを1つずつ指して説明します。となりのボタンは、知らせと表示の設定です。',
-  },
-  {
-    art: <CheerScene className="scene-art guide-scene" />,
-    title: 'さあ、はじめよう',
-    body: '記録はすべて、あなたのAnnictに保存されます。まずは評価の画面で、見たことのある作品に答えてみてください。',
-  },
-]
+// 言語を替えたら文言も替わるように、呼ぶたびに作る（ファイルの一番外で t() を呼ばない）
+function steps(): { art: ReactNode; title: string; body: string }[] {
+  return [
+    {
+      art: <WatchingScene className="scene-art guide-scene" />,
+      title: t('ようこそ、Anipairへ', 'Welcome to Anipair'),
+      body: t(
+        '見たアニメを、タップでAnnictに記録していくアプリです。記録が増えるほど、あなたの好みに合う「次の1本」を見つけてきます。案内は、アニメを見る係のアニと、次の好きを見つけてくる係のペアです。',
+        'Anipair lets you log the anime you’ve watched on Annict with just a tap. The more you record, the better it gets at finding your “next one”. Your guides are Ani, who watches the anime, and Pair, who hunts for the next thing you’ll love.',
+      ),
+    },
+    {
+      art: <Figure screen="rate" guide="ani" />,
+      title: t('評価: 表紙を見て、答える', 'Rate: look at the cover and answer'),
+      body: t(
+        'クールの人気作が1枚ずつ出てきます。見た作品は4段階で評価、見ていなければ「見てない」、気になれば「見たい」。上の ‹ › で、前のクールへさかのぼれます。',
+        'Popular anime from a season appear one at a time. Rate what you’ve watched in four steps, tap “Haven’t seen” if you haven’t, or “Want to watch” if it looks interesting. Use ‹ › at the top to go back to earlier seasons.',
+      ),
+    },
+    {
+      art: <Figure screen="match" guide="pair" />,
+      title: t('マッチング: 次の好きを見つける', 'Match: find your next favorite'),
+      body: t(
+        'あなたの評価から好みを調べて、まだ見ていない作品を提案します。気になれば「見たい」、違えば「興味なし」、迷ったら「保留」。提案の理由も一緒に出ます。',
+        'Anipair learns your taste from your ratings and suggests anime you haven’t seen. Tap “Want to watch” if it looks good, “Not interested” if not, or “Later” if you’re unsure. Each suggestion comes with a reason.',
+      ),
+    },
+    {
+      art: <Figure screen="records" guide="ani" />,
+      title: t('記録: 見てる・見た・見たい', 'Records: Watching, Watched, Want to watch'),
+      body: t(
+        '記録した作品の一覧です。見てる作品は、カードから次の話をその場で記録できます。「まとめ」では、好みの傾向・年間のふり返り・実績（称号）が見られます。',
+        'Your recorded anime, in lists. For anime you’re watching, you can record the next episode right from the card. Under “Summary”, you’ll find your taste trends, Year in review, and Achievements (titles).',
+      ),
+    },
+    {
+      art: <Figure screen="browse" guide="pair" />,
+      title: t('ブラウズ: 作品を探す', 'Browse: find anime'),
+      body: t(
+        'クールの作品の一覧と、タイトルでの検索です。表紙を押すと詳細が開き、あらすじ・キャスト・関連作品が読めて、そのまま記録もできます。',
+        'Browse the anime list for each season, or search by title. Tap a cover to open details, read the synopsis, cast, and related anime, and record it right there.',
+      ),
+    },
+    {
+      art: <Figure screen="nav" guide="both" />,
+      title: t('画面の行き来と、困ったとき', 'Getting around, and getting help'),
+      body: t(
+        '画面は下の帯で切り替えます（スマホは左右に払っても、PCは ← → でも替わります）。右上の「?」は、その画面のボタンを1つずつ指して説明します。となりのボタンは、知らせと表示の設定です。',
+        'Switch screens with the bar at the bottom (on a phone you can also swipe left or right; on a computer, press ← →). The “?” at the top right points to each button on the current screen and explains it. The button next to it opens notifications and display settings.',
+      ),
+    },
+    {
+      art: <CheerScene className="scene-art guide-scene" />,
+      title: t('さあ、はじめよう', 'Let’s get started'),
+      body: t(
+        '記録はすべて、あなたのAnnictに保存されます。まずは評価の画面で、見たことのある作品に答えてみてください。',
+        'All your records are saved to your own Annict account. To start, go to the Rate screen and answer a few anime you’ve seen.',
+      ),
+    },
+  ]
+}
 
 export function UsageGuide(props: { active?: boolean; onClose: () => void }) {
   const [i, setI] = useState(0)
-  const step = STEPS[i]
-  const last = i === STEPS.length - 1
+  const all = steps()
+  const step = all[i]
+  const last = i === all.length - 1
   return (
-    <Sheet label="Anipairの使い方" size="page" active={props.active} onClose={props.onClose}>
+    <Sheet label={t('Anipairの使い方', 'How to use Anipair')} size="page" active={props.active} onClose={props.onClose}>
       <div className="guide" aria-live="polite">
         <p className="guide__count">
-          {i + 1} / {STEPS.length}
+          {i + 1} / {all.length}
         </p>
         <div className="guide__art" key={i}>
           {step.art}
@@ -158,21 +184,21 @@ export function UsageGuide(props: { active?: boolean; onClose: () => void }) {
         <h2 className="guide__title">{step.title}</h2>
         <p className="guide__body">{step.body}</p>
         <div className="guide__dots" aria-hidden>
-          {STEPS.map((s, k) => (
+          {all.map((s, k) => (
             <span key={s.title} className={k === i ? 'guide__dot guide__dot--on' : 'guide__dot'} />
           ))}
         </div>
         <div className="guide__nav">
           <button type="button" className="btn" onClick={() => setI(i - 1)} disabled={i === 0}>
-            戻る
+            {t('戻る', 'Back')}
           </button>
           {last ? (
             <button type="button" className="btn btn--primary" onClick={props.onClose}>
-              はじめる
+              {t('はじめる', 'Start')}
             </button>
           ) : (
             <button type="button" className="btn btn--primary" onClick={() => setI(i + 1)}>
-              次へ
+              {t('次へ', 'Next')}
             </button>
           )}
         </div>

@@ -1,4 +1,6 @@
 import { idMalOf } from '../../lib/writeJournal'
+import { t } from '../../lib/i18n'
+import { workTitle } from '../../lib/names'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchCovers, quickCovers } from '../../lib/covers'
 import { fetchLibrary, updateStatus, type LibraryEntry, type RatingState, type StatusState } from '../../lib/annict'
@@ -158,7 +160,8 @@ export function useRecords(token: string, active = true) {
   // 評価を付ける・変える・消す。評価を付けたら「見た」にする
   const setRating = useCallback(
     (row: RecordRow, rating: RatingState | null) => {
-      const { annictId, workId, title } = row.entry
+      const { annictId, workId } = row.entry
+      const title = workTitle(row.entry)
       const becomesWatched = rating !== null && row.entry.state !== 'WATCHED'
       patchRow(annictId, (r) => ({
         ...r,
@@ -169,7 +172,7 @@ export function useRecords(token: string, active = true) {
           : null,
       }))
       enqueue(
-        `「${title}」の評価`,
+        t(`「${title}」の評価`, `Rating for “${title}”`),
         async () => {
           if (becomesWatched) await updateStatus(token, workId, 'WATCHED')
           // 画面の表示は先に変えるが、何を送るかは列の順番どおりに、この時点の実際の感想で決める
@@ -185,11 +188,12 @@ export function useRecords(token: string, active = true) {
   // 状態を変える。未設定にしたら一覧から外す
   const setState = useCallback(
     (row: RecordRow, state: StatusState) => {
-      const { annictId, workId, title } = row.entry
+      const { annictId, workId } = row.entry
+      const title = workTitle(row.entry)
       if (state === row.entry.state) return
       patchRow(annictId, (r) => (state === 'NO_STATE' ? null : { ...r, entry: { ...r.entry, state, stateAt: new Date().toISOString() } }))
       enqueue(
-        `「${title}」の状態`,
+        t(`「${title}」の状態`, `Status for “${title}”`),
         async () => {
           await updateStatus(token, workId, state)
         },

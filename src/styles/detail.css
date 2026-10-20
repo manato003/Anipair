@@ -52,6 +52,8 @@ img.cover--contain {
 
 .detail__titles {
   display: grid;
+  /* 列の幅を枠に合わせる（無いと、折り返さない要点の行の長さまで列が広がり、英語の長い題名と要点がはみ出した） */
+  grid-template-columns: minmax(0, 1fr);
   gap: 4px;
 }
 
@@ -889,6 +891,11 @@ a.related__title {
 }
 
 /* 利用規約とプライバシーポリシーを、アプリの中で開いたとき（features/settings/LegalLinks.tsx）。見た目は public/legal.css と同じ */
+/* 英語の画面から開いたときは英語の節まで送る。上端に貼りついた閉じるボタンの段に、見出しが隠れないだけ空ける */
+.legal section.en {
+  scroll-margin-top: 88px;
+}
+
 .legal h1 {
   margin: 8px 0 4px;
   font-size: 1.6rem;

@@ -1,4 +1,5 @@
 import type { BrowseWork, StatusState } from '../../lib/annict'
+import { t } from '../../lib/i18n'
 import { SEASON_KEYS, mediaKindOf, type MediaInfo, type MediaKind, type SeasonKey } from '../records/recordList'
 
 // ブラウズの絞り込み。どの項目も空なら絞らない。項目の中は「どれか」、項目どうしは「すべて」（記録の絞り込みと同じ考え方）。
@@ -45,20 +46,29 @@ export function periodSlugs(p: BrowsePeriod, oldestYear: number, latestYear: num
 export function periodLabel(p: BrowsePeriod): string {
   const from = p.yearFrom !== null && p.yearTo !== null ? Math.min(p.yearFrom, p.yearTo) : p.yearFrom
   const to = p.yearFrom !== null && p.yearTo !== null ? Math.max(p.yearFrom, p.yearTo) : p.yearTo
-  const years = from !== null && to !== null ? (from === to ? `${from}年` : `${from}〜${to}年`) : from !== null ? `${from}年〜` : to !== null ? `〜${to}年` : 'すべての年の'
+  const years =
+    from !== null && to !== null
+      ? from === to
+        ? t(`${from}年`, `${from}`)
+        : t(`${from}〜${to}年`, `${from}–${to}`)
+      : from !== null
+        ? t(`${from}年〜`, `${from} onward`)
+        : to !== null
+          ? t(`〜${to}年`, `Through ${to}`)
+          : t('すべての年の', 'All years')
   const seasons = SEASON_KEYS.filter((k) => p.seasons.includes(k.id))
     .map((k) => k.label)
-    .join('・')
-  return seasons ? `${years} ${seasons}` : years
+    .join(t('・', ', '))
+  return seasons ? t(`${years} ${seasons}`, `${years} · ${seasons}`) : years
 }
 
 export const MINE_CHOICES: readonly { id: MineFilter; label: string }[] = [
-  { id: 'none', label: '未記録' },
-  { id: 'unseen', label: '見てない' },
-  { id: 'watched', label: '見た' },
-  { id: 'watching', label: '見てる' },
-  { id: 'wanna', label: '見たい' },
-  { id: 'stopped', label: '視聴中断' },
+  { id: 'none', get label() { return t('未記録', 'Not recorded') } },
+  { id: 'unseen', get label() { return t('見てない', 'Haven’t seen') } },
+  { id: 'watched', get label() { return t('見た', 'Watched') } },
+  { id: 'watching', get label() { return t('見てる', 'Watching') } },
+  { id: 'wanna', get label() { return t('見たい', 'Want to watch') } },
+  { id: 'stopped', get label() { return t('視聴中断', 'Dropped') } },
 ]
 
 // unseen: 評価の画面で「見てない」にしているか（記録の無い作品だけが「見てない」になる。記録があれば記録の方）

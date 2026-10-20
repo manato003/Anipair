@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { t } from '../../lib/i18n'
 import { useModalFocus } from '../../lib/useModalFocus'
 import { TitlePlate } from './TitlePlate'
 import { byRarity, type Title } from './titles'
@@ -27,13 +28,14 @@ export function Awakening({ titles, onClose }: { titles: Title[]; onClose: () =>
       <div className="awaken__body">
         {titles.length > 0 ? (
           <>
-            <p className="awaken__eyebrow">Annictでの歩みを読み解いた</p>
+            <p className="awaken__eyebrow">{t('Annictでの歩みを読み解いた', 'We read through your Annict history')}</p>
             <h2 id="awaken-title" className="awaken__title">
-              封印されし称号が、目覚めた
+              {t('封印されし称号が、目覚めた', 'Sealed titles have awakened')}
             </h2>
             <p className="awaken__count">
-              <span className="awaken__num">{titles.length}</span> の称号を手に入れました
-              {hiddenCount > 0 && <span className="awaken__hidden">（うち隠し称号 {hiddenCount}）</span>}
+              <span className="awaken__num">{titles.length}</span>
+              {t(' の称号を手に入れました', titles.length === 1 ? ' title earned' : ' titles earned')}
+              {hiddenCount > 0 && <span className="awaken__hidden">{t(`（うち隠し称号 ${hiddenCount}）`, ` (${hiddenCount} hidden)`)}</span>}
             </p>
             <ul className="awaken__list">
               {shown.map((t, i) => (
@@ -43,22 +45,22 @@ export function Awakening({ titles, onClose }: { titles: Title[]; onClose: () =>
               ))}
               {rest > 0 && (
                 <li className="awaken__item awaken__item--rest" style={{ animationDelay: `${0.9 + shown.length * 0.22}s` }}>
-                  ほか {rest} の称号
+                  {t(`ほか ${rest} の称号`, `and ${rest} more`)}
                 </li>
               )}
             </ul>
           </>
         ) : (
           <>
-            <p className="awaken__eyebrow">Annictでの歩みを読み解いた</p>
+            <p className="awaken__eyebrow">{t('Annictでの歩みを読み解いた', 'We read through your Annict history')}</p>
             <h2 id="awaken-title" className="awaken__title">
-              称号は、まだ眠っている
+              {t('称号は、まだ眠っている', 'Your titles are still asleep')}
             </h2>
-            <p className="awaken__count">評価画面でクールの作品に答えていくと、最初の称号が目覚めます。</p>
+            <p className="awaken__count">{t('評価画面でクールの作品に答えていくと、最初の称号が目覚めます。', 'Answer anime from a season on the Rate screen, and your first title will awaken.')}</p>
           </>
         )}
         <button ref={buttonRef} type="button" className="btn btn--primary awaken__button" onClick={onClose}>
-          {titles.length > 0 ? '受け取る' : 'はじめる'}
+          {titles.length > 0 ? t('受け取る', 'Claim') : t('はじめる', 'Get started')}
         </button>
       </div>
     </div>

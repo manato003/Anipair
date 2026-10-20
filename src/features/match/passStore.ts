@@ -1,4 +1,5 @@
 import type { GithubConnection } from '../../lib/github'
+import { t } from '../../lib/i18n'
 import { loadPassesRaw, savePassesRaw } from '../../lib/storage'
 import { syncJson } from '../../lib/syncStore'
 import { mergePasses, parsePasses, samePasses, serializePasses, type HideKind, type Passes } from './passes'
@@ -33,6 +34,6 @@ export function syncPasses(conn: GithubConnection): Promise<Passes> {
     serialize: serializePasses,
     loadLocal: loadLocalPasses,
     saveLocal,
-    message: (merged) => `興味なし・保留の記録を更新（${merged.size}件）`,
+    message: (merged) => t(`興味なし・保留の記録を更新（${merged.size}件）`, `Update Not interested / Later records (${merged.size})`),
   })
 }

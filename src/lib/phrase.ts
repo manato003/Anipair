@@ -3,13 +3,13 @@
 // ひらがなで始まる語（助詞・送り仮名など）は前の語につなげる（「夢を｜見ない」）。iPhone の Safari でも効く（word-break: auto-phrase は Chrome だけ）。
 // 語の中では折らない（keep-all）。1語が行に収まらないときだけ、どこででも折る（overflow-wrap: anywhere。はみ出さない）
 const segmenter = typeof Intl !== 'undefined' && 'Segmenter' in Intl ? new Intl.Segmenter('ja', { granularity: 'word' }) : null
-const BREAK_BEFORE = /^[\p{Script=Han}\p{Script=Katakana}A-Za-z0-9０-９Ａ-Ｚａ-ｚ「『（(【〈《]/u
-// 直後で折らない文字: 開き括弧（『｜86 と括弧だけが行末に残る）・数字と「第」（第｜3｜期）
-const NO_BREAK_AFTER = /[「『（(【〈《0-9０-９第]$/u
+const BREAK_BEFORE = /^[\p{Script=Han}\p{Script=Katakana}A-Za-z0-9０-９Ａ-Ｚａ-ｚ「『（(【〈《]/u // i18n-ok: 日本語の改行位置を決める文字の判定（表示する文言ではない）
+// 直後で折らない文字: 開き括弧（『｜86 と括弧だけが行末に残る。英語の “ ‘ も）・数字と「第」（第｜3｜期）
+const NO_BREAK_AFTER = /[「『（(【〈《“‘0-9０-９第]$/u // i18n-ok: 同上
 const HAN_END = /\p{Script=Han}$/u
 const HAN_START = /^\p{Script=Han}/u
-const KANA_END = /[\p{Script=Katakana}ー]$/u
-const KANA_START = /^[\p{Script=Katakana}ー]/u
+const KANA_END = /[\p{Script=Katakana}ー]$/u // i18n-ok: 同上
+const KANA_START = /^[\p{Script=Katakana}ー]/u // i18n-ok: 同上
 
 export function phraseChunks(text: string): string[] {
   if (!segmenter) return [text]

@@ -1,3 +1,4 @@
+import { t } from '../../lib/i18n'
 import type { LibraryEntry, MyReview, RatingState, StatusState } from '../../lib/annict'
 import { serializePasses, type Passes } from '../match/passes'
 import { serializeUnseen, type Unseen } from '../rate/unseen'
@@ -138,5 +139,5 @@ export function countSnapshot(snapshot: Snapshot): SnapshotCounts {
 
 // コミットメッセージと設定画面で共通の言い方
 export function describeCounts(c: SnapshotCounts): string {
-  return `見た ${c.watched}・見たい ${c.wanna}・評価 ${c.rated}`
+  return t(`見た ${c.watched}・見たい ${c.wanna}・評価 ${c.rated}`, `Watched ${c.watched} · Want to watch ${c.wanna} · Rated ${c.rated}`)
 }

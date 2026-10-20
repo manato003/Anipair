@@ -1,3 +1,5 @@
+import { t } from './i18n'
+
 // 放送クール。Annict は "2026-summer" の形で受け取る
 export type SeasonName = 'winter' | 'spring' | 'summer' | 'autumn'
 
@@ -8,11 +10,18 @@ export interface Season {
 
 const ORDER: readonly SeasonName[] = ['winter', 'spring', 'summer', 'autumn']
 
-const LABELS: Record<SeasonName, string> = {
-  winter: '冬',
-  spring: '春',
-  summer: '夏',
-  autumn: '秋',
+// 呼んだときの言語で返す（ファイルの外側で t() を呼ばないため、関数にしてある）
+function labelOf(name: SeasonName): string {
+  switch (name) {
+    case 'winter':
+      return t('冬', 'Winter')
+    case 'spring':
+      return t('春', 'Spring')
+    case 'summer':
+      return t('夏', 'Summer')
+    case 'autumn':
+      return t('秋', 'Fall')
+  }
 }
 
 // 1〜3月が冬、4〜6月が春、7〜9月が夏、10〜12月が秋
@@ -42,7 +51,7 @@ export function sameSeason(a: Season, b: Season): boolean {
 export const SEASON_NAMES: readonly SeasonName[] = ORDER
 
 export function seasonNameLabel(name: SeasonName): string {
-  return LABELS[name]
+  return labelOf(name)
 }
 
 // 古い方が負、同じなら 0
@@ -75,5 +84,5 @@ export function parseSlug(slug: unknown): Season | null {
 }
 
 export function seasonLabel(season: Season): string {
-  return `${season.year}年 ${LABELS[season.name]}`
+  return t(`${season.year}年 ${labelOf(season.name)}`, `${labelOf(season.name)} ${season.year}`)
 }

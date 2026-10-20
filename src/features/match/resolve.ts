@@ -9,16 +9,17 @@ import type { Media } from '../../lib/shikimori'
 // 実測（2026-10-07、Annict の人気順で MAL の ID がある作品）: 上位600作品で、元の手順（AniList のときに決めた）の外れ 49件 → この手順で 0件。
 // 規則を決めるのに使っていない 600〜900番目では 1件（名探偵コナン漆黒の追跡者(チェイサー) / Annict は「名探偵コナン 漆黒の追跡者」）。当たるまでの検索は平均1.35回
 
+// 以下の正規表現の日本語は画面の文言ではなく、Annict を日本語の題名で検索するための照合用の文字（訳さない）
 // \s は全角スペースにも当たる
-const SEPARATORS = /[\s\-―:：!！?？~〜「『(（]/
+const SEPARATORS = /[\s\-―:：!！?？~〜「『(（]/ // i18n-ok
 // 読みがなの括弧（冴えない彼女〈ヒロイン〉の育てかた・超電磁砲[レールガン]T・落第騎士の英雄譚《キャバルリィ》）
-const RUBY = /[〈<＜《[［][^〉>＞》\]］]{1,20}[〉>＞》\]］]/g
+const RUBY = /[〈<＜《[［][^〉>＞》\]］]{1,20}[〉>＞》\]］]/g // i18n-ok
 // かけらに切る区切り。「劇場版」「映画」は Annict に無いことが多い（劇場版メイドインアビス / メイドインアビス 深き魂の黎明）
-const PIECE_SEPARATORS = /[\s\-―－:：;；!！?？~〜「」『』()（）[\]［］〈〉<>＜＞《》【】/／・.,、。☆★♪♭√°゜'’"“”&＆]+|新劇場版|劇場版|映画/
+const PIECE_SEPARATORS = /[\s\-―－:：;；!！?？~〜「」『』()（）[\]［］〈〉<>＜＞《》【】/／・.,、。☆★♪♭√°゜'’"“”&＆]+|新劇場版|劇場版|映画/ // i18n-ok
 // 日本語と英字・数字の境目でも切る（ドクターストーン STONE WARS、だろうかII）。後読み（?<=）は iOS 16.4 より前の Safari で構文エラーになるので、連なりで取る
-const SCRIPT_RUNS = /[ぁ-んァ-ヶ一-龠々ー]+|[^ぁ-んァ-ヶ一-龠々ー]+/g
+const SCRIPT_RUNS = /[ぁ-んァ-ヶ一-龠々ー]+|[^ぁ-んァ-ヶ一-龠々ー]+/g // i18n-ok
 // 漢字と仮名だけなら2文字でも引く（銀魂° / 銀魂゜）。英字の2文字（IS）は当たりすぎる
-const JAPANESE_ONLY = /^[ぁ-んァ-ヶ一-龠々ー]+$/
+const JAPANESE_ONLY = /^[ぁ-んァ-ヶ一-龠々ー]+$/ // i18n-ok
 // 1作品で引く回数の上限（外れる作品で、検索を際限なく重ねない）
 const MAX_VARIANTS = 12
 
@@ -38,7 +39,7 @@ function pieces(title: string): string[] {
 // 英語名・ローマ字はコロンの前だけ、空白を詰めた形も（Dr. Stone → Dr.Stone で「Dr.STONE」に当たる。大文字小文字は区別されない）。
 // 最後に、最初の語だけも（Persona 4 The Animation → Persona で「Persona4 the ANIMATION」に当たる）
 function latinHeads(title: string | null): string[] {
-  const head = title?.split(/\s*[:：]\s|\s-\s/)[0].trim()
+  const head = title?.split(/\s*[:：]\s|\s-\s/)[0].trim() // i18n-ok
   if (!head) return []
   const word = head.split(/\s+/)[0]
   return [head.replace(/\s+/g, ''), head, ...(/^[A-Za-z]{4,}$/.test(word) ? [word] : [])]

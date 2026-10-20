@@ -1,3 +1,4 @@
+import { t } from '../../lib/i18n'
 import { fetchLibrary } from '../../lib/annict'
 import { GitHubError, readJson, writeJson, type GithubConnection } from '../../lib/github'
 import { refreshMyReviews } from '../../lib/myReviews'
@@ -102,7 +103,7 @@ async function save(conn: GithubConnection, snapshot: Snapshot, counts: Snapshot
     const remote = await readJson(conn, PATH)
     if (!force && remote.sha && sameSnapshot(snapshot, remote.value)) return false
     try {
-      await writeJson(conn, PATH, snapshot, remote.sha, `バックアップ（${describeCounts(counts)}）`)
+      await writeJson(conn, PATH, snapshot, remote.sha, t(`バックアップ（${describeCounts(counts)}）`, `Backup (${describeCounts(counts)})`))
       return true
     } catch (e) {
       if (e instanceof GitHubError && e.kind === 'conflict' && attempt === 0) continue

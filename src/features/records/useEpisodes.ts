@@ -6,6 +6,7 @@ import { WriteError, messageOf } from '../../lib/useWriteQueue'
 import { findPastRecord, forgetPastRecords, type PastRecord } from '../../lib/pastRecords'
 import type { WriteIntent } from '../../lib/writeJournal'
 import { episodeLabel } from './episodes'
+import { t } from '../../lib/i18n'
 
 type Enqueue = (label: string, task: () => Promise<void>, intents?: readonly WriteIntent[]) => void
 
@@ -99,7 +100,7 @@ export function useEpisodes(token: string, workIds: readonly string[], enqueue: 
       const since = Date.now()
       recordedAt.current.set(episode.id, since)
       enqueue(
-        `「${title}」${episodeLabel(episode)}の記録`,
+        t(`「${title}」${episodeLabel(episode)}の記録`, `Record of “${title}” ${episodeLabel(episode)}`),
         async () => {
           try {
             // 前回の記録が届いたか分からない話なら、まず確かめる（二重に記録しない。lib/uncertainWrites.ts）
@@ -138,7 +139,7 @@ export function useEpisodes(token: string, workIds: readonly string[], enqueue: 
       })
       const since = recordedAt.current.get(episode.id) ?? Date.now()
       enqueue(
-        `「${title}」${episodeLabel(episode)}の記録の取り消し`,
+        t(`「${title}」${episodeLabel(episode)}の記録の取り消し`, `Undo record of “${title}” ${episodeLabel(episode)}`),
         async () => {
           // 送れていなかった記録は、消すものが無い。届いたか分からなかった記録は、届いていたら消す
           const id = (await pending) ?? (await resolveUncertainRecord(token, episode.id))
@@ -159,11 +160,11 @@ export function useEpisodes(token: string, workIds: readonly string[], enqueue: 
       const since = recordedAt.current.get(episode.id) ?? Date.now()
       const label = episodeLabel(episode)
       enqueue(
-        `「${title}」${label}の感想`,
+        t(`「${title}」${label}の感想`, `Review of “${title}” ${label}`),
         async () => {
           // 記録の送信を待つ。送り直しで ID を受け取れなかったときは、自分の最近の記録から探す
           const id = (await pending) ?? (await resolveUncertainRecord(token, episode.id)) ?? (await findMyRecord(token, episode.id, since))
-          if (!id) throw new WriteError(`${label}の記録がまだAnnictに届いていないので、感想を付けられませんでした。記録を送り直してから、もう一度試してください。`)
+          if (!id) throw new WriteError(t(`${label}の記録がまだAnnictに届いていないので、感想を付けられませんでした。記録を送り直してから、もう一度試してください。`, `Couldn’t add a review because your record of ${label} hasn’t reached Annict yet. Resend the record, then try again.`))
           await updateRecord(token, id, text, rating)
         },
         [{ kind: 'episodeComment', episodeId: episode.id, comment: text, rating, since }],
@@ -178,9 +179,9 @@ export function useEpisodes(token: string, workIds: readonly string[], enqueue: 
     (title: string, episode: Episode, text: string, onSent: () => void) => {
       setCommented((cur) => new Set(cur).add(episode.id))
       const label = episodeLabel(episode)
-      enqueue(`「${title}」${label}の感想`, async () => {
+      enqueue(t(`「${title}」${label}の感想`, `Review of “${title}” ${label}`), async () => {
         const found = await findMyEpisodeRecord(token, episode.id)
-        if (!found) throw new WriteError(`${label}のあなたの記録が見つからず、感想を付けられませんでした（最近の500件まで探します）。下書きは残っています。`)
+        if (!found) throw new WriteError(t(`${label}のあなたの記録が見つからず、感想を付けられませんでした（最近の500件まで探します）。下書きは残っています。`, `Couldn’t add a review because your record of ${label} wasn’t found (only your latest 500 records are searched). Your draft is still saved.`))
         await updateRecord(token, found.id, text, found.rating)
         onSent()
       })

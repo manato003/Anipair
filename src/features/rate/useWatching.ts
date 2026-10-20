@@ -1,6 +1,8 @@
 import { idMalOf } from '../../lib/writeJournal'
+import { workTitle } from '../../lib/names'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchCovers, quickCovers } from '../../lib/covers'
+import { t } from '../../lib/i18n'
 import { loadStoredLibrary } from '../../lib/offlineCache'
 import { fetchLibrary, updateStatus, type RatingState, type StatusState } from '../../lib/annict'
 import { getMyReviews, peekMyReview, rememberReview } from '../../lib/myReviews'
@@ -132,10 +134,11 @@ export function useWatching(token: string) {
         markStillWatching(card.entry.annictId)
         return
       }
-      const { workId, annictId, title } = card.entry
+      const { workId, annictId } = card.entry
+      const title = workTitle(card.entry)
       const idMal = idMalOf(card.entry.malAnimeId)
       enqueue(
-        `「${title}」の記録`,
+        t(`「${title}」の記録`, `Record “${title}”`),
         async () => {
           await updateStatus(token, workId, TARGET[a.kind])
           if (a.kind !== 'rate') return
@@ -159,11 +162,12 @@ export function useWatching(token: string) {
       unmarkStillWatching(entry.card.entry.annictId)
       return
     }
-    const { workId, annictId, title } = entry.card.entry
+    const { workId, annictId } = entry.card.entry
+    const title = workTitle(entry.card.entry)
     const idMal = idMalOf(entry.card.entry.malAnimeId)
     const rated = entry.answer.kind === 'rate'
     enqueue(
-      `「${title}」の取り消し`,
+      t(`「${title}」の取り消し`, `Undo “${title}”`),
       async () => {
         await updateStatus(token, workId, 'WATCHING')
         // 評価を付けていたら、付ける前の評価に戻す（無かったなら消す）

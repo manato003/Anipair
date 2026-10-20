@@ -3,9 +3,10 @@ import { useEffect, useState } from 'react'
 import { CoverImage } from '../../components/CoverImage'
 import { Sheet } from '../../components/Sheet'
 import { annictMissingLinks, type WorkRef } from '../../lib/annict'
+import { t } from '../../lib/i18n'
 import { messageOf } from '../../lib/useWriteQueue'
 import { WorkDetail, type Enqueue, type RelatedChange } from '../browse/WorkDetail'
-import { titleOf, type MatchCard } from './useMatching'
+import { displayTitleOf, titleOf, type MatchCard } from './useMatching'
 import { Loading } from '../../components/Loading'
 
 type Found = { kind: 'loading' } | { kind: 'found'; ref: WorkRef } | { kind: 'missing' } | { kind: 'error'; message: string }
@@ -51,19 +52,21 @@ export function MatchDetail(props: {
     )
   }
 
+  // 検索の手がかりは日本語の題名のまま。画面に出す題名だけ言語で替える
   const title = titleOf(card.media)
+  const shownTitle = displayTitleOf(card.media)
   return (
-    <Sheet label={title} size="page" active={props.active} onClose={props.onClose}>
+    <Sheet label={shownTitle} size="page" active={props.active} onClose={props.onClose}>
       <header className="detail__head">
         <div className="detail__cover">{card.media.cover && <CoverImage cover={card.media.cover} size="large" />}</div>
         <div className="detail__titles">
           <h2 className="detail__title">
-            <Phrase text={title} />
+            <Phrase text={shownTitle} />
           </h2>
-          {found.kind === 'loading' && <Loading className="detail__meta" label="Annictで作品を検索中" />}
+          {found.kind === 'loading' && <Loading className="detail__meta" label={t('Annictで作品を検索中', 'Searching Annict for this anime')} />}
           {found.kind === 'missing' && (
             <>
-              <p className="detail__meta">Annictで作品を見つけられませんでした。</p>
+              <p className="detail__meta">{t('Annictで作品を見つけられませんでした。', 'Couldn’t find this anime on Annict.')}</p>
               {annictMissingLinks(title).map((l) => (
                 <a key={l.href} className="detail__source" href={l.href} target="_blank" rel="noreferrer">
                   {l.text}

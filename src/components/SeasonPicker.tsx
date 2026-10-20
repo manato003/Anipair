@@ -12,6 +12,7 @@ import {
   type Season,
   type SeasonName,
 } from '../lib/season'
+import { getLang, t } from '../lib/i18n'
 import { useSheetLayer } from './sheetLayer'
 
 interface Props {
@@ -108,7 +109,7 @@ export function SeasonPicker({ value, min, max, onChange, onPrevious, onNext }: 
         className="stepper__btn"
         onClick={onPrevious ?? (() => pick(previousSeason(shown)))}
         disabled={compareSeasons(shown, min) <= 0}
-        aria-label="前のクール"
+        aria-label={t('前のクール', 'Previous season')}
       >
         ‹
       </button>
@@ -118,11 +119,20 @@ export function SeasonPicker({ value, min, max, onChange, onPrevious, onNext }: 
         className="stepper__current"
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-label={`クールを選ぶ（いまは ${shown.year}年 ${seasonNameLabel(shown.name)}）`}
+        aria-label={t(`クールを選ぶ（いまは ${shown.year}年 ${seasonNameLabel(shown.name)}）`, `Choose a season (currently ${seasonNameLabel(shown.name)} ${shown.year})`)}
         onClick={toggle}
       >
-        <span className="stepper__year">{shown.year}年</span>
-        <span className="stepper__season">{seasonNameLabel(shown.name)}</span>
+        {/* 英語は季節が先（Fall 2026） */}
+        {getLang() === 'en' ? (
+          <>
+            <span className="stepper__season">{seasonNameLabel(shown.name)}</span> <span className="stepper__year">{shown.year}</span>
+          </>
+        ) : (
+          <>
+            <span className="stepper__year">{`${shown.year}年`}</span>{/* i18n-ok: 日本語の画面だけの枝 */}
+            <span className="stepper__season">{seasonNameLabel(shown.name)}</span>
+          </>
+        )}
         <span className="stepper__caret" aria-hidden />
       </button>
       <button
@@ -130,7 +140,7 @@ export function SeasonPicker({ value, min, max, onChange, onPrevious, onNext }: 
         className="stepper__btn"
         onClick={onNext ?? (() => pick(nextSeason(shown)))}
         disabled={compareSeasons(shown, max) >= 0}
-        aria-label="次のクール"
+        aria-label={t('次のクール', 'Next season')}
       >
         ›
       </button>
@@ -140,21 +150,21 @@ export function SeasonPicker({ value, min, max, onChange, onPrevious, onNext }: 
             ref={panelRef}
             className="courpick"
             role="dialog"
-            aria-label="クールを選ぶ"
+            aria-label={t('クールを選ぶ', 'Choose a season')}
             style={pos ?? undefined}
             onKeyDown={onPanelKey}
             data-no-swipe
           >
-            <p className="courpick__label">年</p>
-            <div className="courpick__years" role="group" aria-label="年">
+            <p className="courpick__label">{t('年', 'Year')}</p>
+            <div className="courpick__years" role="group" aria-label={t('年', 'Year')}>
               {years.map((y) => (
                 <button key={y} type="button" aria-pressed={y === year} onClick={() => setYear(y)}>
                   {y}
                 </button>
               ))}
             </div>
-            <p className="courpick__label">季節</p>
-            <div className="courpick__seasons" role="group" aria-label="季節">
+            <p className="courpick__label">{t('季節', 'Season')}</p>
+            <div className="courpick__seasons" role="group" aria-label={t('季節', 'Season')}>
               {SEASON_NAMES.map((name: SeasonName) => {
                 const s = { year, name }
                 return (

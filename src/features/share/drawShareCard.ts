@@ -1,4 +1,5 @@
 import type { Rarity } from '../achievements/titles'
+import { getLang, t } from '../../lib/i18n'
 import { SHARE_URL, type ShareCard } from './shareCard'
 
 // 共有の画像を canvas に描いて PNG にする（縦 1080×1350。SNS の縦長の投稿に合う）。端末の中だけで作る。
@@ -30,7 +31,8 @@ const TINT: Record<Rarity, string> = {
 
 async function loadFonts(card: ShareCard): Promise<void> {
   if (typeof document === 'undefined' || !document.fonts) return
-  const all = [card.headline, card.footer, card.title?.name ?? '', ...card.kpis.flatMap((k) => [k.label, k.value]), ...card.facts.flatMap((f) => [f.label, f.value]), ...(card.radar ?? []).map((r) => r.label), '0123456789/%〜年本あなたの傾向も']
+  const all = [card.headline, card.footer, card.title?.name ?? '', ...card.kpis.flatMap((k) => [k.label, k.value]), ...card.facts.flatMap((f) => [f.label, f.value]), ...(card.radar ?? []).map((r) => r.label), '0123456789/%〜年本あなたの傾向も'] // i18n-ok
+  // 日本語の画面で使う決まった文字は、上の末尾の文字列で先に読み込む（英語の文字は、中身から拾う）
   const text = [...new Set(all.join(''))].join('')
   await Promise.allSettled([
     document.fonts.load(`400 28px 'Zen Maru Gothic'`, text),
@@ -58,15 +60,15 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath()
 }
 
-// 幅に収まるように行を分ける。区切り（「・」「 / 」）のところで折り返し、1つの語が収まらなければ1文字ずつ。
+// 幅に収まるように行を分ける。区切り（「・」「, 」「 / 」）のところで折り返し、1つの語が収まらなければ、英語は空白のところ、日本語は1文字ずつ。
 // 収まらない分は … で切る
 function wrap(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, maxLines: number): string[] {
-  const fits = (t: string) => ctx.measureText(t).width <= maxWidth
-  const tokens = text.split(/(?<=・| \/ )/)
+  const fits = (s: string) => ctx.measureText(s).width <= maxWidth
+  const tokens = text.split(/(?<=・|, | \/ )/) // i18n-ok
   const lines: string[] = []
   let line = ''
-  const push = (t: string) => {
-    lines.push(t.replace(/(・| \/ )$/, '').trimEnd())
+  const push = (s: string) => {
+    lines.push(s.replace(/(・|, | \/ )$/, '').trimEnd()) // i18n-ok
   }
   for (const token of tokens) {
     if (fits(line + token)) {
@@ -75,12 +77,21 @@ function wrap(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, max
     }
     if (line) push(line)
     line = ''
-    // 1つの語が1行に収まらないときは、1文字ずつ詰める
-    for (const ch of token) {
-      if (fits(line + ch)) line += ch
-      else {
-        push(line)
-        line = ch
+    // 1つの語が1行に収まらないときは、英語なら空白のところで、収まらない語は1文字ずつ詰める
+    const words = getLang() === 'en' ? token.split(/(?<= )/) : [token]
+    for (const word of words) {
+      if (fits(line + word)) {
+        line += word
+        continue
+      }
+      if (line) push(line)
+      line = ''
+      for (const ch of word) {
+        if (fits(line + ch)) line += ch
+        else {
+          push(line)
+          line = ch
+        }
       }
     }
   }
@@ -137,7 +148,7 @@ export async function drawShareCard(card: ShareCard, now = new Date()): Promise<
   canvas.width = W
   canvas.height = H
   const ctx = canvas.getContext('2d')
-  if (!ctx) throw new Error('この端末では画像を作れませんでした')
+  if (!ctx) throw new Error(t('この端末では画像を作れませんでした', 'Couldn’t make the image on this device'))
 
   // 地: 暖かい暗色に、差し色の光をにじませる
   ctx.fillStyle = INK
@@ -169,7 +180,7 @@ export async function drawShareCard(card: ShareCard, now = new Date()): Promise<
   ctx.textBaseline = 'alphabetic'
   ctx.fillStyle = PAPER
   ctx.font = `700 72px ${DISPLAY}`
-  ctx.fillText(card.headline, PAD, 210)
+  ctx.fillText(card.headline, PAD, 210, W - PAD * 2)
   let y = 240
   if (card.title) {
     const tint = TINT[card.title.rarity]
@@ -223,7 +234,7 @@ export async function drawShareCard(card: ShareCard, now = new Date()): Promise<
     ctx.textAlign = 'left'
     ctx.fillStyle = MUTED
     ctx.font = `700 26px ${UI}`
-    ctx.fillText('ジャンルの好み', PAD, y + 10)
+    ctx.fillText(t('ジャンルの好み', 'Genre taste'), PAD, y + 10)
     drawRadar(ctx, card.radar, W / 2, y + 60 + R, R)
     y += 2 * R + 120
   }
@@ -277,5 +288,5 @@ export async function drawShareCard(card: ShareCard, now = new Date()): Promise<
   ctx.font = `400 26px ${UI}`
   ctx.fillText(`${card.footer} → ${SHARE_URL.replace(/^https:\/\/|\/$/g, '')}`, W / 2, H - 52)
 
-  return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('画像を作れませんでした'))), 'image/png'))
+  return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error(t('画像を作れませんでした', 'Couldn’t make the image')))), 'image/png'))
 }

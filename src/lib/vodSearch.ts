@@ -1,3 +1,5 @@
+import { t } from './i18n'
+
 // 配信サービスの検索ページへのリンク。題名を各サービスの検索に入れるだけで、配信しているかは確かめない（画面にもそう書く）。
 // 日本のアニメの配信状況は、Annict の API に無く（2026-07 のフォーラムでの管理者の回答）、ほかにも個人が正当に使える取り先が無い。
 // 作品ページを読み取るのではなく、利用者が1タップで確かめられる入り口だけを置く（2026-10-07。並びは作者が選んだ順）。
@@ -8,8 +10,8 @@ const SERVICES: readonly { name: string; url: (q: string) => string }[] = [
   { name: 'U-NEXT', url: (q) => `https://video.unext.jp/freeword?query=${q}` },
   { name: 'Prime Video', url: (q) => `https://www.amazon.co.jp/gp/video/search?phrase=${q}` },
   { name: 'ABEMA', url: (q) => `https://abema.tv/search?q=${q}` },
-  { name: 'dアニメストア', url: (q) => `https://animestore.docomo.ne.jp/animestore/sch_pc?searchKey=${q}` },
-  { name: 'ニコニコ', url: (q) => `https://www.nicovideo.jp/search/${q}` },
+  { get name() { return t('dアニメストア', 'd Anime Store') }, url: (q) => `https://animestore.docomo.ne.jp/animestore/sch_pc?searchKey=${q}` },
+  { get name() { return t('ニコニコ', 'Niconico') }, url: (q) => `https://www.nicovideo.jp/search/${q}` },
 ]
 
 export function vodSearchLinks(title: string): { name: string; href: string }[] {

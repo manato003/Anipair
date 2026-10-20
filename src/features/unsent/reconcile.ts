@@ -1,3 +1,5 @@
+import { t } from '../../lib/i18n'
+import { shikiTitle } from '../../lib/names'
 import { annictMissingLinks, fetchRecentActivity, updateRecord, updateStatus } from '../../lib/annict'
 import { getMyReviews, rememberReview } from '../../lib/myReviews'
 import { changeRating, contentOf, saveReview } from '../../lib/reviewOps'
@@ -41,7 +43,9 @@ export async function reconcileIntent(token: string, intent: WriteIntent): Promi
     case 'match': {
       const ref = await resolveAnnictWork(token, intent)
       const title = intent.title.native ?? intent.title.english ?? intent.title.romaji ?? ''
-      if (!ref) throw new WriteError(`「${title}」をAnnictで見つけられませんでした。`, annictMissingLinks(title))
+      // 検索の手がかりは日本語の題名のまま。文に出す題名だけ言語で替える
+      const shownTitle = shikiTitle(intent.title)
+      if (!ref) throw new WriteError(t(`「${shownTitle}」をAnnictで見つけられませんでした。`, `Couldn’t find “${shownTitle}” on Annict.`), annictMissingLinks(title))
       // 状態があとから付け直されていたら、状態は書かない（評価だけ）
       if (!intent.keepState) await updateStatus(token, ref.id, intent.state)
       if (intent.rating === undefined) return

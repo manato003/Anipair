@@ -3,6 +3,7 @@ import type { ProgramSlot } from './annict'
 import type { GithubConnection } from './github'
 import { syncJson } from './syncStore'
 import { readStoredBroadcast, saveStoredBroadcast } from './storage'
+import { t, weekdayShort } from './i18n'
 
 // 見るサービスと、見てる作品の次の放送（Issue #32。2026-10-13）。
 // 放送予定は Annict の公開の API（作品の programs）にある。チャンネルごと・毎週の分が入っていて、配信（動画サービス・ABEMA）と
@@ -11,31 +12,63 @@ import { readStoredBroadcast, saveStoredBroadcast } from './storage'
 
 // 配信サービス。名前は画面に出すもの、channels は Annict のチャンネルの名前（2026-10-13 に今期と前期の人気の作品で確かめた）。
 // 並びは配信サービスの検索（vodSearch.ts）と同じで、そのあとに残り
+// label は取り出したときの言語で返す（getter。ファイルの外側で t() を呼ばないため）
 export const SERVICES = [
   { id: 'netflix', label: 'Netflix', channels: ['Netflix'] },
   { id: 'unext', label: 'U-NEXT', channels: ['U-NEXT'] },
-  { id: 'prime', label: 'Prime Video', channels: ['Amazon プライム・ビデオ'] },
+  { id: 'prime', label: 'Prime Video', channels: ['Amazon プライム・ビデオ'] }, // i18n-ok: channels は Annict のチャンネル名（データ）
   // ABEMA はチャンネルが多い（ABEMA アニメLIVE・ABEMA みんなのアニメなど）ので、Annict のチャンネルのまとまり「ABEMA」で見る（#34）
-  { id: 'abema', label: 'ABEMA', channels: ['ABEMAビデオ', 'ABEMA アニメ'], group: 'ABEMA' },
-  { id: 'danime', label: 'dアニメストア', channels: ['dアニメストア'] },
-  { id: 'nico', label: 'ニコニコ', channels: ['ニコニコチャンネル', 'ニコニコ生放送', 'dアニメストア ニコニコ支店'] },
+  { id: 'abema', label: 'ABEMA', channels: ['ABEMAビデオ', 'ABEMA アニメ'], group: 'ABEMA' }, // i18n-ok: channels は Annict のチャンネル名（データ）
+  {
+    id: 'danime',
+    get label() {
+      return t('dアニメストア', 'd Anime Store')
+    },
+    channels: ['dアニメストア'], // i18n-ok: channels は Annict のチャンネル名（データ）
+  },
+  {
+    id: 'nico',
+    get label() {
+      return t('ニコニコ', 'Niconico')
+    },
+    channels: ['ニコニコチャンネル', 'ニコニコ生放送', 'dアニメストア ニコニコ支店'], // i18n-ok: channels は Annict のチャンネル名（データ）
+  },
   { id: 'hulu', label: 'Hulu', channels: ['Hulu'] },
   { id: 'fod', label: 'FOD', channels: ['FOD'] },
   { id: 'dmm', label: 'DMM TV', channels: ['DMM TV'] },
   { id: 'disney', label: 'Disney+', channels: ['Disney+'] },
-  { id: 'bandai', label: 'バンダイチャンネル', channels: ['バンダイチャンネル'] },
+  {
+    id: 'bandai',
+    get label() {
+      return t('バンダイチャンネル', 'Bandai Channel')
+    },
+    channels: ['バンダイチャンネル'], // i18n-ok: channels は Annict のチャンネル名（データ）
+  },
   { id: 'youtube', label: 'YouTube', channels: ['YouTube'] },
 ] as const
 
 export type ServiceId = (typeof SERVICES)[number]['id']
 
 // 地上波は地域で局が違うので、地域で選ぶ（Annict のチャンネルのまとまり「テレビ 関東」など）
-export const REGIONS = ['北海道', '東北', '関東', '甲信越', '北陸', '東海', '近畿', '中国', '四国', '九州', '沖縄'] as const
+export const REGIONS = ['北海道', '東北', '関東', '甲信越', '北陸', '東海', '近畿', '中国', '四国', '九州', '沖縄'] as const // i18n-ok: 保存する値であり Annict のまとまり「テレビ 関東」などと照合する鍵（表示の英語名は regionLabel）
 export type Region = (typeof REGIONS)[number]
+
+// REGIONS と同じ並びの英語名
+const REGION_EN = ['Hokkaido', 'Tohoku', 'Kanto', 'Koshinetsu', 'Hokuriku', 'Tokai', 'Kinki', 'Chugoku', 'Shikoku', 'Kyushu', 'Okinawa']
+
+// 地域の表示の名前（保存する値は日本語のまま）
+export function regionLabel(region: Region): string {
+  return t(region, REGION_EN[REGIONS.indexOf(region)]) // i18n-ok: region は保存する値（日本語の地域名）。日本語の画面ではそのまま出す
+}
 
 export const SATELLITES = [
   { id: 'bs', label: 'BS' },
-  { id: 'cs', label: 'CS（AT-X・アニマックスなど）' },
+  {
+    id: 'cs',
+    get label() {
+      return t('CS（AT-X・アニマックスなど）', 'CS (AT-X, Animax, etc.)')
+    },
+  },
 ] as const
 export type SatelliteId = (typeof SATELLITES)[number]['id']
 
@@ -73,11 +106,14 @@ export function hasChoice(p: BroadcastChoice): boolean {
 export function choiceSummary(p: BroadcastChoice): string {
   const names = [
     ...SERVICES.filter((s) => p.services.includes(s.id)).map((s) => s.label),
-    ...(p.region ? [`地上波（${p.region}）`] : []),
+    ...(p.region ? [t(`地上波（${p.region}）`, `Broadcast TV (${regionLabel(p.region)})`)] : []),
     ...SATELLITES.filter((s) => p.satellites.includes(s.id)).map((s) => s.id.toUpperCase()),
   ]
-  if (names.length === 0) return '選んでいません'
-  return names.length <= 3 ? names.join('・') : `${names.slice(0, 2).join('・')}ほか${names.length - 2}つ`
+  if (names.length === 0) return t('選んでいません', 'None selected')
+  const sep = t('・', ', ')
+  if (names.length <= 3) return names.join(sep)
+  const head = names.slice(0, 2).join(sep)
+  return t(`${head}ほか${names.length - 2}つ`, `${head} and ${names.length - 2} more`)
 }
 
 // ── 選んだサービスを、設定と記録の画面で同じものにする ──
@@ -115,7 +151,7 @@ export function syncBroadcastPrefs(conn: GithubConnection): Promise<BroadcastPre
     saveLocal: (p) => {
       if (!sameChoice(p, snapshot())) store(p)
     },
-    message: () => '見るサービスを更新',
+    message: () => '見るサービスを更新', // i18n-ok: 利用者の GitHub に残るコミットメッセージ（画面には出ない。ほかの同期と同じく日本語）
   })
 }
 
@@ -146,9 +182,9 @@ function serviceOf(slot: Slot): (typeof SERVICES)[number] | undefined {
 
 export function matches(slot: Slot, p: BroadcastChoice): boolean {
   // 地域を選んだら、その地域の局と、全国の局（NHK など。Annict のまとまり「テレビ 全国」。#34）
-  if (p.region && (slot.g === `テレビ ${p.region}` || slot.g === 'テレビ 全国')) return true
+  if (p.region && (slot.g === `テレビ ${p.region}` || slot.g === 'テレビ 全国')) return true // i18n-ok: Annict のチャンネルのまとまりの名前（データ）
   if (p.satellites.includes('bs') && slot.g.startsWith('BS')) return true
-  if (p.satellites.includes('cs') && slot.g === 'スカパー') return true
+  if (p.satellites.includes('cs') && slot.g === 'スカパー') return true // i18n-ok: Annict のチャンネルのまとまりの名前（データ）
   const service = serviceOf(slot)
   return service !== undefined && p.services.includes(service.id)
 }
@@ -216,8 +252,6 @@ export function upcomingByChannel(slots: readonly Slot[], p: BroadcastChoice, no
   return [...first].sort((a, b) => a[1] - b[1]).map(([channel, at]) => ({ channel, at: new Date(at) }))
 }
 
-const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土']
-
 // 日本の時刻で
 const jst = (d: Date) => new Date(d.getTime() + 9 * 3600 * 1000)
 const dayNumber = (d: Date) => Math.floor(jst(d).getTime() / 86400000)
@@ -231,10 +265,11 @@ export function formatTime(at: Date): string {
 // 「今日」「明日」「10/18(日)」
 export function formatDay(at: Date, now: Date): string {
   const diff = dayNumber(at) - dayNumber(now)
-  if (diff === 0) return '今日'
-  if (diff === 1) return '明日'
+  if (diff === 0) return t('今日', 'Today')
+  if (diff === 1) return t('明日', 'Tomorrow')
   const a = jst(at)
-  return `${a.getUTCMonth() + 1}/${a.getUTCDate()}(${WEEKDAYS[a.getUTCDay()]})`
+  const md = `${a.getUTCMonth() + 1}/${a.getUTCDate()}`
+  return t(`${md}(${weekdayShort(a.getUTCDay())})`, `${md} (${weekdayShort(a.getUTCDay())})`)
 }
 
 // 「今日 23:30」「明日 0:00」「10/18(日) 0:00」
@@ -297,5 +332,8 @@ export function weekSchedule<T>(works: readonly { work: T; slots: readonly Slot[
 }
 
 export function broadcastLabel(next: NextBroadcast, now: Date): string {
-  return `次の放送 ${formatBroadcast(next.at, now)} ${next.channel}${next.more ? 'ほか' : ''}`
+  const when = formatBroadcast(next.at, now)
+  return next.more
+    ? t(`次の放送 ${when} ${next.channel}ほか`, `Next airing ${when} ${next.channel} and more`)
+    : t(`次の放送 ${when} ${next.channel}`, `Next airing ${when} ${next.channel}`)
 }

@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { loadKeymapRaw, saveKeymapRaw } from './storage'
+import { t, tx, type Text } from './i18n'
 
 // PC のキーボード操作の割り当て。評価画面とマッチングで共通
 
@@ -12,21 +13,38 @@ const BOTH: readonly Screen[] = ['rate', 'match']
 
 // screens: その操作を使う画面。同じ画面で使う操作どうしは別のキーにする。使う画面が重ならなければ、同じキーにできる
 // （評価の「見てない」とマッチングの「興味なし」は、どちらも画面の右下の「いらない」の答えなので、同じキーにしている）
-export const KEY_ACTIONS: readonly { action: KeyAction; label: string; where: string; screens: readonly Screen[] }[] = [
-  { action: 'rateBad', label: '良くない', where: '評価・マッチング', screens: BOTH },
-  { action: 'rateAverage', label: '普通', where: '評価・マッチング', screens: BOTH },
-  { action: 'rateGood', label: '良い', where: '評価・マッチング', screens: BOTH },
-  { action: 'rateGreat', label: 'とても良い', where: '評価・マッチング', screens: BOTH },
-  { action: 'skip', label: '見てない', where: '評価', screens: ['rate'] },
-  { action: 'wanna', label: '見たい', where: '評価・マッチング', screens: BOTH },
-  { action: 'watched', label: '覚えてない（評価なしで見た）', where: '評価・マッチング', screens: BOTH },
-  { action: 'pass', label: '興味なし', where: 'マッチング', screens: ['match'] },
-  { action: 'later', label: '保留', where: 'マッチング', screens: ['match'] },
-  { action: 'undo', label: 'ひとつ戻る', where: '評価・マッチング', screens: BOTH },
-  { action: 'detail', label: '詳しく見る', where: '評価・マッチング', screens: BOTH },
+type KeyActionInfo = { action: KeyAction; label: string; where: string; screens: readonly Screen[] }
+const WHERE_BOTH: Text = { ja: '評価・マッチング', en: 'Rate / Match' }
+const WHERE_RATE: Text = { ja: '評価', en: 'Rate' }
+const WHERE_MATCH: Text = { ja: 'マッチング', en: 'Match' }
+// label と where は、取り出したときの言語で返す（形は変えない。ファイルの外側で t() を呼ばないため）
+function entry(action: KeyAction, label: Text, where: Text, screens: readonly Screen[]): KeyActionInfo {
+  return {
+    action,
+    get label() {
+      return tx(label)
+    },
+    get where() {
+      return tx(where)
+    },
+    screens,
+  }
+}
+export const KEY_ACTIONS: readonly KeyActionInfo[] = [
+  entry('rateBad', { ja: '良くない', en: 'Bad' }, WHERE_BOTH, BOTH),
+  entry('rateAverage', { ja: '普通', en: 'Okay' }, WHERE_BOTH, BOTH),
+  entry('rateGood', { ja: '良い', en: 'Good' }, WHERE_BOTH, BOTH),
+  entry('rateGreat', { ja: 'とても良い', en: 'Great' }, WHERE_BOTH, BOTH),
+  entry('skip', { ja: '見てない', en: 'Haven’t seen' }, WHERE_RATE, ['rate']),
+  entry('wanna', { ja: '見たい', en: 'Want to watch' }, WHERE_BOTH, BOTH),
+  entry('watched', { ja: '覚えてない（評価なしで見た）', en: 'Don’t remember (watched, no rating)' }, WHERE_BOTH, BOTH),
+  entry('pass', { ja: '興味なし', en: 'Not interested' }, WHERE_MATCH, ['match']),
+  entry('later', { ja: '保留', en: 'Later' }, WHERE_MATCH, ['match']),
+  entry('undo', { ja: 'ひとつ戻る', en: 'Undo' }, WHERE_BOTH, BOTH),
+  entry('detail', { ja: '詳しく見る', en: 'See details' }, WHERE_BOTH, BOTH),
   // 未記録の作品は「見てる」にする。見てる作品のカードでは「まだ見てる」（次へ進むだけ）
-  { action: 'watching', label: '見てる', where: '評価・マッチング', screens: BOTH },
-  { action: 'stop', label: '視聴中断', where: '評価・マッチング', screens: BOTH },
+  entry('watching', { ja: '見てる', en: 'Watching' }, WHERE_BOTH, BOTH),
+  entry('stop', { ja: '視聴中断', en: 'Dropped' }, WHERE_BOTH, BOTH),
 ]
 
 // 2つの操作が同じ画面で使われるか（使われるなら、同じキーにできない）
@@ -84,7 +102,7 @@ export function keyLabel(key: string): string {
 export function rangeLabel(keys: string[]): string {
   const digits = keys.map(Number)
   const consecutive = keys.every((k) => /^\d$/.test(k)) && digits.every((d, i) => i === 0 || d === digits[i - 1] + 1)
-  return consecutive ? `${keys[0]}〜${keys[keys.length - 1]}` : keys.map(keyLabel).join('')
+  return consecutive ? t(`${keys[0]}〜${keys[keys.length - 1]}`, `${keys[0]}–${keys[keys.length - 1]}`) : keys.map(keyLabel).join('')
 }
 
 // 空いているキーを探す順番（左手の届く所から）

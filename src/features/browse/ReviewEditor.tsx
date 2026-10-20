@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Loading } from '../../components/Loading'
 import { fetchReview, type RatingState } from '../../lib/annict'
 import { getMyReviews, rememberReview } from '../../lib/myReviews'
+import { t } from '../../lib/i18n'
 import { clearDraft, loadDraft, saveDraft, type DraftAxes } from '../../lib/reviewDrafts'
 import { AXIS_LABEL, saveReview } from '../../lib/reviewOps'
 import { messageOf } from '../../lib/useWriteQueue'
@@ -70,10 +71,10 @@ export function ReviewEditor(props: { token: string; workId: string; annictId: n
     const sent = form
     const overall = props.overall
     setLoaded({ ...loaded, saved: sent, fromDraft: false })
-    setNote('保存しました')
+    setNote(t('保存しました', 'Saved'))
     const content = { axes: { ...sent.axes, ratingOverallState: overall }, body: sent.body }
     props.enqueue(
-      `「${props.title}」の感想`,
+      t(`「${props.title}」の感想`, `Review for “${props.title}”`),
       async () => {
         // 送信の時点での共有の控えを渡す（saveReview が Annict から最新を読み直してから送る）
         const cached = (await getMyReviews(token)).get(annictId) ?? null
@@ -95,7 +96,7 @@ export function ReviewEditor(props: { token: string; workId: string; annictId: n
   if (loaded.kind === 'closed') {
     return (
       <button type="button" className="review__open link" onClick={() => setLoaded({ kind: 'loading' })} aria-expanded={false}>
-        詳細な評価と感想を書く
+        {t('詳細な評価と感想を書く', 'Write a detailed rating and review')}
       </button>
     )
   }
@@ -104,21 +105,21 @@ export function ReviewEditor(props: { token: string; workId: string; annictId: n
   return (
     <div className="review">
       <button type="button" className="review__open link" onClick={() => setLoaded({ kind: 'closed' })} aria-expanded>
-        詳細な評価と感想をたたむ
+        {t('詳細な評価と感想をたたむ', 'Hide detailed rating and review')}
       </button>
-      {loaded.kind === 'loading' && <Loading label="感想を読み込み中" />}
+      {loaded.kind === 'loading' && <Loading label={t('感想を読み込み中', 'Loading review')} />}
       {loaded.kind === 'error' && (
         <p className="settings__error">
-          感想を読み込めませんでした（{loaded.message}）。
+          {t(`感想を読み込めませんでした（${loaded.message}）。`, `Couldn’t load the review (${loaded.message}).`)}
           <button
             type="button"
             className="link"
             onClick={() => {
               setLoaded({ kind: 'loading' })
-              setTick((t) => t + 1)
+              setTick((n) => n + 1)
             }}
           >
-            もう一度
+            {t('もう一度', 'Retry')}
           </button>
         </p>
       )}
@@ -126,9 +127,9 @@ export function ReviewEditor(props: { token: string; workId: string; annictId: n
         <>
           {loaded.fromDraft && (
             <p className="review__draft">
-              保存していない下書きを表示しています。
+              {t('保存していない下書きを表示しています。', 'Showing an unsaved draft.')}
               <button type="button" className="link" onClick={discardDraft}>
-                下書きを捨てる
+                {t('下書きを捨てる', 'Discard draft')}
               </button>
             </p>
           )}
@@ -151,14 +152,19 @@ export function ReviewEditor(props: { token: string; workId: string; annictId: n
             </div>
           ))}
           <label className="review__body">
-            <span className="review__axis-name">感想</span>
-            <textarea value={form.body} rows={5} placeholder="感じたことを自由に（書かなくても保存できます）" onChange={(e) => change({ ...form, body: e.target.value })} />
+            <span className="review__axis-name">{t('感想', 'Review')}</span>
+            <textarea value={form.body} rows={5} placeholder={t('感じたことを自由に（書かなくても保存できます）', 'Write freely (you can save without writing anything)')} onChange={(e) => change({ ...form, body: e.target.value })} />
           </label>
-          <p className="note">詳細な評価（映像・キャラクター・ストーリー・音楽）と感想は、総合評価と同じくAnnictに保存され、Annictの作品ページなどで公開されます。選んでいる評価をもう一度押すと外せます。</p>
+          <p className="note">
+            {t(
+              '詳細な評価（映像・キャラクター・ストーリー・音楽）と感想は、総合評価と同じくAnnictに保存され、Annictの作品ページなどで公開されます。選んでいる評価をもう一度押すと外せます。',
+              'Detailed ratings (animation, characters, story, music) and your review are saved to Annict like the overall rating, and appear publicly on Annict’s anime pages. Tap a selected rating again to clear it.',
+            )}
+          </p>
           <div className="review__foot">
             {note && !dirty && <span className="note">{note}</span>}
             <button type="button" className="btn btn--primary" onClick={save} disabled={!dirty}>
-              保存
+              {t('保存', 'Save')}
             </button>
           </div>
         </>

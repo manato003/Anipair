@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Empty } from '../../components/Empty'
+import { t } from '../../lib/i18n'
 import { SEASON_NAMES, seasonNameLabel, toSlug } from '../../lib/season'
 import type { RecordRow } from '../records/recordList'
 import { loadTitlesState, saveTitlesState, type TitlesState } from './achievementStore'
@@ -57,9 +58,9 @@ export function Achievements(props: { token: string; rows: RecordRow[] | null; l
 
   if (props.loadError) {
     return (
-      <Empty mood="trouble" title="記録を読み込めませんでした" body={props.loadError}>
+      <Empty mood="trouble" title={t('記録を読み込めませんでした', 'Couldn’t load your records')} body={props.loadError}>
         <button type="button" className="btn" onClick={props.onReload}>
-          もう一度読み込む
+          {t('もう一度読み込む', 'Retry')}
         </button>
       </Empty>
     )
@@ -70,9 +71,11 @@ export function Achievements(props: { token: string; rows: RecordRow[] | null; l
     return (
       <div className="awaken-wait" aria-busy>
         <span className="awaken-wait__sigil" aria-hidden />
-        <p className="awaken-wait__title">Annictでの歩みを読み解いています</p>
+        <p className="awaken-wait__title">{t('Annictでの歩みを読み解いています', 'Reading through your Annict history')}</p>
         <p className="awaken-wait__note">
-          {a.scan ? `クールの記録を照らし合わせています（${a.scan.done} / ${a.scan.total}）` : 'あなたの記録を整理しています'}
+          {a.scan
+            ? t(`クールの記録を照らし合わせています（${a.scan.done} / ${a.scan.total}）`, `Checking your season records (${a.scan.done} / ${a.scan.total})`)
+            : t('あなたの記録を整理しています', 'Sorting through your records')}
           {a.scan && <Remaining done={a.scan.done} total={a.scan.total} />}
         </p>
       </div>
@@ -98,35 +101,35 @@ export function Achievements(props: { token: string; rows: RecordRow[] | null; l
     <div className="achievements">
       {god && (
         <div className="godbar" role="status">
-          <p className="godbar__text">Godモード: すべての称号を手に入れた状態で並べています。何も保存しません。</p>
+          <p className="godbar__text">{t('Godモード: すべての称号を手に入れた状態で並べています。何も保存しません。', 'God mode: showing every title as earned. Nothing is saved.')}</p>
           <div className="godbar__actions">
             <button type="button" className="btn" onClick={() => setGodAwaken(true)}>
-              覚醒をもう一度見る
+              {t('覚醒をもう一度見る', 'Replay the awakening')}
             </button>
             <button type="button" className="btn" onClick={() => setGod(false)}>
-              やめる
+              {t('やめる', 'Exit')}
             </button>
           </div>
         </div>
       )}
-      <section className={equipped ? `profile rarity--${equipped.rarity}` : 'profile'} aria-label="プロフィール">
+      <section className={equipped ? `profile rarity--${equipped.rarity}` : 'profile'} aria-label={t('プロフィール', 'Profile')}>
         {/* Annict の初期の画像（no-image）は出さない */}
         {a.stats?.avatarUrl && !a.stats.avatarUrl.includes('no-image') && <img className="profile__avatar" src={a.stats.avatarUrl} alt="" width={56} height={56} />}
         <div className="profile__body">
-          <p className="profile__name">{a.stats ? a.stats.name || a.stats.username : 'あなた'}</p>
+          <p className="profile__name">{a.stats ? a.stats.name || a.stats.username : t('あなた', 'You')}</p>
           {equipped ? (
             <p className="profile__title">
               <TitlePlate name={equipped.name} rarity={equipped.rarity} size="lg" />
             </p>
           ) : (
-            <p className="profile__empty">手に入れた称号を選ぶと、ここに掲げられます</p>
+            <p className="profile__empty">{t('手に入れた称号を選ぶと、ここに掲げられます', 'Pick a title you’ve earned to show it here')}</p>
           )}
           <p className="profile__count">
             <span>
-              称号 {visibleCount.filter((t) => t.unlocked).length} / {visibleCount.length}
+              {t(`称号 ${visibleCount.filter((x) => x.unlocked).length} / ${visibleCount.length}`, `Titles ${visibleCount.filter((x) => x.unlocked).length} / ${visibleCount.length}`)}
             </span>
             <span>
-              隠し称号 {hiddenUnlocked.length} / {HIDDEN_COUNT}
+              {t(`隠し称号 ${hiddenUnlocked.length} / ${HIDDEN_COUNT}`, `Hidden titles ${hiddenUnlocked.length} / ${HIDDEN_COUNT}`)}
             </span>
           </p>
           {!god && unlocked.length > 0 && (
@@ -146,7 +149,7 @@ export function Achievements(props: { token: string; rows: RecordRow[] | null; l
                 )
               }
             >
-              称号を画像で共有
+              {t('称号を画像で共有', 'Share titles as an image')}
             </button>
           )}
         </div>
@@ -154,22 +157,22 @@ export function Achievements(props: { token: string; rows: RecordRow[] | null; l
 
       {a.scan && (
         <p className="note">
-          クールの記録を照らし合わせています（{a.scan.done} / {a.scan.total}）
+          {t(`クールの記録を照らし合わせています（${a.scan.done} / ${a.scan.total}）`, `Checking your season records (${a.scan.done} / ${a.scan.total})`)}
         </p>
       )}
 
       {shareCard && <ShareSheet card={shareCard} filename="anipair-titles.png" active={props.active} onClose={() => setShareCard(null)} />}
 
-      <TitleSection heading="特別な称号" titles={special} equipped={equippedId} isNew={isNew} onEquip={toggleEquip} />
-      <TitleSection heading="踏破の称号" titles={titles.filter((t) => t.group === 'season')} equipped={equippedId} isNew={isNew} onEquip={toggleEquip} />
-      <TitleSection heading="見た作品の称号" titles={titles.filter((t) => t.group === 'watched')} equipped={equippedId} isNew={isNew} onEquip={toggleEquip} />
-      <TitleSection heading="年と年代の称号" titles={titles.filter((t) => t.group === 'year' || t.group === 'decade')} equipped={equippedId} isNew={isNew} onEquip={toggleEquip} />
+      <TitleSection heading={t('特別な称号', 'Special titles')} titles={special} equipped={equippedId} isNew={isNew} onEquip={toggleEquip} />
+      <TitleSection heading={t('踏破の称号', 'Season clear titles')} titles={titles.filter((t) => t.group === 'season')} equipped={equippedId} isNew={isNew} onEquip={toggleEquip} />
+      <TitleSection heading={t('見た作品の称号', 'Anime watched titles')} titles={titles.filter((t) => t.group === 'watched')} equipped={equippedId} isNew={isNew} onEquip={toggleEquip} />
+      <TitleSection heading={t('年と年代の称号', 'Year and decade titles')} titles={titles.filter((t) => t.group === 'year' || t.group === 'decade')} equipped={equippedId} isNew={isNew} onEquip={toggleEquip} />
 
       {a.coverage && <SeasonCrest coverage={a.coverage} />}
 
       <section className="titles">
         <h2 className="titles__heading">
-          隠し称号 <span className="titles__count">{hiddenUnlocked.length} / {HIDDEN_COUNT}</span>
+          {t('隠し称号', 'Hidden titles')} <span className="titles__count">{hiddenUnlocked.length} / {HIDDEN_COUNT}</span>
         </h2>
         {hiddenUnlocked.length > 0 && (
           <ul className="titles__list">
@@ -181,8 +184,8 @@ export function Achievements(props: { token: string; rows: RecordRow[] | null; l
         {hiddenUnlocked.length < HIDDEN_COUNT && (
           <ul className="titles__list titles__list--sealed">
             {Array.from({ length: HIDDEN_COUNT - hiddenUnlocked.length }, (_, i) => (
-              <li key={`sealed-${i}`} className="title title--sealed" aria-label="まだ解放されていない隠し称号">
-                <span className="title__name">？？？</span>
+              <li key={`sealed-${i}`} className="title title--sealed" aria-label={t('まだ解放されていない隠し称号', 'Hidden title not unlocked yet')}>
+                <span className="title__name">{t('？？？', '???')}</span>
               </li>
             ))}
           </ul>
@@ -191,7 +194,7 @@ export function Achievements(props: { token: string; rows: RecordRow[] | null; l
 
       {__GOD_MODE__ && !god && (
         <button type="button" className="godbutton" onClick={() => setGod(true)}>
-          Godモード（すべての称号を試しに見る）
+          {t('Godモード（すべての称号を試しに見る）', 'God mode (preview every title)')}
         </button>
       )}
 
@@ -225,28 +228,28 @@ function TitleSection(props: { heading: string; titles: Title[]; equipped: strin
 
 // 1つの称号。名札と条件。手に入れたものは押すと掲げる（もう一度押すと外す）。まだのものは灰色の名札と進み具合を見せる
 function TitleCard(props: { title: Title; equipped: boolean; isNew: boolean; onEquip: () => void }) {
-  const t = props.title
+  const title = props.title
   const body = (
     <>
-      <TitlePlate name={t.name} rarity={t.rarity} locked={!t.unlocked} />
+      <TitlePlate name={title.name} rarity={title.rarity} locked={!title.unlocked} />
       {/* 位置は CSS で左上。読み上げでは称号の名前を先にする */}
       {props.isNew && <span className="title__new">NEW</span>}
-      <span className="title__condition">{t.condition}</span>
-      {!t.unlocked && t.progress && (
+      <span className="title__condition">{title.condition}</span>
+      {!title.unlocked && title.progress && (
         <span className="title__progress">
           <span className="title__bar" aria-hidden>
-            <span style={{ transform: `scaleX(${t.progress.goal > 0 ? t.progress.value / t.progress.goal : 0})` }} />
+            <span style={{ transform: `scaleX(${title.progress.goal > 0 ? title.progress.value / title.progress.goal : 0})` }} />
           </span>
-          {t.progress.unit === '%' ? `${t.progress.value}% / ${t.progress.goal}%` : `${t.progress.value} / ${t.progress.goal} ${t.progress.unit}`}
+          {title.progress.unit === '%' ? `${title.progress.value}% / ${title.progress.goal}%` : `${title.progress.value} / ${title.progress.goal} ${title.progress.unit}`}
         </span>
       )}
-      {props.equipped && <span className="title__equipped">掲げている</span>}
+      {props.equipped && <span className="title__equipped">{t('掲げている', 'Equipped')}</span>}
     </>
   )
-  if (!t.unlocked) return <li className="title title--locked">{body}</li>
+  if (!title.unlocked) return <li className="title title--locked">{body}</li>
   return (
     <li>
-      <button type="button" className={`title title--unlocked rarity--${t.rarity}`} aria-pressed={props.equipped} onClick={props.onEquip}>
+      <button type="button" className={`title title--unlocked rarity--${title.rarity}`} aria-pressed={props.equipped} onClick={props.onEquip}>
         {body}
       </button>
     </li>
@@ -269,9 +272,9 @@ function SeasonCrest({ coverage }: { coverage: Map<string, Coverage> }) {
   const shown = all ? years : years.slice(0, CREST_YEARS)
   return (
     <section className="titles">
-      <h2 className="titles__heading">クールの紋章</h2>
-      <p className="titles__lead">クールごとに、人気作のうち答えた割合。すべて答えると金に輝きます。</p>
-      <div className="crest" role="table" aria-label="クールの紋章">
+      <h2 className="titles__heading">{t('クールの紋章', 'Season crest')}</h2>
+      <p className="titles__lead">{t('クールごとに、人気作のうち答えた割合。すべて答えると金に輝きます。', 'The share of popular anime you’ve answered, season by season. Answer them all and it shines gold.')}</p>
+      <div className="crest" role="table" aria-label={t('クールの紋章', 'Season crest')}>
         <div className="crest__row crest__row--head" role="row">
           <span role="columnheader" />
           {SEASON_NAMES.map((n) => (
@@ -294,7 +297,11 @@ function SeasonCrest({ coverage }: { coverage: Map<string, Coverage> }) {
                   key={name}
                   role="cell"
                   className={`crest__cell crest__cell--${tier}`}
-                  aria-label={c ? `${year}年${seasonNameLabel(name)}: ${c.answered} / ${c.total}` : `${year}年${seasonNameLabel(name)}: まだ読んでいません`}
+                  aria-label={
+                    c
+                      ? t(`${year}年${seasonNameLabel(name)}: ${c.answered} / ${c.total}`, `${seasonNameLabel(name)} ${year}: ${c.answered} / ${c.total}`)
+                      : t(`${year}年${seasonNameLabel(name)}: まだ読んでいません`, `${seasonNameLabel(name)} ${year}: not loaded yet`)
+                  }
                   title={c ? `${c.answered} / ${c.total}` : undefined}
                 />
               )
@@ -304,7 +311,7 @@ function SeasonCrest({ coverage }: { coverage: Map<string, Coverage> }) {
       </div>
       {years.length > CREST_YEARS && (
         <button type="button" className="link" onClick={() => setAll((v) => !v)}>
-          {all ? '最近の年だけにする' : `${years[years.length - 1]}年まですべて見る`}
+          {all ? t('最近の年だけにする', 'Show recent years only') : t(`${years[years.length - 1]}年まですべて見る`, `Show everything back to ${years[years.length - 1]}`)}
         </button>
       )}
     </section>

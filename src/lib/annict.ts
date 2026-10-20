@@ -6,6 +6,7 @@ import { createThrottle, type ScheduleOptions } from './throttle'
 import { patchStoredStatus, saveStoredLibrary, saveStoredSeasonWorks } from './offlineCache'
 import { loadWorkDetailsRaw, pageIsCurrent, saveWorkDetailsRaw } from './storage'
 import { previousSeason, seasonOf } from './season'
+import { t } from './i18n'
 
 // Annict GraphQL API。型は annict/annict の rails/app/graphql/beta/schema.graphql が正
 const ENDPOINT = 'https://api.annict.com/graphql'
@@ -37,6 +38,8 @@ export interface AnnictWork {
   id: string
   annictId: number
   title: string
+  // 英語の画面に出す題名（Annict の titleEn。ほとんどがローマ字。無ければ null。表示は lib/names.ts の workTitle）
+  titleEn?: string | null
   media: string
   malAnimeId: string | null
   watchersCount: number
@@ -71,10 +74,10 @@ async function gql<T>(token: string, query: string, variables: Record<string, un
       try {
         // アカウントを切り替えたあとの古いページ（このタブ・別のタブ）からは送らない。前の人の書き込みを次の人のトークンで送ったり、
         // ログアウトのあとに前の人のトークンを使ったりしない（2026-10-06 のセキュリティの点検）。列で待っていた分も、送る直前にここで止まる
-        if (!pageIsCurrent()) throw new AnnictError('アカウントが切り替わったので、送りませんでした', 'api')
+        if (!pageIsCurrent()) throw new AnnictError(t('アカウントが切り替わったので、送りませんでした', 'The account was switched, so nothing was sent.'), 'api')
         return await send(abort?.signal)
       } catch (e) {
-        if (abort?.signal.aborted) throw new AnnictError('Annictから応答を受け取れませんでした。少し待ってからもう一度試してください', 'timeout')
+        if (abort?.signal.aborted) throw new AnnictError(t('Annictから応答を受け取れませんでした。少し待ってからもう一度試してください', 'Annict did not respond. Please wait a moment and try again.'), 'timeout')
         throw e
       } finally {
         if (timer) clearTimeout(timer)
@@ -82,7 +85,7 @@ async function gql<T>(token: string, query: string, variables: Record<string, un
     }, { ...opts, exclusive: write })
     if ('data' in outcome) return outcome.data
     if (attempt >= RATE_LIMIT_RETRIES) {
-      throw new AnnictError('Annictの利用制限に達しました。しばらく待ってからもう一度試してください', 'api')
+      throw new AnnictError(t('Annictの利用制限に達しました。しばらく待ってからもう一度試してください', 'Annict’s rate limit was reached. Please wait a while and try again.'), 'api')
     }
     await delay(outcome.retryAfterMs)
   }
@@ -101,7 +104,7 @@ async function gql<T>(token: string, query: string, variables: Record<string, un
     } catch (e) {
       recordAnnictHealth({ at: Date.now(), ms: Date.now() - start, ok: false, failure: signal?.aborted ? 'timeout' : 'network' })
       if (signal?.aborted) throw e
-      throw new AnnictError('Annictに接続できませんでした。通信を確認してください', 'network')
+      throw new AnnictError(t('Annictに接続できませんでした。通信を確認してください', 'Could not connect to Annict. Check your connection.'), 'network')
     }
     // 429（回数の制限）はこちらの送りすぎなので数えない。401・404 なども、サーバーは答えているので「答えた」に入れる
     if (res.status !== 429) {
@@ -111,17 +114,17 @@ async function gql<T>(token: string, query: string, variables: Record<string, un
     if (res.status === 401) {
       // 画面全体に知らせる（帯を出す）。呼び出し元には、今までどおり例外で返す
       emitAnnictAuthFailed(token)
-      throw new AnnictError('Annictのトークンが使えません。設定で入れ直してください', 'auth')
+      throw new AnnictError(t('Annictのトークンが使えません。設定で入れ直してください', 'The Annict token isn’t working. Enter it again in Settings.'), 'auth')
     }
     if (res.status === 429) {
       return { retryAfterMs: parseRetryAfter(res.headers.get('Retry-After'), RATE_LIMIT_DEFAULT_WAIT_MS, RATE_LIMIT_MAX_WAIT_MS) }
     }
-    if (res.status === 404) throw new AnnictError('Annictに見つかりませんでした（HTTP 404）', 'notFound')
-    if (res.status >= 500) throw new AnnictError(`Annictから応答を受け取れませんでした（HTTP ${res.status}）。しばらく待ってからもう一度試してください`, 'api', res.status)
-    if (!res.ok) throw new AnnictError(`Annictがエラーを返しました（HTTP ${res.status}）`, 'api', res.status)
+    if (res.status === 404) throw new AnnictError(t('Annictに見つかりませんでした（HTTP 404）', 'Not found on Annict (HTTP 404).'), 'notFound')
+    if (res.status >= 500) throw new AnnictError(t(`Annictから応答を受け取れませんでした（HTTP ${res.status}）。しばらく待ってからもう一度試してください`, `Annict did not respond (HTTP ${res.status}). Please wait a while and try again.`), 'api', res.status)
+    if (!res.ok) throw new AnnictError(t(`Annictがエラーを返しました（HTTP ${res.status}）`, `Annict returned an error (HTTP ${res.status}).`), 'api', res.status)
     const json = (await res.json()) as { data?: T; errors?: { message: string }[] }
-    if (json.errors?.length) throw new AnnictError(`Annictがエラーを返しました: ${json.errors[0].message}`, 'api')
-    if (!json.data) throw new AnnictError('Annictの応答が空でした', 'api')
+    if (json.errors?.length) throw new AnnictError(t(`Annictがエラーを返しました: ${json.errors[0].message}`, `Annict returned an error: ${json.errors[0].message}`), 'api')
+    if (!json.data) throw new AnnictError(t('Annictの応答が空でした', 'Annict’s response was empty.'), 'api')
     return { data: json.data }
   }
 }
@@ -191,6 +194,7 @@ interface RawWork {
   id: string
   annictId: number
   title: string
+  titleEn: string | null
   media: string
   malAnimeId: string | null
   watchersCount: number
@@ -223,7 +227,7 @@ async function readSeasonWorks(token: string, seasonSlug: string, limit: number)
     `query($seasons: [String!], $first: Int) {
       searchWorks(seasons: $seasons, first: $first, orderBy: {field: WATCHERS_COUNT, direction: DESC}) {
         nodes {
-          id annictId title media malAnimeId watchersCount viewerStatusState
+          id annictId title titleEn media malAnimeId watchersCount viewerStatusState
           image { recommendedImageUrl facebookOgImageUrl }
         }
       }
@@ -234,6 +238,7 @@ async function readSeasonWorks(token: string, seasonSlug: string, limit: number)
     id: w.id,
     annictId: w.annictId,
     title: w.title,
+    titleEn: w.titleEn || null,
     media: w.media,
     malAnimeId: w.malAnimeId,
     watchersCount: w.watchersCount,
@@ -273,12 +278,13 @@ export function forgetShortCaches(): void {
 
 // 作品の声優と監督（傾向の「よく見る声優・監督」に使う）。人物は Annict の ID と正式な名前
 export interface WorkCredits {
-  casts: { annictId: number; name: string }[]
-  directors: { annictId: number; name: string }[]
+  // nameEn は英語の画面に出す名前（無ければ null。前の版の端末の控えには無い）
+  casts: { annictId: number; name: string; nameEn?: string | null }[]
+  directors: { annictId: number; name: string; nameEn?: string | null }[]
 }
 
 // 監督とみなす役職（作画監督・音響監督などは含めない）
-const DIRECTOR_ROLES = new Set(['監督', '総監督', 'シリーズ監督', 'チーフディレクター'])
+const DIRECTOR_ROLES = new Set(['監督', '総監督', 'シリーズ監督', 'チーフディレクター']) // i18n-ok: Annict のスタッフの役職名（データ）と照合する語
 const CREDIT_WORKS_PER_QUERY = 10
 
 // 作品ごとの声優（主な10人）と監督。作品の ID（node の ID）ごと。裏の優先度で読む（傾向のシートのため）
@@ -290,24 +296,24 @@ export async function fetchCredits(token: string, workIds: readonly string[], op
     const data = await gql<{
       nodes: ({
         id: string
-        casts: { nodes: { person: { annictId: number; name: string } | null }[] }
-        staffs: { nodes: { roleText: string; resource: { __typename?: string; annictId?: number; name?: string } | null }[] }
+        casts: { nodes: { person: { annictId: number; name: string; nameEn: string | null } | null }[] }
+        staffs: { nodes: { roleText: string; resource: { __typename?: string; annictId?: number; name?: string; nameEn?: string | null } | null }[] }
       } | null)[]
     }>(
       token,
       `query($ids: [ID!]!) { nodes(ids: $ids) { ... on Work { id
-        casts(first: 10, orderBy: {field: SORT_NUMBER, direction: ASC}) { nodes { person { annictId name } } }
-        staffs(first: 50, orderBy: {field: SORT_NUMBER, direction: ASC}) { nodes { roleText resource { __typename ... on Person { annictId name } } } }
+        casts(first: 10, orderBy: {field: SORT_NUMBER, direction: ASC}) { nodes { person { annictId name nameEn } } }
+        staffs(first: 50, orderBy: {field: SORT_NUMBER, direction: ASC}) { nodes { roleText resource { __typename ... on Person { annictId name nameEn } } } }
       } } }`,
       { ids: chunk },
       opts,
     )
     for (const n of data.nodes) {
       if (!n) continue
-      const casts = n.casts.nodes.flatMap((c) => (c.person ? [{ annictId: c.person.annictId, name: c.person.name }] : []))
+      const casts = n.casts.nodes.flatMap((c) => (c.person ? [{ annictId: c.person.annictId, name: c.person.name, nameEn: c.person.nameEn || null }] : []))
       const directors = n.staffs.nodes.flatMap((st) =>
         DIRECTOR_ROLES.has(st.roleText) && st.resource?.__typename === 'Person' && typeof st.resource.annictId === 'number' && st.resource.name
-          ? [{ annictId: st.resource.annictId, name: st.resource.name }]
+          ? [{ annictId: st.resource.annictId, name: st.resource.name, nameEn: st.resource.nameEn || null }]
           : [],
       )
       out.set(n.id, { casts, directors })
@@ -751,8 +757,8 @@ export const ANNICT_FORUM_NEW_POST_URL = 'https://annict.com/forum/posts/new'
 // Annict で作品を特定できなかったときの、手で直すためのリンク。照合の外れなら検索で、Annict に無い作品ならフォーラムで
 export function annictMissingLinks(title: string): { href: string; text: string }[] {
   return [
-    { href: annictSearchUrl(title), text: 'Annictで探して登録する' },
-    { href: ANNICT_FORUM_NEW_POST_URL, text: '無ければフォーラムで追加を頼む' },
+    { href: annictSearchUrl(title), text: t('Annictで探して登録する', 'Search and add it on Annict') },
+    { href: ANNICT_FORUM_NEW_POST_URL, text: t('無ければフォーラムで追加を頼む', 'Or ask on the forum to have it added') },
   ]
 }
 
@@ -760,6 +766,8 @@ export interface LibraryEntry {
   workId: string
   annictId: number
   title: string
+  // 英語の画面に出す題名（Annict の titleEn。無ければ null。前の版の端末の控えには無い）
+  titleEn?: string | null
   malAnimeId: string | null
   state: StatusState
   // その状態にした日時
@@ -847,6 +855,7 @@ async function readLibrary(token: string): Promise<LibraryEntry[]> {
               id: string
               annictId: number
               title: string
+              titleEn: string | null
               malAnimeId: string | null
               seasonYear: number | null
               seasonName: string | null
@@ -862,7 +871,7 @@ async function readLibrary(token: string): Promise<LibraryEntry[]> {
       token,
       `query($after: String) { viewer { libraryEntries(first: 100, after: $after) {
         pageInfo { hasNextPage endCursor }
-        nodes { status { state createdAt } note nextEpisode { number numberText title } work { id annictId title malAnimeId seasonYear seasonName media watchersCount episodesCount image { recommendedImageUrl facebookOgImageUrl } } }
+        nodes { status { state createdAt } note nextEpisode { number numberText title } work { id annictId title titleEn malAnimeId seasonYear seasonName media watchersCount episodesCount image { recommendedImageUrl facebookOgImageUrl } } }
       } } }`,
       { after },
     )
@@ -874,6 +883,7 @@ async function readLibrary(token: string): Promise<LibraryEntry[]> {
         workId: n.work.id,
         annictId: n.work.annictId,
         title: n.work.title,
+        titleEn: n.work.titleEn || null,
         malAnimeId: n.work.malAnimeId,
         state,
         stateAt: n.status?.createdAt ?? null,
@@ -1064,6 +1074,8 @@ export interface BrowseWork {
   id: string
   annictId: number
   title: string
+  // 英語の画面に出す題名（Annict の titleEn。無ければ null）
+  titleEn?: string | null
   media: string
   seasonYear: number | null
   seasonName: string | null
@@ -1106,7 +1118,7 @@ export async function browseWorks(
     `query($titles: [String!], $seasons: [String!], $after: String, $first: Int, $order: WorkOrderField!) {
       searchWorks(titles: $titles, seasons: $seasons, first: $first, after: $after, orderBy: {field: $order, direction: ${direction}}) {
         pageInfo { hasNextPage endCursor }
-        nodes { id annictId title media seasonYear seasonName malAnimeId watchersCount viewerStatusState satisfactionRate reviewsCount image { recommendedImageUrl facebookOgImageUrl } }
+        nodes { id annictId title titleEn media seasonYear seasonName malAnimeId watchersCount viewerStatusState satisfactionRate reviewsCount image { recommendedImageUrl facebookOgImageUrl } }
       }
     }`,
     { titles: filter.titles ?? null, seasons: filter.seasons ?? null, after, first, order },
@@ -1125,8 +1137,9 @@ export interface WorkDetail extends BrowseWork {
   // 作品の権利表記（Annict の画像の著作権。例: ©山田鐘人・アベツカサ／小学館／「葬送のフリーレン」製作委員会）
   copyright: string | null
   // name は作品のクレジットの表記。person / ref は Annict の人物・団体（参加作品の一覧を開くのに使う。無ければ null）
-  casts: { character: string; name: string; person: Credit | null }[]
-  staffs: { role: string; name: string; ref: Credit | null }[]
+  // characterEn・nameEn・roleOtherEn は英語の画面に出す名前（Annict の英語の表記。無ければ null）
+  casts: { character: string; characterEn?: string | null; name: string; nameEn?: string | null; person: Credit | null }[]
+  staffs: { role: string; roleOtherEn?: string | null; name: string; nameEn?: string | null; ref: Credit | null }[]
   // 作品が入っている Annict のシリーズ（利用者が整理したもの。無い作品もある）。作品は放送時期の順
   series: AnnictSeries[]
 }
@@ -1136,7 +1149,7 @@ export interface Credit {
   kind: 'person' | 'org'
   annictId: number
   name: string
-  // 団体の英語名（Shikimori の制作会社と照合するのに使う）
+  // 英語名（団体は Shikimori の制作会社と照合するのにも使う。英語の画面の表示は lib/names.ts の personName）
   nameEn?: string | null
 }
 
@@ -1144,6 +1157,7 @@ export interface SeriesWork {
   id: string
   annictId: number
   title: string
+  titleEn?: string | null
   seasonYear: number | null
   seasonName: string | null
   media: string
@@ -1160,7 +1174,7 @@ export interface AnnictSeries {
 
 function creditOf(r: { __typename?: string; annictId?: number; name?: string; nameEn?: string } | null): Credit | null {
   if (!r || typeof r.annictId !== 'number' || !r.name) return null
-  if (r.__typename === 'Person') return { kind: 'person', annictId: r.annictId, name: r.name }
+  if (r.__typename === 'Person') return { kind: 'person', annictId: r.annictId, name: r.name, nameEn: r.nameEn || null }
   if (r.__typename === 'Organization') return { kind: 'org', annictId: r.annictId, name: r.name, nameEn: r.nameEn || null }
   return null
 }
@@ -1254,19 +1268,19 @@ async function readWorkDetail(token: string, workId: string): Promise<WorkDetail
     node: Omit<WorkDetail, 'casts' | 'staffs' | 'copyright' | 'series'> & {
       image: { copyright: string | null } | null
       seriesList: { nodes: { name: string; works: { edges: { summary: string | null; item: Omit<SeriesWork, 'summary'> }[] } }[] } | null
-      casts: { nodes: { name: string; character: { name: string }; person: { annictId: number; name: string } | null }[] }
-      staffs: { nodes: { name: string; roleText: string; resource: { __typename?: string; annictId?: number; name?: string; nameEn?: string } | null }[] }
+      casts: { nodes: { name: string; nameEn: string | null; character: { name: string; nameEn: string | null }; person: { annictId: number; name: string; nameEn: string | null } | null }[] }
+      staffs: { nodes: { name: string; nameEn: string | null; roleText: string; roleOtherEn: string | null; resource: { __typename?: string; annictId?: number; name?: string; nameEn?: string } | null }[] }
     }
   }>(
     token,
     `query($id: ID!) { node(id: $id) { ... on Work {
-      id annictId title titleKana media seasonYear seasonName malAnimeId watchersCount viewerStatusState
+      id annictId title titleEn titleKana media seasonYear seasonName malAnimeId watchersCount viewerStatusState
       episodesCount officialSiteUrl wikipediaUrl twitterUsername image { copyright }
-      casts(first: 12, orderBy: {field: SORT_NUMBER, direction: ASC}) { nodes { name character { name } person { annictId name } } }
-      staffs(first: 50, orderBy: {field: SORT_NUMBER, direction: ASC}) { nodes { name roleText
-        resource { __typename ... on Person { annictId name } ... on Organization { annictId name nameEn } } } }
+      casts(first: 12, orderBy: {field: SORT_NUMBER, direction: ASC}) { nodes { name nameEn character { name nameEn } person { annictId name nameEn } } }
+      staffs(first: 50, orderBy: {field: SORT_NUMBER, direction: ASC}) { nodes { name nameEn roleText roleOtherEn
+        resource { __typename ... on Person { annictId name nameEn } ... on Organization { annictId name nameEn } } } }
       seriesList(first: 5) { nodes { name works(first: 50, orderBy: {field: SEASON, direction: ASC}) {
-        edges { summary item { id annictId title seasonYear seasonName media malAnimeId viewerStatusState } }
+        edges { summary item { id annictId title titleEn seasonYear seasonName media malAnimeId viewerStatusState } }
       } } }
     } } }`,
     { id: workId },
@@ -1281,10 +1295,12 @@ async function readWorkDetail(token: string, workId: string): Promise<WorkDetail
     copyright: image?.copyright?.trim() || null,
     casts: n.casts.nodes.map((c) => ({
       character: c.character.name,
+      characterEn: c.character.nameEn || null,
       name: c.name,
-      person: c.person ? { kind: 'person' as const, annictId: c.person.annictId, name: c.person.name } : null,
+      nameEn: c.nameEn || null,
+      person: c.person ? { kind: 'person' as const, annictId: c.person.annictId, name: c.person.name, nameEn: c.person.nameEn || null } : null,
     })),
-    staffs: n.staffs.nodes.map((st) => ({ role: st.roleText, name: st.name, ref: creditOf(st.resource) })),
+    staffs: n.staffs.nodes.map((st) => ({ role: st.roleText, roleOtherEn: st.roleOtherEn || null, name: st.name, nameEn: st.nameEn || null, ref: creditOf(st.resource) })),
   }
 }
 

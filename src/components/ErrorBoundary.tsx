@@ -1,4 +1,5 @@
 import { Component, Fragment, type ReactNode } from 'react'
+import { t } from '../lib/i18n'
 import { clearAll } from '../lib/storage'
 import { Empty } from './Empty'
 
@@ -14,10 +15,10 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
     if (!this.state.error) return this.props.children
     return (
       <div className="crash">
-        <p className="crash__title">画面を表示できませんでした</p>
+        <p className="crash__title">{t('画面を表示できませんでした', 'Couldn’t display the screen')}</p>
         <p className="crash__body">{this.state.error.message}</p>
         <button type="button" className="btn" onClick={() => location.reload()}>
-          再読み込み
+          {t('再読み込み', 'Reload')}
         </button>
         <button
           type="button"
@@ -27,9 +28,9 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
             location.reload()
           }}
         >
-          この端末の保存データを消して再読み込み
+          {t('この端末の保存データを消して再読み込み', 'Clear data saved on this device and reload')}
         </button>
-        <p className="crash__note">Annictに保存した記録は消えません。消えるのはトークンと進み具合だけです。</p>
+        <p className="crash__note">{t('Annictに保存した記録は消えません。消えるのはトークンと進み具合だけです。', 'Records saved on Annict won’t be deleted. Only the token and your progress on this device are cleared.')}</p>
       </div>
     )
   }
@@ -53,10 +54,11 @@ export class ScreenBoundary extends Component<{ children: ReactNode }, { error: 
     if (STALE_BUILD.test(error.message)) {
       return (
         <div className="crash crash--screen" role="alert">
-          <Empty mood="trouble" title="アプリが新しくなりました" body="この画面を開くには、再読み込みしてください。ほかの画面は、下の帯からそのまま使えます。">
+          <Empty mood="trouble" title={t('アプリが新しくなりました', 'The app has been updated')}
+            body={t('この画面を開くには、再読み込みしてください。ほかの画面は、下の帯からそのまま使えます。', 'Reload to open this screen. You can keep using the other screens from the bar below.')}>
             <div className="crash__actions">
               <button type="button" className="btn btn--primary" onClick={() => location.reload()}>
-                再読み込み
+                {t('再読み込み', 'Reload')}
               </button>
             </div>
           </Empty>
@@ -65,14 +67,15 @@ export class ScreenBoundary extends Component<{ children: ReactNode }, { error: 
     }
     return (
       <div className="crash crash--screen" role="alert">
-        <Empty mood="trouble" title="この画面を表示できませんでした" body="ほかの画面は、下の帯からそのまま使えます。">
+        <Empty mood="trouble" title={t('この画面を表示できませんでした', 'Couldn’t display this screen')}
+          body={t('ほかの画面は、下の帯からそのまま使えます。', 'You can keep using the other screens from the bar below.')}>
           <p className="crash__body">{error.message}</p>
           <div className="crash__actions">
             <button type="button" className="btn btn--primary" onClick={() => this.setState((s) => ({ error: null, attempt: s.attempt + 1 }))}>
-              この画面を開き直す
+              {t('この画面を開き直す', 'Reopen this screen')}
             </button>
             <button type="button" className="btn" onClick={() => location.reload()}>
-              再読み込み
+              {t('再読み込み', 'Reload')}
             </button>
           </div>
         </Empty>

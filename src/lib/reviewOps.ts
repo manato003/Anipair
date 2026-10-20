@@ -1,5 +1,6 @@
 import { createReviewWith, fetchReview, updateReview, type MyReview, type RatingState, type ReviewAxes } from './annict'
 import { deleteReviewIfExists, isUncertainFailure, markUncertain, settleUncertainReview } from './uncertainWrites'
+import { t } from './i18n'
 
 // 感想（総合と4項目の評価、本文）を Annict に送る手順。総合だけを変えるときも、項目と本文を保存するときも、ここを通る。
 // - 変えたあとの中身を決めて送る。5項目そろっていれば更新（updateReview は5項目すべてが必須）
@@ -131,16 +132,32 @@ export async function changeRating(token: string, workId: string, cached: MyRevi
 export const RATING_ORDER: readonly RatingState[] = ['GREAT', 'GOOD', 'AVERAGE', 'BAD']
 
 export const RATING_LABEL: Record<RatingState, string> = {
-  BAD: '良くない',
-  AVERAGE: '普通',
-  GOOD: '良い',
-  GREAT: 'とても良い',
+  get BAD() {
+    return t('良くない', 'Bad')
+  },
+  get AVERAGE() {
+    return t('普通', 'Okay')
+  },
+  get GOOD() {
+    return t('良い', 'Good')
+  },
+  get GREAT() {
+    return t('とても良い', 'Great')
+  },
 }
 
 // 項目別の評価の名前（Annict の表記に合わせる）
 export const AXIS_LABEL: Record<Exclude<(typeof AXIS_KEYS)[number], 'ratingOverallState'>, string> = {
-  ratingAnimationState: '映像',
-  ratingCharacterState: 'キャラクター',
-  ratingStoryState: 'ストーリー',
-  ratingMusicState: '音楽',
+  get ratingAnimationState() {
+    return t('映像', 'Animation')
+  },
+  get ratingCharacterState() {
+    return t('キャラクター', 'Characters')
+  },
+  get ratingStoryState() {
+    return t('ストーリー', 'Story')
+  },
+  get ratingMusicState() {
+    return t('音楽', 'Music')
+  },
 }

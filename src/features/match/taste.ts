@@ -1,4 +1,6 @@
 import type { LibraryEntry, RatingState, StatusState } from '../../lib/annict'
+import { getLang, t } from '../../lib/i18n'
+import { workTitle } from '../../lib/names'
 import type { Media } from '../../lib/shikimori'
 import { matchesFilter, type MatchFilter } from './matchFilter'
 
@@ -7,6 +9,8 @@ import { matchesFilter, type MatchFilter } from './matchFilter'
 export interface Seed {
   malId: number
   title: string
+  // 英語の画面に出す題名（Annict の titleEn）
+  titleEn?: string | null
   weight: number
 }
 
@@ -36,7 +40,7 @@ export function buildSeeds(library: LibraryEntry[], ratings: ReadonlyMap<number,
   for (const e of library) {
     const malId = malIdOf(e)
     const weight = seedWeight(e.state, ratings.get(e.annictId))
-    if (malId && weight !== 0) seeds.push({ malId, title: e.title, weight })
+    if (malId && weight !== 0) seeds.push({ malId, title: e.title, titleEn: e.titleEn, weight })
   }
   return seeds
 }
@@ -153,94 +157,95 @@ export function rankCandidates(
 }
 
 // Shikimori（MyAnimeList と同じ分類）のジャンル・テーマ・対象層の日本語。無いものは英語のまま出す（genreName）
+// 日本語の画面だけで使う表なので、右の日本語は訳さない（i18n-ok）。英語の画面では、Shikimori の英語名をそのまま出す
 export const GENRE_JA: Record<string, string> = {
   // ジャンル
-  Action: 'アクション',
-  Adventure: '冒険',
-  'Avant Garde': '前衛的',
+  Action: 'アクション', // i18n-ok
+  Adventure: '冒険', // i18n-ok
+  'Avant Garde': '前衛的', // i18n-ok
   'Boys Love': 'BL',
-  Comedy: 'コメディ',
-  Drama: 'ドラマ',
-  Ecchi: 'お色気',
-  Erotica: 'エロティカ',
-  Fantasy: 'ファンタジー',
-  'Girls Love': '百合',
-  Gourmet: 'グルメ',
-  Hentai: 'ヘンタイ',
-  Horror: 'ホラー',
-  Mystery: 'ミステリー',
-  Romance: '恋愛',
+  Comedy: 'コメディ', // i18n-ok
+  Drama: 'ドラマ', // i18n-ok
+  Ecchi: 'お色気', // i18n-ok
+  Erotica: 'エロティカ', // i18n-ok
+  Fantasy: 'ファンタジー', // i18n-ok
+  'Girls Love': '百合', // i18n-ok
+  Gourmet: 'グルメ', // i18n-ok
+  Hentai: 'ヘンタイ', // i18n-ok
+  Horror: 'ホラー', // i18n-ok
+  Mystery: 'ミステリー', // i18n-ok
+  Romance: '恋愛', // i18n-ok
   'Sci-Fi': 'SF',
-  'Slice of Life': '日常',
-  Sports: 'スポーツ',
-  Supernatural: '超常',
-  Suspense: 'サスペンス',
-  Yaoi: 'ヤオイ',
-  Yuri: '百合',
+  'Slice of Life': '日常', // i18n-ok
+  Sports: 'スポーツ', // i18n-ok
+  Supernatural: '超常', // i18n-ok
+  Suspense: 'サスペンス', // i18n-ok
+  Yaoi: 'ヤオイ', // i18n-ok
+  Yuri: '百合', // i18n-ok
   // テーマ
-  'Adult Cast': '大人のキャスト',
-  Anthropomorphic: '擬人化',
-  'Award Winning': '受賞作',
-  CGDCT: '日常系（美少女）',
-  Childcare: '育児',
-  'Combat Sports': '格闘技',
-  Crossdressing: '女装・男装',
-  Delinquents: '不良',
-  Detective: '探偵',
-  Educational: '教育',
-  'Gag Humor': 'ギャグ',
-  Gore: 'グロ',
-  Harem: 'ハーレム',
-  'High Stakes Game': '駆け引き・頭脳戦',
-  Historical: '歴史',
-  'Idols (Female)': 'アイドル（女性）',
-  'Idols (Male)': 'アイドル（男性）',
-  Isekai: '異世界',
-  Iyashikei: '癒し系',
-  'Love Polygon': '多角関係',
-  'Love Status Quo': '進展しない恋愛',
-  'Magical Sex Shift': '性別が変わる',
-  'Mahou Shoujo': '魔法少女',
-  'Martial Arts': '武術',
-  Mecha: 'ロボット',
-  Medical: '医療',
-  Military: '軍事',
-  Music: '音楽',
-  Mythology: '神話',
-  'Organized Crime': '犯罪組織',
-  'Otaku Culture': 'オタク文化',
-  Parody: 'パロディ',
-  'Performing Arts': '舞台芸術',
-  Pets: 'ペット',
-  Psychological: 'サイコ',
-  Racing: 'レース',
-  Reincarnation: '転生',
-  'Reverse Harem': '逆ハーレム',
-  Samurai: '侍',
-  School: '学園',
-  Showbiz: '芸能界',
-  Space: '宇宙',
-  'Strategy Game': '戦略ゲーム',
-  'Super Power': '超能力',
-  Survival: 'サバイバル',
-  'Team Sports': 'チームスポーツ',
-  'Time Travel': 'タイムトラベル',
-  'Urban Fantasy': '現代ファンタジー',
-  Vampire: '吸血鬼',
-  Villainess: '悪役令嬢',
-  'Video Game': 'ゲーム',
-  'Visual Arts': '美術',
-  Workplace: '職場',
+  'Adult Cast': '大人のキャスト', // i18n-ok
+  Anthropomorphic: '擬人化', // i18n-ok
+  'Award Winning': '受賞作', // i18n-ok
+  CGDCT: '日常系（美少女）', // i18n-ok
+  Childcare: '育児', // i18n-ok
+  'Combat Sports': '格闘技', // i18n-ok
+  Crossdressing: '女装・男装', // i18n-ok
+  Delinquents: '不良', // i18n-ok
+  Detective: '探偵', // i18n-ok
+  Educational: '教育', // i18n-ok
+  'Gag Humor': 'ギャグ', // i18n-ok
+  Gore: 'グロ', // i18n-ok
+  Harem: 'ハーレム', // i18n-ok
+  'High Stakes Game': '駆け引き・頭脳戦', // i18n-ok
+  Historical: '歴史', // i18n-ok
+  'Idols (Female)': 'アイドル（女性）', // i18n-ok
+  'Idols (Male)': 'アイドル（男性）', // i18n-ok
+  Isekai: '異世界', // i18n-ok
+  Iyashikei: '癒し系', // i18n-ok
+  'Love Polygon': '多角関係', // i18n-ok
+  'Love Status Quo': '進展しない恋愛', // i18n-ok
+  'Magical Sex Shift': '性別が変わる', // i18n-ok
+  'Mahou Shoujo': '魔法少女', // i18n-ok
+  'Martial Arts': '武術', // i18n-ok
+  Mecha: 'ロボット', // i18n-ok
+  Medical: '医療', // i18n-ok
+  Military: '軍事', // i18n-ok
+  Music: '音楽', // i18n-ok
+  Mythology: '神話', // i18n-ok
+  'Organized Crime': '犯罪組織', // i18n-ok
+  'Otaku Culture': 'オタク文化', // i18n-ok
+  Parody: 'パロディ', // i18n-ok
+  'Performing Arts': '舞台芸術', // i18n-ok
+  Pets: 'ペット', // i18n-ok
+  Psychological: 'サイコ', // i18n-ok
+  Racing: 'レース', // i18n-ok
+  Reincarnation: '転生', // i18n-ok
+  'Reverse Harem': '逆ハーレム', // i18n-ok
+  Samurai: '侍', // i18n-ok
+  School: '学園', // i18n-ok
+  Showbiz: '芸能界', // i18n-ok
+  Space: '宇宙', // i18n-ok
+  'Strategy Game': '戦略ゲーム', // i18n-ok
+  'Super Power': '超能力', // i18n-ok
+  Survival: 'サバイバル', // i18n-ok
+  'Team Sports': 'チームスポーツ', // i18n-ok
+  'Time Travel': 'タイムトラベル', // i18n-ok
+  'Urban Fantasy': '現代ファンタジー', // i18n-ok
+  Vampire: '吸血鬼', // i18n-ok
+  Villainess: '悪役令嬢', // i18n-ok
+  'Video Game': 'ゲーム', // i18n-ok
+  'Visual Arts': '美術', // i18n-ok
+  Workplace: '職場', // i18n-ok
   // 対象層
-  Josei: '女性向け',
-  Kids: '子ども向け',
-  Seinen: '青年向け',
-  Shoujo: '少女向け',
-  Shounen: '少年向け',
+  Josei: '女性向け', // i18n-ok
+  Kids: '子ども向け', // i18n-ok
+  Seinen: '青年向け', // i18n-ok
+  Shoujo: '少女向け', // i18n-ok
+  Shounen: '少年向け', // i18n-ok
 }
 
 export function genreName(g: string): string {
-  return GENRE_JA[g] ?? g
+  return getLang() === 'en' ? g : (GENRE_JA[g] ?? g)
 }
 
 // 好きなものの上位。profile の重みが正で、重みの大きい順（同点は名前順）
@@ -253,14 +258,19 @@ function likedNames(names: readonly string[], prefix: 'g' | 't', profile: Readon
 
 export function explain(m: Media, entry: PoolEntry, profile: ReadonlyMap<string, number>, sequel: boolean): string[] {
   const reasons: string[] = []
+  // 日本語は助詞でつなぐ文、英語は語順の違う文なので、言語ごとに文を組み立てる（断片ごとに訳さない）
+  const list = (names: readonly string[]) => names.map(genreName).join(t('・', ', '))
   const from = [...entry.from].sort((a, b) => b.weight - a.weight).slice(0, 2)
-  if (from.length) reasons.push(`${from.map((s) => `『${s.title}』`).join('')}が好きな人のおすすめ`)
+  if (from.length) {
+    const titles = from.map((s) => t(`『${s.title}』`, `“${workTitle(s)}”`))
+    reasons.push(t(`${titles.join('')}が好きな人のおすすめ`, `Recommended for fans of ${titles.join(' and ')}`))
+  }
   const genres = likedNames(m.genres, 'g', profile, 2)
-  if (genres.length) reasons.push(`好きなジャンル: ${genres.map(genreName).join('・')}`)
+  if (genres.length) reasons.push(t(`好きなジャンル: ${list(genres)}`, `${genres.length === 1 ? 'Genre' : 'Genres'} you like: ${list(genres)}`))
   const themes = likedNames(m.themes, 't', profile, 2)
-  if (themes.length) reasons.push(`好きなテーマ: ${themes.map(genreName).join('・')}`)
+  if (themes.length) reasons.push(t(`好きなテーマ: ${list(themes)}`, `${themes.length === 1 ? 'Theme' : 'Themes'} you like: ${list(themes)}`))
   const studio = m.studios.find((s) => (profile.get(`s:${s}`) ?? 0) > 0.3)
-  if (studio) reasons.push(`好きな制作会社: ${studio}`)
-  if (sequel) reasons.push('前作を見ています')
+  if (studio) reasons.push(t(`好きな制作会社: ${studio}`, `Studio you like: ${studio}`))
+  if (sequel) reasons.push(t('前作を見ています', 'You’ve seen the prequel'))
   return reasons
 }

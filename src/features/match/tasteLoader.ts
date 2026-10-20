@@ -1,4 +1,5 @@
 import { fetchLibrary, type LibraryEntry, type RatingState } from '../../lib/annict'
+import { t, tx, type Text } from '../../lib/i18n'
 import { refreshMyReviews } from '../../lib/myReviews'
 import { fetchMedia, fetchSimilarMany, isSimilarCached, type FetchOptions, type Media } from '../../lib/shikimori'
 import { buildProfile, buildSeeds, type Seed } from './taste'
@@ -11,8 +12,15 @@ export const MAX_SEEDS = 100
 // （2026-10-07、scripts/match_eval.ts。上限があると、評価を増やしても33件目からの好きな作品が候補を広げなかった）。
 // 控えていない作品がこの数を超えるときは、待ち時間の案内を出す
 export const LONG_WAIT_UNCACHED = 30
-export const FIRST_PASS_NOTE = '記録が多いので、まず評価の高い作品から調べて提案します（1分ほど）。残りは裏で調べて、次に提案を作るときに使います。'
-export const LONG_WAIT_NOTE = '初めて調べる作品が多いので、数分かかります（記録が多いほど長くなります）。次からは端末の控えを使うので速くなります。待つあいだ、ほかのページを見ていても大丈夫です。'
+// 文言は { ja, en }（読み込むときに1回だけ動く所で t() を呼べないので）。使う所で tx() する
+export const FIRST_PASS_NOTE: Text = {
+  ja: '記録が多いので、まず評価の高い作品から調べて提案します（1分ほど）。残りは裏で調べて、次に提案を作るときに使います。',
+  en: 'You have a lot of records, so Anipair looks up your highest-rated anime first and suggests from those (about a minute). The rest is checked in the background and used next time.',
+}
+export const LONG_WAIT_NOTE: Text = {
+  ja: '初めて調べる作品が多いので、数分かかります（記録が多いほど長くなります）。次からは端末の控えを使うので速くなります。待つあいだ、ほかのページを見ていても大丈夫です。',
+  en: 'There are many anime to look up for the first time, so this takes a few minutes (longer with more records). Next time it uses what’s saved on this device and is faster. You can browse other pages while you wait.',
+}
 
 // 段階的な提案（2026-10-11）: 端末に控えの無い作品が多いときは、まず好きな作品（重みの大きい順）FIRST_PASS_LIKED 件と
 // 苦手な作品 FIRST_PASS_DISLIKED 件だけを調べて提案を作る（約1分）。残りは裏の優先度で調べ続けて端末に控え、次に提案を作るときに使う。
@@ -91,25 +99,25 @@ function ratingsOf(reviews: ReadonlyMap<number, { ratingOverallState: RatingStat
 export type StepHandler = (step: string, note?: string, work?: { done: number; total: number }) => void
 
 async function load(token: string, onStep?: StepHandler, shikimori: FetchOptions = {}): Promise<Taste> {
-  onStep?.('Annictの記録を読み込み中')
+  onStep?.(t('Annictの記録を読み込み中', 'Loading your Annict records'))
   const library = await fetchLibrary(token)
   const ratings = ratingsOf(await refreshMyReviews(token))
   const seeds = buildSeeds(library, ratings)
   const topSeeds = [...seeds].sort((a, b) => Math.abs(b.weight) - Math.abs(a.weight)).slice(0, MAX_SEEDS)
   const hasLikes = seeds.some((s) => s.weight > 0)
-  onStep?.('好みを分析しています')
+  onStep?.(t('好みを分析しています', 'Analyzing your taste'))
   const seedMedia = hasLikes ? await fetchMedia(topSeeds.map((s) => s.malId), shikimori) : new Map<number, Media>()
   const allSimilarSeeds = hasLikes ? pickSimilarSeeds(seeds) : []
   // 先読み（裏の優先度）は控えを集めるのが目的なので、分けずに全部を調べる
   const { now: similarSeeds, later } = shikimori.background ? { now: allSimilarSeeds, later: [] } : splitFirstPass(allSimilarSeeds, isSimilarCached)
   const uncached = new Set(similarSeeds.filter((s) => !isSimilarCached(s.malId)).map((s) => s.malId))
-  const note = later.length > 0 ? FIRST_PASS_NOTE : uncached.size > LONG_WAIT_UNCACHED ? LONG_WAIT_NOTE : undefined
+  const note = later.length > 0 ? tx(FIRST_PASS_NOTE) : uncached.size > LONG_WAIT_UNCACHED ? tx(LONG_WAIT_NOTE) : undefined
   let fetched = 0
   const similar = await fetchSimilarMany(
     similarSeeds.map((s) => s.malId),
     (done, total, malId) => {
       if (uncached.has(malId)) fetched += 1
-      onStep?.(`似た作品を検索中（${done}/${total}）`, note, uncached.size > 0 ? { done: fetched, total: uncached.size } : undefined)
+      onStep?.(t(`似た作品を検索中（${done}/${total}）`, `Searching for similar anime (${done}/${total})`), note, uncached.size > 0 ? { done: fetched, total: uncached.size } : undefined)
     },
     shikimori,
   )

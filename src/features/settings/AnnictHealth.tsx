@@ -1,6 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { Spinner } from '../../components/Loading'
 import { fetchViewer } from '../../lib/annict'
+import { t } from '../../lib/i18n'
 import { annictHealthSamples, healthDetail, judgeAnnictHealth, subscribeAnnictHealth } from '../../lib/annictHealth'
 
 // Annict への接続の状態。URL と色の点（緑・黄・赤。まだ分からなければ灰）と一言で出す。色だけに頼らず、一言でも分かるようにする。
@@ -11,8 +12,8 @@ export function AnnictHealth(props: { token: string }) {
   const [checking, setChecking] = useState(false)
   // 「〜分前」を進める（届いたばかりの記録は、時刻が先でも「たった今」になる）
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 30_000)
-    return () => clearInterval(t)
+    const timer = setInterval(() => setNow(Date.now()), 30_000)
+    return () => clearInterval(timer)
   }, [])
   const health = judgeAnnictHealth(samples, now)
 
@@ -36,7 +37,7 @@ export function AnnictHealth(props: { token: string }) {
       {health.last && <span className="health__detail">{healthDetail(health.last, now)}</span>}
       <button type="button" className="link health__check" onClick={check} disabled={checking}>
         {checking && <Spinner />}
-        {checking ? '確かめています' : 'いま確かめる'}
+        {checking ? t('確かめています', 'Checking…') : t('いま確かめる', 'Check now')}
       </button>
     </div>
   )

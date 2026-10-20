@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
+import { t } from '../lib/i18n'
 import { registerSheet } from '../lib/sheetHistory'
 import { useModalFocus } from '../lib/useModalFocus'
 import type { PresentStep } from './tourSteps'
@@ -126,26 +127,26 @@ export function Tour(props: { label: string; steps: readonly PresentStep[]; onCl
             <span className="tour__count">
               {i + 1}
               <span className="count__of">/{steps.length}</span>
-              <span className="tour__tap">タップで次へ</span>
+              <span className="tour__tap">{t('タップで次へ', 'Tap for next')}</span>
             </span>
             <button type="button" className="link" onClick={() => onClose.current()}>
-              おわる
+              {t('おわる', 'Done')}
             </button>
           </div>
           <h2 className="tour__title">{current.step.title}</h2>
           <p className="tour__body">{current.step.body}</p>
           <div className="tour__actions">
             <button type="button" className="link" onClick={props.onText}>
-              文章で詳しく読む
+              {t('文章で詳しく読む', 'Read the full guide')}
             </button>
             <span className="tour__nav">
               {i > 0 && (
                 <button type="button" className="btn" onClick={prev}>
-                  戻る
+                  {t('戻る', 'Back')}
                 </button>
               )}
               <button ref={nextRef} type="button" className="btn btn--primary" onClick={next}>
-                {last ? 'わかった' : '次へ'}
+                {last ? t('わかった', 'Got it') : t('次へ', 'Next')}
               </button>
             </span>
           </div>
