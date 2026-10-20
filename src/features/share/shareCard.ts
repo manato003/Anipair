@@ -1,5 +1,5 @@
 import { RARITY_LABEL, type Rarity } from '../achievements/titles'
-import { workTitle } from '../../lib/names'
+import { personName, workTitle } from '../../lib/names'
 export { RARITY_LABEL }
 import { genreName } from '../match/taste'
 import { AXIS_LABEL } from '../../lib/reviewOps'
@@ -100,7 +100,7 @@ export function yearShare(y: YearReview, title: { name: string; rarity: Rarity }
   if (y.best.length > 0) facts.push({ label: t('いちばん良かった作品', 'My best anime'), value: y.best.slice(0, 3).map((r) => workTitle(r.entry)).join(' / ') })
   if (y.busiest) facts.push({ label: t('いちばん見た月', 'Busiest month'), value: t(`${y.busiest.month}月（${y.busiest.count}本）`, `${monthName(y.busiest.month)} (${y.busiest.count} anime)`) })
   if (y.genres.length > 0) facts.push({ label: t('よく見たジャンル', 'Most-watched genres'), value: joinList(y.genres.map((g) => genreName(g.name))) })
-  if (y.casts.length > 0) facts.push({ label: t('よく見た声優', 'Most-watched voice actors'), value: y.casts.map((c) => c.name).join(' / ') })
+  if (y.casts.length > 0) facts.push({ label: t('よく見た声優', 'Most-watched voice actors'), value: y.casts.map((c) => personName({ name: c.name })).join(' / ') })
   return {
     headline: t(`${y.year}年のアニメ`, `My ${y.year} in anime`),
     title,

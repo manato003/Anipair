@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useEnglishPeople } from '../../lib/englishNames'
 import { workTitle } from '../../lib/names'
 import { createPortal } from 'react-dom'
 import { CoverImage } from '../../components/CoverImage'
@@ -67,6 +68,11 @@ export function TrendsView(props: { rows: readonly RecordRow[]; data: TrendsData
   const people = topPeople(rows, credits, m)
   // 声優との相性は、声優（Annict）と世間の点数（Shikimori）の両方がそろってから
   const affinity = credits && media ? castAffinity(rows, credits, media) : undefined
+  // 英語の画面では、出す人の英語名を Wikidata から引く（引けたら描き直す）
+  useEnglishPeople([
+    ...[...(people.casts ?? []), ...(people.directors ?? [])].flatMap((p) => (p.ja ? [p.ja] : [])),
+    ...[...(affinity?.liked ?? []), ...(affinity?.unliked ?? [])].flatMap((a) => a.ja ?? []),
+  ])
   const pace = monthlyPace(rows, new Date())
   const weights = axisWeights(rows)
   // 共有する画像の中身（押したときに決める）

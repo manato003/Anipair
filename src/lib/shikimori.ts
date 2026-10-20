@@ -1,4 +1,5 @@
 import { delay, parseRetryAfter } from './retry'
+import { noteEnglishTitle } from './englishTitles'
 import { createThrottle, type ScheduleOptions } from './throttle'
 import { loadSimilar, saveSimilar, type Cover, type SimilarEntry } from './storage'
 import { t, tx, type Text } from './i18n'
@@ -211,6 +212,8 @@ export async function fetchMedia(malIds: readonly number[], opts: FetchOptions =
     for (const raw of body.animes) {
       const m = normalize(raw)
       if (m) mediaCache.set(m.idMal, m)
+      // 英語の画面の作品名に使う公式の英題を覚える（lib/englishTitles.ts）
+      if (m) noteEnglishTitle(m.idMal, m.title.english)
     }
   }
   const out = new Map<number, Media>()
@@ -224,6 +227,45 @@ export async function fetchMedia(malIds: readonly number[], opts: FetchOptions =
 // 名前の照合に使う形（全角・半角をそろえ、空白と中黒・イコールを除く）。Annict の「上坂すみれ」と Shikimori の「上坂 すみれ」を同じにする
 export function personKey(name: string): string {
   return name.normalize('NFKC').replace(/[\s・=＝]/g, '').toLowerCase() // i18n-ok: 日本語の名前の照合用（画面には出さない）
+}
+
+const castCache = new Map<number, Promise<Map<string, string>>>()
+
+// Shikimori のキャラクターの日本語名から、Annict の名前と照合する鍵を作る。
+// Shikimori は「漢 羅半」（姓 名）や「響迂 / 趙迂」（別名）と書き、Annict は「羅半」「趙迂」と名だけのことがある。
+// 全体・別名ごと・別名ごとの名（空白の後ろ）を鍵にする（先に入れた主役の名前が優先）
+export function castKeys(ja: string): string[] {
+  const keys = [personKey(ja)]
+  for (const alt of ja.split(/[/／]/).map((s) => s.trim()).filter(Boolean)) { // i18n-ok: 全角の斜線で別名を分ける（照合用）
+    keys.push(personKey(alt))
+    const parts = alt.split(/\s+/)
+    if (parts.length > 1) keys.push(personKey(parts[parts.length - 1]))
+  }
+  return [...new Set(keys)].filter(Boolean)
+}
+
+// 作品のキャラクターの、日本語名（personKey の形）→ ローマ字の名前（英語の画面で Annict のキャラクター名を英語にする）。
+// 1回の起動の中では作品ごとに1回だけ読む。失敗したら空の表（日本語のまま出す）
+export function fetchCastNames(malId: number, opts: FetchOptions = {}): Promise<Map<string, string>> {
+  let p = castCache.get(malId)
+  if (!p) {
+    p = call(`op=cast&id=${malId}`, opts)
+      .then((body) => {
+        const chars = (body as { chars?: { n?: unknown; ja?: unknown }[] } | null)?.chars
+        const out = new Map<string, string>()
+        for (const c of Array.isArray(chars) ? chars : []) {
+          if (typeof c?.n !== 'string' || typeof c.ja !== 'string') continue
+          for (const key of castKeys(c.ja)) if (!out.has(key)) out.set(key, c.n)
+        }
+        return out
+      })
+      .catch(() => {
+        castCache.delete(malId)
+        return new Map<string, string>()
+      })
+    castCache.set(malId, p)
+  }
+  return p
 }
 
 export interface ShikimoriPerson {
@@ -348,6 +390,7 @@ export async function fetchStudioWorks(id: number, opts: FetchOptions = {}): Pro
       const m = normalize(raw)
       if (!m) continue
       mediaCache.set(m.idMal, m)
+      noteEnglishTitle(m.idMal, m.title.english)
       out.push(m)
     }
     if (body.animes.length < BATCH) break

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useEnglishPeople } from '../../lib/englishNames'
 import { CoverImage } from '../../components/CoverImage'
 import { Sheet } from '../../components/Sheet'
 import { annictCreditUrl, peekLibrary, type Credit } from '../../lib/annict'
@@ -110,6 +111,8 @@ export function CreditWorks(
 
   const list = useMemo(() => (found.kind === 'found' ? orderWorks(found.works, order) : []), [found, order])
   const visible = more ? list : list.slice(0, FIRST)
+  // 英語の画面では、人の英語名を Wikidata から引く（団体は Annict の英語の表記）
+  useEnglishPeople(target.credit.kind === 'person' ? [target.credit.name] : [])
   const name = personName(target.credit)
 
   return (

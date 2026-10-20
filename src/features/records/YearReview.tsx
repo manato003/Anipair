@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { workTitle } from '../../lib/names'
+import { useEnglishPeople } from '../../lib/englishNames'
+import { personName, workTitle } from '../../lib/names'
 import { createPortal } from 'react-dom'
 import { CoverImage } from '../../components/CoverImage'
 import type { WorkCredits } from '../../lib/annict'
@@ -30,6 +31,9 @@ export function YearReview(props: {
   const [year, setYear] = useState<number | null>(() => years[0] ?? null)
   const [shareCard, setShareCard] = useState<ShareCard | null>(null)
   const y = useMemo(() => (year === null ? null : yearReview(props.rows, year, props.media, props.credits)), [props.rows, year, props.media, props.credits])
+
+  // 英語の画面では、よく見た声優の英語名を Wikidata から引く
+  useEnglishPeople(y?.casts.map((c) => c.name) ?? [])
 
   const openShare = () => {
     if (!y) return
@@ -123,7 +127,7 @@ export function YearReview(props: {
                 {y.casts.length > 0 && (
                   <>
                     <h3 className="trend__title">{t('よく見た声優', 'Most-watched voice actors')}</h3>
-                    <p className="trend__headline">{y.casts.map((c) => named(c.name, c.count)).join(' / ')}</p>
+                    <p className="trend__headline">{y.casts.map((c) => named(personName({ name: c.name }), c.count)).join(' / ')}</p>
                   </>
                 )}
               </section>

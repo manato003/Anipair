@@ -116,6 +116,7 @@ npm run build
 - [Annict](https://annict.com/)：記録の保存先とデータ。ありがとうございます
 - [Shikimori](https://shikimori.io/)：作品データの一部（ジャンル・テーマ・似た作品・一部の表紙・声優やスタッフ・制作会社の参加作品）
 - [Wikipedia](https://ja.wikipedia.org/)：作品のあらすじ（CC BY-SA 4.0。英語の画面では英語版の記事があればそちら）
+- [Wikidata](https://www.wikidata.org/)：英語の画面の声優・スタッフの英語名（CC0）
 
 ## ライセンス・規約
 

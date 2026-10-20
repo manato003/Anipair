@@ -225,14 +225,16 @@ export function mainstream(rows: readonly RecordRow[]): { median: number; label:
 export interface Ranked {
   key: string
   name: string
+  // 日本語名（英語の画面で、Wikidata の英語名を引くのに使う。lib/englishNames.ts）
+  ja?: string
   count: number
   average: number | null
 }
 
-function rank(entries: readonly { key: string; name: string; rating: RatingState | null }[], max: number): Ranked[] {
-  const acc = new Map<string, { name: string; count: number; points: number[] }>()
+function rank(entries: readonly { key: string; name: string; ja?: string; rating: RatingState | null }[], max: number): Ranked[] {
+  const acc = new Map<string, { name: string; ja?: string; count: number; points: number[] }>()
   for (const e of entries) {
-    const a = acc.get(e.key) ?? { name: e.name, count: 0, points: [] }
+    const a = acc.get(e.key) ?? { name: e.name, ja: e.ja, count: 0, points: [] }
     a.count++
     if (e.rating) a.points.push(RATING_POINT[e.rating])
     acc.set(e.key, a)
@@ -241,7 +243,7 @@ function rank(entries: readonly { key: string; name: string; rating: RatingState
     .filter(([, a]) => a.count >= 2)
     .sort((x, y) => y[1].count - x[1].count || (mean(y[1].points) ?? 0) - (mean(x[1].points) ?? 0) || x[1].name.localeCompare(y[1].name))
     .slice(0, max)
-    .map(([key, a]) => ({ key, name: a.name, count: a.count, average: mean(a.points) }))
+    .map(([key, a]) => ({ key, name: a.name, ja: a.ja, count: a.count, average: mean(a.points) }))
 }
 
 // よく見る声優・監督（Annict の声優と監督）・制作会社（Shikimori）。見た作品で2本以上のもの、多い順に max 人（社）
@@ -262,11 +264,11 @@ export function topPeople(
   )
   if (!credits) return { casts: null, directors: null, studios }
   const casts = rank(
-    w.flatMap((r) => (credits.get(r.entry.workId)?.casts ?? []).map((p) => ({ key: String(p.annictId), name: personName(p), rating: ratingOf(r) }))),
+    w.flatMap((r) => (credits.get(r.entry.workId)?.casts ?? []).map((p) => ({ key: String(p.annictId), name: personName(p), ja: p.name, rating: ratingOf(r) }))),
     max,
   )
   const directors = rank(
-    w.flatMap((r) => (credits.get(r.entry.workId)?.directors ?? []).map((p) => ({ key: String(p.annictId), name: personName(p), rating: ratingOf(r) }))),
+    w.flatMap((r) => (credits.get(r.entry.workId)?.directors ?? []).map((p) => ({ key: String(p.annictId), name: personName(p), ja: p.name, rating: ratingOf(r) }))),
     max,
   )
   return { casts, directors, studios }
@@ -276,6 +278,8 @@ export interface Affinity {
   key: string
   // 同じ作品群にだけ出ている声優は1行にまとめる（「緒方恵美・山口由里子」）
   name: string
+  // 日本語名（英語の画面で、Wikidata の英語名を引くのに使う）
+  ja?: string[]
   // 相性の点（10点満点の差。プラスは世間より高く、マイナスは低く評価している）
   score: number
   // 比べられた作品（評価した・世間の点数がある）の数と、そのシリーズの数
@@ -352,26 +356,28 @@ export function castAffinity(
     media,
   )
   type Item = { c: (typeof compared)[number]; residual: number }
-  const acc = new Map<string, { names: string[]; items: Item[] }>()
+  const acc = new Map<string, { names: string[]; ja: string[]; items: Item[] }>()
   for (const c of compared) {
     for (const p of credits.get(c.row.entry.workId)?.casts ?? []) {
       const key = String(p.annictId)
-      const a = acc.get(key) ?? { names: [personName(p)], items: [] }
+      const a = acc.get(key) ?? { names: [personName(p)], ja: [p.name], items: [] }
       // 同じ作品に同じ声優が2役でも1本と数える
       if (!a.items.some((it) => it.c === c)) a.items.push({ c, residual: c.diff - bias })
       acc.set(key, a)
     }
   }
   // 同じ作品群にだけ出ている声優をまとめる（点も例も同じになるので、別の行にしても情報が増えない）
-  const groups = new Map<string, { key: string; names: string[]; items: Item[] }>()
+  const groups = new Map<string, { key: string; names: string[]; ja: string[]; items: Item[] }>()
   for (const [key, a] of acc) {
     const works = a.items
       .map((it) => it.c.row.entry.workId)
       .sort()
       .join(',')
     const g = groups.get(works)
-    if (g) g.names.push(...a.names)
-    else groups.set(works, { key, names: [...a.names], items: a.items })
+    if (g) {
+      g.names.push(...a.names)
+      g.ja.push(...a.ja)
+    } else groups.set(works, { key, names: [...a.names], ja: [...a.ja], items: a.items })
   }
   const all: Affinity[] = []
   for (const g of groups.values()) {
@@ -384,7 +390,7 @@ export function castAffinity(
     const score = [...bySeries.values()].reduce((x, rs) => x + (mean(rs) ?? 0), 0) / (bySeries.size + prior)
     const best = [...g.items].sort((x, y) => (score >= 0 ? y.residual - x.residual : x.residual - y.residual))[0]
     const name = g.names.length > 3 ? t(`${joinList(g.names.slice(0, 3))} ほか`, `${joinList(g.names.slice(0, 3))} and others`) : joinList(g.names)
-    all.push({ key: g.key, name, score, n: g.items.length, series: bySeries.size, example: best ? { title: workTitle(best.c.row.entry), rating: best.c.rating, world: best.c.world } : null })
+    all.push({ key: g.key, name, ja: g.ja.slice(0, 3), score, n: g.items.length, series: bySeries.size, example: best ? { title: workTitle(best.c.row.entry), rating: best.c.rating, world: best.c.world } : null })
   }
   const liked = all
     .filter((x) => x.score >= threshold)
@@ -496,7 +502,7 @@ export function yearReview(rows: readonly RecordRow[], year: number, media: Read
       return m ? [...m.genres, ...m.themes] : []
     }),
   )
-  const casts = credits ? count(inYear.map((r) => (credits.get(r.entry.workId)?.casts ?? []).map((c) => personName(c)))) : []
+  const casts = credits ? count(inYear.map((r) => (credits.get(r.entry.workId)?.casts ?? []).map((c) => c.name))) : []
   return {
     year,
     watched: inYear.length,

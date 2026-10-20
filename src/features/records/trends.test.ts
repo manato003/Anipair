@@ -169,10 +169,10 @@ describe('topPeople', () => {
     ])
     const p = topPeople(rows, credits, m)
     expect(p.casts).toEqual([
-      { key: '10', name: '声優A', count: 3, average: 3.5 },
-      { key: '11', name: '声優B', count: 2, average: 4 },
+      { key: '10', name: '声優A', ja: '声優A', count: 3, average: 3.5 },
+      { key: '11', name: '声優B', ja: '声優B', count: 2, average: 4 },
     ])
-    expect(p.directors).toEqual([{ key: '20', name: '監督A', count: 2, average: 3.5 }])
+    expect(p.directors).toEqual([{ key: '20', name: '監督A', ja: '監督A', count: 2, average: 3.5 }])
     expect(p.studios).toEqual([{ key: 'ufotable', name: 'ufotable', count: 2, average: 3.5 }])
     expect(topPeople(rows, null, m).casts).toBeNull()
   })

@@ -589,3 +589,38 @@ describe('handleShiki: review #31', () => {
     expect((await handleShiki(req('?op=similar&id=52991'), fetchFn, null, () => at)).status).toBe(200)
   })
 })
+
+describe('handleShiki cast', () => {
+  it('returns the characters’ romaji and Japanese names, main characters first, and keeps them', async () => {
+    const fetchFn = upstream(200, {
+      data: {
+        animes: [
+          {
+            characterRoles: [
+              { rolesEn: ['Supporting'], character: { name: 'Aura', japanese: 'アウラ' } },
+              { rolesEn: ['Main'], character: { name: 'Frieren', japanese: 'フリーレン' } },
+              { rolesEn: ['Supporting'], character: { name: 'Bakery Owner', japanese: null } },
+              { rolesEn: ['Main'], character: { name: 'Stark', japanese: 'シュタルク 様' } },
+            ],
+          },
+        ],
+      },
+    })
+    const res = await handleShiki(req('?op=cast&id=52991'), fetchFn)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({
+      chars: [
+        { n: 'Frieren', ja: 'フリーレン' },
+        { n: 'Stark', ja: 'シュタルク 様' },
+        { n: 'Aura', ja: 'アウラ' },
+      ],
+    })
+  })
+
+  it('rejects anything but a plain id', async () => {
+    for (const query of ['?op=cast', '?op=cast&id=abc', '?op=cast&id=1&v=1', '?op=cast&ids=1']) {
+      const res = await handleShiki(req(query), upstream(200, {}))
+      expect(res.status).toBe(400)
+    }
+  })
+})

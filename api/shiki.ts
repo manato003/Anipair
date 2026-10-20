@@ -15,6 +15,7 @@
 //                          v=4 からは、声の出演に演じたキャラクター（ID とローマ字の名前）を付ける
 //   ?op=characters&ids=1,2 キャラクターの日本語名（50人まで。参加作品の一覧の役名に使う。Shikimori の人物の応答はローマ字とロシア語の名前しか無い）
 //   ?op=studio&id=N&page=P 制作会社の作品（新しい順に50件ずつ。作品の情報と同じ形）
+//   ?op=cast&id=N          作品のキャラクターのローマ字と日本語の名前（英語の画面で、Annict のキャラクター名を英語にするため。主役から150人まで）
 // 利用者に結びつく情報は受け取らず、何もログに出さない。
 //
 // 控えと回数（2026-10-12）: Upstash Redis（環境変数 KV_REST_API_URL・KV_REST_API_TOKEN。無ければ今までどおり直接聞く）に、
@@ -37,6 +38,8 @@ const MAX_PEOPLE = 8
 const MAX_PERSON_WORKS = 400
 // 1作品に付ける役名の数
 const MAX_CHARACTERS_PER_WORK = 3
+// 作品のキャラクターの名前は、主役から順にこれまで
+const MAX_CAST = 150
 // 制作会社の作品は、50件ずつ4ページ（200件）まで
 const MAX_STUDIO_PAGE = 4
 const TIMEOUT_MS = 8000
@@ -184,6 +187,8 @@ const STUDIO_QUERY = `query($studio: String!, $page: PositiveInt!) { animes(stud
 const PEOPLE_QUERY = `query($search: String!) { people(search: $search, limit: ${MAX_PEOPLE}) { id name japanese } }`
 // キャラクターの日本語名
 const CHARACTERS_QUERY = `query($ids: String!) { characters(ids: $ids, limit: ${MAX_IDS}) { id japanese } }`
+// 作品のキャラクター（ローマ字の名前と日本語名。主役・脇役の別）
+const CAST_QUERY = `query($ids: String!) { animes(ids: $ids, limit: 1) { characterRoles { rolesEn character { name japanese } } } }`
 
 function respond(status: number, body: unknown, cache: string): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': cache } })
@@ -213,6 +218,7 @@ const PARAMS: Record<string, readonly string[]> = {
   person: ['op', 'id', 'v'],
   characters: ['op', 'ids'],
   similar: ['op', 'id', 'ids'],
+  cast: ['op', 'id'],
 }
 
 function parseIds(raw: string | null): number[] | null {
@@ -351,7 +357,9 @@ export async function handleShiki(request: Request, fetchFn: FetchLike = fetch, 
         ? `${KEY}:person:${q.get('id')}:${q.get('v') ?? '2'}`
         : op === 'studio' && parseId(q.get('id')) && parseId(q.get('page') ?? '1')
           ? `${KEY}:studio:${q.get('id')}:${q.get('page') ?? '1'}`
-          : null
+          : op === 'cast' && parseId(q.get('id'))
+            ? `${KEY}:cast:${q.get('id')}`
+            : null
   if (op === 'animes' || op === 'characters') {
     const all = parseIds(q.get('ids'))
     if (!all) return fail(400, 'bad_request')
@@ -421,6 +429,15 @@ export async function handleShiki(request: Request, fetchFn: FetchLike = fetch, 
       })
       // 居ない人。参加作品が無いだけなので、空として返して控えさせる
       if (upstream.status === 404) return keep(singleKey, { cast: [], staff: [] }, TTL_PERSON)
+    } else if (op === 'cast') {
+      const id = parseId(q.get('id'))
+      if (!id) return fail(400, 'bad_request')
+      upstream = await send(GRAPHQL_URL, {
+        method: 'POST',
+        headers: { 'User-Agent': USER_AGENT, 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ query: CAST_QUERY, variables: { ids: String(id) } }),
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      })
     } else if (op === 'similar') {
       const id = parseId(q.get('id'))
       if (!id) return fail(400, 'bad_request')
@@ -477,6 +494,21 @@ export async function handleShiki(request: Request, fetchFn: FetchLike = fetch, 
       ...ids.filter((id) => !found.has(id)).map((id) => ({ key: `${KEY}:char:${id}`, value: 'null', ttl: TTL_MISSING })),
     ])
     return respond(200, { characters: [...cachedChars, ...characters] }, CACHE_OK)
+  }
+  if (op === 'cast') {
+    // 主役を先に。日本語名は Shikimori の表記のまま返す（「漢 羅半」「響迂 / 趙迂」。Annict は名だけのこともあるので、照合は画面の側で姓と名・別名に分けて行う）。
+    // 日本語名の無いキャラクターは返さない
+    type RawCast = { rolesEn?: unknown; character?: { name?: unknown; japanese?: unknown } | null }
+    const animes = (data as { data?: { animes?: { characterRoles?: RawCast[] | null }[] } } | null)?.data?.animes
+    if (!Array.isArray(animes)) return fail(502, 'upstream_error')
+    const roles = Array.isArray(animes[0]?.characterRoles) ? (animes[0].characterRoles as RawCast[]) : []
+    const main = (r: RawCast) => Array.isArray(r.rolesEn) && r.rolesEn.includes('Main')
+    const chars = [...roles.filter(main), ...roles.filter((r) => !main(r))].flatMap((r) => {
+      const n = str(r?.character?.name)
+      const ja = str(r?.character?.japanese)?.trim()
+      return n && ja && n.length <= 60 && ja.length <= 60 ? [{ n, ja }] : []
+    })
+    return keep(singleKey, { chars: chars.slice(0, MAX_CAST) }, TTL_CHARACTER)
   }
   if (op === 'people') {
     const list = (data as { data?: { people?: { id?: unknown; name?: unknown; japanese?: unknown }[] } } | null)?.data?.people

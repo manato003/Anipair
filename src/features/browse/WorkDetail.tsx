@@ -1,4 +1,5 @@
 import { idMalOf } from '../../lib/writeJournal'
+import { englishPersonOf, useEnglishPeople } from '../../lib/englishNames'
 import { Phrase } from '../../components/Phrase'
 import { useEffect, useRef, useState } from 'react'
 import { CoverImage } from '../../components/CoverImage'
@@ -7,8 +8,8 @@ import { annictWorkUrl, fetchWorkDetail, peekLibrary, updateStatus, type Credit,
 import { getMyReviews, rememberReview } from '../../lib/myReviews'
 import { changeRating } from '../../lib/reviewOps'
 import { getLang, t } from '../../lib/i18n'
-import { personName, staffRole, workTitle } from '../../lib/names'
-import { fetchMedia, shikimoriUrl, type Media } from '../../lib/shikimori'
+import { characterName, personName, staffRole, workTitle } from '../../lib/names'
+import { fetchCastNames, fetchMedia, shikimoriUrl, type Media } from '../../lib/shikimori'
 import type { Cover } from '../../lib/storage'
 import { vodSearchLinks } from '../../lib/vodSearch'
 import { formatBroadcast, hasChoice, upcomingByChannel, useBroadcastPrefs } from '../../lib/broadcast'
@@ -126,6 +127,18 @@ export function WorkDetail(
   const [credit, setCredit] = useState<CreditTarget | null>(null)
   const active = (props.active ?? true) && related === null && credit === null && !servicesOpen
   const [shikiDone, setShikiDone] = useState(() => !malIdOf(work))
+  // 英語の画面: 声優・スタッフの英語名（Wikidata。引けたら描き直す）と、キャラクターのローマ字の名前（Shikimori）
+  useEnglishPeople(detail ? [...detail.casts.map((c) => c.person?.name ?? c.name), ...detail.staffs.filter((st) => st.ref?.kind !== 'org').map((st) => st.ref?.name ?? st.name)] : [])
+  const [castRomaji, setCastRomaji] = useState<ReadonlyMap<string, string> | null>(null)
+  useEffect(() => {
+    const mal = malIdOf(work)
+    if (getLang() !== 'en' || !mal) return
+    let cancelled = false
+    void fetchCastNames(mal).then((m) => !cancelled && setCastRomaji(m))
+    return () => {
+      cancelled = true
+    }
+  }, [work])
   const [waitedLong, setWaitedLong] = useState(false)
   // Annict は未記録を null ではなく NO_STATE で返す。画面では「記録なし」にそろえる
   const [state, setState] = useState<StatusState | null>(work.viewerStatusState && work.viewerStatusState !== 'NO_STATE' ? work.viewerStatusState : null)
@@ -611,7 +624,8 @@ export function WorkDetail(
                           <dd>
                             {s.names.map((n, i) => {
                               const ref = staffRefs.get(`${s.role}\u0000${n}`)
-                              const shown = personName({ name: n, nameEn: staffNameEn.get(n) })
+                              // 英語名は Annict の人物の名前で引く（クレジットの表記は「日向夏（ヒーロー文庫／…刊）」のように出版社が付くことがある）
+                              const shown = (getLang() === 'en' && ref?.kind === 'person' && englishPersonOf(ref.name)) || personName({ name: n, nameEn: staffNameEn.get(n) })
                               return (
                                 <span key={n}>
                                   {i > 0 && t('、', ', ')}
@@ -632,8 +646,8 @@ export function WorkDetail(
                     <dl className="credits">
                       {detail.casts.map((c) => (
                         <div key={`${c.character}-${c.name}`} className="credits__row">
-                          <dt>{personName({ name: c.character, nameEn: c.characterEn })}</dt>
-                          <dd>{c.person ? <CreditName name={personName(c)} onOpen={() => c.person && openCredit(c.person, '')} /> : personName(c)}</dd>
+                          <dt>{characterName({ name: c.character, nameEn: c.characterEn }, castRomaji)}</dt>
+                          <dd>{c.person ? <CreditName name={personName({ name: c.person.name, nameEn: c.person.nameEn ?? c.nameEn })} onOpen={() => c.person && openCredit(c.person, '')} /> : personName(c)}</dd>
                         </div>
                       ))}
                     </dl>
