@@ -56,3 +56,12 @@ export function buildCalendar(name: string, events: readonly CalendarEvent[], no
   lines.push('END:VCALENDAR')
   return lines.map(foldLine).join('\r\n') + '\r\n'
 }
+
+// Google カレンダーの「予定を作る」画面を、中身を入れた状態で開くリンク（1件ずつ。ファイルを保存させずに済む。PC 向け）
+export function googleCalendarUrl(e: CalendarEvent): string {
+  const end = new Date(e.start.getTime() + e.minutes * 60_000)
+  const q = new URLSearchParams({ action: 'TEMPLATE', text: e.summary, dates: `${utc(e.start)}/${utc(end)}` })
+  if (e.location) q.set('location', e.location)
+  if (e.description) q.set('details', e.description)
+  return `https://calendar.google.com/calendar/render?${q.toString()}`
+}

@@ -3,6 +3,9 @@
 .app {
   display: grid;
   grid-template-rows: 1fr auto;
+  /* 列の幅を画面の幅に固定する。無いと、中の部品の最小の幅（iPhone では検索欄の既定の幅が広い）まで列が広がり、
+     画面全体が右へはみ出して、右端の部品が切れた（2026-10-21 利用者の実機。記録とブラウズの「絞り込み」） */
+  grid-template-columns: minmax(0, 1fr);
   height: calc(100dvh / var(--zoom));
   /* 大きな画面では、アプリ全体を段階的に拡大する（下の --zoom） */
   zoom: var(--zoom);

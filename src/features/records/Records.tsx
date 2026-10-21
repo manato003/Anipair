@@ -72,7 +72,7 @@ import { StaleNote } from '../../components/StaleNote'
 import { SortRow } from '../../components/SortRow'
 import { reducedMotion, useViewingSeason } from '../../lib/theme'
 import { downloadText } from '../../lib/download'
-import { buildCalendar } from '../../lib/ics'
+import { buildCalendar, googleCalendarUrl, type CalendarEvent } from '../../lib/ics'
 
 // 傾向・ふり返り（図と共有の画像）と実績は、開いたときに別のファイルから読む（記録の一覧を早く出す）
 const TrendsView = lazy(() => import('./TrendsView').then((m) => ({ default: m.TrendsView })))
@@ -769,7 +769,7 @@ function WeekSchedule(props: { days: { day: string; items: WeekItem<RecordRow>[]
           <h3 className="week__date">{d.day}</h3>
           <ul className="week__items">
             {d.items.map((it) => (
-              <li key={`${it.work.entry.workId}-${it.at.getTime()}`}>
+              <li key={`${it.work.entry.workId}-${it.at.getTime()}`} className="week__row">
                 <button type="button" className="week__item" onClick={() => props.onOpen(it.work)}>
                   <span className="week__time">{formatTime(it.at)}</span>
                   <span className="week__title">{workTitle(it.work.entry)}</span>
@@ -778,6 +778,10 @@ function WeekSchedule(props: { days: { day: string; items: WeekItem<RecordRow>[]
                     {it.more ? t('ほか', ' & more') : ''}
                   </span>
                 </button>
+                {/* PC では、ファイルを保存させずに Google カレンダーの予定の画面を開く（スマホは下の .ics。styles/records.css） */}
+                <a className="week__gcal" href={googleCalendarUrl(weekEvent(it))} target="_blank" rel="noreferrer" title={t('Googleカレンダーに追加', 'Add to Google Calendar')}>
+                  {t('＋Googleカレンダー', '+ Google Calendar')}
+                </a>
               </li>
             ))}
           </ul>
@@ -796,7 +800,7 @@ function WeekSchedule(props: { days: { day: string; items: WeekItem<RecordRow>[]
         props.days.length === 0 && <p className="week__note">{t('これから7日のうちに、選んだサービスでの放送予定は見つかりませんでした。', 'No broadcasts were found on your selected services in the next 7 days.')}</p>
       )}
       {props.days.length > 0 && (
-        <p className="week__note">
+        <p className="week__note week__ics">
           <button type="button" className="link" onClick={() => exportWeek(props.days)}>
             {t('カレンダーに入れる（.ics）', 'Add to calendar (.ics)')}
           </button>
@@ -807,19 +811,21 @@ function WeekSchedule(props: { days: { day: string; items: WeekItem<RecordRow>[]
   )
 }
 
-// 今週の放送を、カレンダーのファイルにして保存させる（Google カレンダー・iPhone のカレンダーで開ける。2026-10-21）。
-// 放送の長さは Annict に無いので、30分として入れる
+// 今週の放送の1件を、カレンダーの予定に。放送の長さは Annict に無いので、30分として入れる
+function weekEvent(it: WeekItem<RecordRow>): CalendarEvent {
+  return {
+    uid: `${it.work.entry.workId}-${it.at.getTime()}@anipair.com`,
+    start: it.at,
+    minutes: 30,
+    summary: workTitle(it.work.entry),
+    location: it.more ? t(`${it.channel}ほか`, `${it.channel} & more`) : it.channel,
+  }
+}
+
+// 今週の放送を、カレンダーのファイルにして保存させる（スマホでは、開くと標準のカレンダーの「追加しますか」が出る。2026-10-21）
 function exportWeek(days: readonly { items: readonly WeekItem<RecordRow>[] }[]): void {
   const now = new Date()
-  const events = days.flatMap((d) =>
-    d.items.map((it) => ({
-      uid: `${it.work.entry.workId}-${it.at.getTime()}@anipair.com`,
-      start: it.at,
-      minutes: 30,
-      summary: workTitle(it.work.entry),
-      location: it.more ? t(`${it.channel}ほか`, `${it.channel} & more`) : it.channel,
-    })),
-  )
+  const events = days.flatMap((d) => d.items.map(weekEvent))
   const pad = (n: number) => String(n).padStart(2, '0')
   downloadText(`anipair-week-${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}.ics`, buildCalendar(t('Anipairの今週の放送', 'Anipair: this week'), events, now), 'text/calendar;charset=utf-8')
 }

@@ -10,6 +10,8 @@
 
 .records__controls {
   display: grid;
+  /* 列を枠の幅に合わせる（無いと、検索欄の既定の幅まで列が広がり、右の「絞り込み」がはみ出す。iPhone の Safari で起きた） */
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   padding-top: 10px;
 }
@@ -1660,15 +1662,22 @@
   list-style: none;
 }
 
+.week__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
 .week__item {
   display: grid;
+  flex: 1;
   grid-template-columns: 3.5em minmax(0, 1fr) auto;
   align-items: baseline;
   gap: 12px;
-  width: 100%;
+  min-width: 0;
   padding: 10px 0;
   border: 0;
-  border-bottom: 1px solid var(--line);
   background: none;
   color: inherit;
   font: inherit;
@@ -1697,6 +1706,29 @@
   margin-top: 16px;
   color: var(--sub);
   font-size: 0.8rem;
+}
+
+/* カレンダーへの入れ方は端末で分ける（2026-10-21 利用者）。スマホ（指で触る）はファイル（.ics）を開くと標準のカレンダーの「追加しますか」が出る。
+   PC はファイルを開くと使っていないアプリ（Outlook など）が開くので、ファイルは出さず、1件ずつ Google カレンダーの予定の画面を開くリンクにする */
+.week__gcal {
+  display: none;
+  color: var(--sub);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .week__gcal {
+    display: inline;
+  }
+
+  .week__gcal:hover {
+    color: var(--fg);
+  }
+
+  .week__ics {
+    display: none;
+  }
 }
 
 .watchcards__broadcast .link {

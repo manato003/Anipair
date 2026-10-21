@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildCalendar, escapeText, foldLine } from './ics'
+import { buildCalendar, escapeText, foldLine, googleCalendarUrl } from './ics'
 
 describe('buildCalendar', () => {
   it('writes one event per broadcast in UTC, with CRLF line ends', () => {
@@ -23,5 +23,16 @@ describe('escapeText / foldLine', () => {
     expect(parts.length).toBeGreaterThan(1)
     for (const p of parts) expect(new TextEncoder().encode(p).length).toBeLessThanOrEqual(75)
     expect(parts.map((p, i) => (i === 0 ? p : p.slice(1))).join('')).toBe(line)
+  })
+})
+
+describe('googleCalendarUrl', () => {
+  it('opens Google Calendar’s new-event screen with the title, time (UTC) and channel filled in', () => {
+    const url = new URL(googleCalendarUrl({ uid: 'x', start: new Date('2026-10-24T14:30:00.000Z'), minutes: 30, summary: '薬屋のひとりごと 第3期', location: '日本テレビ' }))
+    expect(url.origin + url.pathname).toBe('https://calendar.google.com/calendar/render')
+    expect(url.searchParams.get('action')).toBe('TEMPLATE')
+    expect(url.searchParams.get('text')).toBe('薬屋のひとりごと 第3期')
+    expect(url.searchParams.get('dates')).toBe('20261024T143000Z/20261024T150000Z')
+    expect(url.searchParams.get('location')).toBe('日本テレビ')
   })
 })
