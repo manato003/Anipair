@@ -1,5 +1,6 @@
 import { fetchMedia } from './shikimori'
 import { clearLegacyCovers, loadPosters, savePosters, type Cover } from './storage'
+import { malIdOf } from './malId'
 
 // 表紙の出どころを、ここ1か所で決める。どの画面も fetchCovers に作品を渡すだけで、出どころは知らない。
 // 順番に試して、見つかった作品は次に回さない（RESOLVERS の先頭が優先）:
@@ -60,8 +61,8 @@ const annictOgImage: Resolver = async (works) => {
 // 表紙は見た目のためのものなので、取れなくても止めない（取れなかった作品は表紙なしで出る。それまでに取れた分は使う）
 const shikimoriPoster: Resolver = async (works, onProgress) => {
   const withMal = works.flatMap((w) => {
-    const mal = Number(w.malAnimeId)
-    return Number.isInteger(mal) && mal > 0 ? [{ annictId: w.annictId, mal }] : []
+    const mal = malIdOf(w)
+    return mal ? [{ annictId: w.annictId, mal }] : []
   })
   if (withMal.length === 0) return new Map()
   const posters = loadPosters()

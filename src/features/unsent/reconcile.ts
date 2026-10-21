@@ -2,7 +2,8 @@ import { t } from '../../lib/i18n'
 import { shikiTitle } from '../../lib/names'
 import { annictMissingLinks, fetchRecentActivity, updateRecord, updateStatus } from '../../lib/annict'
 import { getMyReviews, rememberReview } from '../../lib/myReviews'
-import { changeRating, contentOf, saveReview } from '../../lib/reviewOps'
+import { contentOf, saveReview } from '../../lib/reviewOps'
+import { rateNow } from '../../lib/rateNow'
 import { createRecordGuarded, deleteRecordIfExists, findMyRecord, MARGIN_MS } from '../../lib/uncertainWrites'
 import { WriteError } from '../../lib/useWriteQueue'
 import type { WriteIntent } from '../../lib/writeJournal'
@@ -16,8 +17,7 @@ export async function reconcileIntent(token: string, intent: WriteIntent): Promi
       await updateStatus(token, intent.workId, intent.state)
       return
     case 'rating': {
-      const current = (await getMyReviews(token)).get(intent.annictId) ?? null
-      await rememberReview(token, intent.annictId, await changeRating(token, intent.workId, current, intent.rating))
+      await rateNow(token, intent.workId, intent.annictId, intent.rating)
       return
     }
     case 'review': {
@@ -49,8 +49,7 @@ export async function reconcileIntent(token: string, intent: WriteIntent): Promi
       // 状態があとから付け直されていたら、状態は書かない（評価だけ）
       if (!intent.keepState) await updateStatus(token, ref.id, intent.state)
       if (intent.rating === undefined) return
-      const current = (await getMyReviews(token)).get(ref.annictId) ?? null
-      await rememberReview(token, ref.annictId, await changeRating(token, ref.id, current, intent.rating))
+      await rateNow(token, ref.id, ref.annictId, intent.rating)
       return
     }
   }

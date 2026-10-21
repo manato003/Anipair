@@ -1,12 +1,12 @@
-import { idMalOf } from '../../lib/writeJournal'
+import { idMalOf } from '../../lib/malId'
 import { workTitle } from '../../lib/names'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchCovers, quickCovers } from '../../lib/covers'
 import { t } from '../../lib/i18n'
 import { loadStoredLibrary } from '../../lib/offlineCache'
 import { fetchLibrary, updateStatus, type RatingState, type StatusState } from '../../lib/annict'
-import { getMyReviews, peekMyReview, rememberReview } from '../../lib/myReviews'
-import { changeRating } from '../../lib/reviewOps'
+import { peekMyReview } from '../../lib/myReviews'
+import { rateNow } from '../../lib/rateNow'
 import { messageOf, useWriteQueue } from '../../lib/useWriteQueue'
 import { askableWatching, markStillWatching, unmarkStillWatching } from './stillWatching'
 import { pickWatching, toWatchCards, type WatchAnswer, type WatchCard } from './watching'
@@ -143,9 +143,7 @@ export function useWatching(token: string) {
           await updateStatus(token, workId, TARGET[a.kind])
           if (a.kind !== 'rate') return
           // すでに感想があるかもしれない（見ている途中で評価した作品）。送信の時点の実際の感想を、共有の控えから読む
-          const current = (await getMyReviews(token)).get(annictId) ?? null
-          entry.before = current?.ratingOverallState ?? null
-          await rememberReview(token, annictId, await changeRating(token, workId, current, a.rating))
+          await rateNow(token, workId, annictId, a.rating, (before) => (entry.before = before))
         },
         [{ kind: 'status', workId, state: TARGET[a.kind], idMal }, ...(a.kind === 'rate' ? [{ kind: 'rating' as const, workId, annictId, rating: a.rating, idMal }] : [])],
       )
@@ -172,8 +170,7 @@ export function useWatching(token: string) {
         await updateStatus(token, workId, 'WATCHING')
         // 評価を付けていたら、付ける前の評価に戻す（無かったなら消す）
         if (rated && entry.before !== undefined) {
-          const current = (await getMyReviews(token)).get(annictId) ?? null
-          await rememberReview(token, annictId, await changeRating(token, workId, current, entry.before))
+          await rateNow(token, workId, annictId, entry.before)
         }
       },
       [{ kind: 'status', workId, state: 'WATCHING', idMal }, ...(rated ? [{ kind: 'rating' as const, workId, annictId, rating: entry.before ?? entry.guess, idMal }] : [])],

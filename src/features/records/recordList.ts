@@ -108,7 +108,7 @@ function time(iso: string | null): number | null {
 const SEASON_INDEX: Record<string, number> = { WINTER: 0, SPRING: 1, SUMMER: 2, AUTUMN: 3 }
 
 // 放送時期の並び順の値（大きいほど新しい）。年が分からなければ null。季節が分からなければ、その年の最後に置く
-export function airedRank(e: { seasonYear?: number | null; seasonName?: string | null }): number | null {
+function airedRank(e: { seasonYear?: number | null; seasonName?: string | null }): number | null {
   if (!e.seasonYear) return null
   return e.seasonYear * 4 + (e.seasonName ? SEASON_INDEX[e.seasonName] ?? 3 : 3)
 }

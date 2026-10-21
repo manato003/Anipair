@@ -55,26 +55,32 @@ export function TrendsView(props: { rows: readonly RecordRow[]; data: TrendsData
   const { media, credits, error } = props.data
   const empty = useMemo(() => new Map<number, Media>(), [])
   const m = media ?? empty
-  const summary = summarize(rows)
-  const dist = ratingCounts(rows)
-  const harsh = media ? harshness(rows, media) : null
-  const axes = media ? genreAxes(rows, media) : []
-  const years = byYear(rows)
-  const golden = goldenPeriod(rows)
-  const formats = formatShare(rows)
-  const seasons = seasonCounts(rows)
-  const vs = media ? contrasts(rows, media) : null
-  const major = mainstream(rows)
-  const people = topPeople(rows, credits, m)
-  // 声優との相性は、声優（Annict）と世間の点数（Shikimori）の両方がそろってから
-  const affinity = credits && media ? castAffinity(rows, credits, media) : undefined
+  // 集計は、記録・世間の点数・スタッフが変わったときだけやり直す（英語名が届いた・共有を開いたなどの描き直しでは数え直さない。2026-10-21）
+  const { summary, dist, harsh, axes, years, golden, formats, seasons, vs, major, people, affinity, pace, weights } = useMemo(
+    () => ({
+      summary: summarize(rows),
+      dist: ratingCounts(rows),
+      harsh: media ? harshness(rows, media) : null,
+      axes: media ? genreAxes(rows, media) : [],
+      years: byYear(rows),
+      golden: goldenPeriod(rows),
+      formats: formatShare(rows),
+      seasons: seasonCounts(rows),
+      vs: media ? contrasts(rows, media) : null,
+      major: mainstream(rows),
+      people: topPeople(rows, credits, m),
+      // 声優との相性は、声優（Annict）と世間の点数（Shikimori）の両方がそろってから
+      affinity: credits && media ? castAffinity(rows, credits, media) : undefined,
+      pace: monthlyPace(rows, new Date()),
+      weights: axisWeights(rows),
+    }),
+    [rows, media, credits, m],
+  )
   // 英語の画面では、出す人の英語名を Wikidata から引く（引けたら描き直す）
   useEnglishPeople([
     ...[...(people.casts ?? []), ...(people.directors ?? [])].flatMap((p) => (p.ja ? [p.ja] : [])),
     ...[...(affinity?.liked ?? []), ...(affinity?.unliked ?? [])].flatMap((a) => a.ja ?? []),
   ])
-  const pace = monthlyPace(rows, new Date())
-  const weights = axisWeights(rows)
   // 共有する画像の中身（押したときに決める）
   const [shareCard, setShareCard] = useState<ShareCard | null>(null)
   const openShare = () => {

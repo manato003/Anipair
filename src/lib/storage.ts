@@ -60,6 +60,10 @@ const KEYS = {
   broadcast: 'animax.broadcast.v1',
   // 見てる作品の放送予定の控え（Annict の programs を、これから先の分だけ。作品の ID → 読んだ時刻と予定）
   programs: 'animax.programs.v1',
+  // だれのものでもない、作り直せる控え（英語の画面の公式の英題・声優とスタッフの英語名、Wikipedia のあらすじ）。読み書きは lib/persistedMap.ts
+  titleEn: 'animax.titleEn.v1',
+  peopleEn: 'animax.peopleEn.v1',
+  wikiSynopses: 'animax.wikiSynopses.v1',
   // 下の「人ごとの記録」がいま誰のものか（Annict のユーザー名）
   owner: 'animax.owner.v1',
   // ログアウト・アカウントの切り替えで退避した、人ごとの記録（ユーザー名 → 鍵 → 値）。同じ人がログインし直したら戻す
@@ -162,7 +166,7 @@ export class StorageFullError extends Error {
 }
 
 // 端末の保存容量があふれたときに捨ててよい控え（どれも、Annict・Shikimori から読み直せば作り直せる）
-const REBUILDABLE: readonly string[] = [KEYS.covers, KEYS.similar, KEYS.library, KEYS.seasonWorks, KEYS.seasonTops, KEYS.reviews]
+const REBUILDABLE: readonly string[] = [KEYS.covers, KEYS.similar, KEYS.library, KEYS.seasonWorks, KEYS.seasonTops, KEYS.reviews, KEYS.titleEn, KEYS.peopleEn, KEYS.wikiSynopses]
 
 function isQuotaError(e: unknown): boolean {
   return e instanceof DOMException && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || e.code === 22)
@@ -447,7 +451,7 @@ export function forgetAccount(): void {
   setOwner(LOGGED_OUT)
 }
 
-export function loadGithubToken(): string | null {
+function loadGithubToken(): string | null {
   const t = read(KEYS.githubToken)
   return t && t.trim() ? t.trim() : null
 }
@@ -561,10 +565,6 @@ export function loadReviewDraftsRaw(): unknown {
 
 export function saveReviewDraftsRaw(value: unknown): void {
   write(KEYS.reviewDrafts, JSON.stringify(value))
-}
-
-export function clearReviewsRaw(): void {
-  write(KEYS.reviews, null)
 }
 
 // 「Anipair の使い方」を見たか。{ v: 1, at: 見た日時 } の形のときだけ「見た」とみなす（壊れていれば、もう一度出す）
@@ -715,6 +715,17 @@ export function loadKeymapRaw(): unknown {
 
 export function saveKeymapRaw(value: unknown): void {
   write(KEYS.keymap, JSON.stringify(value))
+}
+
+// だれのものでもない、作り直せる控えの表（lib/persistedMap.ts。形を確かめるのも向こう）
+export type CacheName = 'titleEn' | 'peopleEn' | 'wikiSynopses'
+
+export function loadCacheRaw(name: CacheName): unknown {
+  return readJson(KEYS[name])
+}
+
+export function saveCacheRaw(name: CacheName, value: unknown): void {
+  write(KEYS[name], JSON.stringify(value))
 }
 
 export function loadBackfillSeason(): Season | null {

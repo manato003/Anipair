@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
-import { clip, firstParagraph, parseSynopsis, pickSynopsisSection, wikiTitleOf } from './wikipedia'
+import { clip, firstParagraph, parseStoredSynopsis, parseSynopsis, pickSynopsisSection, wikiTitleOf } from './wikipedia'
 
 describe('wikiTitleOf', () => {
   it('reads the article title from a Japanese Wikipedia URL (encoded or not, desktop or mobile)', () => {
@@ -110,5 +110,26 @@ describe('English Wikipedia', () => {
     const out = clip(long, 'en')
     expect(out.endsWith('here.…')).toBe(true)
     expect(out.length).toBeLessThanOrEqual(321)
+  })
+})
+
+describe('parseStoredSynopsis', () => {
+  const synopsis = { text: '冒頭', blocks: [{ heading: false, text: '冒頭' }], title: '記事', url: 'https://ja.wikipedia.org/wiki/%E8%A8%98%E4%BA%8B#a', licenseUrl: 'x', lang: 'ja' }
+
+  it('keeps a stored synopsis, and puts back the license link of its language', () => {
+    const out = parseStoredSynopsis({ at: '2026-10-21T00:00:00.000Z', v: synopsis })
+    expect(out?.v?.title).toBe('記事')
+    expect(out?.v?.licenseUrl).toBe('https://creativecommons.org/licenses/by-sa/4.0/deed.ja')
+  })
+
+  it('keeps "no synopsis" too, so the article is not asked about again for a while', () => {
+    expect(parseStoredSynopsis({ at: '2026-10-21T00:00:00.000Z', v: null })).toEqual({ at: '2026-10-21T00:00:00.000Z', v: null })
+  })
+
+  it('drops links outside Wikipedia of that language, and broken values', () => {
+    expect(parseStoredSynopsis({ at: '2026-10-21T00:00:00.000Z', v: { ...synopsis, url: 'https://evil.example/' } })).toBeNull()
+    expect(parseStoredSynopsis({ at: '2026-10-21T00:00:00.000Z', v: { ...synopsis, lang: 'en' } })).toBeNull()
+    expect(parseStoredSynopsis({ at: 'yesterday', v: null })).toBeNull()
+    expect(parseStoredSynopsis('text')).toBeNull()
   })
 })

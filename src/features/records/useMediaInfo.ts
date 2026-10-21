@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchMedia } from '../../lib/shikimori'
 import type { MediaInfo } from './recordList'
+import { malIdOf } from '../../lib/malId'
 
 // 作品のジャンル・テーマと制作会社（Shikimori）。記録とブラウズの絞り込みで使う。絞り込みのシートを開いたとき、またはその条件をかけているときだけ読む。
 // 読み終わるまでは null。読めた分だけ使う（読めなかった作品は、ジャンル・制作会社の条件に当てはまらない扱い）
@@ -8,7 +9,7 @@ export function useMediaInfo(works: readonly { malAnimeId: string | null }[] | n
   // 作品の ID の並び（行の参照が変わっても、作品が同じなら読み直さない）
   const key = useMemo(
     () =>
-      [...new Set((works ?? []).map((w) => Number(w.malAnimeId)).filter((n) => Number.isInteger(n) && n > 0))]
+      [...new Set((works ?? []).flatMap((w) => malIdOf(w) ?? []))]
         .sort((a, b) => a - b)
         .join(','),
     [works],

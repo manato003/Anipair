@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fetchUpcomingPrograms } from '../../lib/annict'
 import type { Slot } from '../../lib/broadcast'
-import { previousSeason, seasonOf } from '../../lib/season'
+import { isRecentWork } from '../../lib/season'
 import { loadPrograms, savePrograms, type StoredPrograms } from '../../lib/storage'
 
 // 見てる作品の、これから先の放送予定（Issue #32）。放送中の作品（今期・前期のもの、または Shikimori で放送中のもの）だけを読む。
@@ -17,11 +17,7 @@ export interface ProgramWork {
 }
 
 export function isAiringCandidate(w: ProgramWork, airing: boolean, now: Date): boolean {
-  if (airing) return true
-  if (!w.seasonYear || !w.seasonName) return false
-  const name = w.seasonName.toLowerCase()
-  const cur = seasonOf(now)
-  return [cur, previousSeason(cur)].some((s) => s.year === w.seasonYear && s.name === name)
+  return airing || isRecentWork(w, now)
 }
 
 function isStale(e: StoredPrograms | undefined, now: number): boolean {

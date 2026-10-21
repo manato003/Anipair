@@ -1,5 +1,6 @@
 import type { LibraryEntry, RatingState, StatusState } from '../../lib/annict'
 import { getLang, t } from '../../lib/i18n'
+import { malIdOf } from '../../lib/malId'
 import { workTitle } from '../../lib/names'
 import type { Media } from '../../lib/shikimori'
 import { matchesFilter, type MatchFilter } from './matchFilter'
@@ -28,11 +29,6 @@ export function seedWeight(state: StatusState, rating: RatingState | undefined):
     default:
       return 0
   }
-}
-
-export function malIdOf(entry: { malAnimeId: string | null }): number | null {
-  const n = Number(entry.malAnimeId)
-  return Number.isInteger(n) && n > 0 ? n : null
 }
 
 export function buildSeeds(library: LibraryEntry[], ratings: ReadonlyMap<number, RatingState>): Seed[] {

@@ -5,7 +5,7 @@ import { delay, parseRetryAfter } from './retry'
 import { createThrottle, type ScheduleOptions } from './throttle'
 import { patchStoredStatus, saveStoredLibrary, saveStoredSeasonWorks } from './offlineCache'
 import { loadWorkDetailsRaw, pageIsCurrent, saveWorkDetailsRaw } from './storage'
-import { previousSeason, seasonOf } from './season'
+import { isRecentWork } from './season'
 import { t } from './i18n'
 
 // Annict GraphQL API。型は annict/annict の rails/app/graphql/beta/schema.graphql が正
@@ -747,12 +747,12 @@ async function readWorkReviews(token: string, workId: string, first: number): Pr
   }
 }
 
-export function annictSearchUrl(title: string): string {
+function annictSearchUrl(title: string): string {
   return `https://annict.com/search?q=${encodeURIComponent(title)}`
 }
 
 // Annict に無い作品は、Annict のフォーラムで知らせてほしいとのこと（Annict の運営の案内。2026-10-07）。ログインしていなければ、ログインの画面を経る
-export const ANNICT_FORUM_NEW_POST_URL = 'https://annict.com/forum/posts/new'
+const ANNICT_FORUM_NEW_POST_URL = 'https://annict.com/forum/posts/new'
 
 // Annict で作品を特定できなかったときの、手で直すためのリンク。照合の外れなら検索で、Annict に無い作品ならフォーラムで
 export function annictMissingLinks(title: string): { href: string; text: string }[] {
@@ -1232,8 +1232,7 @@ function keptDetails(): Record<string, { at: string; detail: WorkDetail }> {
 }
 
 function isAiringSeason(d: { seasonYear: number | null; seasonName: string | null }, now: Date): boolean {
-  const cur = seasonOf(now)
-  return [cur, previousSeason(cur)].some((s) => s.year === d.seasonYear && s.name === d.seasonName?.toLowerCase())
+  return isRecentWork(d, now)
 }
 
 function keptWorkDetail(workId: string, now = new Date()): WorkDetail | null {

@@ -1,15 +1,14 @@
-import { idMalOf } from '../../lib/writeJournal'
+import { idMalOf, malIdOf } from '../../lib/malId'
 import { englishPersonOf, useEnglishPeople } from '../../lib/englishNames'
 import { Phrase } from '../../components/Phrase'
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { CoverImage } from '../../components/CoverImage'
 import { Sheet } from '../../components/Sheet'
-import { annictWorkUrl, fetchWorkDetail, peekLibrary, updateStatus, type Credit, type RatingState, type StatusState, type WorkDetail as Detail } from '../../lib/annict'
-import { getMyReviews, rememberReview } from '../../lib/myReviews'
-import { changeRating } from '../../lib/reviewOps'
+import { annictWorkUrl, peekLibrary, updateStatus, type Credit, type RatingState, type StatusState } from '../../lib/annict'
+import { rateNow } from '../../lib/rateNow'
 import { getLang, t } from '../../lib/i18n'
 import { characterName, personName, staffRole, workTitle } from '../../lib/names'
-import { fetchCastNames, fetchMedia, shikimoriUrl, type Media } from '../../lib/shikimori'
+import { shikimoriUrl } from '../../lib/shikimori'
 import type { Cover } from '../../lib/storage'
 import { vodSearchLinks } from '../../lib/vodSearch'
 import { formatBroadcast, hasChoice, upcomingByChannel, useBroadcastPrefs } from '../../lib/broadcast'
@@ -18,10 +17,8 @@ import { BroadcastSheet } from '../../components/BroadcastSheet'
 import { isAiringCandidate, useUpcomingPrograms } from '../records/useUpcomingPrograms'
 import { episodeFacts, formatMinutes } from '../../lib/watchFacts'
 import { useFontsReady } from '../../lib/useFontsReady'
-import { messageOf } from '../../lib/useWriteQueue'
-import { fetchWikiSynopsis, type WikiSynopsis } from '../../lib/wikipedia'
 import type { WriteIntent } from '../../lib/writeJournal'
-import { genreName, malIdOf } from '../match/taste'
+import { genreName } from '../match/taste'
 import { RATINGS } from '../rate/queue'
 import { STATE_OPTIONS, formatDateTime, optionState } from '../records/recordList'
 import { EpisodeRecorder } from '../records/EpisodeRecords'
@@ -35,6 +32,7 @@ import { CommunityReviews } from './CommunityReviews'
 import { Loading } from '../../components/Loading'
 import { ExternalIcon, InfoIcon, PeopleIcon, UserIcon } from '../../components/Icons'
 import { ReviewEditor } from './ReviewEditor'
+import { useWorkDetailData } from './useWorkDetailData'
 
 // シートを開く作品の手がかり。詳細を読み込むまでは、ここにある項目だけで出す（分からない項目は省く）
 export interface WorkSeed {
@@ -75,12 +73,10 @@ type RelatedOptions = { relatedEnqueue?: Enqueue; onRelatedChange?: RelatedChang
 // 作品の詳細。下から出るシートで、閉じると元の画面に戻る。読むだけでなければ、状態と評価をここから直接変えられる。
 // active が false（隠れたタブに開いたまま残っている）のあいだは Esc に反応しない
 // シートが出てくる動きの長さ（base.css の sheet-in と同じ）。読み込みはこのあとに始める
-const OPEN_ANIMATION_MS = 240
 // 話の一覧を読まないとき（読むだけのシート・見た／見てる以外）と、書き込まないシートの列の代わり
 const NO_WORKS: readonly string[] = []
 const noEnqueue: Enqueue = () => undefined
 // 中身（詳細・ジャンル）がそろうのを待つ上限。過ぎたら、届いたものだけで出す
-const CONTENT_WAIT_MS = 2500
 
 // Annict の形式（Media）を、作品の要点の計算に使う形式にそろえる（Shikimori の情報が無い作品のため）
 const ANNICT_FORMAT: Record<string, string> = { TV: 'TV', MOVIE: 'MOVIE', OVA: 'OVA', WEB: 'ONA' }
@@ -99,13 +95,21 @@ export function WorkDetail(
 ) {
   const { token, work } = props
   const readOnly = props.readOnly === true
-  const [detail, setDetail] = useState<Detail | null>(null)
+  // Annict の詳細・Shikimori・あらすじなどを読む（届いた詳細の状態と自分の感想は、下の編集の状態に入れる。useWorkDetailData.ts）
+  const { detail, error, shiki, shikiDone, wiki, castRomaji, waitedLong } = useWorkDetailData(token, work, readOnly, {
+    detail: (d) => {
+      // 開いた元が自分の状態を知らない（参加作品・Shikimori の関連作品から開いた）ときは、詳細の状態を使う
+      // （2026-10-06 の点検: 見た作品が「まだ記録していません」と出て、話ごとの記録も出なかった）
+      if (work.viewerStatusState === undefined && !stateTouched.current) setState(d.viewerStatusState && d.viewerStatusState !== 'NO_STATE' ? d.viewerStatusState : null)
+    },
+    myReview: (review) => {
+      if (touched.current) return
+      setRating(review?.ratingOverallState ?? null)
+      if (review) setReviewAt({ at: review.createdAt, withText: review.body.trim() !== '' })
+    },
+  })
   // 画面に出す題名（英語の画面では英語名。開いた元に英語名が無ければ、詳細を読んだあとの英語名）
   const shownTitle = workTitle({ title: work.title, titleEn: work.titleEn ?? detail?.titleEn })
-  const [error, setError] = useState<string | null>(null)
-  const [shiki, setShiki] = useState<Media | null>(null)
-  // あらすじ（Wikipedia の「あらすじ」の節の冒頭の段落）。読み込み中は undefined、無い・読めないときは null
-  const [wiki, setWiki] = useState<WikiSynopsis | null | undefined>(undefined)
   // あらすじの全文を広げているか（ネタバレを含むことがあるので、押したときだけ）
   const [wikiOpen, setWikiOpen] = useState(false)
   // 放送中の作品の、見るサービスごとの次の放送（Issue #32。記録の「見てる」のカードは一番早いものだけなので、ここで全部を並べる）
@@ -126,20 +130,8 @@ export function WorkDetail(
   // キャスト・スタッフ・制作会社から重ねて開いている参加作品の一覧
   const [credit, setCredit] = useState<CreditTarget | null>(null)
   const active = (props.active ?? true) && related === null && credit === null && !servicesOpen
-  const [shikiDone, setShikiDone] = useState(() => !malIdOf(work))
-  // 英語の画面: 声優・スタッフの英語名（Wikidata。引けたら描き直す）と、キャラクターのローマ字の名前（Shikimori）
+  // 英語の画面: 声優・スタッフの英語名（Wikidata。引けたら描き直す）
   useEnglishPeople(detail ? [...detail.casts.map((c) => c.person?.name ?? c.name), ...detail.staffs.filter((st) => st.ref?.kind !== 'org').map((st) => st.ref?.name ?? st.name)] : [])
-  const [castRomaji, setCastRomaji] = useState<ReadonlyMap<string, string> | null>(null)
-  useEffect(() => {
-    const mal = malIdOf(work)
-    if (getLang() !== 'en' || !mal) return
-    let cancelled = false
-    void fetchCastNames(mal).then((m) => !cancelled && setCastRomaji(m))
-    return () => {
-      cancelled = true
-    }
-  }, [work])
-  const [waitedLong, setWaitedLong] = useState(false)
   // Annict は未記録を null ではなく NO_STATE で返す。画面では「記録なし」にそろえる
   const [state, setState] = useState<StatusState | null>(work.viewerStatusState && work.viewerStatusState !== 'NO_STATE' ? work.viewerStatusState : null)
   const [rating, setRating] = useState<RatingState | null>(null)
@@ -161,61 +153,6 @@ export function WorkDetail(
   const eps = props.episodes ?? ownEpisodes
   // 開いた時刻。読み込み中の秒数を、待つのをやめて中身を出したあとも続けて数える
   const [openedAt] = useState(() => Date.now())
-
-  useEffect(() => {
-    let cancelled = false
-    const load = () => {
-      fetchWorkDetail(token, work.id)
-        .then((d) => {
-          if (cancelled) return
-          setDetail(d)
-          // 開いた元が自分の状態を知らない（参加作品・Shikimori の関連作品から開いた）ときは、詳細の状態を使う
-          // （2026-10-06 の点検: 見た作品が「まだ記録していません」と出て、話ごとの記録も出なかった）
-          if (work.viewerStatusState === undefined && !stateTouched.current) setState(d.viewerStatusState && d.viewerStatusState !== 'NO_STATE' ? d.viewerStatusState : null)
-        })
-        .catch((e) => !cancelled && setError(messageOf(e)))
-      const mal = malIdOf(work)
-      if (mal) {
-        fetchMedia([mal])
-          .then((m) => !cancelled && setShiki(m.get(mal) ?? null))
-          .catch(() => undefined)
-          .finally(() => !cancelled && setShikiDone(true))
-      }
-      // 読むだけのシートは、自分の評価を読まない（アクティビティを全部辿るので重い）
-      if (!readOnly) {
-        getMyReviews(token)
-          .then((map) => {
-            if (cancelled || touched.current) return
-            const review = map.get(work.annictId)
-            setRating(review?.ratingOverallState ?? null)
-            if (review) setReviewAt({ at: review.createdAt, withText: review.body.trim() !== '' })
-          })
-          .catch(() => undefined)
-      }
-    }
-    // 読み込みと、届いた中身の処理（作品ページの HTML の読み取りなど）は重い。シートが下から出てくる動きが終わってから始め、
-    // 動きの途中でカクつかないようにする（2026-10-03 にスマホ相当の速さで実測）
-    const timer = window.setTimeout(load, OPEN_ANIMATION_MS)
-    const giveUp = window.setTimeout(() => setWaitedLong(true), OPEN_ANIMATION_MS + CONTENT_WAIT_MS)
-    return () => {
-      cancelled = true
-      window.clearTimeout(timer)
-      window.clearTimeout(giveUp)
-    }
-  }, [token, work, readOnly])
-
-  // 詳細（Annict）が届いたら、その Wikipedia の記事からあらすじを読む（記事ごとに1回。lib/wikipedia.ts）
-  useEffect(() => {
-    if (!detail) return
-    let cancelled = false
-    fetchWikiSynopsis(detail.wikipediaUrl).then(
-      (w) => !cancelled && setWiki(w),
-      () => !cancelled && setWiki(null),
-    )
-    return () => {
-      cancelled = true
-    }
-  }, [detail])
 
   function changeState(next: StatusState) {
     if (props.readOnly) return
@@ -253,8 +190,7 @@ export function WorkDetail(
         if (becomesWatched) await updateStatus(token, work.id, 'WATCHED')
         // 送信の時点での実際の感想を、共有の控えから読む（画面は先に変えている）。
         // 読み込み前に押されても、ここで読み込みを待つので、既存の評価を重複させない
-        const current = (await getMyReviews(token)).get(work.annictId) ?? null
-        await rememberReview(token, work.annictId, await changeRating(token, work.id, current, value))
+        await rateNow(token, work.id, work.annictId, value)
       },
       [...(becomesWatched ? [{ kind: 'status' as const, workId: work.id, state: 'WATCHED' as const, idMal: idMalOf(work.malAnimeId) }] : []), { kind: 'rating', workId: work.id, annictId: work.annictId, rating: value, idMal: idMalOf(work.malAnimeId) }],
     )
@@ -306,7 +242,7 @@ export function WorkDetail(
   // 「作品について」の塊に出すものがあるか（無ければ塊ごと出さない。MyAnimeList の ID があれば似た作品の棚が、
   // Annict の詳細が読めればみんなの感想（無ければ「まだ感想がありません」）が出る）
   const hasAbout =
-    genres.length > 0 || dataRows.length > 0 || !!wiki || (detail?.series?.length ?? 0) > 0 || (shiki?.related?.length ?? 0) > 0 || !!malIdOf(work) || detail !== null
+    genres.length > 0 || dataRows.length > 0 || !!wiki || (detail?.series?.length ?? 0) > 0 || (shiki?.related?.length ?? 0) > 0 || !!mal || detail !== null
   // 待つのをやめて出したあとも、まだ届いていない部分。届くまで、何を読んでいるかを添えて読み込み中を出し続ける
   // （出ている分だけで全部だと思わせない）。あらすじは Annict の詳細が届いてから Wikipedia を読む
   const detailPending = detail === null && error === null
@@ -589,7 +525,7 @@ export function WorkDetail(
                 />
 
                 {/* 似た作品: Shikimori の似た作品を表紙の棚で（棚が画面に近づいてから読む） */}
-                <SimilarWorks malId={malIdOf(work)} onOpen={setRelated} />
+                <SimilarWorks malId={mal} onOpen={setRelated} />
               </section>
             )}
 

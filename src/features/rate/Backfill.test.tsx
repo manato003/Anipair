@@ -106,13 +106,14 @@ afterEach(() => {
 const press = (key: string) => act(() => void fireEvent.keyDown(window, { key }))
 
 describe('Backfill detail sheet', () => {
-  it('opens read-only from the cover, and while it is open only the detail key works', () => {
+  it('opens read-only from the cover, and while it is open only the detail key works', async () => {
     render(<Backfill token="t" github={null} active />)
     press('3')
     expect(answer).toHaveBeenCalledTimes(1)
 
     fireEvent.click(screen.getByRole('button', { name: '詳しく見る' }))
-    expect(screen.getByTestId('sheet').getAttribute('data-readonly')).toBe('true')
+    // 詳細は開くときに読む（lazy）
+    expect((await screen.findByTestId('sheet', {}, { timeout: 5000 })).getAttribute('data-readonly')).toBe('true')
     press('3')
     press('w')
     expect(answer).toHaveBeenCalledTimes(1)
@@ -227,10 +228,11 @@ describe('Backfill detail sheet', () => {
 })
 
 describe('Backfill first-run guide', () => {
-  it('opens once on the first visit; はじめる closes it and it does not come back', () => {
+  it('opens once on the first visit; はじめる closes it and it does not come back', async () => {
     localStorage.clear()
     const { unmount } = render(<Backfill token="t" github={null} active />)
-    expect(screen.getByRole('dialog', { name: 'Anipairの使い方' })).toBeTruthy()
+    // 案内は開くときに読む（lazy）
+    expect(await screen.findByRole('dialog', { name: 'Anipairの使い方' }, { timeout: 5000 })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'ようこそ、Anipairへ' })).toBeTruthy()
     for (let i = 0; i < 6; i++) fireEvent.click(screen.getByRole('button', { name: '次へ' }))
     fireEvent.click(screen.getByRole('button', { name: 'はじめる' }))
@@ -243,17 +245,19 @@ describe('Backfill first-run guide', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it('counts as seen however it is closed', () => {
+  it('counts as seen however it is closed', async () => {
     localStorage.clear()
     render(<Backfill token="t" github={null} active />)
+    await screen.findByRole('dialog', { name: 'Anipairの使い方' }, { timeout: 5000 })
     fireEvent.keyDown(window, { key: 'Escape' })
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(localStorage.getItem('animax.onboarding.v1')).not.toBeNull()
   })
 
-  it('keeps every answer shortcut, and the detail key, off while the guide is open', () => {
+  it('keeps every answer shortcut, and the detail key, off while the guide is open', async () => {
     localStorage.clear()
     render(<Backfill token="t" github={null} active />)
+    await screen.findByRole('dialog', { name: 'Anipairの使い方' }, { timeout: 5000 })
     press('3')
     press('w')
     press('f')
@@ -267,12 +271,12 @@ describe('Backfill first-run guide', () => {
     expect(answer).toHaveBeenCalledTimes(1)
   })
 
-  it('does not open over a hidden tab, but opens when the tab is first shown', () => {
+  it('does not open over a hidden tab, but opens when the tab is first shown', async () => {
     localStorage.clear()
     const { rerender } = render(<Backfill token="t" github={null} active={false} />)
     expect(screen.queryByRole('dialog')).toBeNull()
     rerender(<Backfill token="t" github={null} active />)
-    expect(screen.getByRole('dialog', { name: 'Anipairの使い方' })).toBeTruthy()
+    expect(await screen.findByRole('dialog', { name: 'Anipairの使い方' }, { timeout: 5000 })).toBeTruthy()
   })
 })
 

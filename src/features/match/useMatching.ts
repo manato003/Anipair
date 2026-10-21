@@ -1,10 +1,9 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { getMyReviews, rememberReview } from '../../lib/myReviews'
 import type { GithubConnection } from '../../lib/github'
 import { t } from '../../lib/i18n'
 import { shikiTitle } from '../../lib/names'
 import { annictMissingLinks, updateStatus, type RatingState, type WorkRef } from '../../lib/annict'
-import { changeRating } from '../../lib/reviewOps'
+import { rateNow } from '../../lib/rateNow'
 import { fetchMedia, type Media } from '../../lib/shikimori'
 import { loadMatchFilterRaw, saveMatchFilterRaw } from '../../lib/storage'
 import { useCoalescedTask } from '../../lib/useCoalescedTask'
@@ -13,7 +12,8 @@ import { activePassIds } from './passes'
 import { loadLocalPasses, setPass, syncPasses } from './passStore'
 import { resolveAnnictWork } from './resolve'
 import { isDefaultFilter, parseMatchFilter, type MatchFilter } from './matchFilter'
-import { collectPool, malIdOf, rankCandidates, seenMalIds } from './taste'
+import { malIdOf } from '../../lib/malId'
+import { collectPool, rankCandidates, seenMalIds } from './taste'
 import { forgetTaste, loadTaste } from './tasteLoader'
 
 // 候補の詳しい情報を取って好みとの一致で並べ替えるのは、似ている度合いの強い順にこの件数まで（Shikimori 2回ぶん）。
@@ -42,7 +42,8 @@ export type Phase =
   | { kind: 'idle' }
   | { kind: 'loading'; step: string; note?: string; work?: { done: number; total: number } }
   | { kind: 'ready' }
-  | { kind: 'empty'; message: string }
+  // toRate: 評価を増やせば提案できる（空の画面に「評価の画面へ」を出す）
+  | { kind: 'empty'; message: string; toRate?: boolean }
   | { kind: 'error'; message: string }
 
 interface UndoEntry {
@@ -104,7 +105,7 @@ export function useMatching(annictToken: string, github: GithubConnection | null
       const liked = seeds.filter((s) => s.weight > 0).length
       setBasis({ rated: ratings.size, liked, pending: pendingSimilar })
       if (liked === 0) {
-        setPhase({ kind: 'empty', message: t('好きな作品の記録がまだありません。評価画面で、見た作品を「良い」か「とても良い」で評価してください。', 'You have no liked anime on record yet. On the Rate screen, rate anime you’ve watched as Good or Great.') })
+        setPhase({ kind: 'empty', toRate: true, message: t('好きな作品の記録がまだありません。評価画面で、見た作品を「良い」か「とても良い」で評価してください。', 'You have no liked anime on record yet. On the Rate screen, rate anime you’ve watched as Good or Great.') })
         return
       }
 
@@ -131,6 +132,7 @@ export function useMatching(annictToken: string, github: GithubConnection | null
       if (ranked.length === 0) {
         setPhase({
           kind: 'empty',
+          toRate: isDefaultFilter(filter),
           message: isDefaultFilter(filter)
             ? t('今の記録からは候補が見つかりませんでした。評価した作品が増えると候補が広がります。', 'No suggestions could be found from your records yet. The more anime you rate, the more suggestions you’ll get.')
             : t('条件に合う候補が見つかりませんでした。形式や放送年の条件をゆるめてみてください。', 'No suggestions match your filters. Try loosening the format or air year.'),
@@ -211,8 +213,7 @@ export function useMatching(annictToken: string, github: GithubConnection | null
           if (a.kind === 'rate') {
             entry.rated = true
             // 共有の感想の控えから付ける（作った感想は控えにも入る。あとで詳細のシートから評価を変えたときに見つけられるように）
-            const current = (await getMyReviews(annictToken)).get(entry.ref.annictId) ?? null
-            await rememberReview(annictToken, entry.ref.annictId, await changeRating(annictToken, entry.ref.id, current, a.rating))
+            await rateNow(annictToken, entry.ref.id, entry.ref.annictId, a.rating)
           }
         },
         [{ kind: 'match', idMal: card.media.idMal, title: card.media.title, state, ...(a.kind === 'rate' ? { rating: a.rating } : {}) }],
@@ -240,8 +241,7 @@ export function useMatching(annictToken: string, github: GithubConnection | null
         const ref = entry.ref
         if (!ref) return
         if (entry.rated) {
-          const current = (await getMyReviews(annictToken)).get(ref.annictId) ?? null
-          await rememberReview(annictToken, ref.annictId, await changeRating(annictToken, ref.id, current, null))
+          await rateNow(annictToken, ref.id, ref.annictId, null)
         }
         entry.rated = false
         await updateStatus(annictToken, ref.id, 'NO_STATE')

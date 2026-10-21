@@ -15,9 +15,10 @@ import { t, tx, type Text } from './i18n'
 const ENDPOINT = '/api/shiki'
 
 // Shikimori は 1秒5回・1分90回まで。中継の先で守りきれないので、こちらでも約1.4回/秒に抑える
-export const SHIKI_INTERVAL_MS = 700
+const SHIKI_INTERVAL_MS = 700
 const schedule = createThrottle(SHIKI_INTERVAL_MS)
 
+// 1回の問い合わせの作品数。中継（api/shiki.ts の MAX_IDS）の上限と同じにする（増やすと中継に断られる）
 const BATCH = 50
 
 // 429 は Retry-After（秒。中継は 5 を返す）だけ待って送り直す。2回まで
@@ -327,7 +328,7 @@ const ROLES: Record<string, Text> = {
 }
 
 // 役割の名前（いまの言語で）。知らない役割は null
-export function roleLabel(role: string): string | null {
+function roleLabel(role: string): string | null {
   const text = ROLES[role]
   return text ? tx(text) : null
 }
@@ -378,6 +379,7 @@ export async function fetchCharacterNames(ids: readonly number[], opts: FetchOpt
   return out
 }
 
+// 中継（api/shiki.ts の MAX_STUDIO_PAGE）の上限と同じにする
 const STUDIO_PAGES = 4
 
 // 制作会社の作品（新しい順。50件ずつ、最大4ページ）。作品の情報は控えにも入れる（一覧から詳細を開くときに読み直さない）

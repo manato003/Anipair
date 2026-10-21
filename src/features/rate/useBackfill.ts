@@ -1,15 +1,15 @@
-import { idMalOf } from '../../lib/writeJournal'
+import { idMalOf } from '../../lib/malId'
 import { workTitle } from '../../lib/names'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fetchSeasonWorks, updateStatus, type AnnictWork, type RatingState } from '../../lib/annict'
 import { fetchCovers, quickCovers } from '../../lib/covers'
 import { t } from '../../lib/i18n'
 import type { GithubConnection } from '../../lib/github'
-import { getMyReviews, peekMyReview, rememberReview } from '../../lib/myReviews'
+import { peekMyReview } from '../../lib/myReviews'
 import { loadStoredSeasonWorks } from '../../lib/offlineCache'
-import { changeRating } from '../../lib/reviewOps'
+import { rateNow } from '../../lib/rateNow'
 import { nextSeason, previousSeason, seasonOf, toSlug, type Season } from '../../lib/season'
-import { loadBackfillSeason, saveBackfillSeason } from '../../lib/storage'
+import { loadBackfillSeason, loadOnboardingSeen, saveBackfillSeason } from '../../lib/storage'
 import { useCoalescedTask } from '../../lib/useCoalescedTask'
 import { messageOf, useWriteQueue } from '../../lib/useWriteQueue'
 import { rememberSeasonTop } from '../achievements/achievementStore'
@@ -32,20 +32,32 @@ interface UndoEntry {
 }
 
 // クールの作品のうち、まだ記録が無く「見てない」にしている作品（見直しの山にする）
-export function unseenInSeason(works: readonly AnnictWork[], unseen: ReadonlySet<number>): AnnictWork[] {
+function unseenInSeason(works: readonly AnnictWork[], unseen: ReadonlySet<number>): AnnictWork[] {
   return works.filter((w) => (w.viewerStatusState ?? 'NO_STATE') === 'NO_STATE' && unseen.has(w.annictId))
 }
 
 // 答え始めた山に、読み直したクールの作品を合わせる。答えた分といま出している1枚はそのまま、まだ出していない分は読み直した山
 // （もう記録済みの作品は入っていない）に入れ替える
-export function mergeBackfillDeck(cur: readonly Card[], index: number, fresh: readonly Card[]): Card[] {
+function mergeBackfillDeck(cur: readonly Card[], index: number, fresh: readonly Card[]): Card[] {
   const kept = cur.slice(0, index + 1)
   const keptIds = new Set(kept.map((c) => c.work.id))
   return [...kept, ...fresh.filter((c) => !keptIds.has(c.work.id))]
 }
 
+// 山を始めるクール。初めての人は、前のクール（放送の終わったクール）から始める。今のクールは始まって間もないと
+// 「良い」「とても良い」を付けられる作品が少なく、マッチングが「好きな作品の記録がまだありません」で止まるため（2026-10-21 利用者）。
+// 決めたクールは控える（案内を閉じて開き直しても、山が今のクールへ移らない）。案内を見たことのある人は、前と同じく今のクール
+export function initialBackfillSeason(now = new Date()): Season {
+  const saved = loadBackfillSeason()
+  if (saved) return saved
+  if (loadOnboardingSeen()) return seasonOf(now)
+  const first = previousSeason(seasonOf(now))
+  saveBackfillSeason(first)
+  return first
+}
+
 export function useBackfill(token: string, github: GithubConnection | null = null) {
-  const [season, setSeason] = useState<Season>(() => loadBackfillSeason() ?? seasonOf(new Date()))
+  const [season, setSeason] = useState<Season>(() => initialBackfillSeason())
   const [cards, setCards] = useState<Card[] | null>(null)
   // そのクールの人気作の数（記録済みも含む）。進み具合の分母
   const [total, setTotal] = useState(0)
@@ -254,9 +266,7 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
           await updateStatus(token, workId, state)
           if (a.kind !== 'rate') return
           // 前回の内容の山には、別の端末で評価済みの作品が混ざることがある。送信の時点の実際の感想から付ける（感想がすでにあれば、新しく作らずに付け直す）
-          const current = (await getMyReviews(token)).get(annictId) ?? null
-          entry.before = current?.ratingOverallState ?? null
-          await rememberReview(token, annictId, await changeRating(token, workId, current, a.rating))
+          await rateNow(token, workId, annictId, a.rating, (before) => (entry.before = before))
         },
         [{ kind: 'status', workId, state, idMal }, ...(a.kind === 'rate' ? [{ kind: 'rating' as const, workId, annictId, rating: a.rating, idMal }] : [])],
       )
@@ -291,8 +301,7 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
       async () => {
         // 評価を付けていたら、付ける前の評価に戻す（無かったなら消す）
         if (entry.before !== undefined) {
-          const current = (await getMyReviews(token)).get(annictId) ?? null
-          await rememberReview(token, annictId, await changeRating(token, workId, current, entry.before))
+          await rateNow(token, workId, annictId, entry.before)
         }
         entry.before = undefined
         await updateStatus(token, workId, 'NO_STATE')

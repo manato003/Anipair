@@ -9,6 +9,7 @@ import { Phrase } from '../../components/Phrase'
 import { WorkFacts } from '../../components/WorkFacts'
 import { episodeFacts } from '../../lib/watchFacts'
 import { t } from '../../lib/i18n'
+import { navigate } from '../../lib/navigate'
 import { keyLabel, rangeLabel, useKeymap } from '../../lib/keymap'
 import type { GithubConnection } from '../../lib/github'
 import { useShortcuts } from '../../lib/useShortcuts'
@@ -19,6 +20,7 @@ import { ENOUGH_LIKED } from './tasteLoader'
 import { displayTitleOf, useMatching, type MatchAnswer, type MatchCard } from './useMatching'
 import { FlowStage, type FlowPrev } from '../../components/FlowStage'
 import { Loading, LoadingMark } from '../../components/Loading'
+import { malIdOf } from '../../lib/malId'
 
 // 形式の名前（呼んだときの言語で。知らない形式は Shikimori の名前のまま）
 function formatName(format: string): string {
@@ -186,9 +188,15 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
             </Empty>
           ) : m.phase.kind === 'empty' ? (
             <Empty mood="empty" title={t('まだ提案できません', 'No suggestions yet')} body={m.phase.message}>
-              <button type="button" className="btn" onClick={run}>
-                {t('もう一度試す', 'Retry')}
-              </button>
+              {m.phase.toRate ? (
+                <button type="button" className="btn btn--primary" onClick={() => navigate({ tab: 'rate' })}>
+                  {t('評価の画面へ', 'Go to Rate')}
+                </button>
+              ) : (
+                <button type="button" className="btn" onClick={run}>
+                  {t('もう一度試す', 'Retry')}
+                </button>
+              )}
             </Empty>
           ) : m.done || !m.current ? (
             <Empty
@@ -339,8 +347,8 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
           relatedEnqueue={m.enqueue}
           onRelatedChange={(work, patch) => {
             // 記録した（状態か評価を付けた）作品は、これから出てくる候補から外す
-            const mal = Number(work.malAnimeId)
-            if ((patch.state || patch.rating) && Number.isInteger(mal) && mal > 0) m.dropCandidate(mal)
+            const mal = malIdOf(work)
+            if ((patch.state || patch.rating) && mal) m.dropCandidate(mal)
           }}
           onClose={() => setSheetFor(null)}
         />

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { BackIcon, CalendarIcon, ChartIcon, CheckIcon, FilterIcon, PauseIcon, PlayIcon, TrophyIcon } from '../../components/Icons'
 import { Bookmark } from '../../components/Bookmark'
 import { loadTitlesState } from '../achievements/achievementStore'
@@ -10,6 +10,7 @@ import { SaveStatus } from '../../components/SaveStatus'
 import type { Episode, RatingState, StatusState } from '../../lib/annict'
 import { RATING_LABEL } from '../../lib/reviewOps'
 import { plural, t } from '../../lib/i18n'
+import { navigate } from '../../lib/navigate'
 import { workTitle } from '../../lib/names'
 import type { Media } from '../../lib/shikimori'
 import type { Cover } from '../../lib/storage'
@@ -22,7 +23,7 @@ import { PinnedLine } from '../../components/PinnedLine'
 import { formatMinutes } from '../../lib/watchFacts'
 import { workMeta } from '../browse/detail'
 import { WorkDetail, type WorkSeed } from '../browse/WorkDetail'
-import { malIdOf } from '../match/taste'
+import { malIdOf } from '../../lib/malId'
 import { genreName } from '../match/taste'
 import { RATINGS } from '../rate/queue'
 import {
@@ -70,6 +71,8 @@ import { WannaNoteSheet } from './WannaNoteSheet'
 import { StaleNote } from '../../components/StaleNote'
 import { SortRow } from '../../components/SortRow'
 import { reducedMotion, useViewingSeason } from '../../lib/theme'
+import { downloadText } from '../../lib/download'
+import { buildCalendar } from '../../lib/ics'
 
 // 傾向・ふり返り（図と共有の画像）と実績は、開いたときに別のファイルから読む（記録の一覧を早く出す）
 const TrendsView = lazy(() => import('./TrendsView').then((m) => ({ default: m.TrendsView })))
@@ -118,6 +121,11 @@ export function Records({ token, github = null, active }: { token: string; githu
     setNotes(setWannaNote(row.entry.annictId, value))
     syncNotesLater()
   }
+  // 見たいの「優先して見る」を切り替える（メモはそのまま）
+  const togglePriority = (row: RecordRow) => {
+    const cur = noteOf(notes, row.entry.annictId)
+    saveNote(row, { priority: !cur?.priority, memo: cur?.memo ?? '' })
+  }
   // まだ一度も実績を開いていない（覚醒を見ていない）あいだは、「まとめ」と「実績」に光る点を付けて気づかせる
   const [achievementsUnseen, setAchievementsUnseen] = useState(() => !loadTitlesState().awakened)
 
@@ -134,6 +142,8 @@ export function Records({ token, github = null, active }: { token: string; githu
     other: { key: 'recorded', dir: 'desc' },
   })
   const [query, setQuery] = useState('')
+  // 一覧の絞り込みは入力より後回しにする（1,400件を並べ直すあいだも、文字の入力を待たせない。2026-10-21）
+  const deferredQuery = useDeferredValue(query)
   const [editing, setEditing] = useState(false)
   // 絞り込み（どの状態にも効く）。ジャンル・制作会社は、シートを開いたときかその条件をかけているときだけ Shikimori から読む
   const [filter, setFilter] = useState<RecordFilter>(EMPTY_FILTER)
@@ -152,7 +162,7 @@ export function Records({ token, github = null, active }: { token: string; githu
     ? {
         priority: openNote?.priority === true,
         memo: openNote?.memo ?? '',
-        onTogglePriority: () => saveNote(openWannaRow, { priority: !openNote?.priority, memo: openNote?.memo ?? '' }),
+        onTogglePriority: () => togglePriority(openWannaRow),
         onEditMemo: () => setNoteFor(openWannaRow),
       }
     : undefined
@@ -227,7 +237,7 @@ export function Records({ token, github = null, active }: { token: string; githu
   const scores = byTaste ? wanna.scores : null
   const visible = useMemo(() => {
     if (!bucket) return []
-    const sorted = sortRows(filterRows(filtered, bucket, query), sort.key, sort.dir)
+    const sorted = sortRows(filterRows(filtered, bucket, deferredQuery), sort.key, sort.dir)
     // 見たいは「優先して見る」の作品を先に（それぞれの中は選んだ並べ方のまま）
     const rows = bucket === 'wanna' ? priorityFirst(sorted, (row) => noteOf(notes, row.entry.annictId)?.priority === true) : sorted
     if (!scores) return rows
@@ -237,7 +247,7 @@ export function Records({ token, github = null, active }: { token: string; githu
     if (sort.dir === 'desc') return priorityFirst(ranked, isPriority)
     const scored = ranked.filter((row) => scores.has(malIdOf(row.entry) ?? -1))
     return priorityFirst([...scored.reverse(), ...ranked.filter((row) => !scores.has(malIdOf(row.entry) ?? -1))], isPriority)
-  }, [filtered, bucket, query, sort, scores, notes])
+  }, [filtered, bucket, deferredQuery, sort, scores, notes])
   const filterCount = activeFilterCount(filter)
   // 一覧の上で選ぶクール。選ぶと、絞り込みのシートの放送年の範囲と季節は外す（条件が重なるので）
   const chooseCour = (cour: Season | null) => setFilter((f) => (cour ? { ...f, cour, yearFrom: null, yearTo: null, seasons: [] } : { ...f, cour: null }))
@@ -456,7 +466,11 @@ export function Records({ token, github = null, active }: { token: string; githu
                     )}
                   </Empty>
                 ) : (
-                  <Empty mood="empty" title={t('まだありません', 'Nothing yet')} body={t('評価画面やマッチングで記録すると、ここに並びます。', 'Anime you record from Rate or Match will show up here.')} />
+                  <Empty mood="empty" title={t('まだありません', 'Nothing yet')} body={t('評価画面やマッチングで記録すると、ここに並びます。', 'Anime you record from Rate or Match will show up here.')}>
+                    <button type="button" className="btn btn--primary" onClick={() => navigate({ tab: 'rate' })}>
+                      {t('評価の画面へ', 'Go to Rate')}
+                    </button>
+                  </Empty>
                 )
               ) : editing ? (
                 // 編集は1行ずつの形（評価・状態・記録から外す・見たいのメモを、その場で変える）
@@ -469,10 +483,7 @@ export function Records({ token, github = null, active }: { token: string; githu
                       onRate={(rating) => r.setRating(row, rating)}
                       onState={(state) => r.setState(row, state)}
                       wanna={row.entry.state === 'WANNA_WATCH' ? (noteOf(notes, row.entry.annictId) ?? { priority: false, memo: '' }) : null}
-                      onWannaPriority={() => {
-                        const cur = noteOf(notes, row.entry.annictId)
-                        saveNote(row, { priority: !cur?.priority, memo: cur?.memo ?? '' })
-                      }}
+                      onWannaPriority={() => togglePriority(row)}
                       onWannaMemo={() => setNoteFor(row)}
                     />
                   ))}
@@ -553,10 +564,7 @@ export function Records({ token, github = null, active }: { token: string; githu
                       note={scores?.get(malIdOf(row.entry) ?? -1)?.reason ?? null}
                       onOpen={() => openRow(row)}
                       wanna={row.entry.state === 'WANNA_WATCH' ? (noteOf(notes, row.entry.annictId) ?? { priority: false, memo: '' }) : null}
-                      onWannaPriority={() => {
-                        const cur = noteOf(notes, row.entry.annictId)
-                        saveNote(row, { priority: !cur?.priority, memo: cur?.memo ?? '' })
-                      }}
+                      onWannaPriority={() => togglePriority(row)}
                     />
                   ))}
                 </ul>
@@ -787,9 +795,33 @@ function WeekSchedule(props: { days: { day: string; items: WeekItem<RecordRow>[]
       ) : (
         props.days.length === 0 && <p className="week__note">{t('これから7日のうちに、選んだサービスでの放送予定は見つかりませんでした。', 'No broadcasts were found on your selected services in the next 7 days.')}</p>
       )}
+      {props.days.length > 0 && (
+        <p className="week__note">
+          <button type="button" className="link" onClick={() => exportWeek(props.days)}>
+            {t('カレンダーに入れる（.ics）', 'Add to calendar (.ics)')}
+          </button>
+        </p>
+      )}
       <p className="week__note">{t('見てるの作品のうち、放送中の作品だけを並べています。Annictに登録されていない予定は出ません。', 'Only airing anime from your Watching list are shown. Broadcasts not registered on Annict don’t appear.')}</p>
     </div>
   )
+}
+
+// 今週の放送を、カレンダーのファイルにして保存させる（Google カレンダー・iPhone のカレンダーで開ける。2026-10-21）。
+// 放送の長さは Annict に無いので、30分として入れる
+function exportWeek(days: readonly { items: readonly WeekItem<RecordRow>[] }[]): void {
+  const now = new Date()
+  const events = days.flatMap((d) =>
+    d.items.map((it) => ({
+      uid: `${it.work.entry.workId}-${it.at.getTime()}@anipair.com`,
+      start: it.at,
+      minutes: 30,
+      summary: workTitle(it.work.entry),
+      location: it.more ? t(`${it.channel}ほか`, `${it.channel} & more`) : it.channel,
+    })),
+  )
+  const pad = (n: number) => String(n).padStart(2, '0')
+  downloadText(`anipair-week-${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}.ics`, buildCalendar(t('Anipairの今週の放送', 'Anipair: this week'), events, now), 'text/calendar;charset=utf-8')
 }
 
 function WatchCard(props: {

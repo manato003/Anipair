@@ -1,4 +1,4 @@
-import { compareSeasons, sameSeason, seasonOf, type Season, type SeasonName } from '../../lib/season'
+import { compareSeasons, sameSeason, seasonOf, seasonOfWork } from '../../lib/season'
 import { loadStillWatchingRaw, saveStillWatchingRaw } from '../../lib/storage'
 
 // 評価の画面の「見てる」の山に、いつ作品を出すか。
@@ -49,23 +49,15 @@ export function snoozedWatching(now = Date.now()): Set<number> {
   return out
 }
 
-const NAMES: Record<string, SeasonName> = { WINTER: 'winter', SPRING: 'spring', SUMMER: 'summer', AUTUMN: 'autumn' }
-
-// 作品の放送クール（Annict の seasonYear と seasonName）。分からなければ null
-export function workSeason(w: { seasonYear?: number | null; seasonName?: string | null }): Season | null {
-  const name = w.seasonName ? NAMES[w.seasonName.toUpperCase()] : undefined
-  return typeof w.seasonYear === 'number' && name ? { year: w.seasonYear, name } : null
-}
-
 // 放送中か、まだ始まっていないクールの作品（「見てる」の山に出さない）
 export function stillAiring(w: { seasonYear?: number | null; seasonName?: string | null }, now = Date.now()): boolean {
-  const s = workSeason(w)
+  const s = seasonOfWork(w)
   return s !== null && compareSeasons(s, seasonOf(new Date(now))) >= 0
 }
 
 // このクールに「見てる」にした作品（昔のクールの作品を、いま見始めたなど）。見始めたばかりで「見終わりましたか」とは聞かない。
 // 「まだ見てる」と同じく、そのクールが終わってから聞く
-export function startedThisCour(e: { stateAt?: string | null }, now = Date.now()): boolean {
+function startedThisCour(e: { stateAt?: string | null }, now = Date.now()): boolean {
   const at = e.stateAt ? Date.parse(e.stateAt) : NaN
   return !Number.isNaN(at) && sameCour(at, now)
 }

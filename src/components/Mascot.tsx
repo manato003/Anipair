@@ -318,7 +318,7 @@ export function CheerScene(props: { className?: string }) {
 // ペアの芽は、季節に寄らない2枚葉（アイコンのファイルは季節で替えられないため）。
 // peek: ペアをアニの肩の後ろへ回し、少し小さくして右上からのぞかせる（ホーム画面・タブ・X のアイコン。2026-10-12 #24）。
 // 絵の外形はおよそ x 0〜77・y 2〜62（真ん中 38.5, 32）
-export function DuoMarkFigure({ faces = true, peek = false }: { faces?: boolean; peek?: boolean }) {
+function DuoMarkFigure({ faces = true, peek = false }: { faces?: boolean; peek?: boolean }) {
   const ani = (
     <>
       <path className="m-wire" d="M21 22 14 8M31 22l5-14" strokeWidth="5" />

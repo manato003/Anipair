@@ -1,5 +1,7 @@
 import type { ViewerStats } from '../../lib/annict'
 import { t, tx, type Text } from '../../lib/i18n'
+import { FEAT_TITLES } from './featTitles'
+import { RARITIES, type Rarity } from './rarity'
 import { compareSeasons, nextSeason, parseSlug, SEASON_NAMES, seasonNameLabel, seasonOf, toSlug, type Season, type SeasonName } from '../../lib/season'
 
 // 称号の一覧と、その条件の判定。
@@ -40,37 +42,7 @@ export interface Facts {
 
 export type TitleGroup = 'season' | 'watched' | 'year' | 'decade' | 'hidden' | 'special'
 
-// レア度。名札の色と装飾が変わる（styles/achievements.css の .plate--*）。並びは低い順。
-// 色はゲームのレア度とランクの決まりに寄せた（原神・鳴潮の星の色、Valorant・Apex・LoL のランクの色）
-// origin は特別な称号（Annict を創った人だけ）専用
-export const RARITIES = ['bronze', 'silver', 'gold', 'amethyst', 'crimson', 'radiant', 'origin'] as const
-export type Rarity = (typeof RARITIES)[number]
-
-// レア度の呼び名（共有の画像と、God モードの試しの知らせ）
-// 他のファイルから使われる定数なので、getter にして読んだときの言語で返す
-export const RARITY_LABEL: Record<Rarity, string> = {
-  get bronze() {
-    return t('銅', 'Bronze')
-  },
-  get silver() {
-    return t('銀', 'Silver')
-  },
-  get gold() {
-    return t('金', 'Gold')
-  },
-  get amethyst() {
-    return t('紫晶', 'Amethyst')
-  },
-  get crimson() {
-    return t('紅', 'Crimson')
-  },
-  get radiant() {
-    return t('虹', 'Radiant')
-  },
-  get origin() {
-    return t('特別', 'Special')
-  },
-}
+export { RARITIES, RARITY_LABEL, type Rarity } from './rarity'
 
 export interface Title {
   id: string
@@ -155,13 +127,7 @@ const DECADES: readonly { from: number; name: Text }[] = [
   { from: 2020, name: { ja: '配信の海を渡る者', en: 'Sailor of the Streaming Sea' } },
 ]
 
-// 出来事（その場で起きること）で付く称号。起きたときに、右上に知らせる
-const FEAT_TITLE: Record<keyof Feats, string> = { lateNight: 'hidden-midnight', oneNightCastle: 'hidden-castle', earlyMorning: 'hidden-dawn-hour', newYear: 'hidden-new-year' }
-
-export function featTitle(feat: keyof Feats): { id: string; name: string; rarity: Rarity } {
-  const h = HIDDEN.find((x) => x.id === FEAT_TITLE[feat])!
-  return { id: h.id, name: tx(h.name), rarity: h.rarity }
-}
+export { featTitle } from './featTitles'
 
 // 隠し称号。条件は解放するまで見せない
 const HIDDEN: readonly { id: string; name: Text; condition: Text; rarity: Rarity; test: (f: Facts) => boolean }[] = [
@@ -174,8 +140,8 @@ const HIDDEN: readonly { id: string; name: Text; condition: Text; rarity: Rarity
   { id: 'hidden-wanna', name: { ja: '積みの魔王', en: 'Backlog Demon King' }, condition: { ja: '見たい作品が300本を超えた', en: 'Have more than 300 anime on Want to watch' }, rarity: 'crimson', test: (f) => (f.stats?.wannaWatchCount ?? 0) >= 300 },
   { id: 'hidden-cut', name: { ja: '断ち切る者', en: 'Cutter of Ties' }, condition: { ja: '視聴中断した作品が50本を超えた', en: 'Dropped more than 50 anime' }, rarity: 'crimson', test: (f) => (f.stats ? f.stats.stopWatchingCount + f.stats.onHoldCount : 0) >= 50 },
   { id: 'hidden-guide', name: { ja: '導く者', en: 'The Guide' }, condition: { ja: 'Annictのフォロワーが100人を超えた', en: 'Have more than 100 followers on Annict' }, rarity: 'amethyst', test: (f) => (f.stats?.followersCount ?? 0) >= 100 },
-  { id: 'hidden-midnight', name: { ja: '丑三つ時の観測者', en: 'Witching Hour Observer' }, condition: { ja: '深夜2時から4時のあいだに記録した', en: 'Logged something between 2 and 4 a.m.' }, rarity: 'crimson', test: (f) => !!f.feats.lateNight },
-  { id: 'hidden-castle', name: { ja: '一夜城', en: 'Castle in a Night' }, condition: { ja: '一度に20本以上答えて、クールを踏破した', en: 'Answered 20 or more anime in one go and cleared a season' }, rarity: 'gold', test: (f) => !!f.feats.oneNightCastle },
+  { ...FEAT_TITLES.lateNight, test: (f) => !!f.feats.lateNight },
+  { ...FEAT_TITLES.oneNightCastle, test: (f) => !!f.feats.oneNightCastle },
   { id: 'hidden-wanna-1k', name: { ja: '積み山脈の主', en: 'Lord of the Backlog Range' }, condition: { ja: '見たい作品が1,000本を超えた', en: 'Have more than 1,000 anime on Want to watch' }, rarity: 'crimson', test: (f) => (f.stats?.wannaWatchCount ?? 0) >= 1000 },
   { id: 'hidden-watching', name: { ja: '並行世界の住人', en: 'Parallel World Dweller' }, condition: { ja: '見てる作品が20本を超えた', en: 'Have more than 20 anime on Watching' }, rarity: 'crimson', test: (f) => (f.stats?.watchingCount ?? 0) >= 20 },
   { id: 'hidden-decade-friend', name: { ja: '十年来の盟友', en: 'Ten-Year Ally' }, condition: { ja: 'Annictに登録して10年が経った', en: 'Have had an Annict account for 10 years' }, rarity: 'gold', test: (f) => !!f.stats && yearsBetween(new Date(f.stats.createdAt), f.now) >= 10 },
@@ -184,8 +150,8 @@ const HIDDEN: readonly { id: string; name: Text; condition: Text; rarity: Rarity
   { id: 'hidden-bonds', name: { ja: '縁を結ぶ者', en: 'Bond Weaver' }, condition: { ja: 'Annictで100人をフォローした', en: 'Followed 100 people on Annict' }, rarity: 'silver', test: (f) => (f.stats?.followingsCount ?? 0) >= 100 },
   { id: 'hidden-dawn-era', name: { ja: '黎明期の目撃者', en: 'Witness of the Dawn Era' }, condition: { ja: '1979年以前の作品を見た', en: 'Watched an anime from 1979 or earlier' }, rarity: 'amethyst', test: (f) => f.watchedYears.some((y) => y <= 1979) },
   { id: 'hidden-all-eras', name: { ja: '時の果てまで', en: 'To the End of Time' }, condition: { ja: '7つの年代の作品を見た', en: 'Watched anime from 7 decades' }, rarity: 'radiant', test: (f) => new Set(f.watchedYears.map((y) => Math.floor(y / 10))).size >= 7 },
-  { id: 'hidden-dawn-hour', name: { ja: '暁の観測者', en: 'Daybreak Observer' }, condition: { ja: '朝5時から7時のあいだに記録した', en: 'Logged something between 5 and 7 a.m.' }, rarity: 'bronze', test: (f) => !!f.feats.earlyMorning },
-  { id: 'hidden-new-year', name: { ja: '年越しの観測者', en: 'New Year’s Observer' }, condition: { ja: '元日に記録した', en: 'Logged something on New Year’s Day' }, rarity: 'silver', test: (f) => !!f.feats.newYear },
+  { ...FEAT_TITLES.earlyMorning, test: (f) => !!f.feats.earlyMorning },
+  { ...FEAT_TITLES.newYear, test: (f) => !!f.feats.newYear },
 ]
 
 export const HIDDEN_COUNT = HIDDEN.length

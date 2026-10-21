@@ -1,6 +1,7 @@
 import type { BrowseWork, StatusState } from '../../lib/annict'
 import { t } from '../../lib/i18n'
 import { SEASON_KEYS, mediaKindOf, type MediaInfo, type MediaKind, type SeasonKey } from '../records/recordList'
+import { malIdOf } from '../../lib/malId'
 
 // ブラウズの絞り込み。どの項目も空なら絞らない。項目の中は「どれか」、項目どうしは「すべて」（記録の絞り込みと同じ考え方）。
 // 放送年と季節（期間）は、Annict から読む作品そのものを決める（上のクールの代わりに、期間のクールをまとめて読む）。
@@ -94,8 +95,8 @@ export function browseFilterCount(f: BrowseFilter, period: BrowsePeriod): number
 }
 
 function infoOf(w: BrowseWork, info: ReadonlyMap<number, MediaInfo> | null): MediaInfo | undefined {
-  const mal = Number(w.malAnimeId)
-  return info && Number.isInteger(mal) && mal > 0 ? info.get(mal) : undefined
+  const mal = malIdOf(w)
+  return info && mal ? info.get(mal) : undefined
 }
 
 // 読み込んだ作品から、条件に合う作品だけを残す（期間は読むときに済んでいる）。

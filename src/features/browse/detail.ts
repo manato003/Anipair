@@ -1,7 +1,8 @@
 import type { AnnictSeries, LibraryEntry, StatusState } from '../../lib/annict'
 import { t, plural } from '../../lib/i18n'
 import { workTitle } from '../../lib/names'
-import { compareSeasons, seasonOf, type SeasonName } from '../../lib/season'
+import { compareSeasons, seasonNameLabel, seasonOf, seasonOfWork } from '../../lib/season'
+import { malIdOf } from '../../lib/malId'
 
 // ブラウズの詳細画面で使う純粋な関数
 
@@ -55,22 +56,13 @@ export function xUrl(username: string | null | undefined): string | null {
   return username && /^\w{1,15}$/.test(username) ? `https://x.com/${username}` : null
 }
 
-// 季節と形式の名前は、呼んだときの言語で（ファイルの外側で t() を呼ばないため、関数にする）
+// 季節の名前（Annict の 'WINTER' などから）。呼んだときの言語で
 function seasonWord(name: string): string {
-  switch (name) {
-    case 'WINTER':
-      return t('冬', 'Winter')
-    case 'SPRING':
-      return t('春', 'Spring')
-    case 'SUMMER':
-      return t('夏', 'Summer')
-    case 'AUTUMN':
-      return t('秋', 'Fall')
-    default:
-      return ''
-  }
+  const s = seasonOfWork({ seasonYear: 0, seasonName: name })
+  return s ? seasonNameLabel(s.name) : ''
 }
 
+// 形式の名前は、呼んだときの言語で（ファイルの外側で t() を呼ばないため、関数にする）
 function mediaWord(media: string): string {
   switch (media) {
     case 'TV':
@@ -141,9 +133,9 @@ export const FORMAT_LABEL: Record<string, string> = {
 export function marksByMal(entries: readonly Pick<LibraryEntry, 'malAnimeId' | 'state'>[] | null): Map<number, string> {
   const out = new Map<number, string>()
   for (const e of entries ?? []) {
-    const mal = Number(e.malAnimeId)
+    const mal = malIdOf(e)
     const label = STATUS_LABEL[e.state]
-    if (Number.isInteger(mal) && mal > 0 && label) out.set(mal, label)
+    if (mal && label) out.set(mal, label)
   }
   return out
 }
@@ -186,8 +178,8 @@ export function seriesFacts(series: readonly AnnictSeries[] | null | undefined, 
   const next = works[at + 1]
   if (next) {
     const season = workMeta({ seasonYear: next.seasonYear, seasonName: next.seasonName })
-    const name = next.seasonName?.toLowerCase() as SeasonName | undefined
-    const upcoming = !!next.seasonYear && !!name && compareSeasons({ year: next.seasonYear, name }, seasonOf(now)) > 0
+    const nextSeason = seasonOfWork(next)
+    const upcoming = !!nextSeason && compareSeasons(nextSeason, seasonOf(now)) > 0
     // 作品名は Annict のデータのまま
     const shown = workTitle(next)
     const title = t(`『${shown}』`, `“${shown}”`)

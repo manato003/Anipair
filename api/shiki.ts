@@ -30,6 +30,7 @@ const GRAPHQL_URL = 'https://shikimori.io/api/graphql'
 const REST_URL = 'https://shikimori.io/api/animes'
 const PEOPLE_URL = 'https://shikimori.io/api/people'
 const USER_AGENT = 'Anipair (https://anipair.com/)'
+// 1回の作品数の上限。アプリ側（src/lib/shikimori.ts の BATCH）と同じにする
 const MAX_IDS = 50
 const MAX_SIMILAR = 100
 const MAX_RELATED = 30
@@ -40,7 +41,7 @@ const MAX_PERSON_WORKS = 400
 const MAX_CHARACTERS_PER_WORK = 3
 // 作品のキャラクターの名前は、主役から順にこれまで
 const MAX_CAST = 150
-// 制作会社の作品は、50件ずつ4ページ（200件）まで
+// 制作会社の作品は、50件ずつ4ページ（200件）まで。アプリ側（src/lib/shikimori.ts の STUDIO_PAGES）と同じにする
 const MAX_STUDIO_PAGE = 4
 const TIMEOUT_MS = 8000
 

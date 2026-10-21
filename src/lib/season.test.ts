@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clampSeason, compareSeasons, parseSlug, previousSeason, seasonLabel, seasonOf, toSlug, yearsDescending, type Season } from './season'
+import { clampSeason, compareSeasons, isRecentWork, parseSlug, previousSeason, seasonLabel, seasonOf, seasonOfWork, toSlug, yearsDescending, type Season } from './season'
 
 describe('seasonOf', () => {
   it.each([
@@ -85,5 +85,22 @@ describe('yearsDescending', () => {
 
   it('is a single year when both ends share it', () => {
     expect(yearsDescending({ year: 2026, name: 'winter' }, { year: 2026, name: 'winter' })).toEqual([2026])
+  })
+})
+
+describe('seasonOfWork / isRecentWork', () => {
+  it('reads Annict’s upper-case season names, and gives null when the year or name is missing or unknown', () => {
+    expect(seasonOfWork({ seasonYear: 2026, seasonName: 'AUTUMN' })).toEqual({ year: 2026, name: 'autumn' })
+    expect(seasonOfWork({ seasonYear: 2026, seasonName: null })).toBeNull()
+    expect(seasonOfWork({ seasonYear: null, seasonName: 'WINTER' })).toBeNull()
+    expect(seasonOfWork({ seasonYear: 2026, seasonName: 'RAINY' })).toBeNull()
+  })
+
+  it('counts this season and the one before as recent', () => {
+    const now = new Date(2026, 9, 21)
+    expect(isRecentWork({ seasonYear: 2026, seasonName: 'AUTUMN' }, now)).toBe(true)
+    expect(isRecentWork({ seasonYear: 2026, seasonName: 'SUMMER' }, now)).toBe(true)
+    expect(isRecentWork({ seasonYear: 2026, seasonName: 'SPRING' }, now)).toBe(false)
+    expect(isRecentWork({ seasonYear: 2026, seasonName: null }, now)).toBe(false)
   })
 })

@@ -1,4 +1,5 @@
 import { getLang, t, type Lang } from './i18n'
+import { persistedMap } from './persistedMap'
 
 // 作品のあらすじを、日本語版 Wikipedia の公式の API（MediaWiki）から読む。
 // 記事の URL は Annict の API が返す `wikipediaUrl`。文章は CC BY-SA 4.0 なので、出典（記事名とリンク）とライセンスを添えて出す。
@@ -144,6 +145,39 @@ async function call<T>(lang: Lang, params: Record<string, string>): Promise<T> {
 
 const cache = new Map<string, Promise<WikiSynopsis | null>>()
 
+// 読んだあらすじは端末にも残す（次に開いたときは問い合わせない。2026-10-21）。記事は書き換わるので、
+// あらすじが見つかった記事は30日、あらすじの節が無かった記事は7日たったら読み直す。残すのは新しく読んだ60件
+const FOUND_MS = 30 * 86_400_000
+const MISSING_MS = 7 * 86_400_000
+interface StoredSynopsis {
+  at: string
+  v: WikiSynopsis | null
+}
+const stored = persistedMap<StoredSynopsis>('wikiSynopses', 60, parseStoredSynopsis)
+
+// 端末に残したあらすじの形を確かめる。リンクは、その言語版の Wikipedia のものだけ通す
+export function parseStoredSynopsis(value: unknown): StoredSynopsis | null {
+  if (!value || typeof value !== 'object') return null
+  const { at, v } = value as Record<string, unknown>
+  if (typeof at !== 'string' || Number.isNaN(Date.parse(at))) return null
+  if (v === null) return { at, v: null }
+  if (!v || typeof v !== 'object') return null
+  const w = v as Record<string, unknown>
+  const lang = w.lang === 'en' || w.lang === 'ja' ? w.lang : null
+  if (!lang || typeof w.text !== 'string' || typeof w.title !== 'string' || typeof w.url !== 'string' || !w.url.startsWith(`https://${HOSTS[lang]}/`) || !Array.isArray(w.blocks)) return null
+  const blocks = w.blocks.flatMap((b: unknown) => {
+    const x = b as Record<string, unknown> | null
+    return x && typeof x.heading === 'boolean' && typeof x.text === 'string' ? [{ heading: x.heading, text: x.text }] : []
+  })
+  return { at, v: { text: w.text, blocks, title: w.title, url: w.url, licenseUrl: LICENSE_URLS[lang], lang } }
+}
+
+function storedSynopsis(key: string, now = Date.now()): StoredSynopsis | undefined {
+  const s = stored.get(key)
+  if (!s) return undefined
+  return now - Date.parse(s.at) < (s.v ? FOUND_MS : MISSING_MS) ? s : undefined
+}
+
 // 1つの言語版の記事から、あらすじの節を読む（節の一覧と、あらすじの節の2回の問い合わせ）。節が無ければ null
 async function readSynopsis(lang: Lang, page: string): Promise<WikiSynopsis | null> {
   const s = await call<{ parse?: { title: string; sections: { line: string; index: string; anchor: string }[] } }>(lang, { action: 'parse', page, prop: 'sections', redirects: '1' })
@@ -177,13 +211,26 @@ export function fetchWikiSynopsis(wikipediaUrl: string | null | undefined, lang:
   const key = `${lang}:${page}`
   let p = cache.get(key)
   if (!p) {
+    const kept = storedSynopsis(key)
+    if (kept) {
+      p = Promise.resolve(kept.v)
+      cache.set(key, p)
+      return p
+    }
     p = (async () => {
+      // 英語版を読めなかった（通信の失敗）ときは、日本語版で代わりに出しても端末には残さない（次は英語版をもう一度試す）
+      let enFailed = false
       if (lang === 'en') {
-        const en = await englishTitleOf(page).catch(() => null)
-        const synopsis = en ? await readSynopsis('en', en).catch(() => null) : null
-        if (synopsis) return synopsis
+        const en = await englishTitleOf(page).catch(() => ((enFailed = true), null))
+        const synopsis = en ? await readSynopsis('en', en).catch(() => ((enFailed = true), null)) : null
+        if (synopsis) {
+          stored.set(key, { at: new Date().toISOString(), v: synopsis })
+          return synopsis
+        }
       }
-      return readSynopsis('ja', page)
+      const ja = await readSynopsis('ja', page)
+      if (!enFailed) stored.set(key, { at: new Date().toISOString(), v: ja })
+      return ja
     })()
     p.catch(() => cache.delete(key))
     cache.set(key, p)

@@ -29,6 +29,20 @@ export function seasonOf(date: Date): Season {
   return { year: date.getFullYear(), name: ORDER[Math.floor(date.getMonth() / 3)] }
 }
 
+// 作品の放送クール（Annict の seasonYear と seasonName。名前は 'WINTER' などの大文字）。分からなければ null
+export function seasonOfWork(w: { seasonYear?: number | null; seasonName?: string | null }): Season | null {
+  const name = w.seasonName?.toLowerCase()
+  return typeof w.seasonYear === 'number' && ORDER.some((n) => n === name) ? { year: w.seasonYear, name: name as SeasonName } : null
+}
+
+// 今のクールか前のクールの作品か（放送中かもしれない作品。次の放送を探す・作品の詳細の控えを短くする）
+export function isRecentWork(w: { seasonYear?: number | null; seasonName?: string | null }, now: Date): boolean {
+  const s = seasonOfWork(w)
+  if (!s) return false
+  const cur = seasonOf(now)
+  return sameSeason(s, cur) || sameSeason(s, previousSeason(cur))
+}
+
 export function previousSeason(season: Season): Season {
   const i = ORDER.indexOf(season.name)
   return i === 0

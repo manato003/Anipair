@@ -1,7 +1,8 @@
 import type { BrowseWork } from '../../lib/annict'
 import { t } from '../../lib/i18n'
 import type { Media } from '../../lib/shikimori'
-import { collectPool, malIdOf } from '../match/taste'
+import { malIdOf } from '../../lib/malId'
+import { collectPool } from '../match/taste'
 import type { Taste } from '../match/tasteLoader'
 import { orderByScore, scoreWanna } from '../records/wannaRank'
 

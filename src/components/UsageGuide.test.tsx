@@ -11,12 +11,21 @@ afterEach(async () => {
 const heading = () => screen.getByRole('heading', { level: 2 }).textContent
 
 describe('UsageGuide', () => {
+  it('can be skipped from the first page', () => {
+    const onClose = vi.fn()
+    render(<UsageGuide onClose={onClose} />)
+    fireEvent.click(screen.getByRole('button', { name: 'スキップ' }))
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
   it('walks through the whole app in seven pages with Ani and Pair, a picture of each screen, and back and next', () => {
     render(<UsageGuide onClose={vi.fn()} />)
     expect(screen.getByRole('dialog', { name: 'Anipairの使い方' })).toBeTruthy()
     expect(heading()).toBe('ようこそ、Anipairへ')
     expect(screen.getByText('1 / 7')).toBeTruthy()
-    expect((screen.getByRole('button', { name: '戻る' }) as HTMLButtonElement).disabled).toBe(true)
+    // 1ページ目は戻る先が無いので、代わりにスキップ
+    expect(screen.queryByRole('button', { name: '戻る' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'スキップ' })).toBeTruthy()
     const titles = [heading()]
     for (let i = 0; i < 6; i++) {
       fireEvent.click(screen.getByRole('button', { name: '次へ' }))

@@ -1,13 +1,12 @@
 import { episodeFacts } from '../../lib/watchFacts'
 import { workTitle } from '../../lib/names'
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Bookmark } from '../../components/Bookmark'
 import { Empty } from '../../components/Empty'
 import { HeadActions } from '../../components/ControlCenter'
 import { ActLabel, EyeOffIcon, InfoIcon, PauseIcon, PlayIcon, RatingIcon, UndoIcon } from '../../components/Icons'
 import { SaveStatus } from '../../components/SaveStatus'
 import { SeasonPicker } from '../../components/SeasonPicker'
-import { UsageGuide } from '../../components/UsageGuide'
 import { WorkFacts } from '../../components/WorkFacts'
 import { FlowStage, type FlowItem, type FlowPrev } from '../../components/FlowStage'
 import { keyLabel, useKeymap } from '../../lib/keymap'
@@ -17,11 +16,11 @@ import { useShortcuts } from '../../lib/useShortcuts'
 import { previousSeason, seasonLabel, seasonOf } from '../../lib/season'
 import { loadOnboardingSeen, saveOnboardingSeen, type Cover } from '../../lib/storage'
 import { recordFeat, recordTimeFeats } from '../achievements/achievementStore'
-import { featTitle } from '../achievements/titles'
+import { featTitle } from '../achievements/featTitles'
 import { announceEarned } from '../achievements/titleToast'
 import { workMeta } from '../browse/detail'
-import { WorkDetail, type WorkSeed } from '../browse/WorkDetail'
-import { malIdOf } from '../match/taste'
+import type { WorkSeed } from '../browse/WorkDetail'
+import { malIdOf } from '../../lib/malId'
 import { formatDate } from '../records/recordList'
 import { OLDEST_SEASON, OLDEST_YEAR, RATINGS, type Answer, type Card } from './queue'
 import { useBackfill } from './useBackfill'
@@ -32,6 +31,10 @@ import { Loading, LoadingMark } from '../../components/Loading'
 import { nextLabel } from '../records/episodes'
 import { StaleNote } from '../../components/StaleNote'
 import { useViewingSeason } from '../../lib/theme'
+
+// 作品の詳細（表紙を押したとき）と使い方の案内（初めての1回）は、開くときに読む（最初に読む JS を小さくする。2026-10-21）
+const WorkDetail = lazy(() => import('../browse/WorkDetail').then((m) => ({ default: m.WorkDetail })))
+const UsageGuide = lazy(() => import('../../components/UsageGuide').then((m) => ({ default: m.UsageGuide })))
 
 // その回に答えた数がこの数に届くたびに、短い演出を出す
 const MILESTONE_STEP = 10
@@ -506,24 +509,26 @@ export function Backfill({ token, github, active }: { token: string; github: Git
       </section>
 
       {/* .rate の直下の要素は position を上書きされるので、シートは外に出す */}
-      {showGuide && <UsageGuide onClose={closeGuide} />}
-      {sheetOpen && shown && (
-        <WorkDetail
-          readOnly
-          token={token}
-          work={shown.seed}
-          cover={shown.cover}
-          active={active}
-          relatedEnqueue={b.enqueue}
-          onRelatedChange={(work, patch) => {
-            // 記録した（状態か評価を付けた）作品は、これから出てくる山から外す。いま出している1枚は残す
-            if (!patch.state && !patch.rating) return
-            b.dropFromDeck(work.annictId, !inWatching)
-            w.dropFromDeck(work.annictId, inWatching)
-          }}
-          onClose={() => setSheetFor(null)}
-        />
-      )}
+      <Suspense fallback={null}>
+        {showGuide && <UsageGuide onClose={closeGuide} />}
+        {sheetOpen && shown && (
+          <WorkDetail
+            readOnly
+            token={token}
+            work={shown.seed}
+            cover={shown.cover}
+            active={active}
+            relatedEnqueue={b.enqueue}
+            onRelatedChange={(work, patch) => {
+              // 記録した（状態か評価を付けた）作品は、これから出てくる山から外す。いま出している1枚は残す
+              if (!patch.state && !patch.rating) return
+              b.dropFromDeck(work.annictId, !inWatching)
+              w.dropFromDeck(work.annictId, inWatching)
+            }}
+            onClose={() => setSheetFor(null)}
+          />
+        )}
+      </Suspense>
     </>
   )
 }

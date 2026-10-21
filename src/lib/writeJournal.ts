@@ -247,8 +247,3 @@ export function pendingIntent(entry: JournalEntry): WriteIntent | null {
   return now ? narrowIntent(now.intent, new Set(now.dropped ?? [])) : null
 }
 
-// 画面の作品の MyAnimeList の ID（Annict の malAnimeId は文字列）。無い・おかしいときは undefined
-export function idMalOf(malAnimeId: string | null | undefined): number | undefined {
-  const n = Number(malAnimeId)
-  return malAnimeId && Number.isInteger(n) && n > 0 ? n : undefined
-}

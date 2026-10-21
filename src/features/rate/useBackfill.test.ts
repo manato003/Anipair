@@ -350,9 +350,24 @@ describe('useBackfill: looking again at works marked "not watched"', () => {
   })
 })
 
+describe('useBackfill: the season to start from', () => {
+  it('starts a first-time user on the previous season, and keeps it', () => {
+    const hook = renderHook(() => useBackfill('t'))
+    expect(hook.result.current.season).toEqual(previousSeason(seasonOf(new Date())))
+    expect(localStorage.getItem('animax.backfill.season')).toBe(toSlug(previousSeason(seasonOf(new Date()))))
+  })
+
+  it('keeps the current season for someone who has already seen the guide', () => {
+    localStorage.setItem('animax.onboarding.v1', JSON.stringify({ v: 1, at: '2026-10-01T00:00:00.000Z' }))
+    const hook = renderHook(() => useBackfill('t'))
+    expect(hook.result.current.season).toEqual(seasonOf(new Date()))
+  })
+})
+
 describe('useBackfill: the deck from the last visit', () => {
   it('shows the stored works of the season at once, keeps the shown card when Annict answers, and drops works recorded elsewhere', async () => {
     const slug = toSlug(seasonOf(new Date()))
+    localStorage.setItem('animax.backfill.season', slug)
     // 前回の内容: 作品1〜3（どれも未記録）。Annict の今: 作品2 は別の端末で記録済み
     localStorage.setItem('animax.seasonWorks.v1', JSON.stringify({ v: 1, seasons: { [slug]: { at: '2026-10-05T00:00:00.000Z', works } } }))
     let release!: () => void

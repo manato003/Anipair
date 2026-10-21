@@ -55,9 +55,11 @@ const Matching = lazy(() => loadMatching().then((m) => ({ default: m.Matching })
 const Records = lazy(() => loadRecords().then((m) => ({ default: m.Records })))
 const Browse = lazy(() => loadBrowse().then((m) => ({ default: m.Browse })))
 const Settings = lazy(() => loadSettings().then((m) => ({ default: m.Settings })))
+// 「?」の中身（components/HelpButton.tsx が押したときに読む）も、手が空いたら先に読む
+const loadHelp = () => Promise.all([import('./components/helpContent'), import('./components/Help'), import('./components/Tour')])
 
 function preloadScreens(): () => void {
-  const run = () => void [loadMatching, loadRecords, loadBrowse, loadSettings].reduce((p, load) => p.then(() => load().then(() => undefined)), Promise.resolve())
+  const run = () => void [loadMatching, loadRecords, loadBrowse, loadSettings, loadHelp].reduce((p, load) => p.then(() => load().then(() => undefined)), Promise.resolve())
   if (typeof window.requestIdleCallback === 'function') {
     const id = window.requestIdleCallback(run, { timeout: 4000 })
     return () => window.cancelIdleCallback(id)

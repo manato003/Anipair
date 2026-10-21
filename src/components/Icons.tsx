@@ -78,20 +78,6 @@ export function BackIcon() {
   )
 }
 
-// 記録の一覧（記録タブの「記録｜実績」の切り替え）
-export function ListIcon() {
-  return (
-    <Icon>
-      <path d="M9 6.5h11" />
-      <path d="M9 12h11" />
-      <path d="M9 17.5h11" />
-      <path d="M4.5 6.5h.1" />
-      <path d="M4.5 12h.1" />
-      <path d="M4.5 17.5h.1" />
-    </Icon>
-  )
-}
-
 // 実績（トロフィー）
 export function TrophyIcon() {
   return (
@@ -258,16 +244,6 @@ export function NewsIcon() {
       <path d="M4 10v4h3l7 4V6l-7 4z" />
       <path d="M17.5 9.5a3.5 3.5 0 0 1 0 5" />
       <path d="M7 14l1.5 5h2.5l-1-4.5" />
-    </Icon>
-  )
-}
-
-// 知らせ（コントロールセンター）
-export function BellIcon() {
-  return (
-    <Icon>
-      <path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z" />
-      <path d="M10 20.5a2 2 0 0 0 4 0" />
     </Icon>
   )
 }

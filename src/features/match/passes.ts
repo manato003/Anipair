@@ -5,7 +5,7 @@
 
 export type HideKind = 'pass' | 'skip'
 
-export const HIDE_DAYS: Record<HideKind, number> = { pass: 91, skip: 7 }
+const HIDE_DAYS: Record<HideKind, number> = { pass: 91, skip: 7 }
 
 export interface PassEntry {
   at: string

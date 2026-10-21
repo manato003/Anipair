@@ -1,13 +1,14 @@
-import { idMalOf } from '../../lib/writeJournal'
+import { idMalOf } from '../../lib/malId'
 import { t } from '../../lib/i18n'
 import { workTitle } from '../../lib/names'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchCovers, quickCovers } from '../../lib/covers'
 import { fetchLibrary, updateStatus, type LibraryEntry, type RatingState, type StatusState } from '../../lib/annict'
-import { getMyReviews, peekMyReviews, refreshMyReviews, rememberReview } from '../../lib/myReviews'
+import { peekMyReviews, refreshMyReviews } from '../../lib/myReviews'
 import { loadStoredLibrary } from '../../lib/offlineCache'
 import { delay } from '../../lib/retry'
-import { blankReview, changeRating } from '../../lib/reviewOps'
+import { blankReview } from '../../lib/reviewOps'
+import { rateNow } from '../../lib/rateNow'
 import type { Cover } from '../../lib/storage'
 import { hasPendingWrites, messageOf, useWriteQueue } from '../../lib/useWriteQueue'
 import type { RecordRow } from './recordList'
@@ -176,8 +177,7 @@ export function useRecords(token: string, active = true) {
         async () => {
           if (becomesWatched) await updateStatus(token, workId, 'WATCHED')
           // 画面の表示は先に変えるが、何を送るかは列の順番どおりに、この時点の実際の感想で決める
-          const current = (await getMyReviews(token)).get(annictId) ?? null
-          await rememberReview(token, annictId, await changeRating(token, workId, current, rating))
+          await rateNow(token, workId, annictId, rating)
         },
         [...(becomesWatched ? [{ kind: 'status' as const, workId, state: 'WATCHED' as const, idMal: idMalOf(row.entry.malAnimeId) }] : []), { kind: 'rating', workId, annictId, rating, idMal: idMalOf(row.entry.malAnimeId) }],
       )

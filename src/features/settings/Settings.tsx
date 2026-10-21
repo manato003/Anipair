@@ -87,7 +87,7 @@ const GROUPS: readonly { id: GroupId; label: string; sub: string; icon: ReactNod
       return t('このアプリ', 'About')
     },
     get sub() {
-      return t('非公式であること・データの行き先・規約', 'Unofficial status, where data goes, terms')
+      return t('使い方・非公式であること・データの行き先・規約', 'How to use, unofficial status, where data goes, terms')
     },
     icon: <InfoIcon />, sections: ['settings-about'] },
 ]

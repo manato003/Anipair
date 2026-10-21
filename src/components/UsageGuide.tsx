@@ -160,8 +160,8 @@ function steps(): { art: ReactNode; title: string; body: string }[] {
       art: <CheerScene className="scene-art guide-scene" />,
       title: t('さあ、はじめよう', 'Let’s get started'),
       body: t(
-        '記録はすべて、あなたのAnnictに保存されます。まずは評価の画面で、見たことのある作品に答えてみてください。',
-        'All your records are saved to your own Annict account. To start, go to the Rate screen and answer a few anime you’ve seen.',
+        '記録はすべて、あなたのAnnictに保存されます。閉じると評価の画面です。見たことのある作品に答えてみてください。スマホでは、ブラウザの共有から「ホーム画面に追加」すると、アプリのように開けます。',
+        'All your records are saved to your own Annict account. Close this to go to the Rate screen, and answer a few anime you’ve seen. On a phone, use your browser’s Share menu and “Add to Home Screen” to open Anipair like an app.',
       ),
     },
   ]
@@ -189,9 +189,16 @@ export function UsageGuide(props: { active?: boolean; onClose: () => void }) {
           ))}
         </div>
         <div className="guide__nav">
-          <button type="button" className="btn" onClick={() => setI(i - 1)} disabled={i === 0}>
-            {t('戻る', 'Back')}
-          </button>
+          {/* 1ページ目は戻る先が無いので、代わりに飛ばして閉じられるようにする（読まずに始めたい人のため。2026-10-21） */}
+          {i === 0 ? (
+            <button type="button" className="btn" onClick={props.onClose}>
+              {t('スキップ', 'Skip')}
+            </button>
+          ) : (
+            <button type="button" className="btn" onClick={() => setI(i - 1)}>
+              {t('戻る', 'Back')}
+            </button>
+          )}
           {last ? (
             <button type="button" className="btn btn--primary" onClick={props.onClose}>
               {t('はじめる', 'Start')}

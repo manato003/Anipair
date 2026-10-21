@@ -4,7 +4,7 @@ import { prefetchTaste } from './tasteLoader'
 // 評価の画面を出して少したってから、好みの先読み（似た作品などを裏で集める）を1回だけ始める。
 // 画面が表示されているあいだだけ数え、途中で隠れたら数え直す。タブ（ブラウザ）が見えていないときは、見えるまで待つ。
 // 先読みは失敗しても何も出さない（prefetchTaste が黙って捨てる）
-export const PREFETCH_DELAY_MS = 5000
+const PREFETCH_DELAY_MS = 5000
 
 export function usePrefetchTaste(
   token: string | null,

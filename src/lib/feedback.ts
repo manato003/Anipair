@@ -22,7 +22,7 @@ export const FEEDBACK_MAX = 2000
 export const CONTACT_MAX = 100
 
 // 不具合のときに添える、アプリの版と端末の種類（ブラウザの名乗り）。利用者が添えるかどうかを選ぶ
-export function deviceSummary(): string {
+function deviceSummary(): string {
   return `Anipair ${__APP_VERSION__} / ${navigator.userAgent}`.slice(0, 300)
 }
 

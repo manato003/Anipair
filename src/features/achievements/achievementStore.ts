@@ -2,7 +2,7 @@ import { loadFeatsRaw, loadSeasonTopsRaw, loadTitlesRaw, saveFeatsRaw, saveSeaso
 import { compareSeasons, nextSeason, parseSlug, seasonOf, toSlug } from '../../lib/season'
 import { OLDEST_SEASON } from '../rate/queue'
 import type { Feats } from './titles'
-import { RARITIES, type Rarity } from './titles'
+import { RARITIES, type Rarity } from './rarity'
 
 // ── クールごとの人気作の ID の控え ──
 // だれのものでも同じで、ゆっくりしか変わらない。直近1年のクールは7日、それより前は90日で読み直す
