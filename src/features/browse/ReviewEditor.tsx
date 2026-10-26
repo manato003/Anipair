@@ -93,82 +93,89 @@ export function ReviewEditor(props: { token: string; workId: string; annictId: n
     setLoaded({ ...loaded, fromDraft: false })
   }
 
-  if (loaded.kind === 'closed') {
-    return (
-      <button type="button" className="review__open link" onClick={() => setLoaded({ kind: 'loading' })} aria-expanded={false}>
-        {t('詳細な評価と感想を書く', 'Write a detailed rating and review')}
+  // 見出しの行ごと押して開閉する（話ごとの記録と同じ形。別の画面に移るリンクに見せない）。閉じていても下書きがあれば行に出す
+  const open = loaded.kind !== 'closed'
+  const head = (
+    <h3 className="detail__label">
+      <button type="button" className="detail__fold review__open" aria-expanded={open} onClick={() => setLoaded(open ? { kind: 'closed' } : { kind: 'loading' })}>
+        <span>{t('詳細な評価と感想', 'Detailed rating and review')}</span>
+        <span className="detail__foldnote">{!open && loadDraft(annictId) ? t('下書きあり', 'Draft saved') : ''}</span>
+        <span className="detail__foldmark" aria-hidden="true">
+          {open ? '▴' : '▾'}
+        </span>
       </button>
-    )
-  }
+    </h3>
+  )
+  if (loaded.kind === 'closed') return <section className="detail__section">{head}</section>
 
   const dirty = loaded.kind === 'ready' && !same(form, loaded.saved)
   return (
-    <div className="review">
-      <button type="button" className="review__open link" onClick={() => setLoaded({ kind: 'closed' })} aria-expanded>
-        {t('詳細な評価と感想をたたむ', 'Hide detailed rating and review')}
-      </button>
-      {loaded.kind === 'loading' && <Loading label={t('感想を読み込み中', 'Loading review')} />}
-      {loaded.kind === 'error' && (
-        <p className="settings__error">
-          {t(`感想を読み込めませんでした（${loaded.message}）。`, `Couldn’t load the review (${loaded.message}).`)}
-          <button
-            type="button"
-            className="link"
-            onClick={() => {
-              setLoaded({ kind: 'loading' })
-              setTick((n) => n + 1)
-            }}
-          >
-            {t('もう一度', 'Retry')}
-          </button>
-        </p>
-      )}
-      {loaded.kind === 'ready' && (
-        <>
-          {loaded.fromDraft && (
-            <p className="review__draft">
-              {t('保存していない下書きを表示しています。', 'Showing an unsaved draft.')}
-              <button type="button" className="link" onClick={discardDraft}>
-                {t('下書きを捨てる', 'Discard draft')}
-              </button>
-            </p>
-          )}
-          {AXES.map((k) => (
-            <div key={k} className="review__axis">
-              <span className="review__axis-name">{AXIS_LABEL[k]}</span>
-              <div className="mini-ratings" role="group" aria-label={AXIS_LABEL[k]}>
-                {RATINGS.map((r) => (
-                  <button
-                    key={r.rating}
-                    type="button"
-                    className={`mini-rating mini-rating--${r.rating.toLowerCase()}`}
-                    aria-pressed={form.axes[k] === r.rating}
-                    onClick={() => change({ ...form, axes: { ...form.axes, [k]: form.axes[k] === r.rating ? null : r.rating } })}
-                  >
-                    {r.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-          <label className="review__body">
-            <span className="review__axis-name">{t('感想', 'Review')}</span>
-            <textarea value={form.body} rows={5} placeholder={t('感じたことを自由に（書かなくても保存できます）', 'Write freely (you can save without writing anything)')} onChange={(e) => change({ ...form, body: e.target.value })} />
-          </label>
-          <p className="note">
-            {t(
-              '詳細な評価（映像・キャラクター・ストーリー・音楽）と感想は、総合評価と同じくAnnictに保存され、Annictの作品ページなどで公開されます。選んでいる評価をもう一度押すと外せます。',
-              'Detailed ratings (animation, characters, story, music) and your review are saved to Annict like the overall rating, and appear publicly on Annict’s anime pages. Tap a selected rating again to clear it.',
-            )}
-          </p>
-          <div className="review__foot">
-            {note && !dirty && <span className="note">{note}</span>}
-            <button type="button" className="btn btn--primary" onClick={save} disabled={!dirty}>
-              {t('保存', 'Save')}
+    <section className="detail__section">
+      {head}
+      <div className="review">
+        {loaded.kind === 'loading' && <Loading label={t('感想を読み込み中', 'Loading review')} />}
+        {loaded.kind === 'error' && (
+          <p className="settings__error">
+            {t(`感想を読み込めませんでした（${loaded.message}）。`, `Couldn’t load the review (${loaded.message}).`)}
+            <button
+              type="button"
+              className="link"
+              onClick={() => {
+                setLoaded({ kind: 'loading' })
+                setTick((n) => n + 1)
+              }}
+            >
+              {t('もう一度', 'Retry')}
             </button>
-          </div>
-        </>
-      )}
-    </div>
+          </p>
+        )}
+        {loaded.kind === 'ready' && (
+          <>
+            {loaded.fromDraft && (
+              <p className="review__draft">
+                {t('保存していない下書きを表示しています。', 'Showing an unsaved draft.')}
+                <button type="button" className="link" onClick={discardDraft}>
+                  {t('下書きを捨てる', 'Discard draft')}
+                </button>
+              </p>
+            )}
+            {AXES.map((k) => (
+              <div key={k} className="review__axis">
+                <span className="review__axis-name">{AXIS_LABEL[k]}</span>
+                <div className="mini-ratings" role="group" aria-label={AXIS_LABEL[k]}>
+                  {RATINGS.map((r) => (
+                    <button
+                      key={r.rating}
+                      type="button"
+                      className={`mini-rating mini-rating--${r.rating.toLowerCase()}`}
+                      aria-pressed={form.axes[k] === r.rating}
+                      onClick={() => change({ ...form, axes: { ...form.axes, [k]: form.axes[k] === r.rating ? null : r.rating } })}
+                    >
+                      {r.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <label className="review__body">
+              <span className="review__axis-name">{t('感想', 'Review')}</span>
+              <textarea value={form.body} rows={5} placeholder={t('感じたことを自由に（書かなくても保存できます）', 'Write freely (you can save without writing anything)')} onChange={(e) => change({ ...form, body: e.target.value })} />
+            </label>
+            <p className="note">
+              {t(
+                '詳細な評価（映像・キャラクター・ストーリー・音楽）と感想は、総合評価と同じくAnnictに保存され、Annictの作品ページなどで公開されます。選んでいる評価をもう一度押すと外せます。',
+                'Detailed ratings (animation, characters, story, music) and your review are saved to Annict like the overall rating, and appear publicly on Annict’s anime pages. Tap a selected rating again to clear it.',
+              )}
+            </p>
+            <div className="review__foot">
+              {note && !dirty && <span className="note">{note}</span>}
+              <button type="button" className="btn btn--primary" onClick={save} disabled={!dirty}>
+                {t('保存', 'Save')}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </section>
   )
 }

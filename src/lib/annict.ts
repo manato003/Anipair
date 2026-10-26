@@ -11,9 +11,8 @@ import { t } from './i18n'
 // Annict GraphQL API。型は annict/annict の rails/app/graphql/beta/schema.graphql が正
 const ENDPOINT = 'https://api.annict.com/graphql'
 
-// 同じ IP から1秒4回まで（rails/config/initializers/rack_attack.rb）。余裕を見て約3回に抑える
-// 開始の間隔 300ms（1秒あたり約3.3回）。Annict は IP ごとに1秒4回までに制限している（rack-attack の
-// limit: 4, period: 1.second。annict/annict の rails/config/initializers/rack_attack.rb、2026-10-05 確認）。
+// 開始の間隔 300ms（1分あたり最大で約200回）。Annict の上限は、トークンと接続元 IP の組ごとに1分600回
+// （2026-10-25 に1秒4回から変わった。開発者向けヘルプ「Annictのレート制限」）。以前の上限に合わせた間隔のまま、余裕を残す。
 // 読み込みは3件まで重ねてよい（答えの遅い1件が、ほかの画面の読み込みを全部止めないように。間隔は開始どうしなので頻度は変わらない）
 export const schedule = createThrottle(300, undefined, undefined, 3)
 
@@ -48,11 +47,12 @@ export interface AnnictWork {
   imageUrl: string | null
 }
 
-// 429（回数の制限）で自動で待って送り直す回数。Annict は rack-attack で IP ごとに数えている。
-// 制限で断られた要求は処理されていないので、書き込みも送り直してよい
+// 429（回数の制限）で自動で待って送り直す回数。制限で断られた要求は処理されていないので、書き込みも送り直してよい。
+// Annict は Retry-After の秒数だけ待ってから再開するよう求めている（2026-10-25 から 429 に付く）。上限は1分ごとに数えるので
+// ふつうは60秒以内。それより長く待てと言われたら、早めに送り直さずに諦めて知らせる
 const RATE_LIMIT_RETRIES = 2
 const RATE_LIMIT_DEFAULT_WAIT_MS = 2_000
-const RATE_LIMIT_MAX_WAIT_MS = 30_000
+const RATE_LIMIT_MAX_WAIT_MS = 60_000
 // 読み込みの答えを待つ上限。過ぎたら諦めて知らせる（自動では送り直さない。混んでいる Annict に上乗せしないため）。
 // 本当に止まった問い合わせだけを切る長さにする（Annict の手前の Cloudflare は 100 秒で切る）。
 // 初めは 20 秒にしていたが、応答に時間がかかる日にはライブラリの1ページに 24.6 秒かかり、遅くても出ていたものが出なくなった（2026-10-06）。
@@ -84,7 +84,7 @@ async function gql<T>(token: string, query: string, variables: Record<string, un
       }
     }, { ...opts, exclusive: write })
     if ('data' in outcome) return outcome.data
-    if (attempt >= RATE_LIMIT_RETRIES) {
+    if (attempt >= RATE_LIMIT_RETRIES || outcome.retryAfterMs > RATE_LIMIT_MAX_WAIT_MS) {
       throw new AnnictError(t('Annictの利用制限に達しました。しばらく待ってからもう一度試してください', 'Annict’s rate limit was reached. Please wait a while and try again.'), 'api')
     }
     await delay(outcome.retryAfterMs)
@@ -117,7 +117,7 @@ async function gql<T>(token: string, query: string, variables: Record<string, un
       throw new AnnictError(t('Annictのトークンが使えません。設定で入れ直してください', 'The Annict token isn’t working. Enter it again in Settings.'), 'auth')
     }
     if (res.status === 429) {
-      return { retryAfterMs: parseRetryAfter(res.headers.get('Retry-After'), RATE_LIMIT_DEFAULT_WAIT_MS, RATE_LIMIT_MAX_WAIT_MS) }
+      return { retryAfterMs: parseRetryAfter(res.headers.get('Retry-After'), RATE_LIMIT_DEFAULT_WAIT_MS, Infinity) }
     }
     if (res.status === 404) throw new AnnictError(t('Annictに見つかりませんでした（HTTP 404）', 'Not found on Annict (HTTP 404).'), 'notFound')
     if (res.status >= 500) throw new AnnictError(t(`Annictから応答を受け取れませんでした（HTTP ${res.status}）。しばらく待ってからもう一度試してください`, `Annict did not respond (HTTP ${res.status}). Please wait a while and try again.`), 'api', res.status)
@@ -1204,12 +1204,12 @@ export function fetchWorkDetail(token: string, workId: string): Promise<WorkDeta
 }
 
 // ── 作品の詳細を端末に控える（2026-10-13。Annict への問い合わせを減らす） ──
-// キャスト・スタッフ・シリーズは変わりにくいので、今期・前期の作品は1週間、それ以前の作品は30日控える（Annict の再取得の目安の範囲。
+// 今期・前期の作品は1日、それ以前の作品は30日控える（Annict の再取得の目安「放送中・放送前は1日1回、それ以外は週1回から月1回」に合わせる。2026-10-25。
 // 作品の放送時期で決める。前から続いている作品も30日になるが、キャスト・スタッフはまず変わらない）。
 // 自分の状態（作品とシリーズの作品の viewerStatusState）は控えのものを使わず、この起動で読んだライブラリから入れ直す。
 // ライブラリをまだ読んでいない・読んだあとに状態を書いたなら、控えは使わずに Annict から読む（古い状態の印を出さない）
 const KEPT_DETAILS = 30
-const KEPT_AIRING_MS = 7 * 86400_000
+const KEPT_AIRING_MS = 86400_000
 const KEPT_OTHER_MS = 30 * 86400_000
 
 function libraryStates(): Map<number, StatusState> | null {
@@ -1318,4 +1318,18 @@ export async function searchWorksByTitle(token: string, title: string): Promise<
     { titles: [title] },
   )
   return data.searchWorks.nodes
+}
+
+// いくつかの題名を1回の問い合わせでまとめて探す（GraphQL のエイリアス）。返す並びは titles と同じ順で、1つの題名ごとに100件まで
+export async function searchWorksByTitles(token: string, titles: readonly string[]): Promise<BrowseWork[][]> {
+  if (titles.length === 0) return []
+  const vars = Object.fromEntries(titles.map((title, i) => [`t${i}`, [title]]))
+  const fields = 'id annictId title titleEn media seasonYear seasonName malAnimeId watchersCount viewerStatusState image { recommendedImageUrl facebookOgImageUrl }'
+  type Node = Omit<BrowseWork, 'imageUrl'> & { image: { recommendedImageUrl: string | null; facebookOgImageUrl: string | null } | null }
+  const data = await gql<Record<string, { nodes: Node[] }>>(
+    token,
+    `query(${titles.map((_, i) => `$t${i}: [String!]`).join(', ')}) { ${titles.map((_, i) => `w${i}: searchWorks(titles: $t${i}, first: 100) { nodes { ${fields} } }`).join(' ')} }`,
+    vars,
+  )
+  return titles.map((_, i) => (data[`w${i}`]?.nodes ?? []).map(({ image, ...w }) => ({ ...w, imageUrl: annictImageOf(image) })))
 }

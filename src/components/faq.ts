@@ -53,7 +53,7 @@ const ITEMS: readonly FaqItem[] = [
     question: { ja: 'Annictの公式アプリですか？', en: 'Is this an official Annict app?' },
     short: { ja: 'いいえ、非公式のアプリです。', en: 'No, it’s an unofficial app.' },
     detail: {
-      ja: 'AnnictのAPIを使って個人が開発していて、Annictの運営とは関係ありません。Anipairについてのご質問は、Annictではなく、下の「質問・不具合・要望を送る」からお送りください。',
+      ja: 'AnnictのAPIを使って個人が開発していて、Annictの運営とは関係ありません。Anipairについてのご質問は、Annictではなく下の「質問・不具合・要望を送る」からお送りください。',
       en: 'It’s built by an individual using Annict’s API and isn’t affiliated with the Annict team. For questions about Anipair, please use “Send feedback” below rather than contacting Annict.',
     },
   },
@@ -88,7 +88,7 @@ const ITEMS: readonly FaqItem[] = [
     },
     short: { ja: '「途中で見るのをやめた」を、迷わず1回で記録できるようにするためです。', en: 'So that “I stopped watching partway” can be recorded in one tap, without hesitating.' },
     detail: {
-      ja: 'Anipairは、見たアニメをすばやく記録できることを大事にしていて、「1つの気持ちに、1つのボタン」を設計の考え方にしています。1つの気持ちに2つのボタンがあると、記録するたびに「中断」か「中止」かで迷いやすいので、「視聴中断」の1つにまとめました。Anipairで付けた視聴中断は、Annictには「視聴中止」として保存されます。Annictのサイトで付けた「一時中断」はそのまま残り、Anipairでは「視聴中断」と表示します。2つを分けて記録したいときは、Annictのサイトで付け替えられます。',
+      ja: 'Anipairは見たアニメをすばやく記録できることを大事にしていて、「1つの気持ちに、1つのボタン」を設計の考え方にしています。1つの気持ちに2つのボタンがあると、記録するたびに「中断」か「中止」かで迷いやすいので、「視聴中断」の1つにまとめました。Anipairで付けた視聴中断は、Annictには「視聴中止」として保存されます。Annictのサイトで付けた「一時中断」はそのまま残り、Anipairでは「視聴中断」と表示します。2つを分けて記録したいときは、Annictのサイトで付け替えられます。',
       en: 'Anipair is built around recording what you’ve watched quickly, and its design principle is “one feeling, one button”. With two buttons for the same feeling, it’s easy to hesitate between “on hold” and “dropped” every time you record, so they’re combined into a single “Dropped”. A Dropped you set in Anipair is saved to Annict as “Stopped watching”. An “On hold” you set on the Annict website stays as it is, and Anipair shows it as “Dropped”. If you want to record the two separately, you can switch them on the Annict website.',
     },
   },
@@ -96,7 +96,7 @@ const ITEMS: readonly FaqItem[] = [
     question: { ja: '次の放送日が出ない作品があるのはなぜですか？', en: 'Why don’t some anime show a next air date?' },
     short: { ja: '放送予定がAnnictに登録されていないか、選んだサービスでの放送が無いためです。', en: 'Either no schedule is registered on Annict, or it isn’t airing on the services you picked.' },
     detail: {
-      ja: '放送予定は、Annictに登録された情報を使っています。見るサービスは、記録の「見てる」の上か、設定の「表示」で選べます。',
+      ja: '放送予定はAnnictに登録された情報を使っています。見るサービスは記録の「見てる」の上か、設定の「表示」で選べます。',
       en: 'Air dates use the schedule registered on Annict. You can pick where you watch above the Watching list in Records, or under “Display” in Settings.',
     },
   },
@@ -104,7 +104,7 @@ const ITEMS: readonly FaqItem[] = [
     question: { ja: '表紙が出ない作品があるのはなぜですか？', en: 'Why don’t some anime have a cover?' },
     short: { ja: '表紙の画像が見つからないか、読み込めないためです。', en: 'The cover image either can’t be found or can’t be loaded.' },
     detail: {
-      ja: '表紙には、作品データの提供元（Shikimori）の画像と、各作品の公式サイトの画像を使っています。どちらにも無い作品や、読み込めない画像は、表紙なしで表示します。',
+      ja: '表紙には作品データの提供元（Shikimori）の画像と、各作品の公式サイトの画像を使っています。どちらにも無い作品や、読み込めない画像は、表紙なしで表示します。',
       en: 'Covers use images from the anime data provider (Shikimori) and from each anime’s official website. Anime that have neither, and images that fail to load, are shown without a cover.',
     },
   },

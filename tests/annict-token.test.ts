@@ -38,6 +38,8 @@ describe('exchangeToken', () => {
     const [url, init] = fetchFn.mock.calls[0]
     expect(url).toBe('https://api.annict.com/oauth/token')
     expect(init.method).toBe('POST')
+    // アプリ名と連絡先を名乗る（Annict の開発者向けヘルプのお願い）
+    expect((init.headers as Record<string, string>)['User-Agent']).toBe('Anipair (https://anipair.com/)')
     const sent = new URLSearchParams(String(init.body))
     expect(Object.fromEntries(sent)).toEqual({
       client_id: 'cid',

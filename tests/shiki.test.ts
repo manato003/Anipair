@@ -426,6 +426,27 @@ describe('handleShiki studio (the works of a studio)', () => {
   })
 })
 
+describe('handleShiki genre (the popular works of a genre)', () => {
+  it('asks GraphQL for one page, most popular first without adult works, and returns the same trimmed shape as studio', async () => {
+    const fetchFn = upstream(200, { data: { animes: [RAW] } })
+    const res = await handleShiki(req('?op=genre&id=23&page=2&v=6'), fetchFn)
+    const body = JSON.parse(String(fetchFn.mock.calls[0][1].body))
+    expect(body.variables).toEqual({ genre: '23', page: 2 })
+    expect(body.query).toContain('order: popularity')
+    expect(body.query).toContain('censored: true')
+    expect(((await json(res)) as { animes: { id: number }[] }).animes[0].id).toBe(52991)
+  })
+
+  it('refuses pages past the limit, a missing id, and versions the app does not use', async () => {
+    const fetchFn = upstream(200, { data: { animes: [] } })
+    expect((await handleShiki(req('?op=genre&id=23&page=5'), fetchFn)).status).toBe(400)
+    expect((await handleShiki(req('?op=genre&page=1'), fetchFn)).status).toBe(400)
+    expect((await handleShiki(req('?op=genre&id=23&v=5'), fetchFn)).status).toBe(400)
+    expect((await handleShiki(req('?op=genre&id=23&q=x'), fetchFn)).status).toBe(400)
+    expect(fetchFn).not.toHaveBeenCalled()
+  })
+})
+
 
 // 2026-10-12: Upstash Redis に Shikimori の公開データを作品ごとに控え、Shikimori へ送る回数を全利用者で数える
 function fakeStore(opts: { wait?: number | null; broken?: boolean } = {}) {

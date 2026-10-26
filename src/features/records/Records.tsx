@@ -1,5 +1,5 @@
 import { lazy, Suspense, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { BackIcon, CalendarIcon, ChartIcon, CheckIcon, FilterIcon, PauseIcon, PlayIcon, TrophyIcon } from '../../components/Icons'
+import { BackIcon, CalendarIcon, ChartIcon, CheckIcon, FilterIcon, PauseIcon, PlayIcon, TierIcon, TrophyIcon } from '../../components/Icons'
 import { Bookmark } from '../../components/Bookmark'
 import { loadTitlesState } from '../achievements/achievementStore'
 import { useTitleWatch } from '../achievements/titleCheck'
@@ -78,16 +78,18 @@ import { buildCalendar, googleCalendarUrl, type CalendarEvent } from '../../lib/
 const TrendsView = lazy(() => import('./TrendsView').then((m) => ({ default: m.TrendsView })))
 const YearReview = lazy(() => import('./YearReview').then((m) => ({ default: m.YearReview })))
 const Achievements = lazy(() => import('../achievements/Achievements').then((m) => ({ default: m.Achievements })))
+const TierView = lazy(() => import('../tier/TierView').then((m) => ({ default: m.TierView })))
 
-// 記録の項目。作品の4つ（状態）と、まとめの3つ（傾向・ふり返り・実績）。
-// スマホは上に作品の4つ＋「まとめ」（まとめは一覧を挟む: 'summary' がその一覧）。PC は右の縦の列に7つを並べる
-type SummaryItem = 'trends' | 'year' | 'achievements'
+// 記録の項目。作品の4つ（状態）と、まとめの4つ（傾向・ふり返り・実績・Tier表）。
+// スマホは上に作品の4つ＋「まとめ」（まとめは一覧を挟む: 'summary' がその一覧）。PC は右の縦の列に8つを並べる
+type SummaryItem = 'trends' | 'year' | 'achievements' | 'tier'
 type Item = Bucket | 'summary' | SummaryItem
 
 const SUMMARY: readonly { id: SummaryItem; label: string; sub: string; icon: ReactNode }[] = [
   { id: 'trends', get label() { return t('傾向', 'Trends') }, get sub() { return t('ジャンル・声優・季節の図。画像で共有', 'Charts of genres, voice actors, and seasons. Share as an image') }, icon: <ChartIcon /> },
   { id: 'year', get label() { return t('ふり返り', 'Year in review') }, get sub() { return t('1年に見た本数と、よかった作品', 'Anime watched in a year, and your favorites') }, icon: <CalendarIcon /> },
   { id: 'achievements', get label() { return t('実績', 'Achievements') }, get sub() { return t('称号の一覧と、掲げる称号', 'All your titles, and the one you display') }, icon: <TrophyIcon /> },
+  { id: 'tier', get label() { return t('Tier表', 'Tier list') }, get sub() { return t('見た作品を好きな順に段へ並べた表', 'Rank the anime you watched into tiers') }, icon: <TierIcon /> },
 ]
 
 const BUCKET_ICON: Record<Bucket, ReactNode> = { watching: <PlayIcon />, watched: <CheckIcon />, wanna: <Bookmark />, other: <PauseIcon /> }
@@ -110,7 +112,7 @@ export function Records({ token, github = null, active }: { token: string; githu
   const [notes, setNotes] = useState(() => loadLocalWannaNotes())
   const [noteFor, setNoteFor] = useState<RecordRow | null>(null)
   const syncNotes = useMemo(() => (github ? async () => setNotes(await syncWannaNotes(github)) : null), [github])
-  const syncNotesLater = useCoalescedTask(r.enqueue, t('見たいの印とメモのGitHubへの保存', 'Saving want-to-watch stars and notes to GitHub'), syncNotes)
+  const syncNotesLater = useCoalescedTask(r.enqueue, t('見たいの印とメモをGitHubに保存', 'Saving want-to-watch stars and notes to GitHub'), syncNotes)
   const syncedWith = useRef<GithubConnection | null>(null)
   useEffect(() => {
     if (!active || !github || syncedWith.current === github) return
@@ -304,7 +306,7 @@ export function Records({ token, github = null, active }: { token: string; githu
   const tabs: Item[] = [...BUCKETS.map((b) => b.id), 'summary']
   useSwipeIntercept((dir) => {
     if (wide) return false
-    // まとめの中（傾向・ふり返り・実績）では、左へ払うとまずまとめの一覧に戻る
+    // まとめの中（傾向・ふり返り・実績・Tier表）では、左へ払うとまずまとめの一覧に戻る
     if (dir === 'prev' && isSummary(item) && item !== 'summary') {
       select('summary')
       return true
@@ -450,7 +452,7 @@ export function Records({ token, github = null, active }: { token: string; githu
                       filterCount > 0
                         ? t('絞り込みの条件をゆるめてください。', 'Try loosening the filters.')
                         : filter.cour
-                          ? t(`${seasonLabel(filter.cour)}の作品は、ここにはありません。`, `There are no anime from ${seasonLabel(filter.cour)} here.`)
+                          ? t(`${seasonLabel(filter.cour)}の作品はここにはありません。`, `There are no anime from ${seasonLabel(filter.cour)} here.`)
                           : t('別の言葉で絞り込んでください。', 'Try different words.')
                     }
                   >
@@ -493,7 +495,7 @@ export function Records({ token, github = null, active }: { token: string; githu
                 {/* 見るサービスの入口は、使う場所に置く（設定の奥だけだと気づかれない） */}
                 <div className="watchcards__head">
                   <p className="watchcards__broadcast">
-                    {wantsBroadcast ? t('次の放送日は、Annictの放送予定から出しています。', 'Next air dates come from Annict’s broadcast schedule. ') : t('見るサービスを選ぶと、次の放送日が出ます。', 'Pick where you watch to see next air dates. ')}
+                    {wantsBroadcast ? t('次の放送日はAnnictの放送予定から出しています。', 'Next air dates come from Annict’s broadcast schedule. ') : t('見るサービスを選ぶと、次の放送日が出ます。', 'Pick where you watch to see next air dates. ')}
                     <button type="button" className="link" onClick={() => setServicesOpen(true)}>
                       {wantsBroadcast ? t('見るサービスを変える', 'Change where I watch') : t('選ぶ', 'Choose')}
                     </button>
@@ -572,7 +574,7 @@ export function Records({ token, github = null, active }: { token: string; githu
             </div>
           </>
         ) : item === 'summary' ? (
-          // スマホの「まとめ」: 傾向・ふり返り・実績の一覧から開く
+          // スマホの「まとめ」: 傾向・ふり返り・実績・Tier表の一覧から開く
           <ul className="folders">
             {SUMMARY.map((s) => (
               <li key={s.id}>
@@ -601,6 +603,7 @@ export function Records({ token, github = null, active }: { token: string; githu
             {item === 'trends' && <TrendsView rows={r.rows} data={trendsData} active={active} actions={headSlot} />}
             {item === 'year' && <YearReview rows={r.rows} media={trendsData.media ?? EMPTY_MEDIA} credits={trendsData.credits} active={active} actions={headSlot} />}
             {item === 'achievements' && <Achievements token={token} rows={r.rows} loadError={r.loadError} onReload={r.reload} active={active} />}
+            {item === 'tier' && <TierView token={token} rows={r.rows} github={github} enqueue={r.enqueue} active={active} onOpen={openRow} />}
           </Suspense>
         )}
       </div>

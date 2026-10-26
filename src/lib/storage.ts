@@ -12,6 +12,8 @@ const KEYS = {
   unseen: 'animax.backfill.unseen',
   // 見たいの作品の「優先して見る」の印と短いメモ（GitHub の wanna-notes.json と同期する）
   wannaNotes: 'animax.wannaNotes.v1',
+  // Tier表（5つまで。GitHub の tiers.json と同期する。形を確かめるのは features/tier/tierList.ts）
+  tiers: 'animax.tiers.v1',
   // 旧: 前の版の表紙の控え（animax.covers.v1。別の出どころの画像で、形も違う）。新しい鍵（v2）に切り替えて、旧い方は clearLegacyCovers で消す
   legacyCovers: 'animax.covers.v1',
   covers: 'animax.covers.v2',
@@ -64,6 +66,7 @@ const KEYS = {
   titleEn: 'animax.titleEn.v1',
   peopleEn: 'animax.peopleEn.v1',
   wikiSynopses: 'animax.wikiSynopses.v1',
+  workLinks: 'animax.workLinks.v1',
   // 下の「人ごとの記録」がいま誰のものか（Annict のユーザー名）
   owner: 'animax.owner.v1',
   // ログアウト・アカウントの切り替えで退避した、人ごとの記録（ユーザー名 → 鍵 → 値）。同じ人がログインし直したら戻す
@@ -166,7 +169,7 @@ export class StorageFullError extends Error {
 }
 
 // 端末の保存容量があふれたときに捨ててよい控え（どれも、Annict・Shikimori から読み直せば作り直せる）
-const REBUILDABLE: readonly string[] = [KEYS.covers, KEYS.similar, KEYS.library, KEYS.seasonWorks, KEYS.seasonTops, KEYS.reviews, KEYS.titleEn, KEYS.peopleEn, KEYS.wikiSynopses]
+const REBUILDABLE: readonly string[] = [KEYS.covers, KEYS.similar, KEYS.library, KEYS.seasonWorks, KEYS.seasonTops, KEYS.reviews, KEYS.titleEn, KEYS.peopleEn, KEYS.wikiSynopses, KEYS.workLinks]
 
 function isQuotaError(e: unknown): boolean {
   return e instanceof DOMException && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || e.code === 22)
@@ -221,6 +224,7 @@ const PERSONAL_KEYS: readonly string[] = [
   KEYS.skipped,
   KEYS.unseen,
   KEYS.wannaNotes,
+  KEYS.tiers,
   KEYS.githubToken,
   KEYS.githubRepo,
   KEYS.passes,
@@ -533,6 +537,15 @@ export function saveWannaNotesRaw(value: unknown): void {
   write(KEYS.wannaNotes, JSON.stringify(value))
 }
 
+// Tier表の検証は features/tier/tierList.ts が行う
+export function loadTiersRaw(): unknown {
+  return readJson(KEYS.tiers)
+}
+
+export function saveTiersRaw(value: unknown): void {
+  write(KEYS.tiers, JSON.stringify(value))
+}
+
 // とっておいたライブラリとクールの作品の検証は lib/offlineCache.ts が行う
 export function loadStoredLibraryRaw(): unknown {
   return readJson(KEYS.library)
@@ -718,7 +731,7 @@ export function saveKeymapRaw(value: unknown): void {
 }
 
 // だれのものでもない、作り直せる控えの表（lib/persistedMap.ts。形を確かめるのも向こう）
-export type CacheName = 'titleEn' | 'peopleEn' | 'wikiSynopses'
+export type CacheName = 'titleEn' | 'peopleEn' | 'wikiSynopses' | 'workLinks'
 
 export function loadCacheRaw(name: CacheName): unknown {
   return readJson(KEYS[name])

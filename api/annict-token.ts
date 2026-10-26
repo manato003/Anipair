@@ -6,6 +6,9 @@
 // （api/ の中に別の .ts を置いて import すると、配備時の解決が不確かになるため）
 
 const ANNICT_TOKEN_URL = 'https://api.annict.com/oauth/token'
+// アプリ名と連絡先。Annict は「機械的に送るなら User-Agent に入れてほしい（負荷が高いとき、遮断の前に連絡できる）」としている
+// （開発者向けヘルプ「Annictのレート制限」、2026-10-25）。ブラウザからの呼び出しには付けられないので、ここだけ
+const USER_AGENT = 'Anipair (https://anipair.com/)'
 
 // 関数が読む環境変数。VITE_ を付けない（付けると公開の JS に入る）
 export interface TokenEnv {
@@ -112,7 +115,7 @@ export async function exchangeToken(request: Request, env: TokenEnv, fetchFn: Fe
       // Annict が答えないとき、ログインを待たせ続けない（#34）
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+      headers: { 'User-Agent': USER_AGENT, 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
       body: new URLSearchParams({
         client_id: clientId,
         client_secret: clientSecret,

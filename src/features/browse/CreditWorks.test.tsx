@@ -27,12 +27,14 @@ const findPerson = vi.fn()
 const fetchPersonWorks = vi.fn()
 const fetchCharacterNames = vi.fn()
 const fetchStudioWorks = vi.fn()
+const fetchGenreWorks = vi.fn()
 const fetchMedia = vi.fn()
 vi.mock('../../lib/shikimori', () => ({
   findPerson: (...a: unknown[]) => findPerson(...a),
   fetchPersonWorks: (...a: unknown[]) => fetchPersonWorks(...a),
   fetchCharacterNames: (...a: unknown[]) => fetchCharacterNames(...a),
   fetchStudioWorks: (...a: unknown[]) => fetchStudioWorks(...a),
+  fetchGenreWorks: (...a: unknown[]) => fetchGenreWorks(...a),
   fetchMedia: (...a: unknown[]) => fetchMedia(...a),
 }))
 vi.mock('../../lib/annict', async (orig) => ({
@@ -123,6 +125,46 @@ describe('CreditWorks', () => {
 
     render(<CreditWorks readOnly token="t" target={{ credit: { kind: 'org', annictId: 50, name: '製作委員会' }, studio: null }} active onClose={() => {}} />)
     await waitFor(() => expect((screen.getByRole('link', { name: 'Annictで見る' }) as HTMLAnchorElement).href).toBe('https://annict.com/organizations/50'))
+  })
+
+  it('lists the popular anime of a genre, most popular first, with sequels folded into the first season and no Annict link', async () => {
+    fetchGenreWorks.mockResolvedValue([
+      media(1, 2016, { popularity: 900 }),
+      media(2, 2020, { popularity: 800 }),
+      // 1 の続編（前の作品が一覧にあるので出さない）
+      media(3, 2017, { popularity: 700, prequels: [1] }),
+      // 前の作品が一覧に無い続編は出す
+      media(4, 2022, { popularity: 600, prequels: [99] }),
+    ])
+    render(<CreditWorks readOnly token="t" target={{ genre: { id: 23, name: 'School' } }} active onClose={() => {}} />)
+    await waitFor(() => expect(screen.getByText('作品4')).toBeTruthy())
+    expect(fetchGenreWorks).toHaveBeenCalledWith(23)
+    expect(screen.getByRole('heading', { name: '学園' })).toBeTruthy()
+    expect(screen.getByText('このジャンルの人気の作品（3作品）')).toBeTruthy()
+    const titles = () => [...document.querySelectorAll('.creditworks__title')].map((e) => e.textContent)
+    expect(titles()).toEqual(['作品1', '作品2', '作品4'])
+    fireEvent.click(screen.getByRole('button', { name: '新着順' }))
+    expect(titles()).toEqual(['作品4', '作品2', '作品1'])
+    expect(screen.getByText('Shikimoriで人気の上位の作品を、放送の新しい順に並べています。')).toBeTruthy()
+    // 押している方をもう一度押すと逆の順。ボタンは増えず、向きは矢印と読み上げの名前で示す
+    fireEvent.click(screen.getByRole('button', { name: '新着順・新しい順（押すと逆の順）' }))
+    expect(titles()).toEqual(['作品1', '作品2', '作品4'])
+    expect(screen.getByText('Shikimoriで人気の上位の作品を、放送の古い順に並べています。')).toBeTruthy()
+    expect(screen.getAllByRole('button', { name: /順/ })).toHaveLength(2)
+    // 別の軸に移ると、その軸の既定の向き（多い順）から
+    fireEvent.click(screen.getByRole('button', { name: '人気順' }))
+    expect(titles()).toEqual(['作品1', '作品2', '作品4'])
+    fireEvent.click(screen.getByRole('button', { name: '人気順・多い順（押すと逆の順）' }))
+    expect(titles()).toEqual(['作品4', '作品2', '作品1'])
+    expect(screen.getByText('Shikimoriでリストに入れている人の少ない順です。')).toBeTruthy()
+    expect(screen.queryByRole('link', { name: 'Annictで見る' })).toBeNull()
+  })
+
+  it('says so when a genre has no anime, without an Annict link', async () => {
+    fetchGenreWorks.mockResolvedValue([])
+    render(<CreditWorks readOnly token="t" target={{ genre: { id: 23, name: 'School' } }} active onClose={() => {}} />)
+    await waitFor(() => expect(screen.getByText('このジャンルの作品を見つけられませんでした。')).toBeTruthy())
+    expect(screen.queryByRole('link', { name: 'Annictで見る' })).toBeNull()
   })
 
   it('shows the error when Shikimori cannot be read', async () => {

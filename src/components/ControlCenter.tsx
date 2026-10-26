@@ -44,7 +44,7 @@ export function NoticesBell(props: { active?: boolean; onOpenChange?: (open: boo
             {notices.length === 0 ? (
               <p className="cc__empty">
                 {t(
-                  'いま知らせはありません。保存できなかった記録や、読み直せなかったときは、ここに出ます。',
+                  'いま知らせはありません。記録を保存できなかったときや、読み直せなかったときは、ここに出ます。',
                   'No notifications right now. Records that couldn’t be saved, or data that couldn’t be reloaded, will show up here.',
                 )}
               </p>
@@ -111,10 +111,10 @@ function GodTools(props: { onClose: () => void }) {
         >
           {t('称号の知らせ', 'Title notification')}
         </button>
-        <button type="button" className="btn" onClick={() => sample('god-plain', t('試しの知らせ', 'Test notification'), t('保存できなかった記録や、読み直せなかったときに、このように並びます。', 'This is how notifications appear when a record couldn’t be saved or data couldn’t be reloaded.'), false)}>
+        <button type="button" className="btn" onClick={() => sample('god-plain', t('試しの知らせ', 'Test notification'), t('記録を保存できなかったときや、読み直せなかったときに、このように並びます。', 'This is how notifications appear when a record couldn’t be saved or data couldn’t be reloaded.'), false)}>
           {t('知らせ（ふつう）', 'Notification (normal)')}
         </button>
-        <button type="button" className="btn" onClick={() => sample('god-urgent', t('試しの急ぎの知らせ', 'Test urgent notification'), t('ログインが切れたときなど、急ぐものはこの印で並びます。', 'Urgent ones, such as an expired login, appear with this mark.'), true)}>
+        <button type="button" className="btn" onClick={() => sample('god-urgent', t('試しの急ぎの知らせ', 'Test urgent notification'), t('ログインが切れたときなど、急ぐものはこの印を付けて並びます。', 'Urgent ones, such as an expired login, appear with this mark.'), true)}>
           {t('知らせ（急ぎ）', 'Notification (urgent)')}
         </button>
         <button

@@ -27,7 +27,7 @@ export function WannaNoteSheet(props: {
         <button type="button" className="chip" aria-pressed={priority} onClick={() => setPriority((p) => !p)}>
           {priority ? t('★ 優先して見る', '★ Watch first') : t('☆ 優先して見る', '☆ Watch first')}
         </button>
-        <p className="note filtersheet__lead">{t('付けた作品は、見たいの一覧でいちばん上に並びます。', 'Starred anime appear at the top of your want-to-watch list.')}</p>
+        <p className="note filtersheet__lead">{t('付けた作品は見たいの一覧でいちばん上に並びます。', 'Starred anime appear at the top of your want-to-watch list.')}</p>
       </section>
       <label className="review__body filtersheet__group">
         <span className="review__axis-name">{t('メモ', 'Note')}</span>

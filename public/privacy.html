@@ -20,11 +20,11 @@
       </div>
 
       <h1>プライバシーポリシー</h1>
-      <p class="date">制定日: 2026年10月2日 / 更新日: 2026年10月21日</p>
+      <p class="date">制定日: 2026年10月2日 / 更新日: 2026年10月26日</p>
 
       <p class="lead">
         Anipair（以下「本アプリ」）は、個人が開発・運営する、無料・非商用の非公式アプリです。
-        本アプリは、利用者が送った問い合わせと、個人を特定しない利用状況の集計を除いて、運営者のもとに利用者の情報を集めたり保存したりしません。このページでは、本アプリを使うときに、どの情報がどこに送られ、どこに置かれるかを説明します。
+        本アプリは、利用者が送った問い合わせ、利用者が共有のリンクにしたTier表、個人を特定しない利用状況の集計を除いて、運営者のもとに利用者の情報を集めたり保存したりしません。このページでは、本アプリを使うときに、どの情報がどこに送られ、どこに置かれるかを説明します。
       </p>
 
       <section class="item">
@@ -38,7 +38,7 @@
           送るのは、開いた画面（評価・マッチングなどの画面の名前）、どこから来たか（参照元のサイト）、国・地域、端末とOS・ブラウザの種類です。
           Cookieは使いません。Annictのアカウント・記録・トークンや、入力した内容は送りません。
           Vercelの説明では、IPアドレスは記録されず、訪問者の区別に使う値は24時間で捨てられ、個人を特定できない集計としてだけ扱われます。
-          集計は、本アプリの改善のためだけに使います。
+          集計は本アプリの改善のためだけに使います。
         </p>
         <p>
           ただし、利用者が「質問・不具合・要望を送る」（ヘルプと設定にあります）から問い合わせを送ったときは、次のものを受け取ります。
@@ -49,15 +49,31 @@
           <li>本アプリのバージョンと、端末・ブラウザの種類（利用者が添えることを選んだとき）</li>
         </ul>
         <p>
-          受け取った内容は、運営者の非公開のGitHubリポジトリにIssueとして保存し、運営者だけが読みます。公開はしません。
+          受け取った内容は運営者の非公開のGitHubリポジトリにIssueとして保存し、運営者だけが読みます。公開はしません。
           不具合の調査、改善、返信のためだけに使います。IPアドレスや、Annict・GitHubのトークンは含めません。
           送った内容の削除を希望するときは、もう一度問い合わせからお知らせください。
+        </p>
+        <p>
+          また、利用者がTier表の「リンクで共有」でリンクを作ったときは、次のものを受け取って保存します。
+        </p>
+        <ul>
+          <li>表の題名、段の名前、段ごとの作品の並び（作品はMyAnimeListのIDで受け取ります）</li>
+          <li>リンクを作った日時と、中身を新しくした日時</li>
+          <li>リンクの中身を変えたり消したりするための「編集の鍵」を、元に戻せない形（ハッシュ）にした値</li>
+        </ul>
+        <p>
+          Annictのアカウントの名前・トークン・作品の評価は受け取りません。保存先はUpstash（Redis。Upstash, Inc.）で、リンクを知っている人は誰でも、ログインしなくてもその表を見られます。
+          保存の期限はありません。作った人がアプリの「リンクを消す」を押すか、表そのものを消すと削除します（消したあと1〜2分は、配信の仕組みの控えから表示されることがあります）。
+          編集の鍵そのものは、作った人の端末と、GitHubと連携しているときはそのリポジトリにだけ置きます。端末のデータを消すなどして鍵を無くしたときは、問い合わせからリンクをお知らせください。運営者が削除します。
+        </p>
+        <p>
+          リンクを作る回数に1日の上限を設けるため、接続元のIPアドレスを日付と混ぜて元に戻せない形（ハッシュ）にした値と、その日に作った回数を、2日間だけ保存します。IPアドレスそのものは保存しません。
         </p>
       </section>
 
       <section class="item">
         <h2>2. 利用者の端末に置く情報</h2>
-        <p>次の情報は、利用者のブラウザの保存領域（localStorage・sessionStorage）にだけ置きます。運営者には送られません。</p>
+        <p>次の情報は利用者のブラウザの保存領域（localStorage・sessionStorage）にだけ置きます。運営者には送られません。</p>
         <ul>
           <li>Annictのアクセストークン（ログインしたとき）</li>
           <li>GitHubのトークンとリポジトリ名（利用者が任意で連携したとき）</li>
@@ -65,6 +81,7 @@
           <li>Annictから前回読み込んだ自分の記録の写し（ライブラリ・評価と感想・評価画面のクールの作品）。次に開いたときにすぐ表示するために使い、開くたびにAnnictから読み直します</li>
           <li>まだAnnictに送り終えていない記録の控えと、書きかけの感想。送り終えたら消します</li>
           <li>称号の状態（手に入れた称号、そのうち見たもの、掲げている称号）と、称号の条件になる出来事の日時（深夜・早朝・元日に記録した、など）</li>
+          <li>Tier表（題名・段の名前・作品の並び）と、共有のリンクを作ったときは、そのリンクのIDと編集の鍵</li>
           <li>作品情報の一時的な控え（表紙の画像の場所、各クールの人気作の一覧、見ている作品の放送予定、Wikipediaのあらすじ、英語の画面の作品名と人名など）</li>
         </ul>
         <p>
@@ -86,19 +103,22 @@
             <strong>作品情報の提供元</strong>（現在は<a href="https://shikimori.io/" rel="noreferrer">Shikimori</a>）:
             ジャンル、似た作品、関連作品、表紙の画像の場所、声優・スタッフ・制作会社の参加作品などの公開データ。本アプリの中継の仕組みを通して取得し、利用者を特定する情報は送りません。
             参加作品を探すときは、作品の詳細に載っている人物の名前（Annictに公開されている名前）を送ります。
-            中継は、Shikimoriの公開データの控えと、Shikimoriへの問い合わせの回数を数えるために、Upstash（Redis）を使います。そこに利用者の情報は置きません。
+            中継はShikimoriの公開データを控えたり、Shikimoriへの問い合わせの回数を数えたりするために、Upstash（Redis）を使います。中継がそこに利用者の情報を置くことはありません。
+            共有のリンクで開かれたTier表の作品の題名と表紙も、この中継を通して取得します。
           </li>
           <li>
             <strong>Wikipedia</strong>（<a href="https://ja.wikipedia.org/" rel="noreferrer">ja.wikipedia.org</a>。英語の画面では<a href="https://en.wikipedia.org/" rel="noreferrer">en.wikipedia.org</a>も）:
-            作品の詳細を開いたときに、その作品の記事のあらすじを、Wikipediaの公開しているAPIから読み込みます。英語の画面では、日本語版の記事から英語版の記事をたどって読みます。利用者を特定する情報は送りません。
+            作品の詳細を開いたときと、共有のリンクで開いたTier表で作品を押したときに、その作品の記事のあらすじを、Wikipediaの公開しているAPIから読み込みます。英語の画面では日本語版の記事から英語版の記事をたどって読みます。利用者を特定する情報は送りません。
           </li>
           <li>
-            <strong>Wikidata</strong>（<a href="https://www.wikidata.org/" rel="noreferrer">query.wikidata.org</a>。英語の画面だけ）:
-            作品の詳細や傾向に出す声優・スタッフの英語名を、Wikidataの公開しているAPIから、日本語の名前で引きます。利用者を特定する情報は送りません。
+            <strong>Wikidata</strong>（<a href="https://www.wikidata.org/" rel="noreferrer">www.wikidata.org・query.wikidata.org</a>）:
+            英語の画面では、作品の詳細や傾向に出す声優・スタッフの英語名を、日本語の名前で引きます。
+            共有のリンクで開いたTier表で作品を押したときは、作品のMyAnimeListのIDから、Wikipediaの記事・公式サイト・Xのアカウントを引きます。
+            どちらもWikidataの公開しているAPIを使い、利用者を特定する情報は送りません。
           </li>
           <li>
             <strong>GitHub</strong>（利用者が任意で連携した場合だけ）:
-            興味なし・保留・「見てない」の記録、「見たい」の優先の印とメモ、見るサービス、バックアップを、利用者自身のリポジトリに保存します。
+            興味なし・保留・「見てない」の記録、「見たい」の優先の印とメモ、見るサービス、Tier表（共有のリンクの編集の鍵を含みます）、バックアップを、利用者自身のリポジトリに保存します。
           </li>
           <li>
             <strong>Google Fonts</strong>: 画面の文字の表示のために、フォントを読み込みます。
@@ -115,18 +135,23 @@
             <strong>問い合わせの受け付け</strong>（利用者が問い合わせを送ったときだけ）:
             送った内容を、本アプリの関数を通して、運営者の非公開のGitHubリポジトリにIssueとして保存します（上の「1」）。
           </li>
+          <li>
+            <strong>Tier表の共有のリンク</strong>（利用者がリンクを作ったときと、リンクが開かれたとき）:
+            表の題名・段の名前・作品の並びを、本アプリの関数を通してUpstashに保存し、リンクが開かれたときに読み出します（上の「1」）。
+          </li>
         </ul>
       </section>
 
       <section class="item">
         <h2>4. サーバーの関数とホスティング</h2>
         <p>
-          本アプリはVercelで公開しています。サーバーで動く処理は、次の3つだけです。問い合わせをIssueにすること（上の「1」）のほかは、受け取った情報を保存せず、記録にも残しません。
+          本アプリはVercelで公開しています。サーバーで動く処理は次の4つだけです。問い合わせをIssueにすることと、Tier表の共有のリンク（上の「1」）のほかは、受け取った情報を保存せず、記録にも残しません。
         </p>
         <ul>
           <li>「Annictでログイン」のとき、Annictから受け取った認可コードをアクセストークンに交換する処理</li>
           <li>作品情報の提供元に、公開データを問い合わせて中継する処理</li>
           <li>利用者が送った問い合わせを、運営者の非公開のGitHubリポジトリのIssueにする処理</li>
+          <li>Tier表の共有のリンクを作る・新しくする・消す・読み出す処理と、リンクを開いたときのページの題名と、リンクを貼ったときのカードの画像（表の題名と、段の色・名前・作品の数だけ。表紙は入れません）をその表のものにする処理</li>
         </ul>
         <p>
           ホスティングの事業者であるVercelは、通信の仕組みとしてIPアドレスなどを記録することがあります。取り扱いは
@@ -136,12 +161,12 @@
 
       <section class="item">
         <h2>5. 第三者への提供</h2>
-        <p>問い合わせの内容は、保存先のGitHub（GitHub, Inc.）のほかには提供しません。利用状況の集計は、集計を行うVercel（Vercel Inc.）のほかには提供しません。それ以外の利用者の情報は運営者が持たないため、第三者に提供することはありません。</p>
+        <p>問い合わせの内容は保存先のGitHub（GitHub, Inc.）のほかには提供しません。共有のリンクにしたTier表は、保存先のUpstash（Upstash, Inc.）に置き、リンクを開いた人に表示するほかには提供しません。利用状況の集計は集計を行うVercel（Vercel Inc.）のほかには提供しません。それ以外の利用者の情報は運営者が持たないため、第三者に提供することはありません。</p>
       </section>
 
       <section class="item">
         <h2>6. このポリシーの変更</h2>
-        <p>本アプリの仕組みを変えたときは、このページを更新します。大きな変更は、本アプリの公開リポジトリでもお知らせします。</p>
+        <p>本アプリの仕組みを変えたときは、このページを更新します。大きな変更は本アプリの公開リポジトリでもお知らせします。</p>
       </section>
 
       <section class="item">
@@ -155,19 +180,20 @@
 
       <section class="en" lang="en">
         <h1>Privacy Policy (English)</h1>
-        <p class="date">Effective date: October 2, 2026 / Last updated: October 21, 2026</p>
+        <p class="date">Effective date: October 2, 2026 / Last updated: October 26, 2026</p>
         <p>
-          Anipair is a free, non-commercial, unofficial app developed and run by an individual. The operator does not collect or store any user information, except what you send through the feedback form and anonymous, aggregated usage statistics.
+          Anipair is a free, non-commercial, unofficial app developed and run by an individual. The operator does not collect or store any user information, except what you send through the feedback form, tier lists you choose to share as a link, and anonymous, aggregated usage statistics.
         </p>
         <section class="item">
           <h2>1. Information we collect</h2>
           <p>Anipair has no operator-run database or user registration, and uses no advertising or tracking cookies. To see how much each screen is used, Anipair uses Vercel Web Analytics (Vercel Inc.): it sends the screen you open (such as Rate or Match), the referring site, your country or region, and your device, OS and browser type. It uses no cookies and sends no Annict account, records, tokens or anything you type. According to Vercel, IP addresses are not recorded, the value used to tell visitors apart is discarded after 24 hours, and the data is used only as anonymous aggregates. The operator uses it only to improve the app. When you send feedback (questions, bug reports, requests) from the app, we receive its type and text, the reply address if you give one, and the app version and device/browser type if you choose to include them. It is saved as an issue in the operator's private GitHub repository, read only by the operator, and used only to investigate, improve and reply. It does not include your IP address or any tokens. To have it deleted, send another message through the form.</p>
+          <p>When you make a link with "Share as a link" on a tier list, we receive and store the list's title, tier names and the order of the anime in each tier (as MyAnimeList IDs), when the link was made and last updated, and a one-way hash of the "edit key" used to update or delete it. We do not receive your Annict name, token or ratings. It is stored in Upstash (Redis, Upstash, Inc.), and anyone with the link can see the list without logging in. There is no expiry; it is deleted when you press "Delete the link" or delete the list in the app (it may still show for a minute or two from the delivery cache). The edit key itself is kept only on your device and, if connected, in your GitHub repository. If you lose it, tell us the link through the feedback form and the operator will delete it. To limit how many links can be made per day, we store a one-way hash of your IP address mixed with the date, and that day's count, for two days. Your IP address itself is not stored.</p>
         </section>
         <section class="item">
           <h2>2. Information kept on your device</h2>
           <p>
             Your Annict access token, your optional GitHub token and repository name, your pass, skip and "not watched" records, your priority marks and notes on
-            "want to watch" anime, your titles, key bindings, display settings, the streaming services and TV region you choose, short-lived caches of anime information (including the broadcast schedule of anime you are watching, Wikipedia synopses, and English titles and names), a copy of your records last read from Annict (to show
+            "want to watch" anime, your titles, key bindings, display settings, the streaming services and TV region you choose, short-lived caches of anime information (including the broadcast schedule of anime you are watching, Wikipedia synopses, and English titles and names), your tier lists (and, for shared ones, the link ID and edit key), a copy of your records last read from Annict (to show
             them quickly next time), records not yet sent to Annict, and unfinished comments are stored only in your browser's storage. They are never sent to the operator. Logging out deletes the Annict
             token, the GitHub token and the copy of your Annict records. Records that exist only on this device (passes, "not watched", titles and so on) are kept
             for when you log in again with the same account, and the app does not show them to anyone who logs in with another account. To delete them as well, use "Log out and
@@ -178,27 +204,28 @@
           <h2>3. Services Anipair connects to</h2>
           <ul>
             <li><strong>Annict</strong>: login, reading and writing your watch records and ratings, and anime information, using only Annict's public API. Your records are stored in your own Annict account.</li>
-            <li><strong>Anime data provider</strong> (currently Shikimori): public data such as genres, similar and related anime, cover image locations, and the works of voice actors, staff and studios, fetched through Anipair's proxy without any information that identifies you. To look up the works of a person, Anipair sends that person's public name as listed on Annict. The proxy uses Upstash (Redis) to keep copies of Shikimori's public data and to count requests to Shikimori; no information about you is stored there.</li>
-            <li><strong>Wikipedia</strong> (ja.wikipedia.org, and en.wikipedia.org on the English screen): when you open the details of an anime, its synopsis is read from the article through Wikipedia's public API, without any information that identifies you. On the English screen, the English article linked from the Japanese article is used when there is one.</li>
-            <li><strong>Wikidata</strong> (query.wikidata.org, on the English screen only): the English names of voice actors and staff shown in anime details and trends are looked up by their Japanese names through Wikidata's public API, without any information that identifies you.</li>
-            <li><strong>GitHub</strong>, only if you connect it: your pass, skip and "not watched" records, your priority marks and notes on "want to watch" anime, the streaming services you choose, and backups are saved to your own repository.</li>
+            <li><strong>Anime data provider</strong> (currently Shikimori): public data such as genres, similar and related anime, cover image locations, and the works of voice actors, staff and studios, fetched through Anipair's proxy without any information that identifies you. To look up the works of a person, Anipair sends that person's public name as listed on Annict. The proxy uses Upstash (Redis) to keep copies of Shikimori's public data and to count requests to Shikimori; the proxy stores no information about you there. Titles and covers on shared tier lists are fetched through this proxy too.</li>
+            <li><strong>Wikipedia</strong> (ja.wikipedia.org, and en.wikipedia.org on the English screen): when you open the details of an anime, or tap an anime on a shared tier list, its synopsis is read from the article through Wikipedia's public API, without any information that identifies you. On the English screen, the English article linked from the Japanese article is used when there is one.</li>
+            <li><strong>Wikidata</strong> (www.wikidata.org and query.wikidata.org): on the English screen, the English names of voice actors and staff shown in anime details and trends are looked up by their Japanese names. When you tap an anime on a shared tier list, its Wikipedia article, official website and X account are looked up by its MyAnimeList ID. Both use Wikidata's public API, without any information that identifies you.</li>
+            <li><strong>GitHub</strong>, only if you connect it: your pass, skip and "not watched" records, your priority marks and notes on "want to watch" anime, the streaming services you choose, your tier lists (including the edit keys of shared links), and backups are saved to your own repository.</li>
             <li><strong>Google Fonts</strong>: web fonts used to display the app.</li>
             <li><strong>Image hosts</strong>: cover images (Shikimori posters, and images such as official websites' images returned by Annict's API) and your Annict profile image are loaded by your browser directly from where they are hosted. As with any image on a web page, your IP address and browser type reach that host.</li>
             <li><strong>Vercel Web Analytics</strong>: the name of the screen you open and the other items in 1, for aggregated usage statistics, under <a href="https://vercel.com/docs/analytics/privacy-policy" rel="noreferrer">Vercel Web Analytics privacy information</a>.</li>
             <li><strong>Feedback</strong>, only when you send it: what you send goes through Anipair's server function to an issue in the operator's private GitHub repository (see 1).</li>
+            <li><strong>Tier list links</strong>, when you make one and when someone opens one: the list's title, tier names and order of anime go through Anipair's server function to Upstash and are read back when the link is opened (see 1).</li>
           </ul>
         </section>
         <section class="item">
           <h2>4. Server functions and hosting</h2>
           <p>
-            Anipair is hosted on Vercel. Three server functions run: one exchanges the Annict authorization code for an access token, one relays requests
-            for public anime data, and one turns feedback you send into an issue in the operator's private GitHub repository. Apart from that feedback, none of them stores or logs what it receives. Vercel may record technical information such as IP addresses as part of its service,
+            Anipair is hosted on Vercel. Four server functions run: one exchanges the Annict authorization code for an access token, one relays requests
+            for public anime data, one turns feedback you send into an issue in the operator's private GitHub repository, and one makes, updates, deletes and reads tier list links (and sets the page title for a shared list and draws the card image shown when the link is posted, with only the list's title and the colors, names and number of anime of its tiers, without covers). Apart from that feedback and shared tier lists, none of them stores or logs what it receives. Vercel may record technical information such as IP addresses as part of its service,
             under the <a href="https://vercel.com/legal/privacy-policy" rel="noreferrer">Vercel Privacy Policy</a>.
           </p>
         </section>
         <section class="item">
           <h2>5. Sharing with third parties</h2>
-          <p>Feedback is shared only with GitHub, Inc., where it is stored, and usage statistics only with Vercel Inc., which aggregates them. The operator holds no other user information and therefore shares none.</p>
+          <p>Feedback is shared only with GitHub, Inc., where it is stored. Shared tier lists are stored with Upstash, Inc. and shown only to people who open the link. Usage statistics are shared only with Vercel Inc., which aggregates them. The operator holds no other user information and therefore shares none.</p>
         </section>
         <section class="item">
           <h2>6. Changes</h2>

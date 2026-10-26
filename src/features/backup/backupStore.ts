@@ -8,6 +8,7 @@ import { loadLocalPasses } from '../match/passStore'
 import { loadLocalUnseen } from '../rate/unseenStore'
 import { buildSnapshot, countSnapshot, describeCounts, sameSnapshot, type Snapshot, type SnapshotCounts } from './snapshot'
 import { loadLocalWannaNotes } from '../records/wannaNoteStore'
+import { loadLocalTiers } from '../tier/tierStore'
 
 // 全記録のスナップショットを、つないだ GitHub のリポジトリの backup.json に書く（保存だけ。復元はまだ作らない）。
 // 中身が前回と同じなら書かない。履歴そのものが世代の控えなので、同じ内容のコミットを積んでも意味が無いため
@@ -79,7 +80,7 @@ export function runBackup(annictToken: string, conn: GithubConnection, opts: { f
 // パスと「見てない」は端末の控え。GitHub につないでいれば同期のたびに内容を合わせてあるので、そのまま使う
 export async function collectSnapshot(annictToken: string, now: Date = new Date()): Promise<Snapshot> {
   const [library, reviews] = await Promise.all([fetchLibrary(annictToken, { fresh: true }), refreshMyReviews(annictToken)])
-  return buildSnapshot({ library, reviews, passes: loadLocalPasses(), unseen: loadLocalUnseen(), wannaNotes: loadLocalWannaNotes(), now })
+  return buildSnapshot({ library, reviews, passes: loadLocalPasses(), unseen: loadLocalUnseen(), wannaNotes: loadLocalWannaNotes(), tiers: loadLocalTiers(), now })
 }
 
 async function backup(annictToken: string, conn: GithubConnection, opts: { force?: boolean; now?: Date }): Promise<BackupResult> {

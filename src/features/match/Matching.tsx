@@ -216,7 +216,7 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
           prev={answeredLog.at(-1) ?? null}
           next={showCard && m.next ? { key: String(m.next.media.idMal), title: displayTitleOf(m.next.media), cover: m.next.media.cover } : null}
           ahead={showCard ? m.cards.slice(m.index + 2, m.index + 5).map((c) => c.media.cover) : []}
-          emptyPrev={t('答えた候補は、ここに印を付けて残ります', 'Anime you answer stay here with a mark')}
+          emptyPrev={t('答えた候補はここに印を付けて残ります', 'Anime you answer stay here with a mark')}
         >
         <div className="answers answers--tiered" aria-disabled={!m.current}>
           <div className="answers__sub">

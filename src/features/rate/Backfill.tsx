@@ -130,7 +130,7 @@ export function Backfill({ token, github, active }: { token: string; github: Git
     const fonts = typeof document !== 'undefined' ? document.fonts : undefined
     if (!fonts) return
     fonts.load('700 1em "Zen Maru Gothic"', '0123456789件踏破').catch(() => undefined) // i18n-ok
-    fonts.load('700 1em "Zen Maru Gothic"', '突破人気作本、すべてに答えました。').catch(() => undefined) // i18n-ok
+    fonts.load('700 1em "Zen Maru Gothic"', '突破人気作本すべてに答えました。').catch(() => undefined) // i18n-ok
     fonts.load('500 1em "Zen Maru Gothic"', '次の目標0123456789件').catch(() => undefined) // i18n-ok
   }, [])
   useEffect(() => {
@@ -315,7 +315,7 @@ export function Backfill({ token, github, active }: { token: string; github: Git
       <Sparks count={12} />
       <p className="clear__season">{seasonLabel(b.season)}</p>
       <p className="clear__title">{t('踏破', 'Cleared')}</p>
-      <p className="clear__body">{t(`人気作${progress.total}本、すべてに答えました。`, `You’ve answered all ${progress.total} popular anime.`)}</p>
+      <p className="clear__body">{t(`人気作${progress.total}本すべてに答えました。`, `You’ve answered all ${progress.total} popular anime.`)}</p>
       <button type="button" className="btn btn--primary" onClick={b.goToPrevious}>
         {t(`${seasonLabel(previousSeason(b.season))}へ進む`, `Go to ${seasonLabel(previousSeason(b.season))}`)}
       </button>
@@ -463,7 +463,7 @@ export function Backfill({ token, github, active }: { token: string; github: Git
               onClick={reply.watching}
               title={
                 inWatching
-                  ? t('まだ見ている作品は、そのまま次へ進みます（このクールのあいだは聞き直しません）', 'Moves on to the next anime. You won’t be asked about this one again this season.')
+                  ? t('まだ見ている作品なら、そのまま次へ進みます（このクールのあいだは聞き直しません）', 'Moves on to the next anime. You won’t be asked about this one again this season.')
                   : t('「見てる」にします', 'Mark as “Watching”')
               }
             >

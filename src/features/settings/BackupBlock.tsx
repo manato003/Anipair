@@ -57,7 +57,7 @@ export function BackupBlock(props: { annictToken: string; github: GithubConnecti
     <Section
       id="settings-backup"
       title={t('バックアップ', 'Backup')}
-      summary={t('作品ごとの記録を、ファイルに書き出せます。', 'Export your per-anime records to a file.')}
+      summary={t('作品ごとの記録をファイルに書き出せます。', 'Export your per-anime records to a file.')}
       status={
         props.github ? (
           <StatusChip tone={status.error ? 'off' : 'ok'}>
@@ -131,7 +131,7 @@ export function BackupBlock(props: { annictToken: string; github: GithubConnecti
             <summary>{t('自動バックアップについて', 'About automatic backup')}</summary>
             <p className="settings__lead">
               {t(
-                `アプリを開いたとき、前回から1日以上たっていれば、${props.github.repo}のbackup.jsonに自動で保存します。内容が変わったときだけ書き込むため、過去の版はGitHubの変更履歴から確認できます。`,
+                `アプリを開いたとき、前回から1日以上たっていれば、${props.github.repo}のbackup.jsonに自動で保存します。内容が変わったときだけ書き込むため、以前の内容はGitHubの変更履歴から確認できます。`,
                 `When you open the app and a day or more has passed since the last backup, it saves automatically to backup.json in ${props.github.repo}. It only writes when something has changed, so you can look at earlier versions in GitHub’s change history.`,
               )}
             </p>

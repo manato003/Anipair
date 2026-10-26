@@ -112,13 +112,13 @@ function steps(): { art: ReactNode; title: string; body: string }[] {
       art: <WatchingScene className="scene-art guide-scene" />,
       title: t('ようこそ、Anipairへ', 'Welcome to Anipair'),
       body: t(
-        '見たアニメを、タップでAnnictに記録していくアプリです。記録が増えるほど、あなたの好みに合う「次の1本」を見つけてきます。案内は、アニメを見る係のアニと、次の好きを見つけてくる係のペアです。',
+        '見たアニメをタップでAnnictに記録していくアプリです。記録が増えるほど、あなたの好みに合う「次の1本」を見つけてきます。案内はアニメを見る係のアニと、次の好きを見つけてくる係のペアです。',
         'Anipair lets you log the anime you’ve watched on Annict with just a tap. The more you record, the better it gets at finding your “next one”. Your guides are Ani, who watches the anime, and Pair, who hunts for the next thing you’ll love.',
       ),
     },
     {
       art: <Figure screen="rate" guide="ani" />,
-      title: t('評価: 表紙を見て、答える', 'Rate: look at the cover and answer'),
+      title: t('評価: 表紙を見て答える', 'Rate: look at the cover and answer'),
       body: t(
         'クールの人気作が1枚ずつ出てきます。見た作品は4段階で評価、見ていなければ「見てない」、気になれば「見たい」。上の ‹ › で、前のクールへさかのぼれます。',
         'Popular anime from a season appear one at a time. Rate what you’ve watched in four steps, tap “Haven’t seen” if you haven’t, or “Want to watch” if it looks interesting. Use ‹ › at the top to go back to earlier seasons.',
@@ -136,8 +136,8 @@ function steps(): { art: ReactNode; title: string; body: string }[] {
       art: <Figure screen="records" guide="ani" />,
       title: t('記録: 見てる・見た・見たい', 'Records: Watching, Watched, Want to watch'),
       body: t(
-        '記録した作品の一覧です。見てる作品は、カードから次の話をその場で記録できます。「まとめ」では、好みの傾向・年間のふり返り・実績（称号）が見られます。',
-        'Your recorded anime, in lists. For anime you’re watching, you can record the next episode right from the card. Under “Summary”, you’ll find your taste trends, Year in review, and Achievements (titles).',
+        '記録した作品の一覧です。見てる作品はカードから次の話をその場で記録できます。「まとめ」では好みの傾向・年間のふり返り・実績（称号）が見られ、見た作品を段に並べたTier表も作れます。',
+        'Your recorded anime, in lists. For anime you’re watching, you can record the next episode right from the card. Under “Summary”, you’ll find your taste trends, Year in review, and Achievements (titles), and you can rank the anime you watched in a Tier list.',
       ),
     },
     {
@@ -150,9 +150,9 @@ function steps(): { art: ReactNode; title: string; body: string }[] {
     },
     {
       art: <Figure screen="nav" guide="both" />,
-      title: t('画面の行き来と、困ったとき', 'Getting around, and getting help'),
+      title: t('画面の行き来と困ったとき', 'Getting around, and getting help'),
       body: t(
-        '画面は下の帯で切り替えます（スマホは左右に払っても、PCは ← → でも替わります）。右上の「?」は、その画面のボタンを1つずつ指して説明します。となりのボタンは、知らせと表示の設定です。',
+        '画面は下の帯で切り替えます（スマホは左右に払っても、PCは ← → でも替わります）。右上の「?」はその画面のボタンを1つずつ指して説明します。となりのボタンは知らせと表示の設定です。',
         'Switch screens with the bar at the bottom (on a phone you can also swipe left or right; on a computer, press ← →). The “?” at the top right points to each button on the current screen and explains it. The button next to it opens notifications and display settings.',
       ),
     },
@@ -160,7 +160,7 @@ function steps(): { art: ReactNode; title: string; body: string }[] {
       art: <CheerScene className="scene-art guide-scene" />,
       title: t('さあ、はじめよう', 'Let’s get started'),
       body: t(
-        '記録はすべて、あなたのAnnictに保存されます。閉じると評価の画面です。見たことのある作品に答えてみてください。スマホでは、ブラウザの共有から「ホーム画面に追加」すると、アプリのように開けます。',
+        '記録はすべてあなたのAnnictに保存されます。閉じると評価の画面です。見たことのある作品に答えてみてください。スマホではブラウザの共有から「ホーム画面に追加」すると、アプリのように開けます。',
         'All your records are saved to your own Annict account. Close this to go to the Rate screen, and answer a few anime you’ve seen. On a phone, use your browser’s Share menu and “Add to Home Screen” to open Anipair like an app.',
       ),
     },

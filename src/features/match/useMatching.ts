@@ -13,7 +13,7 @@ import { loadLocalPasses, setPass, syncPasses } from './passStore'
 import { resolveAnnictWork } from './resolve'
 import { isDefaultFilter, parseMatchFilter, type MatchFilter } from './matchFilter'
 import { malIdOf } from '../../lib/malId'
-import { collectPool, rankCandidates, seenMalIds } from './taste'
+import { addSeries, collectPool, rankCandidates, seenMalIds } from './taste'
 import { forgetTaste, loadTaste } from './tasteLoader'
 
 // 候補の詳しい情報を取って好みとの一致で並べ替えるのは、似ている度合いの強い順にこの件数まで（Shikimori 2回ぶん）。
@@ -98,7 +98,7 @@ export function useMatching(annictToken: string, github: GithubConnection | null
     forgetTaste()
     setPhase({ kind: 'loading', step: t('Annictの記録を読み込み中', 'Loading your Annict records') })
     try {
-      const { library, ratings, seeds, similarSeeds, similar, profile, pendingSimilar } = await loadTaste(annictToken, (step, note, work) => {
+      const { library, ratings, seeds, seedMedia, similarSeeds, similar, profile, pendingSimilar } = await loadTaste(annictToken, (step, note, work) => {
         if (alive()) setPhase({ kind: 'loading', step, note, work })
       })
       if (!alive()) return
@@ -123,7 +123,8 @@ export function useMatching(annictToken: string, github: GithubConnection | null
 
       const recorded = library.map(malIdOf).filter((n): n is number => n !== null)
       const exclude = new Set([...recorded, ...activePassIds(passes, new Date()), ...answered.current])
-      const pool = collectPool(similarSeeds, similar, exclude).slice(0, POOL_SIZE)
+      // 似た作品から集めた候補に、好きな作品のシリーズ作を足す（taste.ts の addSeries。上位に来やすくする）
+      const pool = addSeries(collectPool(similarSeeds, similar, exclude).slice(0, POOL_SIZE), seeds, seedMedia, exclude)
 
       setPhase({ kind: 'loading', step: t('候補を整理しています', 'Sorting the candidates') })
       const details = await fetchMedia(pool.map((p) => p.malId))
@@ -177,7 +178,7 @@ export function useMatching(annictToken: string, github: GithubConnection | null
 
   // 始まる前の同期はまとめる（詳しくは useCoalescedTask）
   const syncRun = useMemo(() => (github ? async () => void (await syncPasses(github)) : null), [github])
-  const syncLater = useCoalescedTask(enqueue, t('興味なし・保留の記録のGitHubへの保存', 'Save Not interested / Later records to GitHub'), syncRun)
+  const syncLater = useCoalescedTask(enqueue, t('興味なし・保留の記録をGitHubに保存', 'Save Not interested / Later records to GitHub'), syncRun)
 
   const answer = useCallback(
     (a: MatchAnswer) => {
@@ -197,9 +198,9 @@ export function useMatching(annictToken: string, github: GithubConnection | null
       const shownTitle = displayTitleOf(card.media)
       const label =
         a.kind === 'wanna'
-          ? t(`「${shownTitle}」の見たいへの追加`, `Add “${shownTitle}” to Want to watch`)
+          ? t(`「${shownTitle}」を見たいに追加`, `Add “${shownTitle}” to Want to watch`)
           : a.kind === 'watching'
-            ? t(`「${shownTitle}」の見てるへの追加`, `Add “${shownTitle}” to Watching`)
+            ? t(`「${shownTitle}」を見てるに追加`, `Add “${shownTitle}” to Watching`)
             : t(`「${shownTitle}」の記録`, `Record “${shownTitle}”`)
       const state = a.kind === 'wanna' ? 'WANNA_WATCH' : a.kind === 'watching' ? 'WATCHING' : a.kind === 'stop' ? 'STOP_WATCHING' : 'WATCHED'
       enqueue(

@@ -223,7 +223,7 @@ export function TrendsView(props: { rows: readonly RecordRow[]; data: TrendsData
             </p>
           </>
         ) : (
-          <p className="trend__note">{t('作品の詳細の「詳細な評価と感想を書く」で、映像・キャラクター・ストーリー・音楽を評価した作品が5本以上になると出ます。', 'This appears once you’ve rated animation, characters, story, and music on 5 or more anime using “Write a detailed rating and review” in the anime details.')}</p>
+          <p className="trend__note">{t('作品の詳細の「詳細な評価と感想」で、映像・キャラクター・ストーリー・音楽を評価した作品が5本以上になると出ます。', 'This appears once you’ve rated animation, characters, story, and music on 5 or more anime using “Detailed rating and review” in the anime details.')}</p>
         )}
       </section>
 

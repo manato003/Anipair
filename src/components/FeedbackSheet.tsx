@@ -36,7 +36,7 @@ export function FeedbackSheet(props: { active?: boolean; onClose: () => void }) 
           <p className="note">
             {draft.contact.trim()
               ? t('お返事が要る内容には、書いていただいた返信先にお送りします。', 'If your message needs a reply, we’ll send it to the contact you gave.')
-              : t('いただいた内容は、今後の改善に使わせていただきます。', 'We’ll use what you sent to improve Anipair.')}
+              : t('いただいた内容は今後の改善に使わせていただきます。', 'We’ll use what you sent to improve Anipair.')}
           </p>
           <button type="button" className="btn btn--primary" onClick={props.onClose}>
             {t('閉じる', 'Close')}
@@ -46,7 +46,7 @@ export function FeedbackSheet(props: { active?: boolean; onClose: () => void }) 
         <form className="feedback" onSubmit={submit}>
           <p className="note">
             {t(
-              '送った内容は開発者だけが読みます（公開はされません）。GitHubのアカウントは要りません。よくある質問は、設定の「お問い合わせ」とヘルプにあります。',
+              '送った内容は開発者だけが読みます（公開はされません）。GitHubのアカウントは要りません。よくある質問は設定の「お問い合わせ」とヘルプにあります。',
               'Only the developer reads what you send (it isn’t made public). You don’t need a GitHub account. Common questions are answered in Settings under “Contact” and in the help.',
             )}
           </p>

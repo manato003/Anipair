@@ -379,14 +379,41 @@ export async function fetchCharacterNames(ids: readonly number[], opts: FetchOpt
   return out
 }
 
-// 中継（api/shiki.ts の MAX_STUDIO_PAGE）の上限と同じにする
-const STUDIO_PAGES = 4
+// 中継（api/shiki.ts の MAX_LIST_PAGE）の上限と同じにする
+const LIST_PAGES = 4
 
 // 制作会社の作品（新しい順。50件ずつ、最大4ページ）。作品の情報は控えにも入れる（一覧から詳細を開くときに読み直さない）
-export async function fetchStudioWorks(id: number, opts: FetchOptions = {}): Promise<Media[]> {
+export function fetchStudioWorks(id: number, opts: FetchOptions = {}): Promise<Media[]> {
+  return fetchList('studio', id, opts)
+}
+
+// ジャンル・テーマの Shikimori の ID（英語名から。2026-10-27 に genres(entryType: Anime) で確かめた）。成人向けと対象層（少年・青年など）は入れない
+const GENRE_IDS: Record<string, number> = {
+  Action: 1, Adventure: 2, Racing: 3, Comedy: 4, 'Avant Garde': 5, Mythology: 6, Mystery: 7, Drama: 8, Ecchi: 9, Fantasy: 10,
+  'Strategy Game': 11, Historical: 13, 'Martial Arts': 17, Mecha: 18, Music: 19, Parody: 20, Samurai: 21, Romance: 22, School: 23,
+  'Sci-Fi': 24, Space: 29, Sports: 30, 'Super Power': 31, Vampire: 32, Yaoi: 33, Yuri: 34, Harem: 35, 'Slice of Life': 36,
+  Supernatural: 37, Military: 38, Detective: 39, Psychological: 40, 'Team Sports': 102, 'Video Game': 103, 'Adult Cast': 104,
+  Gore: 105, Reincarnation: 106, 'Love Polygon': 107, 'Visual Arts': 108, 'Time Travel': 111, 'Gag Humor': 112, 'Award Winning': 114,
+  Suspense: 117, 'Combat Sports': 118, CGDCT: 119, 'Mahou Shoujo': 124, 'Reverse Harem': 125, 'Girls Love': 129, Isekai: 130,
+  Delinquents: 131, 'Boys Love': 133, Childcare: 134, 'Magical Sex Shift': 135, Showbiz: 136, 'Otaku Culture': 137,
+  'Organized Crime': 138, Workplace: 139, Iyashikei: 140, Survival: 141, 'Performing Arts': 142, Anthropomorphic: 143,
+  Crossdressing: 144, 'Idols (Female)': 145, 'High Stakes Game': 146, Medical: 147, Pets: 148, Educational: 149,
+  'Idols (Male)': 150, 'Love Status Quo': 151, 'Urban Fantasy': 197, Villainess: 198, Gourmet: 543,
+}
+
+export function genreId(name: string): number | null {
+  return Object.hasOwn(GENRE_IDS, name) ? GENRE_IDS[name] : null
+}
+
+// ジャンルの作品（人気順。50件ずつ、最大4ページ）
+export function fetchGenreWorks(id: number, opts: FetchOptions = {}): Promise<Media[]> {
+  return fetchList('genre', id, opts)
+}
+
+async function fetchList(op: 'studio' | 'genre', id: number, opts: FetchOptions): Promise<Media[]> {
   const out: Media[] = []
-  for (let page = 1; page <= STUDIO_PAGES; page++) {
-    const body = (await call(`op=studio&id=${id}&page=${page}&v=6`, opts)) as { animes?: RawAnime[] }
+  for (let page = 1; page <= LIST_PAGES; page++) {
+    const body = (await call(`op=${op}&id=${id}&page=${page}&v=6`, opts)) as { animes?: RawAnime[] }
     if (!body || !Array.isArray(body.animes)) throw badResponse()
     for (const raw of body.animes) {
       const m = normalize(raw)

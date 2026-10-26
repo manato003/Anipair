@@ -55,7 +55,7 @@ export class ScreenBoundary extends Component<{ children: ReactNode }, { error: 
       return (
         <div className="crash crash--screen" role="alert">
           <Empty mood="trouble" title={t('アプリが新しくなりました', 'The app has been updated')}
-            body={t('この画面を開くには、再読み込みしてください。ほかの画面は、下の帯からそのまま使えます。', 'Reload to open this screen. You can keep using the other screens from the bar below.')}>
+            body={t('この画面を開くには、再読み込みしてください。ほかの画面は下の帯からそのまま使えます。', 'Reload to open this screen. You can keep using the other screens from the bar below.')}>
             <div className="crash__actions">
               <button type="button" className="btn btn--primary" onClick={() => location.reload()}>
                 {t('再読み込み', 'Reload')}
@@ -68,7 +68,7 @@ export class ScreenBoundary extends Component<{ children: ReactNode }, { error: 
     return (
       <div className="crash crash--screen" role="alert">
         <Empty mood="trouble" title={t('この画面を表示できませんでした', 'Couldn’t display this screen')}
-          body={t('ほかの画面は、下の帯からそのまま使えます。', 'You can keep using the other screens from the bar below.')}>
+          body={t('ほかの画面は下の帯からそのまま使えます。', 'You can keep using the other screens from the bar below.')}>
           <p className="crash__body">{error.message}</p>
           <div className="crash__actions">
             <button type="button" className="btn btn--primary" onClick={() => this.setState((s) => ({ error: null, attempt: s.attempt + 1 }))}>

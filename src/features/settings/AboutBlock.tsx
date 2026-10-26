@@ -56,7 +56,7 @@ export function AboutBlock({ showTagline = true, welcome = false }: { showTaglin
         <ul className="settings__list settings__lead">
           <li>
             {t(
-              'サーバーで動くのは、ログインの受け渡し・Shikimoriへの中継・問い合わせの受け付けの3つの処理だけです。問い合わせの内容は、送ったときだけ開発者に届きます（公開はされません）。',
+              'サーバーで動くのは、ログインの受け渡し・Shikimoriへの中継・問い合わせの受け付けの3つの処理だけです。問い合わせの内容は送ったときだけ開発者に届きます（公開はされません）。',
               'The server runs only three things: completing the login, relaying requests to Shikimori, and receiving feedback. Feedback reaches the developer only when you send it (it is not made public).',
             )}
           </li>
@@ -69,19 +69,19 @@ export function AboutBlock({ showTagline = true, welcome = false }: { showTaglin
           </li>
           <li>
             {t(
-              '通信先はAnnict・Shikimori・Wikipedia・Google Fontsです（英語の画面では、声優・スタッフの英語名を引くためにWikidataも）。Shikimoriの作品データは、上に書いたサーバーの処理（Vercel）を通して受け取ります。その処理は、Shikimoriの公開データの控えと問い合わせの回数を数えるためにUpstash（Redis）を使います（利用者の情報は置きません）。GitHubと連携した場合は、GitHubにも送信します。問い合わせを送ったときは、その内容だけが、このサイトの関数を通して運営者の非公開のGitHubリポジトリに届きます。開いた画面の集計のために、画面の名前・参照元・国や地域・端末とブラウザの種類をVercel Web Analyticsに送ります。',
+              '通信先はAnnict・Shikimori・Wikipedia・Google Fontsです（英語の画面では、声優・スタッフの英語名を引くためにWikidataも）。Shikimoriの作品データは上に書いたサーバーの処理（Vercel）を通して受け取ります。その処理はShikimoriの公開データを控えたり、問い合わせの回数を数えたりするために、Upstash（Redis）を使います（利用者の情報は置きません）。GitHubと連携した場合は、GitHubにも送信します。問い合わせを送ったときは、その内容だけがこのサイトの関数を通して運営者の非公開のGitHubリポジトリに届きます。開いた画面の集計のために、画面の名前・参照元・国や地域・端末とブラウザの種類をVercel Web Analyticsに送ります。',
               'Anipair connects to Annict, Shikimori, Wikipedia, and Google Fonts (and, on the English screen, Wikidata for the English names of voice actors and staff). Shikimori’s anime data is received through the server process above (on Vercel), which uses Upstash (Redis) to keep copies of Shikimori’s public data and to count requests (no user information is stored there). If you connect GitHub, data is also sent to GitHub. When you send feedback, only its contents reach the developer’s private GitHub repository through this site’s function. To count screen views, the screen name, referrer, country or region, and device and browser type are sent to Vercel Web Analytics.',
             )}
           </li>
           <li>
             {t(
-              '作品の詳細のあらすじは、Wikipediaの記事の冒頭を、出典とライセンス（CC BY-SA 4.0）を添えて表示しています。',
+              '作品の詳細のあらすじはWikipediaの記事の冒頭を、出典とライセンス（CC BY-SA 4.0）を添えて表示しています。',
               'Synopses in anime details show the beginning of the (Japanese) Wikipedia article, with its source and license (CC BY-SA 4.0).',
             )}
           </li>
           <li>
             {t(
-              '表紙には、Shikimoriのポスターと、AnnictのAPIが返す各作品の公式サイトの画像を表示しています。画像はブラウザが提供元から直接読み込みます。権利は各権利者に帰属します。',
+              '表紙にはShikimoriのポスターと、AnnictのAPIが返す各作品の公式サイトの画像を表示しています。画像はブラウザが提供元から直接読み込みます。権利は各権利者に帰属します。',
               'Covers are Shikimori’s posters and images from each anime’s official website, provided through Annict’s API. Your browser loads the images directly from their sources. All rights belong to their respective owners.',
             )}
           </li>

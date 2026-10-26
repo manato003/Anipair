@@ -41,8 +41,8 @@ const MAX_PERSON_WORKS = 400
 const MAX_CHARACTERS_PER_WORK = 3
 // 作品のキャラクターの名前は、主役から順にこれまで
 const MAX_CAST = 150
-// 制作会社の作品は、50件ずつ4ページ（200件）まで。アプリ側（src/lib/shikimori.ts の STUDIO_PAGES）と同じにする
-const MAX_STUDIO_PAGE = 4
+// 制作会社・ジャンルの作品は、50件ずつ4ページ（200件）まで。アプリ側（src/lib/shikimori.ts の LIST_PAGES）と同じにする
+const MAX_LIST_PAGE = 4
 const TIMEOUT_MS = 8000
 
 // 作品は変わらないので1週間 CDN に置く。期限が切れても1日は古いものを返しながら裏で取り直す
@@ -67,7 +67,8 @@ const TTL_MISSING = 7 * DAY
 const TTL_SIMILAR = 90 * DAY
 const TTL_CHARACTER = 30 * DAY
 const TTL_PERSON = 7 * DAY
-const TTL_STUDIO = DAY
+// 制作会社・ジャンルの作品の一覧（新作が加わり、人気の順も動く）
+const TTL_LIST = DAY
 // 全利用者で Shikimori へ送る上限（Shikimori は 5rps / 90rpm。少し下で止める）
 const PER_SECOND = 4
 const PER_MINUTE = 80
@@ -184,6 +185,8 @@ const ANIME_FIELDS = `malId name japanese english kind rating status score episo
 const ANIMES_QUERY = `query($ids: String!) { animes(ids: $ids, limit: ${MAX_IDS}) { ${ANIME_FIELDS} } }`
 // 制作会社の作品。新しい順（aired_on は放送日の新しい順）
 const STUDIO_QUERY = `query($studio: String!, $page: PositiveInt!) { animes(studio: $studio, limit: ${MAX_IDS}, page: $page, order: aired_on) { ${ANIME_FIELDS} } }`
+// ジャンル（テーマを含む）の作品。人気順（成人向けは除く）
+const GENRE_QUERY = `query($genre: String!, $page: PositiveInt!) { animes(genre: $genre, limit: ${MAX_IDS}, page: $page, order: popularity, censored: true) { ${ANIME_FIELDS} } }`
 // 人物を名前で探す（日本語名で照合するので japanese を返す）
 const PEOPLE_QUERY = `query($search: String!) { people(search: $search, limit: ${MAX_PEOPLE}) { id name japanese } }`
 // キャラクターの日本語名
@@ -208,6 +211,7 @@ function fail(status: number, error: string, extra: Record<string, string> = {})
 const VERSIONS: Record<string, readonly string[]> = {
   animes: ['4', '5', '6'],
   studio: ['4', '5', '6'],
+  genre: ['6'],
   person: ['2', '4'],
 }
 
@@ -215,6 +219,7 @@ const VERSIONS: Record<string, readonly string[]> = {
 const PARAMS: Record<string, readonly string[]> = {
   animes: ['op', 'ids', 'v'],
   studio: ['op', 'id', 'page', 'v'],
+  genre: ['op', 'id', 'page', 'v'],
   people: ['op', 'q'],
   person: ['op', 'id', 'v'],
   characters: ['op', 'ids'],
@@ -356,8 +361,8 @@ export async function handleShiki(request: Request, fetchFn: FetchLike = fetch, 
       ? `${KEY}:similar:${q.get('id')}`
       : op === 'person' && parseId(q.get('id'))
         ? `${KEY}:person:${q.get('id')}:${q.get('v') ?? '2'}`
-        : op === 'studio' && parseId(q.get('id')) && parseId(q.get('page') ?? '1')
-          ? `${KEY}:studio:${q.get('id')}:${q.get('page') ?? '1'}`
+        : (op === 'studio' || op === 'genre') && parseId(q.get('id')) && parseId(q.get('page') ?? '1')
+          ? `${KEY}:${op}:${q.get('id')}:${q.get('page') ?? '1'}`
           : op === 'cast' && parseId(q.get('id'))
             ? `${KEY}:cast:${q.get('id')}`
             : null
@@ -401,14 +406,16 @@ export async function handleShiki(request: Request, fetchFn: FetchLike = fetch, 
         body: JSON.stringify({ query: CHARACTERS_QUERY, variables: { ids: ids.join(',') } }),
         signal: AbortSignal.timeout(TIMEOUT_MS),
       })
-    } else if (op === 'studio') {
+    } else if (op === 'studio' || op === 'genre') {
       const id = parseId(q.get('id'))
       const page = parseId(q.get('page') ?? '1')
-      if (!id || !page || page > MAX_STUDIO_PAGE) return fail(400, 'bad_request')
+      if (!id || !page || page > MAX_LIST_PAGE) return fail(400, 'bad_request')
       upstream = await send(GRAPHQL_URL, {
         method: 'POST',
         headers: { 'User-Agent': USER_AGENT, 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ query: STUDIO_QUERY, variables: { studio: String(id), page } }),
+        body: JSON.stringify(
+          op === 'studio' ? { query: STUDIO_QUERY, variables: { studio: String(id), page } } : { query: GENRE_QUERY, variables: { genre: String(id), page } },
+        ),
         signal: AbortSignal.timeout(TIMEOUT_MS),
       })
     } else if (op === 'people') {
@@ -467,11 +474,11 @@ export async function handleShiki(request: Request, fetchFn: FetchLike = fetch, 
     return fail(502, 'upstream_error')
   }
 
-  if (op === 'animes' || op === 'studio') {
+  if (op === 'animes' || op === 'studio' || op === 'genre') {
     const list = (data as { data?: { animes?: RawAnime[] } } | null)?.data?.animes
     if (!Array.isArray(list)) return fail(502, 'upstream_error')
     const animes = list.flatMap((a) => trim(a) ?? [])
-    if (op === 'studio') return keep(singleKey, { animes }, TTL_STUDIO)
+    if (op !== 'animes') return keep(singleKey, { animes }, TTL_LIST)
     // 作品ごとに控える。頼んだのに返らなかった ID も「無い」として控える（毎回聞き直さない）
     const found = new Set(animes.map((a) => a.id))
     await store.set([

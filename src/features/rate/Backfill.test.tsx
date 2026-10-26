@@ -316,7 +316,7 @@ describe('Backfill progress and celebrations', () => {
     progress = { answered: 30, total: 30 }
     render(<Backfill token="t" github={null} active />)
     expect(screen.getByText('踏破')).toBeTruthy()
-    expect(screen.getByText('人気作30本、すべてに答えました。')).toBeTruthy()
+    expect(screen.getByText('人気作30本すべてに答えました。')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: /へ進む$/ }))
     expect(goToPrevious).toHaveBeenCalled()
     cleanup()

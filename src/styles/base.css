@@ -708,6 +708,15 @@ kbd {
   cursor: default;
 }
 
+/* 並べ方のボタンの向きの矢印（押している軸をもう一度押すと逆の順。押していない方も幅を取っておく） */
+.sortmark {
+  margin-left: 4px;
+}
+
+.sortmark--off {
+  visibility: hidden;
+}
+
 .toggle--full {
   display: flex;
 }
@@ -1207,7 +1216,8 @@ kbd {
 /* 選択欄（プルダウン）とチェックの印: ほかの押せる操作と同じ丸い形と地。開いた一覧は地と文字の色をはっきり決める
    （欄の地は半透明なので、決めないと一覧の地がブラウザ任せになり、暗いテーマで白い字が明るい地に乗って読めなかった） */
 .filter select,
-.filtersheet__years select {
+.filtersheet__years select,
+.tierpick__cour select {
   height: 40px;
   padding: 0 12px 0 14px;
   border: 1px solid var(--line-strong);

@@ -41,6 +41,7 @@ let shikiMedia: { genres: string[]; themes: string[] } | null = null
 vi.mock('../../lib/shikimori', async (orig) => ({
   ...(await orig<typeof import('../../lib/shikimori')>()),
   fetchMedia: vi.fn(async (ids: number[]) => new Map(shikiMedia ? ids.map((id) => [id, { idMal: id, ...shikiMedia }]) : [])),
+  fetchGenreWorks: vi.fn(async () => []),
 }))
 // あらすじは Wikipedia から（既定は無し。あらすじのテストだけ入れる）
 let wikiSynopsis: { text: string; blocks: { heading: boolean; text: string }[]; title: string; url: string; licenseUrl: string } | null = null
@@ -141,7 +142,11 @@ describe('WorkDetail: recording episodes', () => {
   it('shows the episode recorder in an editable sheet of a work being watched or watched', () => {
     episodeAsks.length = 0
     render(<WorkDetail token="t" work={{ ...work, viewerStatusState: 'WATCHING' }} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
-    expect(screen.getByRole('heading', { name: '話ごとの記録' })).toBeTruthy()
+    // 1行に畳んで置き、押すと開く
+    const fold = within(screen.getByRole('heading', { name: /^話ごとの記録/ })).getByRole('button')
+    expect(fold.getAttribute('aria-expanded')).toBe('false')
+    expect(screen.queryByRole('list', { name: '話の一覧' })).toBeNull()
+    fireEvent.click(fold)
     expect(within(screen.getByRole('list', { name: '話の一覧' })).getByText('始まり')).toBeTruthy()
     expect(episodeAsks).toContainEqual(['W1'])
   })
@@ -149,11 +154,11 @@ describe('WorkDetail: recording episodes', () => {
   it('does not show it (or read the episodes) for other states, or in a read-only sheet', () => {
     episodeAsks.length = 0
     const { unmount } = render(<WorkDetail token="t" work={{ ...work, viewerStatusState: 'WANNA_WATCH' }} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
-    expect(screen.queryByRole('heading', { name: '話ごとの記録' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: /^話ごとの記録/ })).toBeNull()
     unmount()
     // 評価の画面・マッチングの読むだけのシートでは出さない（答え方を2つにしない）
     render(<WorkDetail readOnly token="t" work={{ ...work, viewerStatusState: 'WATCHING' }} cover={null} onClose={() => undefined} />)
-    expect(screen.queryByRole('heading', { name: '話ごとの記録' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: /^話ごとの記録/ })).toBeNull()
     expect(episodeAsks).toEqual([])
   })
 })
@@ -188,7 +193,7 @@ describe('WorkDetail', () => {
     const seed = { id: 'W1', annictId: 1, title: '作品', malAnimeId: null }
     render(<WorkDetail token="t" work={seed} cover={null} enqueue={q.enqueue} onChange={() => undefined} onClose={() => undefined} />)
     expect(screen.getByText('まだ記録していません。')).toBeTruthy()
-    await waitFor(() => expect(screen.getByRole('heading', { name: '話ごとの記録' })).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('heading', { name: /^話ごとの記録/ })).toBeTruthy())
     // 「見た」をもう一度押すと、記録から外す（記録していないと思い込んで「見た」を送り直さない）
     fireEvent.click(screen.getByRole('button', { name: '見た' }))
     await q.done()
@@ -253,9 +258,18 @@ describe('WorkDetail', () => {
     shikiMedia = { genres: ['Fantasy'], themes: ['Award Winning'] }
     render(<WorkDetail token="t" work={{ ...work, malAnimeId: '52991' }} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
     // ジャンルは見出しの付いた小さな札で並べる
-    expect(await screen.findByText('ファンタジー', { selector: '.tag' })).toBeTruthy()
-    expect(screen.getByText('受賞作', { selector: '.tag' })).toBeTruthy()
+    expect(await screen.findByText('ファンタジー', { selector: '.tag button' })).toBeTruthy()
+    expect(screen.getByText('受賞作', { selector: '.tag button' })).toBeTruthy()
     expect(screen.getByText('ジャンル', { selector: 'h3' })).toBeTruthy()
+  })
+
+  it('opens the popular anime of a genre on top when its tag is pressed', async () => {
+    shikiMedia = { genres: ['Fantasy'], themes: [] }
+    render(<WorkDetail token="t" work={{ ...work, malAnimeId: '52991' }} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'ファンタジー' }))
+    expect(await screen.findByText('このジャンルの人気の作品')).toBeTruthy()
+    const { fetchGenreWorks } = await import('../../lib/shikimori')
+    expect(vi.mocked(fetchGenreWorks)).toHaveBeenCalledWith(10)
   })
 
   it('reads nothing outside the Annict API: no synopsis and no streaming services (they are only on Annict\u2019s web pages)', async () => {
@@ -367,7 +381,7 @@ describe('WorkDetail', () => {
       expect(screen.getByText('約24分')).toBeTruthy()
       expect(screen.getByText('放送予定の続編')).toBeTruthy()
       // 中身は内容の塊に分かれる（どこまでが何の情報か）。目次は置かない
-      expect([...document.querySelectorAll('.group__title')].map((h) => h.textContent)).toEqual(['作品について', 'スタッフ・キャスト', 'ほかのサイトで見る'])
+      expect([...document.querySelectorAll('.group__title')].map((h) => h.textContent)).toEqual(['作品について', 'スタッフ・キャスト', 'ほかのサイトで見る', '感想と関連作品'])
       expect(screen.queryByRole('navigation', { name: '項目へ移る' })).toBeNull()
     } finally {
       shikiMedia = null
@@ -522,6 +536,24 @@ describe('WorkDetail: 次の放送', () => {
       localStorage.removeItem('animax.broadcast.v1')
       resetBroadcastPrefs()
     }
+  })
+
+  // 2026-10-27 利用者: 今期・来期の作品（と Shikimori で放送中の作品）だけ。前のクールに終わった作品・古い作品には出さない
+  it('shows it only for this season and next season', async () => {
+    const { seasonOf, nextSeason, previousSeason } = await import('../../lib/season')
+    const cur = seasonOf(new Date())
+    const shown = (s: { year: number; name: string }) => {
+      const { unmount } = render(
+        <WorkDetail token="t" work={{ ...work, seasonYear: s.year, seasonName: s.name.toUpperCase() }} cover={null} enqueue={queue().enqueue} onChange={() => undefined} onClose={() => undefined} />,
+      )
+      const found = screen.queryByRole('heading', { name: '次の放送' }) !== null
+      unmount()
+      return found
+    }
+    expect(shown(cur)).toBe(true)
+    expect(shown(nextSeason(cur))).toBe(true)
+    expect(shown(previousSeason(cur))).toBe(false)
+    expect(shown({ year: 2010, name: 'spring' })).toBe(false)
   })
 })
 

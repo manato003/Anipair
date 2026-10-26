@@ -71,9 +71,50 @@ function feedbackDevProxy(): Plugin {
   }
 }
 
+type TierModule = {
+  handleTier: (request: Request, deps: { store: unknown }) => Promise<Response>
+  memoryStore: () => unknown
+}
+
+// `npm run dev` と `npm run preview` で /api/tier（Tier表の共有のリンク）を動かす。本番の関数と同じ api/tier.ts の handleTier を使う。
+// 置き場所はサーバーの中だけ（止めると消える）。本番の Upstash は Shikimori の中継の控えと同じデータベースなので、手元からは書かない。
+// /t/<ID> の HTML は、vite の SPA の扱いで index.html がそのまま返る（題名と OGP の差し込みは本番の関数だけ）。ビルドの成果物には入らない
+function tierDevProxy(): Plugin {
+  let store: unknown = null
+  const middleware = (load: () => Promise<TierModule>) => async (req: Connect.IncomingMessage, res: ServerResponse, next: Connect.NextFunction) => {
+    try {
+      const { handleTier, memoryStore } = await load()
+      store ??= memoryStore()
+      const chunks: Buffer[] = []
+      for await (const chunk of req) chunks.push(chunk as Buffer)
+      const headers = new Headers()
+      for (const [k, v] of Object.entries(req.headers)) if (typeof v === 'string') headers.set(k, v)
+      const hasBody = req.method === 'POST' || req.method === 'PUT'
+      const out = await handleTier(
+        new Request(`http://${req.headers.host}${req.originalUrl ?? req.url ?? '/'}`, { method: req.method, headers, body: hasBody ? Buffer.concat(chunks) : undefined }),
+        { store },
+      )
+      res.statusCode = out.status
+      out.headers.forEach((value, key) => res.setHeader(key, value))
+      res.end(Buffer.from(await out.arrayBuffer()))
+    } catch (e) {
+      next(e)
+    }
+  }
+  return {
+    name: 'tier-dev-proxy',
+    configureServer(server) {
+      server.middlewares.use('/api/tier', middleware(() => server.ssrLoadModule('/api/tier.ts') as Promise<TierModule>))
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use('/api/tier', middleware(() => import(pathToFileURL(resolve('api/tier.ts')).href) as Promise<TierModule>))
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), shikiDevProxy(), feedbackDevProxy()],
+  plugins: [react(), shikiDevProxy(), feedbackDevProxy(), tierDevProxy()],
   define: {
     __APP_VERSION__: JSON.stringify(version),
     // 実績の「God モード」（すべての称号を手に入れた状態で並べる試し表示）を出すか。本番（Vercel の production）のビルドだけ出さない

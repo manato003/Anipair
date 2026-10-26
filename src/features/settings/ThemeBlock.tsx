@@ -23,7 +23,7 @@ export function ThemeBlock() {
       <SettingRow label="言語 / Language"> {/* i18n-ok */}
         <LangChoices />
       </SettingRow>
-      <SettingRow label={t('テーマの色', 'Theme color')} hint={t('自動は、見ているクールの季節の色', 'Auto uses the color of the season you’re viewing')}>
+      <SettingRow label={t('テーマの色', 'Theme color')} hint={t('自動は見ているクールの季節の色', 'Auto uses the color of the season you’re viewing')}>
         <Choices label={t('テーマの色', 'Theme color')} choices={COLORS} value={prefs.color} onChoose={(v) => choose('color', v)} />
       </SettingRow>
       <SettingRow label={t('明るさ', 'Brightness')} hint={t('自動は端末の設定どおり', 'Auto follows your device setting')}>

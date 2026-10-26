@@ -90,8 +90,8 @@ export function sortNote({ key, dir }: SortChoice): string {
         : t('放送の古い順です。放送時期の分からない作品は最後に並びます。', 'Sorted by air date, oldest first. Anime with no known air date come last.')
     case 'taste':
       return desc
-        ? t('あなたの評価から、好みに合いそうな順です。', 'Sorted by how well they match your taste, based on your ratings.')
-        : t('あなたの評価から、好みに合いそうな作品を後ろにした順です。', 'Sorted by how well they match your taste, best matches last.')
+        ? t('あなたの評価から好みに合いそうな順です。', 'Sorted by how well they match your taste, based on your ratings.')
+        : t('あなたの評価から好みに合いそうな作品を後ろにした順です。', 'Sorted by how well they match your taste, best matches last.')
   }
 }
 

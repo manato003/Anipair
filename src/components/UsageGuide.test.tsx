@@ -33,17 +33,17 @@ describe('UsageGuide', () => {
     }
     expect(titles).toEqual([
       'ようこそ、Anipairへ',
-      '評価: 表紙を見て、答える',
+      '評価: 表紙を見て答える',
       'マッチング: 次の好きを見つける',
       '記録: 見てる・見た・見たい',
       'ブラウズ: 作品を探す',
-      '画面の行き来と、困ったとき',
+      '画面の行き来と困ったとき',
       'さあ、はじめよう',
     ])
     // 最後のページは「はじめる」
     expect(screen.queryByRole('button', { name: '次へ' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: '戻る' }))
-    expect(heading()).toBe('画面の行き来と、困ったとき')
+    expect(heading()).toBe('画面の行き来と困ったとき')
     // 画面のページには、画面を簡単にした図がある
     expect(document.querySelector('.guide-wire')).toBeTruthy()
   })

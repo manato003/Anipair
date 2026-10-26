@@ -51,7 +51,7 @@ export function BrowseFilterSheet(props: {
       </div>
       {props.hasMore && props.works && (
         <p className="note filtersheet__lead">
-          {t(`ここから下は、読み込んだ${works.length}作品の中で絞り込みます。一覧の「もっと見る」で、絞り込む作品を増やせます。`, `Everything below filters the ${works.length} anime loaded so far. Use “Show more” in the list to filter more.`)}
+          {t(`ここから下は読み込んだ${works.length}作品の中で絞り込みます。一覧の「もっと見る」で、絞り込む作品を増やせます。`, `Everything below filters the ${works.length} anime loaded so far. Use “Show more” in the list to filter more.`)}
         </p>
       )}
       <ChipSection

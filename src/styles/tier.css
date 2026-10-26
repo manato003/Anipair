@@ -1,0 +1,1044 @@
+/* 記録の「まとめ ▸ Tier表」（features/tier）。
+   表は撮ればそのまま投稿できる見た目にする: 地は塗った1枚の板、段の名前は色の帯、表紙は小さく詰めて並べる。
+   5段・7段がスマホの1画面に収まる大きさ（表紙は幅 48px） */
+
+.tierview__tables {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.tierview__back {
+  font-size: 0.95rem;
+}
+
+/* 表が2つ以上のときの一覧（TierShelf）。カードは題名と、段の色に表紙を並べた小さな見本 */
+.tiershelf {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tiershelf__card {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: var(--ink-raised);
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tiershelf__card:hover {
+  border-color: var(--line-strong);
+}
+
+.tiershelf__title {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.tiershelf__meta {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.tiershelf__board {
+  display: grid;
+  gap: 2px;
+  margin-top: 6px;
+  overflow: hidden;
+  border-radius: var(--radius-s);
+}
+
+.tiershelf__row {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  min-height: 30px;
+}
+
+.tiershelf__label {
+  display: grid;
+  place-items: center;
+  color: #1c1b1f;
+  font-size: 0.8rem;
+  font-weight: 700;
+  overflow: hidden;
+}
+
+.tiershelf__tiles {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  overflow: hidden;
+  background: var(--control);
+}
+
+.tiershelf__tile {
+  flex: none;
+  width: 18px;
+  aspect-ratio: var(--cover-ratio);
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--line);
+}
+
+.tiershelf__tile img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tiershelf__new {
+  margin-top: 12px;
+}
+
+.tierview__scope {
+  margin: 0 0 12px;
+}
+
+.tierboard {
+  --tile: 48px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: var(--ink-raised);
+}
+
+.tierboard__title {
+  margin: 0;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.95rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.tierrow {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  min-height: calc(var(--tile) / var(--cover-ratio) + 8px);
+  border-bottom: 1px solid var(--line);
+}
+
+/* 名前は、表紙が1行なら縦の真ん中、何行にも折り返す段では上に寄せる（真ん中だと、作品の多い段で画面の外に出る） */
+.tierrow__label {
+  display: grid;
+  place-items: start center;
+  padding: calc((var(--tile) / var(--cover-ratio) + 8px) / 2 - 0.6em) 4px 4px;
+  border: 0;
+  color: #1c1b1f;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+button.tierrow__label {
+  cursor: pointer;
+  /* 選んでいるあいだは、押せる帯だと分かるように内側に線 */
+  box-shadow: inset 0 0 0 2px rgb(0 0 0 / 0.35);
+}
+
+.tierrow__items {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 3px;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+}
+
+.tiertile {
+  display: block;
+  overflow: hidden;
+  width: var(--tile, 48px);
+  aspect-ratio: var(--cover-ratio);
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: var(--control);
+  cursor: pointer;
+}
+
+.tiertile img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tiertile img.cover--contain {
+  object-fit: contain;
+}
+
+.tiertile[aria-pressed='true'] {
+  outline: 3px solid var(--paper);
+  outline-offset: 1px;
+}
+
+/* 表紙の無い作品は題名を小さく */
+.tiertile__text {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  padding: 2px;
+  color: var(--fg);
+  font-size: 0.55rem;
+  line-height: 1.2;
+  text-align: center;
+  overflow-wrap: anywhere;
+  overflow: hidden;
+}
+
+.tierboard__mark {
+  margin: 0;
+  padding: 4px 10px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+/* 「まだ置いていない」と「表に入れない作品」は同じ枠（どちらも表紙を落とせる場所） */
+.tierpool,
+.tierout {
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+}
+
+.tierout {
+  margin-top: 12px;
+}
+
+.tierpool__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.tierpool__title {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.tierpool__title .rhead__count {
+  margin-left: 6px;
+}
+
+.tierbar__spacer {
+  height: 200px;
+}
+
+.tierpool__items {
+  --tile: 48px;
+  padding: 0;
+}
+
+/* 選んだ作品を動かす帯。画面の下（タブの帯の上）に浮かべる */
+.tierbar {
+  position: fixed;
+  right: max(12px, calc((100% - var(--col)) / 2));
+  bottom: calc(72px + env(safe-area-inset-bottom));
+  left: max(12px, calc((100% - var(--col)) / 2));
+  z-index: 20;
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-m);
+  background: var(--float);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
+}
+
+.tierbar__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.tierbar__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tierbar__close {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.tierbar__tiers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tierbar__tier {
+  flex: 1 0 40px;
+  min-height: 40px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius-s);
+  color: #1c1b1f;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tierbar__tier[aria-pressed='true'] {
+  outline: 3px solid var(--paper);
+  outline-offset: 1px;
+}
+
+.tierbar__moves {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tierbar__moves .btn {
+  flex: 1 1 auto;
+}
+
+@media (min-width: 960px) {
+  .tierboard,
+  .tierpool__items {
+    --tile: 56px;
+  }
+
+  .tierbar {
+    bottom: 16px;
+  }
+}
+
+/* 1枚ずつ振り分ける */
+.tiersort {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding-bottom: 8px;
+}
+
+.tiersort__cover {
+  overflow: hidden;
+  width: min(48vw, 200px);
+  aspect-ratio: var(--cover-ratio);
+  border-radius: var(--radius-m);
+  background: var(--control);
+}
+
+.tiersort__cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tiersort__cover img.cover--contain {
+  object-fit: contain;
+}
+
+.tiersort__name {
+  margin: 0;
+  font-weight: 700;
+  text-align: center;
+}
+
+.tiersort__tiers {
+  width: 100%;
+}
+
+/* 「ひとつ戻る」は左（評価の画面と同じ側）。「表に入れない」は右 */
+.tiersort__acts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* 選んだ表に作品を足す（TierPick）。探す欄と絞り込みは上、結果は表紙・題名・＋の行 */
+.tierpick__tools {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.tierpick__tools .btn {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+}
+
+.tierpick__filters {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  margin-top: 4px;
+}
+
+.tierpick__filters > .filtersheet__group {
+  justify-self: stretch;
+}
+
+/* 押すと開く項目（ジャンル・制作会社）。見出しの行全体が押せる。選んだものは見出しの横に省略して出す */
+.tierpick__fold {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tierpick__fold .detail__label {
+  flex: none;
+}
+
+.tierpick__picked {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.85rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tierpick__foldmark {
+  flex: none;
+  color: var(--sub);
+}
+
+.tierpick__fold + .filtersheet__chips {
+  margin-top: 10px;
+}
+
+.tierpick__cours {
+  display: grid;
+  gap: 8px;
+}
+
+.tierpick__cour {
+  display: grid;
+  grid-template-columns: 3em minmax(0, 1fr) minmax(0, 0.8fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.tierpick__courlabel {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.tierpick__cour select {
+  min-width: 0;
+}
+
+.tierpick__cour select:disabled {
+  opacity: 0.5;
+}
+
+.tierpick__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 16px 0 8px;
+}
+
+.tierpick__bar .note {
+  margin: 0;
+}
+
+.tierpick__order {
+  display: flex;
+  gap: 6px;
+}
+
+.tierpick__loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tierpick__all {
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+}
+
+.tierpick__list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tierpick__item {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.tierpick__cover {
+  display: block;
+  overflow: hidden;
+  width: 40px;
+  aspect-ratio: var(--cover-ratio);
+  border-radius: 3px;
+  background: var(--control);
+}
+
+.tierpick__cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tierpick__text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tierpick__name {
+  overflow: hidden;
+  font-size: 0.9rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tierpick__sub {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.tierpick__add {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  font-size: 1.1rem;
+}
+
+.tierpick__add--on {
+  border-color: var(--fg);
+  background: var(--fg);
+  color: var(--ink);
+}
+
+.tierpick__more {
+  justify-self: center;
+  margin: 12px auto 0;
+  display: flex;
+}
+
+/* 選んだ表に作品がまだ無いとき */
+.tierview__empty {
+  margin: 8px 0 16px;
+}
+
+/* 視聴中断を入れる（表の設定） */
+.tiersettings__check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+
+/* 表の設定 */
+.tiersettings {
+  display: grid;
+  gap: 14px;
+}
+
+.tiersettings__field {
+  display: grid;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.tiersettings input[type='text'] {
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--control);
+  color: var(--fg);
+  font: inherit;
+}
+
+.tiersettings__count {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.tiersettings__count span {
+  flex: 1 1 auto;
+}
+
+.tiersettings__count .btn {
+  width: 48px;
+  padding: 0;
+  font-size: 1.1rem;
+}
+
+.tiersettings__names {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 1.6em;
+}
+
+.tiersettings__names input {
+  width: 100%;
+}
+
+.tiersettings__danger {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.tiersettings__danger .note {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.btn--danger {
+  border-color: transparent;
+  background: var(--danger);
+  color: #fff;
+}
+
+.tierview__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* 共有のシート（TierShareSheet） */
+.tiershare {
+  display: grid;
+  gap: 12px;
+}
+
+.tiershare .note {
+  margin: 0;
+}
+
+.tiershare__url {
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+.tiershare__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tiershare__stale {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+
+.tiershare__error {
+  color: var(--danger);
+}
+
+/* 共有のリンクで開いた表（SharedTierPage）。アプリの枠（.app）は使わず、ページ全体を流す */
+.sharedtier {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: max(12px, env(safe-area-inset-top)) 16px max(32px, env(safe-area-inset-bottom));
+}
+
+.sharedtier__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.sharedtier__head a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.sharedtier__main {
+  display: grid;
+  gap: 12px;
+}
+
+.sharedtier__main .note {
+  margin: 0;
+}
+
+.sharedtier .tierboard__title {
+  font-size: 1.05rem;
+}
+
+/* 見る画面の表紙は少し大きく（並べ替えの帯が無いぶん、画面を使える） */
+.sharedtier .tierboard {
+  --tile: 56px;
+}
+
+/* 共有の表の作品カード（SharedWorkCard）のログインの案内 */
+.sharedwork__cta {
+  justify-self: start;
+  margin-top: 4px;
+  text-decoration: none;
+}
+
+.sharedtier__error {
+  padding: 24px 0;
+  text-align: center;
+}
+
+.sharedtier__cta {
+  justify-self: center;
+  text-decoration: none;
+}
+
+.sharedtier__links {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.sharedtier__links a {
+  color: var(--muted);
+}
+
+/* ── 引いて動かす（features/tier/useTierDrag.ts） ── */
+
+/* 長押しで文字の選択・画像のメニューを出さない */
+.tiertile {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.tiertile.is-dragging {
+  opacity: 0.3;
+}
+
+body.is-tierdragging,
+body.is-tierdragging * {
+  cursor: grabbing !important;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* 指に付いていく表紙。重なりの囲いを避けて body の直下に置く */
+.tierghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  pointer-events: none;
+  /* 表紙の無い作品の地（--control）は半透明なので、下の板の色を敷いて透けないようにする */
+  background: linear-gradient(var(--control), var(--control)), var(--ink-raised);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.45);
+  transform-origin: top left;
+}
+
+/* 入る位置の線（影より手前に出す） */
+.tiermarker {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1001;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--paper);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.4);
+  pointer-events: none;
+}
+
+.tiermarker[hidden] {
+  display: none;
+}
+
+.tierrow.is-droptarget .tierrow__items {
+  background: color-mix(in srgb, var(--paper) 10%, transparent);
+}
+
+.tierpool.is-droptarget,
+.tierout.is-droptarget {
+  border-style: dashed;
+  border-color: var(--paper);
+  background: color-mix(in srgb, var(--paper) 10%, transparent);
+}
+
+.tierpool__note {
+  margin: 0 0 8px;
+}
+
+/* 「一覧へ」で流したとき、上の見出しの帯に隠れないように */
+.tierpool {
+  scroll-margin-top: 88px;
+}
+
+/* 表の上の入口（まだ置いていない作品があるときだけ）。下の欄と同じ枠 */
+.tierlater {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+}
+
+.tierlater .tierpool__title {
+  font-weight: 700;
+}
+
+.tierlater .rhead__count {
+  margin-left: 6px;
+}
+
+.tierlater__acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+/* 表に入れない作品（いちばん下に閉じて置く）。見出しは「まだ置いていない」と同じ大きさ */
+.tierout__head {
+  padding: 4px 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tierout__head .rhead__count {
+  margin-left: 6px;
+}
+
+.tierout[open] .tierout__head {
+  margin-bottom: 8px;
+}
+
+.tierout .note {
+  margin: 0 0 4px;
+}
+
+.tierout__items {
+  --tile: 40px;
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tierout__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tierout__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* 作る流れの質問（TierAsk）。押したらすぐ次へ進む */
+/* 画面の中央に重ねる。後ろの見本の表は、背景の上からも流せる（背景は押せない。押せるのは質問の枠だけ） */
+.tierask-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(0 0 0 / 0.3);
+  pointer-events: none;
+}
+
+.tierask {
+  display: grid;
+  gap: 16px;
+  width: min(100%, 420px);
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: var(--ink);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.25);
+  pointer-events: auto;
+  animation: tierask-in 0.18s ease-out;
+}
+
+@keyframes tierask-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tierask {
+    animation: none;
+  }
+}
+
+.tierask__head {
+  display: grid;
+  grid-template-columns: 36px 1fr 36px;
+  align-items: center;
+  gap: 8px;
+}
+
+.tierask__foot {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.tierask__icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--ink-raised);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.tierask__question {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.tierask__choices {
+  display: grid;
+  gap: 8px;
+}
+
+.tierask__choices--row {
+  grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+}
+
+.tierask__pick {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 2px;
+  min-height: 52px;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--control);
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+}
+
+.tierask__choices--row .tierask__pick {
+  padding: 8px 4px;
+}
+
+/* ジャンル（43）・制作会社（20）。折り返して並べ、画面に収まらなければこの中だけ流す */
+.tierask__choices--chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-height: min(55vh, 420px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.tierask__choices--chips .tierask__pick {
+  min-height: 40px;
+  padding: 6px 12px;
+}
+
+.tierask__pick--primary {
+  border-color: transparent;
+  background: var(--brand-gradient);
+  color: var(--ink);
+}
+
+.tierask__sub {
+  font-size: 0.8rem;
+  font-weight: 400;
+  opacity: 0.75;
+}
+
+
+/* 段の数を選ぶ前の見本（動かせない） */
+.tiersetup__preview {
+  pointer-events: none;
+}

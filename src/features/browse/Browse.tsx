@@ -136,7 +136,7 @@ export function Browse({ token, active = true }: { token: string; active?: boole
           <p className="note records__sortnote">
             {b.sortNote ??
               t(
-                `あなたの評価から、${tasteDir.ja}に並べています。情報の無い作品は最後に並びます。`,
+                `あなたの評価から${tasteDir.ja}に並べています。情報の無い作品は最後に並びます。`,
                 `Sorted by your ratings, ${tasteDir.en}. Anime with no data come last.`,
               )}
           </p>

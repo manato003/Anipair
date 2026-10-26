@@ -119,6 +119,64 @@ img.cover--contain {
   margin-top: 16px;
 }
 
+/* あなたの記録の状態と評価: 同じ大きさのチップの組。広い画面では左右に並べる */
+.detail__pair {
+  display: grid;
+  gap: 16px;
+  margin-top: 10px;
+}
+
+.detail__pair > .detail__section {
+  margin-top: 0;
+}
+
+@media (min-width: 960px) {
+  .detail__pair {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start; /* 高い方（状態）に合わせて伸ばすと、余りの高さが評価のボタンに回る */
+    gap: 24px;
+  }
+}
+
+/* 評価を状態のチップと同じ大きさに（色は評価ごとの --tone のまま） */
+.mini-ratings--chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mini-ratings--chips .mini-rating {
+  min-height: 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+}
+
+/* 畳んだ項目（話ごとの記録・詳細な評価と感想）: 見出しの行ごと押せる。右に進み具合と開閉の印 */
+.detail__fold {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.detail__foldnote {
+  flex: 1;
+  min-width: 0;
+  color: var(--fg);
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
 .group > .group__title + .detail__section {
   margin-top: 10px;
 }
@@ -138,6 +196,30 @@ img.cover--contain {
   border-radius: 6px;
   background: color-mix(in srgb, var(--paper) 9%, transparent);
   font-size: 0.78rem;
+}
+
+/* 押すと同じジャンルの作品を重ねて開く札。札の全体を押せるようにする */
+.tag:has(.tag__link) {
+  padding: 0;
+}
+
+.tag__link {
+  padding: 2px 8px;
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline dotted color-mix(in srgb, var(--paper) 45%, transparent);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .tag__link:hover {
+    color: var(--brand-blue);
+    text-decoration-style: solid;
+  }
 }
 
 .state-chips {
@@ -755,12 +837,7 @@ a.related__title {
   }
 }
 
-/* 項目別の評価と感想（ReviewEditor）。普段は「書く」のリンクだけ */
-.review__open {
-  margin-top: 12px;
-  font-size: 0.85rem;
-}
-
+/* 項目別の評価と感想（ReviewEditor）。普段は畳んだ見出しの行（.detail__fold）だけ */
 .review {
   display: grid;
   gap: 10px;
@@ -768,11 +845,6 @@ a.related__title {
   padding: 14px;
   border: 1px solid var(--line);
   border-radius: var(--radius-m);
-}
-
-.review .review__open {
-  margin-top: 0;
-  justify-self: start;
 }
 
 .review__draft {

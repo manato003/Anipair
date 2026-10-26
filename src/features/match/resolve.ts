@@ -1,4 +1,4 @@
-import { searchWorksByTitle, type WorkRef } from '../../lib/annict'
+import { searchWorksByTitle, searchWorksByTitles, type BrowseWork, type WorkRef } from '../../lib/annict'
 import type { Media } from '../../lib/shikimori'
 
 // 候補（Shikimori の作品）から Annict の作品を特定する。Annict は MyAnimeList の ID で検索できないので、
@@ -72,4 +72,34 @@ export async function resolveAnnictWork(token: string, media: Pick<Media, 'idMal
     if (hit) return hit
   }
   return null
+}
+
+// 1回の問い合わせにまとめる題名の数
+const BATCH_TITLES = 5
+
+// いくつかの作品をまとめて Annict の作品に結びつける（MyAnimeList の ID → Annict の作品）。resolveAnnictWork と同じ手順を、
+// 題名の候補の1番目どうし・2番目どうし…でまとめて引く（大半は1番目で当たるので、問い合わせは作品の数の 1/5 ほど）。見つからなかった作品は入らない
+export async function resolveAnnictWorks(
+  token: string,
+  medias: readonly Pick<Media, 'idMal' | 'title'>[],
+  search: (token: string, titles: readonly string[]) => Promise<BrowseWork[][]> = searchWorksByTitles,
+): Promise<Map<number, BrowseWork>> {
+  const found = new Map<number, BrowseWork>()
+  const variants = new Map(medias.map((m) => [m.idMal, titleVariants(m.title)]))
+  for (let level = 0; level < MAX_VARIANTS; level++) {
+    const asks = medias.flatMap((m) => {
+      const v = variants.get(m.idMal)?.[level]
+      return !found.has(m.idMal) && v ? [{ mal: m.idMal, title: v }] : []
+    })
+    if (asks.length === 0) break
+    for (let i = 0; i < asks.length; i += BATCH_TITLES) {
+      const part = asks.slice(i, i + BATCH_TITLES)
+      const hits = await search(token, part.map((a) => a.title))
+      part.forEach((a, j) => {
+        const hit = hits[j]?.find((w) => w.malAnimeId === String(a.mal))
+        if (hit && !found.has(a.mal)) found.set(a.mal, hit)
+      })
+    }
+  }
+  return found
 }

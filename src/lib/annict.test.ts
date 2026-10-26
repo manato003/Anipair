@@ -92,6 +92,24 @@ describe('gql: 429 (rack-attack)', () => {
     await p
     expect(fetchMock).toHaveBeenCalledTimes(3)
   })
+
+  it('waits the whole Retry-After up to a minute, without sending early', async () => {
+    vi.useFakeTimers()
+    fetchMock.mockResolvedValueOnce(json({}, 429, { 'Retry-After': '59' })).mockResolvedValueOnce(json(viewer))
+    const p = fetchViewer('t', { fresh: true })
+    await vi.advanceTimersByTimeAsync(58_999)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(await p).toEqual({ username: 'u', name: 'n' })
+  })
+
+  it('gives up instead of sending early when asked to wait longer than a minute', async () => {
+    vi.useFakeTimers()
+    fetchMock.mockResolvedValueOnce(json({}, 429, { 'Retry-After': '120' }))
+    await expect(fetchViewer('t', { fresh: true })).rejects.toMatchObject({ kind: 'api', message: expect.stringContaining('利用制限') })
+    await vi.advanceTimersByTimeAsync(120_000)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe('gql: reads time out, writes run alone', () => {

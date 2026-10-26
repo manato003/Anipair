@@ -82,6 +82,9 @@ export interface PoolEntry {
   recScore: number
   // この候補を推薦している、好きな作品
   from: Seed[]
+  // この候補と同じシリーズの、好きな作品（いちばん評価の高いもの）と、その作品から見たつながり（sequel・prequel・side_story。addSeries）
+  series?: Seed
+  seriesKind?: string
 }
 
 // 似た作品の並びの上位ほど強く効かせる。1位を1として、1つ下がるごとに 1/(1+0.15×順位) まで弱める（40位で約 0.14）
@@ -103,6 +106,58 @@ export function collectPool(seeds: Seed[], similar: ReadonlyMap<number, readonly
     })
   }
   return [...pool.values()].filter((e) => e.recScore > 0).sort((a, b) => b.recScore - a.recScore)
+}
+
+// 同じシリーズとして扱う関連作品の種類（Shikimori の relationKind）と、上乗せの割合。じかにつながる続編・前作を満額、外伝は小さく。
+// parent_story は、シリーズの大元を指すことがある（『機動戦士ガンダムSEED』→ 1979年の『機動戦士ガンダム』）ので入れない。
+// スピンオフ・別の版・総集編・登場人物の共通・原作も入れない。外伝を満額にすると、短い特別編やスピンオフの OVA が上位を埋めた
+// （2026-10-21 利用者の記録で、30枚のうち2〜13位がシリーズ作。scripts/match_eval.ts --show）
+const SERIES_KINDS: ReadonlyMap<string, number> = new Map([
+  ['sequel', 1],
+  ['prequel', 1],
+  ['side_story', 0.35],
+])
+// シリーズ作の上乗せ（順位の点数。推薦の強さ 1・好みの一致 0.6 に足す）。とても良い（重み 2）の作品の続編で満額、良い（重み 1）で半分
+export const SERIES_BONUS = 0.8
+// 1話がこれより短い外伝（ミニアニメ・数分の特別編）は上乗せしない
+const SHORT_MINUTES = 10
+// 似た作品の一覧に入っていないシリーズ作を、新しく候補に足す数の上限（作品の情報を読む数を抑える）
+export const SERIES_LIMIT = 30
+
+// 好きな作品のシリーズ作（続編・前作・外伝など）を候補に足し、印を付ける（2026-10-21 利用者 #36: 好評価の作品のシリーズ作は高めに出す）。
+// 似た作品の一覧（Shikimori）にはシリーズ作が入らないことが多いので、好きな作品の関連作品から直接足す。
+// 記録した・興味なしの作品（exclude）は足さない。関連作品は、好みを作るときに読んだ作品の情報（seedMedia）にあるものだけ使う
+export function addSeries(pool: readonly PoolEntry[], seeds: readonly Seed[], seedMedia: ReadonlyMap<number, Media>, exclude: ReadonlySet<number>): PoolEntry[] {
+  const byId = new Map(pool.map((e) => [e.malId, { ...e }]))
+  let added = 0
+  const liked = seeds.filter((s) => s.weight > 0).sort((a, b) => b.weight - a.weight)
+  for (const s of liked) {
+    for (const r of seedMedia.get(s.malId)?.related ?? []) {
+      const share = SERIES_KINDS.get(r.kind)
+      if (!share || r.malId === s.malId || exclude.has(r.malId)) continue
+      let e = byId.get(r.malId)
+      if (!e) {
+        if (added >= SERIES_LIMIT) continue
+        e = { malId: r.malId, recScore: 0, from: [] }
+        byId.set(r.malId, e)
+        added += 1
+      }
+      const cur = e.series ? e.series.weight * (SERIES_KINDS.get(e.seriesKind ?? '') ?? 0) : 0
+      if (s.weight * share > cur) {
+        e.series = s
+        e.seriesKind = r.kind
+      }
+    }
+  }
+  return [...byId.values()]
+}
+
+// シリーズ作の上乗せ（addSeries の印から）。外伝のうち1話の短いものは0
+export function seriesBonus(entry: PoolEntry, m: Media): number {
+  if (!entry.series) return 0
+  const share = SERIES_KINDS.get(entry.seriesKind ?? '') ?? 0
+  if (entry.seriesKind === 'side_story' && m.duration && m.duration < SHORT_MINUTES) return 0
+  return SERIES_BONUS * Math.min(1, entry.series.weight / 2) * share
 }
 
 export interface Candidate {
@@ -146,7 +201,7 @@ export function rankCandidates(
   return rows
     .map((r) => ({
       media: r.media,
-      score: r.rec / maxRec + 0.6 * (r.content / maxContent),
+      score: r.rec / maxRec + 0.6 * (r.content / maxContent) + seriesBonus(r.entry, r.media),
       reasons: explain(r.media, r.entry, profile, r.sequel),
     }))
     .sort((a, b) => b.score - a.score)
@@ -256,6 +311,11 @@ export function explain(m: Media, entry: PoolEntry, profile: ReadonlyMap<string,
   const reasons: string[] = []
   // 日本語は助詞でつなぐ文、英語は語順の違う文なので、言語ごとに文を組み立てる（断片ごとに訳さない）
   const list = (names: readonly string[]) => names.map(genreName).join(t('・', ', '))
+  // 好きな作品のシリーズ作は、それを一番に書く（前作を見ていることも、これで分かる）
+  if (entry.series) {
+    const title = t(`『${entry.series.title}』`, `“${workTitle(entry.series)}”`)
+    reasons.push(t(`好きな${title}のシリーズ作品`, `From the same series as ${title}, which you liked`))
+  }
   const from = [...entry.from].sort((a, b) => b.weight - a.weight).slice(0, 2)
   if (from.length) {
     const titles = from.map((s) => t(`『${s.title}』`, `“${workTitle(s)}”`))
@@ -267,6 +327,6 @@ export function explain(m: Media, entry: PoolEntry, profile: ReadonlyMap<string,
   if (themes.length) reasons.push(t(`好きなテーマ: ${list(themes)}`, `${themes.length === 1 ? 'Theme' : 'Themes'} you like: ${list(themes)}`))
   const studio = m.studios.find((s) => (profile.get(`s:${s}`) ?? 0) > 0.3)
   if (studio) reasons.push(t(`好きな制作会社: ${studio}`, `Studio you like: ${studio}`))
-  if (sequel) reasons.push(t('前作を見ています', 'You’ve seen the prequel'))
+  if (sequel && !entry.series) reasons.push(t('前作を見ています', 'You’ve seen the prequel'))
   return reasons
 }

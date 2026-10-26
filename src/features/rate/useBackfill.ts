@@ -202,7 +202,7 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
 
   // 始まる前の同期はまとめる（詳しくは useCoalescedTask）
   const syncRun = useMemo(() => (github ? async () => void (await syncUnseen(github)) : null), [github])
-  const syncLater = useCoalescedTask(enqueue, t('「見てない」の記録のGitHubへの保存', 'Saving “Haven’t seen” records to GitHub'), syncRun)
+  const syncLater = useCoalescedTask(enqueue, t('「見てない」の記録をGitHubに保存', 'Saving “Haven’t seen” records to GitHub'), syncRun)
 
   const goToSeason = useCallback((next: Season, forward = false) => {
     if (next.year < OLDEST_YEAR) {

@@ -49,7 +49,7 @@ afterEach(() => cleanup())
 
 const open = async () => {
   render(<ReviewEditor token="t" workId="W5" annictId={5} title="作品5" overall="GOOD" enqueue={enqueue} />)
-  fireEvent.click(screen.getByRole('button', { name: '詳細な評価と感想を書く' }))
+  fireEvent.click(screen.getByRole('button', { name: /^詳細な評価と感想/ }))
   return (await screen.findByRole('textbox')) as HTMLTextAreaElement
 }
 
@@ -84,6 +84,10 @@ describe('ReviewEditor', () => {
   it('keeps unsaved input as a draft, shows it next time, and can throw it away', async () => {
     const box = await open()
     fireEvent.change(box, { target: { value: '書きかけ' } })
+    cleanup()
+    // 閉じた見出しの行に、下書きがあることを出す（送ったものと見分けられるように）
+    render(<ReviewEditor token="t" workId="W5" annictId={5} title="作品5" overall="GOOD" enqueue={enqueue} />)
+    expect(screen.getByRole('button', { name: /下書きあり/ }).getAttribute('aria-expanded')).toBe('false')
     cleanup()
     const again = await open()
     expect(again.value).toBe('書きかけ')

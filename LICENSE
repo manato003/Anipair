@@ -55,3 +55,18 @@ public/のロゴとアイコン（logo-mark.svg・logo-mark-on-dark.svg・favico
 icon-*.png・apple-touch-icon.png）、index.htmlの絵、screenshots/などに含まれます。
 フォークや派生物を公開するときは、名前・ロゴ・キャラクターを差し替えてください。
 
+---------------------------------------------------------------------------
+
+Exception: font (fonts/)
+
+fonts/ZenMaruGothic-Bold.ttf (Zen Maru Gothic, Copyright The Zen Maru Gothic
+Project Authors) is licensed under the SIL Open Font License, Version 1.1, not
+the MIT License. The full text is in fonts/OFL.txt. It is used to draw the
+card image shown when a shared tier list link is posted.
+
+例外: 書体（fonts/）
+
+fonts/ZenMaruGothic-Bold.ttf（Zen Maru Gothic。著作権はThe Zen Maru Gothic Project
+Authors）は、SIL Open Font License 1.1で配布されています。全文はfonts/OFL.txtにあります。
+Tier表の共有のリンクを貼ったときのカードの画像を描くのに使います。
+

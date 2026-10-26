@@ -40,6 +40,11 @@ export function Welcome(props: {
           'で、スコープを「読み込み + 書き込み」にして個人用アクセストークンを作成し、下の欄に貼り付けてください。',
           ', create a personal access token with the “Read + Write” scope, and paste it below.',
         )}
+        {/* Annict の API利用規約 第4条（2026-11-25 施行）: トークンでできることと、他人に教えないことを説明する */}
+        {t(
+          'このトークンがあると、あなたのAnnictの記録を読んだり、記録や感想を付けたりできます。ほかの人には教えないでください。',
+          ' This token can read your Annict records and add records and reviews. Don’t share it with anyone.',
+        )}
       </p>
       <TokenForm
         label={t('Annictの個人用アクセストークン', 'Annict personal access token')}

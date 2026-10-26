@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { LibraryEntry, RatingState, StatusState } from '../../lib/annict'
 import type { Media } from '../../lib/shikimori'
-import { SIMILAR_RANK_DECAY, buildProfile, buildSeeds, collectPool, contentScore, explain, features, genreName, rankCandidates, seedWeight, seenMalIds, type Seed } from './taste'
+import { SERIES_BONUS, SERIES_LIMIT, SIMILAR_RANK_DECAY, addSeries, seriesBonus, buildProfile, buildSeeds, collectPool, contentScore, explain, features, genreName, rankCandidates, seedWeight, seenMalIds, type Seed } from './taste'
 
 function media(idMal: number, extra: Partial<Media> = {}): Media {
   return {
@@ -254,5 +254,60 @@ describe('genreName', () => {
     expect(genreName('Award Winning')).toBe('受賞作')
     expect(genreName('Seinen')).toBe('青年向け')
     expect(genreName('Brand New Theme')).toBe('Brand New Theme')
+  })
+})
+
+describe('addSeries (#36: the series of anime you liked comes first)', () => {
+  const great: Seed = { malId: 1, title: '好きな作品', weight: 2 }
+  const good: Seed = { malId: 2, title: 'まあ好き', weight: 1 }
+  const bad: Seed = { malId: 3, title: '苦手', weight: -1.5 }
+  const seedMedia = new Map([
+    [1, media(1, { related: [{ kind: 'sequel', malId: 11 }, { kind: 'side_story', malId: 12 }, { kind: 'summary', malId: 13 }, { kind: 'adaptation', malId: 14 }, { kind: 'sequel', malId: 15 }, { kind: 'parent_story', malId: 16 }, { kind: 'spin_off', malId: 17 }] })],
+    [2, media(2, { related: [{ kind: 'sequel', malId: 11 }, { kind: 'prequel', malId: 21 }] })],
+    [3, media(3, { related: [{ kind: 'sequel', malId: 31 }] })],
+  ])
+
+  it('adds sequels, prequels and side stories of liked anime, but not the franchise root (parent_story), spin-offs, summaries, adaptations, disliked anime or excluded ones', () => {
+    const out = addSeries([], [great, good, bad], seedMedia, new Set([15]))
+    expect(out.map((e) => e.malId).sort((a, b) => a - b)).toEqual([11, 12, 21])
+    // 2つの好きな作品のシリーズなら、評価の高い方を理由にする
+    expect(out.find((e) => e.malId === 11)?.series).toBe(great)
+    expect(out.find((e) => e.malId === 21)?.series).toBe(good)
+  })
+
+  it('marks a candidate already in the pool instead of adding it twice', () => {
+    const out = addSeries([{ malId: 11, recScore: 3, from: [good] }], [great], seedMedia, new Set())
+    const e = out.filter((x) => x.malId === 11)
+    expect(e).toHaveLength(1)
+    expect(e[0].recScore).toBe(3)
+    expect(e[0].series).toBe(great)
+  })
+
+  it('adds at most SERIES_LIMIT new candidates', () => {
+    const many = new Map([[1, media(1, { related: Array.from({ length: SERIES_LIMIT + 5 }, (_, i) => ({ kind: 'side_story', malId: 100 + i })) })]])
+    expect(addSeries([], [great], many, new Set())).toHaveLength(SERIES_LIMIT)
+  })
+
+  it('ranks the sequel of a much-liked anime above an otherwise equal candidate, and says why first', () => {
+    const pool = addSeries([{ malId: 50, recScore: 1, from: [great] }, { malId: 11, recScore: 1, from: [great] }], [great], seedMedia, new Set())
+    const details = new Map([
+      [50, media(50)],
+      [11, media(11, { prequels: [1] })],
+    ])
+    const ranked = rankCandidates(pool, details, new Map(), new Set([1]))
+    expect(ranked.map((c) => c.media.idMal)).toEqual([11, 50])
+    expect(ranked[0].score - ranked[1].score).toBeCloseTo(SERIES_BONUS)
+    expect(ranked[0].reasons[0]).toBe('好きな『好きな作品』のシリーズ作品')
+    // 「前作を見ています」は、シリーズの理由と重ねない
+    expect(ranked[0].reasons).not.toContain('前作を見ています')
+  })
+
+  it('gives side stories a smaller boost, and none to very short ones', () => {
+    const side = { malId: 12, recScore: 0, from: [], series: great, seriesKind: 'side_story' }
+    expect(seriesBonus(side, media(12, { duration: 24 }))).toBeCloseTo(SERIES_BONUS * 0.35)
+    expect(seriesBonus(side, media(12, { duration: 3 }))).toBe(0)
+    expect(seriesBonus({ ...side, seriesKind: 'sequel' }, media(12, { duration: 3 }))).toBeCloseTo(SERIES_BONUS)
+    // 良い（重み 1）の作品の続編は半分
+    expect(seriesBonus({ ...side, series: good, seriesKind: 'sequel' }, media(12))).toBeCloseTo(SERIES_BONUS / 2)
   })
 })

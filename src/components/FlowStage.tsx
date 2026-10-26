@@ -111,7 +111,7 @@ export function FlowStage(props: {
           </span>
         </div>
       ) : (
-        <p className="flow__row flow__row--empty">{props.emptyPrev ?? t('答えた作品は、ここに印を付けて残ります', 'Anime you answer stay here with a mark')}</p>
+        <p className="flow__row flow__row--empty">{props.emptyPrev ?? t('答えた作品はここに印を付けて残ります', 'Anime you answer stay here with a mark')}</p>
       )}
 
       {current ? (

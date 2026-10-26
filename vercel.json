@@ -2,13 +2,24 @@
   "regions": [
     "hnd1"
   ],
+  "functions": {
+    "api/tier.ts": {
+      "includeFiles": "{dist/index.html,dist/logo-mark-on-dark.svg,fonts/ZenMaruGothic-Bold.ttf,node_modules/@resvg/resvg-wasm/index_bg.wasm,node_modules/harfbuzzjs/hb.wasm,node_modules/satori/yoga.wasm}"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/t/:id",
+      "destination": "/api/tier?page=:id"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://api.annict.com https://api.github.com https://ja.wikipedia.org https://en.wikipedia.org https://query.wikidata.org; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+          "value": "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://api.annict.com https://api.github.com https://ja.wikipedia.org https://en.wikipedia.org https://query.wikidata.org https://www.wikidata.org; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
         },
         {
           "key": "Referrer-Policy",

@@ -22,7 +22,7 @@ function tours(topic: HelpTopic): readonly TourStep[] {
         {
           target: '.app__screen:not([hidden]) .flow__row--prev',
           title: t('直前の答え', 'Your last answer'),
-          body: t('答えた作品は、答えの印を付けて上に残ります。押し間違えたら「ひとつ戻る」で戻せます。', 'Anime you’ve answered stay above with a mark showing your answer. If you tapped the wrong button, use “Undo” to go back.'),
+          body: t('答えた作品は答えの印を付けて上に残ります。押し間違えたら「ひとつ戻る」で戻せます。', 'Anime you’ve answered stay above with a mark showing your answer. If you tapped the wrong button, use “Undo” to go back.'),
         },
         {
           target: '.answers__main',
@@ -42,7 +42,7 @@ function tours(topic: HelpTopic): readonly TourStep[] {
             'Tap “Watching” if you’re partway through, or “Dropped” if you stopped. If you tapped the wrong button, “Undo” on the far left returns to the previous anime so you can answer again. “Details” on the far right opens the details.',
           ),
         },
-        { target: '.tabs', title: t('画面を替える', 'Switch screens'), body: t('評価・マッチング・記録・ブラウズ・設定を切り替えます。スマホでは、画面を左右に払っても替わります。', 'Switch between Rate, Match, Records, Browse, and Settings. On a phone, you can also swipe left or right.') },
+        { target: '.tabs', title: t('画面を替える', 'Switch screens'), body: t('評価・マッチング・記録・ブラウズ・設定を切り替えます。スマホでは画面を左右に払っても替わります。', 'Switch between Rate, Match, Records, Browse, and Settings. On a phone, you can also swipe left or right.') },
       ]
     case 'match':
       return [
@@ -77,16 +77,24 @@ function tours(topic: HelpTopic): readonly TourStep[] {
           target: '.app__screen:not([hidden]) .rtabs, .app__screen:not([hidden]) .rrail',
           title: t('記録の項目', 'Record sections'),
           body: t(
-            '見てる・見た・見たい・視聴中断で分けて見られます。傾向・ふり返り・実績はスマホでは「まとめ」の中にあります。スマホでは左右に払っても替わります。',
-            'View your records split into Watching, Watched, Want to watch, and Dropped. On a phone, Trends, Year in review, and Achievements are under “Summary”. You can also swipe left or right to switch.',
+            '見てる・見た・見たい・視聴中断で分けて見られます。傾向・ふり返り・実績・Tier表はスマホでは「まとめ」の中にあります。スマホでは左右に払っても替わります。',
+            'View your records split into Watching, Watched, Want to watch, and Dropped. On a phone, Trends, Year in review, Achievements, and Tier list are under “Summary”. You can also swipe left or right to switch.',
           ),
         },
         {
           target: '.app__screen:not([hidden]) .watchcard, .app__screen:not([hidden]) .shelf__item',
           title: t('作品', 'Anime'),
           body: t(
-            '表紙か題名を押すと詳細が開きます。見てるの作品は、次の話をその場で記録できます。一覧の上で見るサービスを選ぶと、放送中の作品に次の放送日が出ます。「今週の放送」で、これから7日の放送を日ごとに見られます。見た・見てるの作品は、詳細の「話ごとの記録」で話を4段階で評価して記録できます。',
+            '表紙か題名を押すと詳細が開きます。見てるの作品は次の話をその場で記録できます。一覧の上で見るサービスを選ぶと、放送中の作品に次の放送日が出ます。「今週の放送」で、これから7日の放送を日ごとに見られます。見た・見てるの作品は詳細の「話ごとの記録」で話を4段階で評価して記録できます。',
             'Tap a cover or title to open details. For anime you’re watching, you can record the next episode right there. Pick where you watch above the list to see the next air date on airing anime, and use “This week” to see the next 7 days of broadcasts by day. For Watched and Watching anime, rate episodes in four steps under “Episode records” in the details.',
+          ),
+        },
+        {
+          target: '.app__screen:not([hidden]) .tierboard',
+          title: t('Tier表', 'Tier list'),
+          body: t(
+            '表紙を引いて（スマホは長押ししてから）、好きな段と位置へ落とせます。表紙を押すと作品の詳細が開きます。キーボードでは表紙を選んで、下に出る段のボタンで動かせます。段の中の順番は「左へ」「右へ」でも入れ替えられます。段の数と名前は「表の設定」で変えられます。「＋ 新しい表」では、見たい作品・今期のアニメ・ジャンル・制作会社から何の表かを選ぶか、作品名で探して、好きな作品を集めた表を作れます（表は5つまで）。「リンクで共有」で作ったリンクは、ログインしていない人も開いて見られます。ここで並べ替えても、Annictの評価は変わりません。',
+            'Drag a cover (on a phone, press and hold first) and drop it in any tier and position. Tap a cover for details. With a keyboard, select a cover and use the tier buttons below. “Left” and “Right” also reorder within a tier. Change the number and names of tiers in “List settings”. With “+ New list”, choose what the list is of (your Want to watch list, this season, a genre or a studio) or search by title to make a list of anime you pick (up to 5 lists). A link made with “Share as a link” can be opened by anyone, even without logging in. Reordering here doesn’t change your Annict ratings.',
           ),
         },
         {
@@ -148,7 +156,7 @@ function tours(topic: HelpTopic): readonly TourStep[] {
           target: '#settings-account',
           title: t('Annict連携', 'Annict connection'),
           body: t(
-            'ログインとログアウトです。記録はすべて、あなたのAnnictに保存されます。Annictへの接続の状態（緑はふつう、黄は時間がかかっている、赤は応答を受け取れていない）もここで見られます。',
+            'ログインとログアウトです。記録はすべてあなたのAnnictに保存されます。Annictへの接続の状態（緑はふつう、黄は時間がかかっている、赤は応答を受け取れていない）もここで見られます。',
             'Log in and log out here. All your records are saved to your Annict account. You can also check the connection to Annict (green is normal, yellow is slow, red means no response).',
           ),
         },
@@ -280,8 +288,8 @@ export function topics(): readonly { id: HelpTopic; title: string; items: readon
         [
           t('話ごとの記録', 'Episode records'),
           t(
-            '「見た」「見てる」の作品を押して詳細を開くと、「話ごとの記録」で話を4段階で評価してAnnictに記録できます。評価を押すと、同じ場所に次の話が出るので、続けて押せます。‹ › か、下に並ぶ話の一覧から、ほかの話も選べます。見てる作品は最終話まで記録すると、作品の評価を付けて「見た」にできます。記録済みの話を選ぶと、評価のボタンの代わりに前回の評価が出ます。見返して2回目の記録を付けるときは「もう一度記録する」を押します（前の記録はそのまま残ります）。この画面で記録した話は、選び直せば「取り消す」で取り消せます。前に付けた記録の評価を直したり消したりするのは、「Annictで直す」から開くAnnictの話のページでできます。記録欄の右下の「感想を書く」で、その話の感想も残せます。書いてから評価を押せば一緒に記録し、評価したあとに押せばその記録に付けます（書かなくても記録はできています）。',
-            'Open a Watched or Watching anime and use “Episode records” to rate episodes in four steps and record them on Annict. After you tap a rating, the next episode appears in the same place, so you can keep tapping. Use ‹ › or the episode list below to pick other episodes. Once you’ve recorded the last episode of an anime you’re watching, you can rate the whole anime and mark it Watched. When you pick an episode that’s already recorded, your previous rating is shown instead of the rating buttons. To record a second time when rewatching, tap “Record again” (the earlier record stays). An episode you recorded on this screen can be undone with “Undo” if you select it again. To fix or delete the rating on an earlier record, use “Edit on Annict” to open the episode’s page on Annict. “Write a review” at the bottom right of the record area lets you leave a review for that episode. If you write one first and then tap a rating, they’re recorded together; if you tap it after rating, it’s added to that record (you can also record without writing anything).',
+            '「見た」「見てる」の作品を押して詳細を開き、「話ごとの記録」の行を押して開くと、話を4段階で評価してAnnictに記録できます。評価を押すと、同じ場所に次の話が出るので、続けて押せます。‹ › か、下に並ぶ話の一覧から、ほかの話も選べます。見てる作品は最終話まで記録すると、作品の評価を付けて「見た」にできます。記録済みの話を選ぶと、評価のボタンの代わりに前回の評価が出ます。見返して2回目の記録を付けるときは「もう一度記録する」を押します（前の記録はそのまま残ります）。この画面で記録した話は、選び直せば「取り消す」で取り消せます。前に付けた記録の評価を直したり消したりするのは、「Annictで直す」から開くAnnictの話のページでできます。記録欄の右下の「感想を書く」で、その話の感想も残せます。書いてから評価を押せば一緒に記録し、評価したあとに押せばその記録に付けます（書かなくても記録はできています）。',
+            'Open a Watched or Watching anime, tap the “Episode records” row to expand it, and rate episodes in four steps and record them on Annict. After you tap a rating, the next episode appears in the same place, so you can keep tapping. Use ‹ › or the episode list below to pick other episodes. Once you’ve recorded the last episode of an anime you’re watching, you can rate the whole anime and mark it Watched. When you pick an episode that’s already recorded, your previous rating is shown instead of the rating buttons. To record a second time when rewatching, tap “Record again” (the earlier record stays). An episode you recorded on this screen can be undone with “Undo” if you select it again. To fix or delete the rating on an earlier record, use “Edit on Annict” to open the episode’s page on Annict. “Write a review” at the bottom right of the record area lets you leave a review for that episode. If you write one first and then tap a rating, they’re recorded together; if you tap it after rating, it’s added to that record (you can also record without writing anything).',
           ),
         ],
         [
@@ -339,10 +347,14 @@ export function topics(): readonly { id: HelpTopic; title: string; items: readon
           t('詳細', 'Details'),
           t('作品を押すと開きます。状態と評価を付けられ、あらすじ・キャスト・スタッフ・関連作品も読めます。', 'Tap an anime to open it. Set a status and rating, and read the synopsis, cast, staff, and related anime.'),
         ],
-        [t('関連作品', 'Related anime'), t('題名を押すと、その作品の詳細を重ねて開きます。そこでも、そのまま記録できます。', 'Tap a title to open that anime’s details on top. You can record it right there, too.')],
+        [t('関連作品', 'Related anime'), t('題名を押すと、その作品の詳細を重ねて開きます。そこでもそのまま記録できます。', 'Tap a title to open that anime’s details on top. You can record it right there, too.')],
         [
           t('声優・スタッフ・制作会社', 'Voice actors, staff, and studios'),
           t('詳細のキャストやスタッフの名前を押すと、その人や制作会社が参加した作品が並びます。', 'Tap a name in the cast or staff in the details to see other anime that person or studio worked on.'),
+        ],
+        [
+          t('ジャンル', 'Genres'),
+          t('詳細のジャンルを押すと、そのジャンルで人気の作品が並びます。続編は1作目にまとめます。', 'Tap a genre in the details to see popular anime in that genre. Sequels are grouped under the first season.'),
         ],
       ],
     },
@@ -350,7 +362,7 @@ export function topics(): readonly { id: HelpTopic; title: string; items: readon
       id: 'settings',
       title: t('設定', 'Settings'),
       items: [
-        [t('Annict連携', 'Annict connection'), t('ログインとログアウトです。記録はすべて、あなたのAnnictに保存されます。', 'Log in and log out here. All your records are saved to your Annict account.')],
+        [t('Annict連携', 'Annict connection'), t('ログインとログアウトです。記録はすべてあなたのAnnictに保存されます。', 'Log in and log out here. All your records are saved to your Annict account.')],
         [
           t('GitHub連携（任意）', 'GitHub sync (optional)'),
           t(
@@ -402,7 +414,7 @@ export function common(): readonly Item[] {
     ],
     [
       t('いちばん上へ', 'Back to top'),
-      t('長い一覧では、下の隅に出るボタンか、いまの画面の帯をもう一度押すと先頭に戻ります。', 'In a long list, tap the button in the bottom corner, or tap the current screen in the bar again, to jump back to the top.'),
+      t('長い一覧では下の隅に出るボタンか、いまの画面の帯をもう一度押すと先頭に戻ります。', 'In a long list, tap the button in the bottom corner, or tap the current screen in the bar again, to jump back to the top.'),
     ],
     [
       t('キーボード', 'Keyboard'),

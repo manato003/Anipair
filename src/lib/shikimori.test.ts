@@ -12,7 +12,7 @@ vi.mock('./throttle', () => ({
     },
 }))
 
-const { fetchCharacterNames, fetchMedia, fetchPersonWorks, fetchRelated, fetchSimilar, fetchSimilarMany, fetchStudioWorks, findPerson, normalize, peekMedia, personKey, resetShikimoriMemory, shikimoriUrl, workData } = await import('./shikimori')
+const { fetchCharacterNames, fetchGenreWorks, fetchMedia, fetchPersonWorks, fetchRelated, fetchSimilar, fetchSimilarMany, fetchStudioWorks, findPerson, genreId, normalize, peekMedia, personKey, resetShikimoriMemory, shikimoriUrl, workData } = await import('./shikimori')
 
 const fetchMock = vi.fn<(url: string) => Promise<Response>>()
 
@@ -427,6 +427,16 @@ describe('people and studios', () => {
     expect(works[0].studioRefs).toEqual([{ id: 11, name: 'Madhouse' }])
     expect(fetchMock.mock.calls.map((c) => c[0])).toEqual(['/api/shiki?op=studio&id=11&page=1&v=6', '/api/shiki?op=studio&id=11&page=2&v=6'])
     expect(peekMedia(5)?.idMal).toBe(5)
+  })
+
+  it('fetchGenreWorks asks for the genre lists page by page, and genreId knows the Shikimori ids of genres and themes only', async () => {
+    fetchMock.mockResolvedValueOnce(reply({ animes: [raw(7)] }))
+    expect((await fetchGenreWorks(23)).map((m) => m.idMal)).toEqual([7])
+    expect(fetchMock.mock.calls.map((c) => c[0])).toEqual(['/api/shiki?op=genre&id=23&page=1&v=6'])
+    expect(genreId('School')).toBe(23)
+    expect(genreId('Isekai')).toBe(130)
+    expect(genreId('Hentai')).toBeNull()
+    expect(genreId('constructor')).toBeNull()
   })
 })
 

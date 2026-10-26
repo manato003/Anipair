@@ -87,3 +87,46 @@ describe('resolveAnnictWork', () => {
     expect(search).toHaveBeenCalledTimes(titleVariants(m.title).length)
   })
 })
+
+describe('resolveAnnictWorks', () => {
+  const work = (annictId: number, mal: string | null) => ({ id: `W${annictId}`, annictId, title: `作品${annictId}`, media: 'TV', seasonYear: 2024, seasonName: 'SPRING', malAnimeId: mal, watchersCount: 0, viewerStatusState: null })
+
+  it('batches the first title of every work, then retries only the misses with their next title, matching by MAL ID', async () => {
+    const { resolveAnnictWorks } = await import('./resolve')
+    const calls: string[][] = []
+    const many = vi.fn(async (_token: string, titles: readonly string[]) => {
+      calls.push([...titles])
+      return titles.map((t) => (t === 'あ' ? [work(1, '999'), work(2, '10')] : t === 'うえお' ? [work(3, '30')] : []))
+    })
+    const found = await resolveAnnictWorks(
+      'token',
+      [
+        { idMal: 10, title: { native: 'あ', english: null, romaji: null } },
+        { idMal: 30, title: { native: 'うえお かき', english: null, romaji: null } },
+        { idMal: 40, title: { native: 'なし', english: null, romaji: null } },
+      ],
+      many,
+    )
+    expect([...found].map(([mal, w]) => [mal, w.annictId])).toEqual([
+      [10, 2],
+      [30, 3],
+    ])
+    // 1回目は3作品の1番目の題名をまとめて。2回目からは外れた作品だけ
+    expect(calls[0]).toEqual(['あ', 'うえお かき', 'なし'])
+    expect(calls.slice(1).every((c) => !c.includes('あ'))).toBe(true)
+    expect(calls.flat()).toContain('うえお')
+  })
+
+  it('asks at most 5 titles in one query', async () => {
+    const { resolveAnnictWorks } = await import('./resolve')
+    const sizes: number[] = []
+    const many = vi.fn(async (_token: string, titles: readonly string[]) => {
+      sizes.push(titles.length)
+      return titles.map(() => [])
+    })
+    const medias = Array.from({ length: 12 }, (_, i) => ({ idMal: i + 1, title: { native: `題名${i + 1}`, english: null, romaji: null } }))
+    await resolveAnnictWorks('token', medias, many)
+    expect(Math.max(...sizes)).toBeLessThanOrEqual(5)
+    expect(sizes.slice(0, 3)).toEqual([5, 5, 2])
+  })
+})

@@ -8,13 +8,13 @@ import { annictWorkUrl, peekLibrary, updateStatus, type Credit, type RatingState
 import { rateNow } from '../../lib/rateNow'
 import { getLang, t } from '../../lib/i18n'
 import { characterName, personName, staffRole, workTitle } from '../../lib/names'
-import { shikimoriUrl } from '../../lib/shikimori'
+import { genreId, shikimoriUrl } from '../../lib/shikimori'
 import type { Cover } from '../../lib/storage'
-import { vodSearchLinks } from '../../lib/vodSearch'
 import { formatBroadcast, hasChoice, upcomingByChannel, useBroadcastPrefs } from '../../lib/broadcast'
 import { useClock } from '../../lib/useClock'
 import { BroadcastSheet } from '../../components/BroadcastSheet'
-import { isAiringCandidate, useUpcomingPrograms } from '../records/useUpcomingPrograms'
+import { useUpcomingPrograms } from '../records/useUpcomingPrograms'
+import { nextSeason, sameSeason, seasonOf, seasonOfWork } from '../../lib/season'
 import { episodeFacts, formatMinutes } from '../../lib/watchFacts'
 import { useFontsReady } from '../../lib/useFontsReady'
 import type { WriteIntent } from '../../lib/writeJournal'
@@ -30,9 +30,11 @@ import { RelatedWorks } from './RelatedWorks'
 import { SimilarWorks } from './SimilarWorks'
 import { CommunityReviews } from './CommunityReviews'
 import { Loading } from '../../components/Loading'
-import { ExternalIcon, InfoIcon, PeopleIcon, UserIcon } from '../../components/Icons'
+import { CommentIcon, ExternalIcon, InfoIcon, PeopleIcon, UserIcon } from '../../components/Icons'
 import { ReviewEditor } from './ReviewEditor'
 import { useWorkDetailData } from './useWorkDetailData'
+import { VodSearchSection } from './VodSearchSection'
+import { WikiSynopsisSection } from './WikiSynopsisSection'
 
 // シートを開く作品の手がかり。詳細を読み込むまでは、ここにある項目だけで出す（分からない項目は省く）
 export interface WorkSeed {
@@ -110,12 +112,13 @@ export function WorkDetail(
   })
   // 画面に出す題名（英語の画面では英語名。開いた元に英語名が無ければ、詳細を読んだあとの英語名）
   const shownTitle = workTitle({ title: work.title, titleEn: work.titleEn ?? detail?.titleEn })
-  // あらすじの全文を広げているか（ネタバレを含むことがあるので、押したときだけ）
-  const [wikiOpen, setWikiOpen] = useState(false)
   // 放送中の作品の、見るサービスごとの次の放送（Issue #32。記録の「見てる」のカードは一番早いものだけなので、ここで全部を並べる）
   const broadcastPrefs = useBroadcastPrefs()
   const [servicesOpen, setServicesOpen] = useState(false)
-  const airing = shiki?.status === 'RELEASING' || isAiringCandidate(work, false, new Date())
+  // 出すのは今期・来期の作品と、Shikimori で放送中の作品（前のクールから続く2クール目・長く続く作品）だけ。終わった作品には出さない
+  const workSeason = seasonOfWork(work)
+  const nowSeason = seasonOf(new Date())
+  const airing = shiki?.status === 'RELEASING' || (!!workSeason && (sameSeason(workSeason, nowSeason) || sameSeason(workSeason, nextSeason(nowSeason))))
   const programs = useUpcomingPrograms(token, airing ? [work.id] : [], airing && hasChoice(broadcastPrefs) && props.active !== false)
   const clock = useClock(airing && hasChoice(broadcastPrefs) && props.active !== false)
   // 関連作品から重ねて開いている作品。開いているあいだ、このシートは Esc と「戻る」に反応しない（上のシートだけが閉じる）
@@ -151,6 +154,7 @@ export function WorkDetail(
   const showEpisodes = !readOnly && (state === 'WATCHING' || state === 'WATCHED')
   const ownEpisodes = useEpisodes(token, !props.episodes && showEpisodes ? [work.id] : NO_WORKS, props.enqueue ?? noEnqueue)
   const eps = props.episodes ?? ownEpisodes
+  const [episodesOpen, setEpisodesOpen] = useState(false)
   // 開いた時刻。読み込み中の秒数を、待つのをやめて中身を出したあとも続けて数える
   const [openedAt] = useState(() => Date.now())
 
@@ -199,9 +203,9 @@ export function WorkDetail(
   const official = safeHttpUrl(detail?.officialSiteUrl)
   const wikipedia = safeHttpUrl(detail?.wikipediaUrl)
   const x = xUrl(detail?.twitterUsername)
-  const genres = [...(shiki?.genres ?? []), ...(shiki?.themes ?? [])].map(genreName)
+  // Shikimori の英語名のまま持ち、表示のときに訳す（押したときに Shikimori の ID を引くため）
+  const genres = [...(shiki?.genres ?? []), ...(shiki?.themes ?? [])]
   const mal = malIdOf(work)
-  const vodLinks = vodSearchLinks(work.title)
   // 制作会社（団体で、役職が「〜制作」のもの。製作委員会などの「製作」は含めない）は、スタッフとは別に一番上に出す
   const isStudio = (st: { role: string; ref: Credit | null }) => st.ref?.kind === 'org' && st.role.includes('制作') && !st.role.includes('製作') // i18n-ok: Annict の役職名（日本語）との比較
   const studios = (detail?.staffs ?? []).filter(isStudio).filter((st, i, all) => all.findIndex((x) => x.name === st.name) === i)
@@ -239,10 +243,10 @@ export function WorkDetail(
   const settled = waitedLong || (error !== null && shikiDone) || (detail !== null && wiki !== undefined && shikiDone)
   const rootRef = useRef<HTMLDivElement>(null)
   const ready = useFontsReady(settled, rootRef)
-  // 「作品について」の塊に出すものがあるか（無ければ塊ごと出さない。MyAnimeList の ID があれば似た作品の棚が、
+  // 「作品について」「感想と関連作品」の塊に出すものがあるか（無ければ塊ごと出さない。MyAnimeList の ID があれば似た作品の棚が、
   // Annict の詳細が読めればみんなの感想（無ければ「まだ感想がありません」）が出る）
-  const hasAbout =
-    genres.length > 0 || dataRows.length > 0 || !!wiki || (detail?.series?.length ?? 0) > 0 || (shiki?.related?.length ?? 0) > 0 || !!mal || detail !== null
+  const hasAbout = genres.length > 0 || dataRows.length > 0 || !!wiki
+  const hasMore = (detail?.series?.length ?? 0) > 0 || (shiki?.related?.length ?? 0) > 0 || !!mal || detail !== null
   // 待つのをやめて出したあとも、まだ届いていない部分。届くまで、何を読んでいるかを添えて読み込み中を出し続ける
   // （出ている分だけで全部だと思わせない）。あらすじは Annict の詳細が届いてから Wikipedia を読む
   const detailPending = detail === null && error === null
@@ -256,26 +260,44 @@ export function WorkDetail(
   const workEpisodes = eps.byWork.get(work.id)?.episodes ?? []
   const allTracked = workEpisodes.length > 0 && workEpisodes.every((e) => e.viewerDidTrack)
   const pendingSep = t('・', ', ')
+  const trackedCount = workEpisodes.filter((e) => e.viewerDidTrack).length
+  const episodeProgress =
+    workEpisodes.length === 0
+      ? ''
+      : allTracked
+        ? t(`全${workEpisodes.length}話を記録`, `All ${workEpisodes.length} recorded`)
+        : t(`${workEpisodes.length}話中${trackedCount}話を記録`, `${trackedCount} of ${workEpisodes.length} recorded`)
+  // 話ごとの記録は長いので、1行に畳んで置く（開くと今の欄。畳んでも外さずに隠すだけなので、書きかけの感想は残る）
   const episodeSection = showEpisodes && (
     <section className="detail__section">
-      <h3 className="detail__label">{t('話ごとの記録', 'Episode records')}</h3>
-      <EpisodeRecorder
-        data={eps.byWork.get(work.id)}
-        error={eps.errors.get(work.id) ?? null}
-        watching={state === 'WATCHING'}
-        airing={shiki?.status === 'RELEASING'}
-        undoable={eps.undoable}
-        commented={eps.commented}
-        onRecord={(ep, r, comment) => eps.record(shownTitle, work.id, ep, r, comment)}
-        onComment={(ep, r, text) => eps.comment(shownTitle, ep, r, text)}
-        onCommentExisting={(ep, text, onSent) => eps.commentExisting(shownTitle, ep, text, onSent)}
-        onUndo={(ep) => eps.undo(shownTitle, work.id, ep)}
-        onFinish={finish}
-        onRetry={eps.retry}
-        past={eps.past}
-        onLookupPast={eps.lookupPast}
-        workAnnictId={work.annictId}
-      />
+      <h3 className="detail__label">
+        <button type="button" className="detail__fold" aria-expanded={episodesOpen} onClick={() => setEpisodesOpen((v) => !v)}>
+          <span>{t('話ごとの記録', 'Episode records')}</span>
+          <span className="detail__foldnote">{episodeProgress}</span>
+          <span className="detail__foldmark" aria-hidden="true">
+            {episodesOpen ? '▴' : '▾'}
+          </span>
+        </button>
+      </h3>
+      <div hidden={!episodesOpen}>
+        <EpisodeRecorder
+          data={eps.byWork.get(work.id)}
+          error={eps.errors.get(work.id) ?? null}
+          watching={state === 'WATCHING'}
+          airing={shiki?.status === 'RELEASING'}
+          undoable={eps.undoable}
+          commented={eps.commented}
+          onRecord={(ep, r, comment) => eps.record(shownTitle, work.id, ep, r, comment)}
+          onComment={(ep, r, text) => eps.comment(shownTitle, ep, r, text)}
+          onCommentExisting={(ep, text, onSent) => eps.commentExisting(shownTitle, ep, text, onSent)}
+          onUndo={(ep) => eps.undo(shownTitle, work.id, ep)}
+          onFinish={finish}
+          onRetry={eps.retry}
+          past={eps.past}
+          onLookupPast={eps.lookupPast}
+          workAnnictId={work.annictId}
+        />
+      </div>
     </section>
   )
 
@@ -323,7 +345,8 @@ export function WorkDetail(
             </>
           )}
           <div className="detail__late">
-            {/* 中身は内容で4つの塊に分ける（あなたの記録・作品について・スタッフ・キャスト・ほかのサイトで見る）。
+            {/* 中身は内容で5つの塊に分ける（あなたの記録・作品について・スタッフ・キャスト・ほかのサイトで見る・感想と関連作品）。
+                知りたいことを上に: 記録は押すものだけにして短く、長くなる感想・関連作品・似た作品は一番下に回す。
                 塊は板で囲み（XMB の情報の板のような半透明）、見出しは分類の帯と同じくアイコンと名前。中の項目の見出しは小さく。塊のあいだは広く、中は狭く空ける */}
             {!readOnly && (
               <section className="group">
@@ -331,28 +354,53 @@ export function WorkDetail(
                   <UserIcon />
                   {t('あなたの記録', 'Your records')}
                 </h3>
-                <section className="detail__section">
-                  <h3 className="detail__label">{t('状態', 'Status')}</h3>
-                  <div className="state-chips">
-                    {STATE_OPTIONS.map((o) => (
-                      <button key={o.state} type="button" className="chip" aria-pressed={optionState(state) === o.state} onClick={() => changeState(o.state)}>
-                        {o.label}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="detail__hint">
-                    {state
-                      ? t(`選んでいる「${STATUS_LABEL[state]}」をもう一度押すと、記録から外します。`, `Tap “${STATUS_LABEL[state]}” again to remove it from your records.`)
-                      : t('まだ記録していません。', 'Not recorded yet.')}
-                  </p>
-                  {state && stateAt && (
-                    <p className="detail__when">
-                      {t('「', 'Marked “')}
-                      {STATUS_LABEL[state]}
-                      {t('」にした日時', '” on')} <time dateTime={stateAt}>{formatDateTime(stateAt)}</time>
+                {/* 状態と評価は押すだけの欄なので、同じ大きさのチップで1組にする（広い画面では左右に並べる） */}
+                <div className="detail__pair">
+                  <section className="detail__section">
+                    <h3 className="detail__label">{t('状態', 'Status')}</h3>
+                    <div className="state-chips">
+                      {STATE_OPTIONS.map((o) => (
+                        <button key={o.state} type="button" className="chip" aria-pressed={optionState(state) === o.state} onClick={() => changeState(o.state)}>
+                          {o.label}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="detail__hint">
+                      {state
+                        ? t(`選んでいる「${STATUS_LABEL[state]}」をもう一度押すと、記録から外します。`, `Tap “${STATUS_LABEL[state]}” again to remove it from your records.`)
+                        : t('まだ記録していません。', 'Not recorded yet.')}
                     </p>
-                  )}
-                </section>
+                    {state && stateAt && (
+                      <p className="detail__when">
+                        {t('「', 'Marked “')}
+                        {STATUS_LABEL[state]}
+                        {t('」にした日時', '” on')} <time dateTime={stateAt}>{formatDateTime(stateAt)}</time>
+                      </p>
+                    )}
+                  </section>
+
+                  <section className="detail__section">
+                    <h3 className="detail__label">{t('評価', 'Rating')}</h3>
+                    <div className="mini-ratings mini-ratings--chips" role="group" aria-label={t('評価', 'Rating')}>
+                      {RATINGS.map((r) => (
+                        <button
+                          key={r.rating}
+                          type="button"
+                          className={`mini-rating mini-rating--${r.rating.toLowerCase()}`}
+                          aria-pressed={rating === r.rating}
+                          onClick={() => changeRatingTo(r.rating)}
+                        >
+                          {r.label}
+                        </button>
+                      ))}
+                    </div>
+                    {rating && reviewAt && (
+                      <p className="detail__when">
+                        {reviewAt.withText ? t('評価と感想を付けた日時', 'Rated and reviewed on') : t('評価を付けた日時', 'Rated on')} <time dateTime={reviewAt.at}>{formatDateTime(reviewAt.at)}</time>
+                      </p>
+                    )}
+                  </section>
+                </div>
 
                 {state === 'WANNA_WATCH' && props.wanna && (
                   <section className="detail__section">
@@ -384,47 +432,11 @@ export function WorkDetail(
                   </section>
                 )}
 
-                {/* 見てる作品は、話ごとの記録がいちばんの用事。作品の評価（最後に1回）より上に置く（同じ形のボタンが続いて押し間違えないように）。
-                    全部の話を記録し終えたら、作品の評価が次の用事なので、見た作品と同じく評価の下に回す */}
+                {/* 見てる作品は、話ごとの記録がいちばんの用事。詳細な評価と感想より上に置く。
+                    全部の話を記録し終えたら、作品の評価が次の用事なので、見た作品と同じく下に回す */}
                 {state === 'WATCHING' && !allTracked && episodeSection}
 
-                <section className="detail__section">
-                  <h3 className="detail__label">{t('評価', 'Rating')}</h3>
-                  <div className="mini-ratings" role="group" aria-label={t('評価', 'Rating')}>
-                    {RATINGS.map((r) => (
-                      <button
-                        key={r.rating}
-                        type="button"
-                        className={`mini-rating mini-rating--${r.rating.toLowerCase()}`}
-                        aria-pressed={rating === r.rating}
-                        onClick={() => changeRatingTo(r.rating)}
-                      >
-                        {r.label}
-                      </button>
-                    ))}
-                  </div>
-                  {rating && reviewAt && (
-                    <p className="detail__when">
-                      {reviewAt.withText ? t('評価と感想を付けた日時', 'Rated and reviewed on') : t('評価を付けた日時', 'Rated on')} <time dateTime={reviewAt.at}>{formatDateTime(reviewAt.at)}</time>
-                    </p>
-                  )}
-                  <ReviewEditor token={token} workId={work.id} annictId={work.annictId} idMal={idMalOf(work.malAnimeId)} title={shownTitle} overall={rating} enqueue={props.enqueue} />
-                </section>
-
-                {/* コレクションは Annict の機能（API では読み書きできない）。作り直さずに、Annict の作品ページへ案内する */}
-                <section className="detail__section">
-                  <h3 className="detail__label">{t('コレクション', 'Collections')}</h3>
-                  <p className="detail__hint">
-                    {t('コレクションはAnnictの機能です。', 'Collections are an Annict feature. On the ')}
-                    <a href={annictWorkUrl(work.annictId)} target="_blank" rel="noreferrer">
-                      {t('Annictの作品ページ', 'Annict anime page')}
-                    </a>
-                    {t(
-                      'で、作品画像の下のメニューボタンを押すと右側に出るパネルから追加できます。',
-                      ', tap the menu button under the cover image and add it from the panel that appears on the right.',
-                    )}
-                  </p>
-                </section>
+                <ReviewEditor token={token} workId={work.id} annictId={work.annictId} idMal={idMalOf(work.malAnimeId)} title={shownTitle} overall={rating} enqueue={props.enqueue} />
 
                 {(state === 'WATCHED' || (state === 'WATCHING' && allTracked)) && episodeSection}
               </section>
@@ -442,11 +454,20 @@ export function WorkDetail(
                   <section className="detail__section">
                     <h3 className="detail__label">{t('ジャンル', 'Genre')}</h3>
                     <ul className="tags">
-                      {genres.map((g) => (
-                        <li key={g} className="tag">
-                          {g}
-                        </li>
-                      ))}
+                      {genres.map((g) => {
+                        const id = genreId(g)
+                        return (
+                          <li key={g} className="tag">
+                            {id ? (
+                              <button type="button" className="tag__link" onClick={() => setCredit({ genre: { id, name: g } })}>
+                                {genreName(g)}
+                              </button>
+                            ) : (
+                              genreName(g)
+                            )}
+                          </li>
+                        )
+                      })}
                     </ul>
                   </section>
                 )}
@@ -468,64 +489,7 @@ export function WorkDetail(
                   </section>
                 )}
 
-                {/* あらすじ: Wikipedia の冒頭の段落（ネタバレを避ける）。続きは押したときだけ、その場で広げる。出典とライセンス（CC BY-SA 4.0）を添える */}
-                {wiki && (
-                  <section className="detail__section">
-                    <h3 className="detail__label">{wiki.lang === 'en' ? 'Synopsis' : t('あらすじ', 'Synopsis (from Japanese Wikipedia)')}</h3>
-                    {wikiOpen ? (
-                      <div className="detail__wiki">
-                        {wiki.blocks.map((b, i) =>
-                          b.heading ? (
-                            <h4 key={i} className="detail__wiki-heading">
-                              {b.text}
-                            </h4>
-                          ) : (
-                            <p key={i} className="detail__text">
-                              {b.text}
-                            </p>
-                          ),
-                        )}
-                      </div>
-                    ) : (
-                      <p className="detail__text">{wiki.text}</p>
-                    )}
-                    {(wiki.blocks.length > 1 || wiki.text.endsWith('…')) && (
-                      // 右端に置く（親指の届く側）。注意書きはボタンのすぐ左
-                      <p className="detail__more">
-                        {!wikiOpen && <span className="detail__spoiler">{t('ネタバレを含むことがあります', 'May contain spoilers')}</span>}
-                        <button type="button" className="link" onClick={() => setWikiOpen((v) => !v)} aria-expanded={wikiOpen}>
-                          {wikiOpen ? t('続きを閉じる', 'Show less') : t('続きを読む', 'Read more')}
-                        </button>
-                      </p>
-                    )}
-                    <p className="detail__source">
-                      {t('出典: Wikipedia「', 'Source: Wikipedia “')}
-                      <a href={wiki.url} target="_blank" rel="noreferrer">
-                        {wiki.title}
-                      </a>
-                      {t('」（', '” (')}
-                      <a href={wiki.licenseUrl} target="_blank" rel="noreferrer">
-                        CC BY-SA 4.0
-                      </a>
-                      {t('）', ')')}
-                    </p>
-                  </section>
-                )}
-
-                {/* みんなの感想: Annict の満足度・件数と、いいねの多い感想（まだ見ていない作品は、本文を押したときだけ。欄が画面に近づいてから読む） */}
-                <CommunityReviews token={token} workId={work.id} annictId={work.annictId} watched={state === 'WATCHED'} />
-
-                {/* 関連作品: Annict のシリーズ。無ければ Shikimori の関連作品（詳細を読み込むまでは出さない） */}
-                <RelatedWorks
-                  annictId={work.annictId}
-                  series={detail ? (detail.series ?? []) : error ? [] : null}
-                  shiki={shiki}
-                  states={relatedStates}
-                  onOpen={setRelated}
-                />
-
-                {/* 似た作品: Shikimori の似た作品を表紙の棚で（棚が画面に近づいてから読む） */}
-                <SimilarWorks malId={mal} onOpen={setRelated} />
+                {wiki && <WikiSynopsisSection wiki={wiki} />}
               </section>
             )}
 
@@ -610,21 +574,8 @@ export function WorkDetail(
                   onChoose={() => setServicesOpen(true)}
                 />
               )}
-              {/* 配信サービスの検索への入り口（配信しているかは確かめない。lib/vodSearch.ts）。v0.7.1 で外した「配信」と同じ場所 */}
-              {vodLinks.length > 0 && (
-                <section className="detail__section">
-                  <h3 className="detail__label">{t('配信サービスで探す', 'Search on streaming services')}</h3>
-                  <div className="vods">
-                    {vodLinks.map((l) => (
-                      <a key={l.name} className="chip chip--link" href={l.href} target="_blank" rel="noreferrer">
-                        {l.name}
-                        <ExternalIcon />
-                      </a>
-                    ))}
-                  </div>
-                  <p className="detail__hint">{t('各サービスで題名を検索します。配信していない作品もあります。', 'Searches each service by title. Some anime may not be available.')}</p>
-                </section>
-              )}
+              {/* 配信サービスの検索への入り口。v0.7.1 で外した「配信」と同じ場所 */}
+              <VodSearchSection title={work.title} />
               <section className="detail__section">
                 <h3 className="detail__label">{t('作品のページ', 'Anime pages')}</h3>
                 <div className="detail__links">
@@ -654,6 +605,29 @@ export function WorkDetail(
                 </div>
               </section>
             </section>
+
+            {hasMore && (
+              <section className="group">
+                <h3 className="group__title">
+                  <CommentIcon />
+                  {t('感想と関連作品', 'Reviews & related')}
+                </h3>
+                {/* みんなの感想: Annict の満足度・件数と、いいねの多い感想（まだ見ていない作品は、本文を押したときだけ。欄が画面に近づいてから読む） */}
+                <CommunityReviews token={token} workId={work.id} annictId={work.annictId} watched={state === 'WATCHED'} />
+
+                {/* 関連作品: Annict のシリーズ。無ければ Shikimori の関連作品（詳細を読み込むまでは出さない） */}
+                <RelatedWorks
+                  annictId={work.annictId}
+                  series={detail ? (detail.series ?? []) : error ? [] : null}
+                  shiki={shiki}
+                  states={relatedStates}
+                  onOpen={setRelated}
+                />
+
+                {/* 似た作品: Shikimori の似た作品を表紙の棚で（棚が画面に近づいてから読む） */}
+                <SimilarWorks malId={mal} onOpen={setRelated} />
+              </section>
+            )}
           </div>
         </div>
       </div>

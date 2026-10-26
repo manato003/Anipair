@@ -269,6 +269,17 @@ export function ChartIcon() {
   )
 }
 
+// Tier表（長さの違う段）
+export function TierIcon() {
+  return (
+    <Icon>
+      <path d="M4 6h16" />
+      <path d="M4 12h11" />
+      <path d="M4 18h6" />
+    </Icon>
+  )
+}
+
 // ふり返り（暦）
 export function CalendarIcon() {
   return (
