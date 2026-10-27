@@ -46,6 +46,8 @@ const KEYS = {
   onboarding: 'animax.onboarding.v1',
   // スマホで「シートはタップで閉じる」の案内を見たか
   sheetHint: 'animax.sheetHint.v1',
+  // 「開発記録」を最後に開いたときの版（新しい版が出たら、設定に新着の点を付ける。features/settings/historySeen.ts）。端末ごと
+  historySeen: 'animax.historySeen.v1',
   // クールごとの人気作の ID の控え（進み具合の分母。だれのものでも同じなので、トークンが変わっても使える）
   seasonTops: 'animax.seasonTops.v1',
   // 称号: 装備しているもの・見たもの・初回の「覚醒」を見たか
@@ -602,6 +604,15 @@ export function loadSheetHintSeen(): boolean {
 
 export function saveSheetHintSeen(): void {
   write(KEYS.sheetHint, JSON.stringify({ v: 1, at: new Date().toISOString() }))
+}
+
+// 「開発記録」を最後に開いたときの版（開いたことが無ければ null）
+export function loadHistorySeen(): string | null {
+  return read(KEYS.historySeen)
+}
+
+export function saveHistorySeen(version: string): void {
+  write(KEYS.historySeen, version)
 }
 
 // 初めて使う人に一度だけ出す案内（使い方のシート・シートの閉じ方）を、まだ見ていないことにする（preview の ?firstrun。lib/welcomePreview.ts）

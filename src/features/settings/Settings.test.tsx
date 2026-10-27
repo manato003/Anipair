@@ -398,7 +398,7 @@ describe('Settings about block', () => {
 
   it('links to the source code and shows the version', () => {
     show({ section: 'settings-about' })
-    expect((screen.getByRole('link', { name: 'ソースコード（GitHub）' }) as HTMLAnchorElement).href).toBe('https://github.com/manato003/anipair')
+    expect((screen.getByRole('link', { name: 'ソースコード（GitHub）' }) as HTMLAnchorElement).href).toBe('https://github.com/manato003/Anipair')
     expect(screen.getByText(/^バージョン \d+\.\d+\.\d+/)).toBeTruthy()
   })
 })
@@ -416,7 +416,7 @@ describe('Settings layout (sections, status first, folded explanations)', () => 
       バックアップ: ['バックアップ'],
       キー: ['キーバインド（PC）'],
       お問い合わせ: ['質問・不具合・要望を送る', 'よくある質問'],
-      最新情報: ['公式X', 'Anipair開発日誌'],
+      最新情報: ['公式X', '開発記録', 'Anipair開発日誌'],
       このアプリ: ['このアプリについて'],
     }
     for (const [group, sections] of Object.entries(opened)) {
@@ -592,7 +592,7 @@ describe('Settings contact', () => {
   it('says that X DMs and GitHub issues are also accepted', () => {
     show({ section: 'settings-contact' })
     expect((screen.getByRole('link', { name: 'XのDMで送る' }) as HTMLAnchorElement).href).toBe('https://x.com/anipairAPP')
-    expect((screen.getByRole('link', { name: 'GitHubのIssues' }) as HTMLAnchorElement).href).toBe('https://github.com/manato003/anipair/issues')
+    expect((screen.getByRole('link', { name: 'GitHubのIssues' }) as HTMLAnchorElement).href).toBe('https://github.com/manato003/Anipair/issues')
   })
 })
 
@@ -610,5 +610,30 @@ describe('Settings news', () => {
     ])
     // 新しい記事は、アプリを直さなくてもプロフィールからたどれる
     expect((screen.getByRole('link', { name: 'Zennの記事をすべて見る' }) as HTMLAnchorElement).href).toBe('https://zenn.dev/manato003')
+  })
+
+  // #39: 新しい版をまだ開発記録で見ていなければ印を付け、開いたら消す
+  it('marks a new version until development history is opened', async () => {
+    show({ section: 'settings-history' })
+    const block = document.getElementById('settings-history')!
+    expect(within(block).getByText('新しい版')).toBeTruthy()
+    expect(within(block).getByText(`いまの版 ${__APP_VERSION__}`, { exact: false })).toBeTruthy()
+
+    fireEvent.click(within(block).getByRole('button', { name: '開発記録を見る' }))
+    // 1枚は開いたときに CHANGELOG ごと読み込む（全部のテストを同時に流すと1秒を超えることがある）
+    const sheet = await screen.findByRole('dialog', { name: '開発記録' }, { timeout: 10000 })
+    // 一番上に最新の版、その下に節目を新しい順に。一番古い節目は始まりの版から
+    expect(within(sheet).getByRole('heading', { level: 3, name: (name) => name.startsWith(`v${__APP_VERSION__}`) })).toBeTruthy()
+    const names = [...sheet.querySelectorAll('.history__name')].map((n) => n.textContent)
+    expect(names[0]).toBe('Tier表')
+    expect(names[names.length - 1]).toBe('1タップで記録する')
+    expect(sheet.querySelectorAll('.history__bar')).toHaveLength(names.length)
+    expect(within(block).queryByText('新しい版')).toBeNull()
+    expect(localStorage.getItem('animax.historySeen.v1')).toBe(__APP_VERSION__)
+
+    // 節目を押すと、その節目の版を1枚で開く
+    fireEvent.click(within(sheet.querySelector<HTMLElement>('.history__list')!).getByRole('button', { name: /1タップで記録する/ }))
+    const detail = await screen.findByRole('dialog', { name: '1タップで記録する' })
+    expect(within(detail).getByRole('heading', { level: 3, name: /^v0\.1\.0/ })).toBeTruthy()
   })
 })

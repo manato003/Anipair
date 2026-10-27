@@ -168,7 +168,7 @@ Anipairは利用者の記録やトークンを置く運営サーバーを持ち�
 
 ## 質問・不具合・要望
 
-設定の「お問い合わせ」から送れます。GitHubのアカウントは要らず、送った内容は開発者だけが読みます。GitHubを使う方はこのリポジトリの[Issues](https://github.com/manato003/anipair/issues)からも送れます（こちらは公開されます）。
+設定の「お問い合わせ」から送れます。GitHubのアカウントは要らず、送った内容は開発者だけが読みます。GitHubを使う方はこのリポジトリの[Issues](https://github.com/manato003/Anipair/issues)からも送れます（こちらは公開されます）。
 
 ## 注意
 

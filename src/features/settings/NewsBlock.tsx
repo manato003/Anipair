@@ -1,7 +1,13 @@
+import { lazy, Suspense, useState } from 'react'
+import { Loading } from '../../components/Loading'
 import { t } from '../../lib/i18n'
+import { useHistoryUnseen } from './historySeen'
 import { Section } from './Section'
 
-// 設定の「最新情報」。公式の X と、開発日誌（Zenn の記事）。
+// 開発記録の1枚は CHANGELOG（日本語と英語）を抱えるので、開いたときに読む
+const History = lazy(() => import('./History'))
+
+// 設定の「最新情報」。公式の X と、開発記録（これまでの版。Issue #39）と、開発日誌（Zenn の記事）。
 // 前は「このアプリ」と「お問い合わせ」の薄い補足の中にあって、見つからなかった（#30。2026-10-13 利用者の発案で、項目を分けた）
 // 記事の一覧は代表のものだけを並べ、新しい記事は Zenn のプロフィールからたどってもらう（記事を出すたびにアプリを直さないため。2026-10-19 利用者）
 const X_URL = 'https://x.com/anipairAPP'
@@ -28,6 +34,7 @@ export function NewsBlock() {
           </a>
         </div>
       </Section>
+      <HistoryBlock />
       <Section id="settings-devlog" title={t('Anipair開発日誌', 'Anipair dev log')} summary={t('作ったものの仕組みや、作りながら考えたことをZennに書いています。', 'How Anipair works and what I thought about while building it, written on Zenn (in Japanese).')}>
         <ul className="devlog">
           {ARTICLES.map((a) => (
@@ -46,5 +53,34 @@ export function NewsBlock() {
         </div>
       </Section>
     </>
+  )
+}
+
+function HistoryBlock() {
+  const [open, setOpen] = useState(false)
+  const unseen = useHistoryUnseen()
+  return (
+    <Section
+      id="settings-history"
+      title={t('開発記録', 'Development history')}
+      summary={t('これまでの版で、何が変わってきたかをまとめています。', 'A look back at what has changed, version by version.')}
+      status={
+        <span className="history-entry__version">
+          {t('いまの版', 'Current version')} {__APP_VERSION__}
+          {unseen && <span className="folder__new">{t('新しい版', 'New version')}</span>}
+        </span>
+      }
+    >
+      <div className="settings__actions">
+        <button type="button" className="btn" onClick={() => setOpen(true)}>
+          {t('開発記録を見る', 'View development history')}
+        </button>
+      </div>
+      {open && (
+        <Suspense fallback={<Loading className="settings__summary" label={t('読み込み中', 'Loading')} />}>
+          <History onClose={() => setOpen(false)} />
+        </Suspense>
+      )}
+    </Section>
   )
 }

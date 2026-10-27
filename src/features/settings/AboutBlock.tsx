@@ -94,7 +94,7 @@ export function AboutBlock({ showTagline = true, welcome = false }: { showTaglin
         </ul>
       </details>
       <p className="settings__lead settings__about-foot">
-        <a href="https://github.com/manato003/anipair" target="_blank" rel="noreferrer">
+        <a href="https://github.com/manato003/Anipair" target="_blank" rel="noreferrer">
           {t('ソースコード（GitHub）', 'Source code (GitHub)')}
         </a>
         <span className="settings__version">

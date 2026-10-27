@@ -25,7 +25,7 @@ export function ContactBlock() {
           </a>
         </div>
         <p className="settings__hint">
-          <a href="https://github.com/manato003/anipair/issues" target="_blank" rel="noreferrer">
+          <a href="https://github.com/manato003/Anipair/issues" target="_blank" rel="noreferrer">
             {t('GitHubのIssues', 'GitHub Issues')}
           </a>
           {t('でも受け付けています（公開されます）。', ' also works (these are public).')}

@@ -610,3 +610,290 @@
   font-size: 0.9rem;
   line-height: 1.6;
 }
+
+/* ── 開発記録（Issue #39。features/settings/History.tsx） ── */
+.history-entry__version {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 下のタブの「設定」の新着の点（記録の「まとめ」の点と同じもの） */
+.tabs__item .viewswitch__dot {
+  top: 6px;
+  right: calc(50% - 18px);
+}
+
+.history {
+  padding: 8px 0 24px;
+}
+
+.history__title {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 900;
+}
+
+.history__intro {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+
+.history__latest {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: var(--radius-m);
+  background: var(--ink-raised);
+}
+
+.history__latest-label {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.history__version {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 2px;
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.history__version small {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
+.history__lead {
+  margin-top: 6px;
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+
+.history__subhead {
+  margin-top: 10px;
+  font-size: 0.85rem;
+}
+
+.history__items {
+  display: grid;
+  gap: 6px;
+  margin-top: 6px;
+  padding-left: 1.1em;
+  font-size: 0.9rem;
+  line-height: 1.65;
+}
+
+.history__items ul {
+  display: grid;
+  gap: 4px;
+  margin-top: 4px;
+  padding-left: 1.1em;
+  color: var(--muted);
+}
+
+.history__items code {
+  font-size: 0.85em;
+}
+
+/* 節目の一覧と、左の細い列（いまどこにいるか） */
+.history__body {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  column-gap: 12px;
+  margin-top: 8px;
+}
+
+.history__rail {
+  position: sticky;
+  top: 38vh;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  margin-top: 24px;
+}
+
+.history__bar {
+  display: flex;
+  align-items: center;
+  height: 14px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.history__bar::before {
+  content: '';
+  width: 8px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--fg);
+  opacity: 0.3;
+  transition:
+    width 0.25s cubic-bezier(0.3, 0.7, 0.2, 1),
+    opacity 0.25s ease;
+}
+
+.history__bar[aria-current='true']::before {
+  width: 16px;
+  opacity: 1;
+}
+
+.history__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.history__item {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  width: 100%;
+  padding: 16px 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.history__list li:last-child .history__item {
+  border-bottom: 0;
+}
+
+.history__text {
+  display: grid;
+  gap: 2px;
+}
+
+.history__range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.history__now {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--fg);
+  color: var(--bg-top);
+  font-size: 0.7rem;
+}
+
+.history__name {
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.history__dates {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.history__summary {
+  margin-top: 4px;
+  font-size: 0.85rem;
+  line-height: 1.65;
+}
+
+/* 節目の図: 16:9 のテレビの画面の枠に、文字の色の線で */
+.history-art {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--radius-s);
+  background: color-mix(in oklab, var(--bg-top), var(--fg) 3%);
+  color: var(--fg);
+}
+
+.history-art svg {
+  width: 88%;
+  height: 88%;
+}
+
+.history-art svg * {
+  vector-effect: non-scaling-stroke;
+}
+
+.history-art__on-ink {
+  fill: var(--bg-top);
+}
+
+/* 節目を開いた1枚 */
+.history-detail {
+  display: grid;
+  gap: 16px;
+  padding: 8px 0 24px;
+}
+
+.history-detail__title {
+  margin-top: 2px;
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 900;
+  line-height: 1.45;
+}
+
+.history-detail__summary {
+  margin-top: 10px;
+  line-height: 1.75;
+}
+
+.history-detail__version {
+  margin-top: 18px;
+}
+
+@media (min-width: 960px) {
+  .history__body {
+    grid-template-columns: 24px minmax(0, 760px);
+    column-gap: 20px;
+  }
+
+  .history__item {
+    grid-template-columns: 200px minmax(0, 1fr);
+    gap: 20px;
+  }
+
+  .history__latest {
+    max-width: 804px;
+  }
+
+  .history-detail {
+    grid-template-columns: 380px minmax(0, 1fr);
+    gap: 32px;
+    align-items: start;
+  }
+
+  .history-detail > .history-art {
+    position: sticky;
+    top: 72px;
+  }
+}
+
+:root[data-motion='reduce'] .history__bar::before {
+  transition: none;
+}
+
+.history__more {
+  margin-top: 8px;
+  font-size: 0.85rem;
+}

@@ -19,6 +19,7 @@ import { EffectsBlock } from './EffectsBlock'
 import { GithubBlock } from './GithubBlock'
 import { Keybinds } from './Keybinds'
 import { NewsBlock } from './NewsBlock'
+import { useHistoryUnseen } from './historySeen'
 import { Welcome } from './Welcome'
 import { reducedMotion } from '../../lib/theme'
 
@@ -78,9 +79,9 @@ const GROUPS: readonly { id: GroupId; label: string; sub: string; icon: ReactNod
       return t('最新情報', 'News')
     },
     get sub() {
-      return t('公式X・Anipair開発日誌', 'Official X account, Anipair dev log')
+      return t('公式X・開発記録・Anipair開発日誌', 'Official X account, development history, Anipair dev log')
     },
-    icon: <NewsIcon />, sections: ['settings-x', 'settings-devlog'] },
+    icon: <NewsIcon />, sections: ['settings-x', 'settings-history', 'settings-devlog'] },
   {
     id: 'about',
     get label() {
@@ -148,6 +149,8 @@ function SignedInSettings(props: {
   const [picked, setPicked] = useState<GroupId | null>(null)
   const group: GroupId | null = picked ?? (wide ? 'account' : null)
   const current = groups.find((g) => g.id === group) ?? null
+  // 新しい版をまだ開発記録で見ていなければ、「最新情報」に印を付ける
+  const historyUnseen = useHistoryUnseen()
 
   // 項目を替える。流した位置はまとまりごとに覚えて戻し、中身は替えた向きから入る（スマホは横、PC は縦）
   const bodyRef = useRef<HTMLDivElement>(null)
@@ -204,6 +207,7 @@ function SignedInSettings(props: {
             <button key={g.id} type="button" className="rrail__item" aria-current={group === g.id ? 'true' : undefined} onClick={() => select(g.id)}>
               {g.icon}
               <span>{g.label}</span>
+              {g.id === 'news' && historyUnseen && <span className="viewswitch__dot" aria-label={t('新しい版があります', 'New version available')} />}
             </button>
           ))}
         </nav>
@@ -229,6 +233,7 @@ function SignedInSettings(props: {
                   {g.icon}
                   <b>{g.label}</b>
                   <small>{g.sub}</small>
+                  {g.id === 'news' && historyUnseen && <span className="folder__new">{t('新しい版', 'New version')}</span>}
                 </button>
               </li>
             ))}

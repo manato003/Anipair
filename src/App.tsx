@@ -9,6 +9,7 @@ import { Loading } from './components/Loading'
 import { usePrefetchTaste } from './features/match/usePrefetchTaste'
 import { Backfill } from './features/rate/Backfill'
 import { useAnnictLogin } from './features/settings/useAnnictLogin'
+import { useHistoryUnseen } from './features/settings/historySeen'
 import { onAnnictAuthFailed } from './lib/authEvents'
 import { UnsentWrites } from './features/unsent/UnsentWrites'
 import type { GithubConnection } from './lib/github'
@@ -150,6 +151,8 @@ export default function App() {
 
   // 画面の外（コントロールセンターの近道など）から頼まれた設定の欄
   const [settingsRequest, setSettingsRequest] = useState<SettingsRequest | null>(null)
+  // 新しい版を「開発記録」でまだ見ていなければ、下の「設定」に点を付ける
+  const historyUnseen = useHistoryUnseen()
   // 直前に分類を替えた向き（新しい画面が入ってくる向き）
   const [enter, setEnter] = useState<SwipeDir | null>(null)
   function go(next: Tab) {
@@ -490,6 +493,8 @@ export default function App() {
             >
               <TabIcon name={x.id} active={tab === x.id} />
               <span className="tabs__label">{x.label}</span>
+              {/* 点は飾り（タブの名前は「設定」のまま。言葉の「新しい版」は設定の「最新情報」に出す） */}
+              {x.id === 'settings' && historyUnseen && <span className="viewswitch__dot" aria-hidden />}
             </button>
           ))}
         </nav>
