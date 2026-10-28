@@ -316,7 +316,7 @@ export function CheerScene(props: { className?: string }) {
 // ── 印（ロゴ・アイコン）: 2人の頭。64 の枠 ──
 // faces: 顔を描くか（32px より小さいと潰れるので、ブラウザのタブでは描かない）。
 // ペアの芽は、季節に寄らない2枚葉（アイコンのファイルは季節で替えられないため）。
-// peek: ペアをアニの肩の後ろへ回し、少し小さくして右上からのぞかせる（ホーム画面・タブ・X のアイコン。2026-10-12 #24）。
+// peek: ペアをアニの肩の後ろへ回し、少し小さくして右上からのぞかせる（ホーム画面・タブ・X のアイコン）。
 // 絵の外形はおよそ x 0〜77・y 2〜62（真ん中 38.5, 32）
 function DuoMarkFigure({ faces = true, peek = false }: { faces?: boolean; peek?: boolean }) {
   const ani = (

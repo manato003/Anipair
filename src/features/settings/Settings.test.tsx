@@ -146,7 +146,7 @@ describe('Settings GitHub block', () => {
   const formOf = () => screen.getByLabelText('GitHubのリポジトリ名').closest('form')!
   const connectButton = () => formOf().querySelector('button[type="submit"]') as HTMLButtonElement
 
-  // 未連携のときは、「連携する」を押すと手順と入力欄が出る（#30）
+  // 未連携のときは、「連携する」を押すと手順と入力欄が出る
   const openSetup = () => fireEvent.click(screen.getByRole('button', { name: '連携する' }))
 
   function fill(repo: string, token: string) {
@@ -383,9 +383,9 @@ describe('Settings about block', () => {
     const text = screen.getByRole('heading', { name: 'このアプリについて' }).parentElement!.textContent!
     expect(text).toContain('個人が開発した、Annictの非公式アプリです')
     expect(text).toContain('運営サーバーに、利用者の記録やトークンは置きません。トークンはこの端末のブラウザに保存します')
-    expect(text).toContain('サーバーで動くのは、ログインの受け渡し・Shikimoriへの中継・問い合わせの受け付けの3つの処理だけです')
+    expect(text).toContain('サーバーで動くのは、ログインの受け渡し・Shikimoriへの中継・問い合わせの受け付け・Tier表の共有のリンクの4つの処理だけです')
     expect(text).toContain('問い合わせの内容は送ったときだけ開発者に届きます（公開はされません）')
-    expect(text).toContain('通信先はAnnict・Shikimori・Wikipedia・Google Fontsです（英語の画面では、声優・スタッフの英語名を引くためにWikidataも）。Shikimoriの作品データは上に書いたサーバーの処理（Vercel）を通して受け取ります。その処理はShikimoriの公開データを控えたり、問い合わせの回数を数えたりするために、Upstash（Redis）を使います（利用者の情報は置きません）。GitHubと連携した場合は、GitHubにも送信します')
+    expect(text).toContain('通信先はAnnict・Shikimori・Wikipedia・Google Fontsです（英語の画面では、声優・スタッフの英語名を引くためにWikidataも）。Shikimoriの作品データは上に書いたサーバーの処理（Vercel）を通して受け取ります。その処理はShikimoriの公開データを控えたり、MyAnimeListとAnnictで同じ作品を指すIDの組（公開されている作品のIDどうし）を覚えたり、問い合わせの回数を数えたりするために、Upstash（Redis）を使います（利用者の情報は置きません）。GitHubと連携した場合は、GitHubにも送信します')
     expect(text).toContain('問い合わせを送ったときは、その内容だけがこのサイトの関数を通して運営者の非公開のGitHubリポジトリに届きます')
     expect(text).toContain('各作品の公式サイトの画像を表示しています。画像はブラウザが提供元から直接読み込みます。権利は各権利者に帰属します')
     expect(text).toContain('作品データの一部（ジャンル・似た作品・一部の表紙・声優やスタッフの参加作品）はShikimoriから取得しています')
@@ -411,7 +411,7 @@ describe('Settings layout (sections, status first, folded explanations)', () => 
     expect(groups).toEqual(['アカウント', '表示', 'バックアップ', 'キー', 'お問い合わせ', '最新情報', 'このアプリ'])
     const opened: Record<string, string[]> = {
       アカウント: ['Annict連携', 'GitHub連携（任意）'],
-      // 表示は見出しを付けず、1つずつの行に並べる（#30）
+      // 表示は見出しを付けず、1つずつの行に並べる
       表示: [],
       バックアップ: ['バックアップ'],
       キー: ['キーバインド（PC）'],
@@ -513,7 +513,7 @@ describe('Settings layout (sections, status first, folded explanations)', () => 
     expect(container.querySelector('details.welcome__about a[href="/terms.html"]')).toBeTruthy()
   })
 
-  // 新規登録は多くの人に、別のアカウントは少数に関わるので、新規登録を先に。1つずつ「・」で分ける（2026-10-13 利用者）
+  // 新規登録は多くの人に、別のアカウントは少数に関わるので、新規登録を先に。1つずつ「・」で分ける
   it('lists the sign-up note before the other-account note', () => {
     localStorage.setItem('animax.owner.v1', '!')
     const { container } = show({ annictToken: null, clientId: 'cid' })
@@ -524,7 +524,7 @@ describe('Settings layout (sections, status first, folded explanations)', () => 
   })
 })
 
-// 英語の画面（ブラウザの言語が日本語でなければ英語。2026-10-20 利用者）
+// 英語の画面（ブラウザの言語が日本語でなければ英語）
 describe('Settings in English', () => {
   it('shows the welcome in English, and says how anime titles are shown', () => {
     resetLangForTests('en')
@@ -587,7 +587,7 @@ describe('Settings 使い方を見る', () => {
   })
 })
 
-// #30（2026-10-13 利用者）: お問い合わせは X の DM でも受け付ける
+// お問い合わせは X の DM でも受け付ける
 describe('Settings contact', () => {
   it('says that X DMs and GitHub issues are also accepted', () => {
     show({ section: 'settings-contact' })
@@ -596,7 +596,7 @@ describe('Settings contact', () => {
   })
 })
 
-// #30（2026-10-13 利用者）: 最新情報（公式 X と開発日誌）を項目に分ける
+// 最新情報（公式 X と開発日誌）を項目に分ける
 describe('Settings news', () => {
   it('shows the official X account and the devlog articles by title', () => {
     show({ section: 'settings-devlog' })
@@ -612,7 +612,7 @@ describe('Settings news', () => {
     expect((screen.getByRole('link', { name: 'Zennの記事をすべて見る' }) as HTMLAnchorElement).href).toBe('https://zenn.dev/manato003')
   })
 
-  // #39: 新しい版をまだ開発記録で見ていなければ印を付け、開いたら消す
+  // 新しい版をまだ開発記録で見ていなければ印を付け、開いたら消す
   it('marks a new version until development history is opened', async () => {
     show({ section: 'settings-history' })
     const block = document.getElementById('settings-history')!

@@ -387,7 +387,7 @@ export async function fetchEpisodes(token: string, workIds: readonly string[]): 
   return out
 }
 
-// ── 放送予定（Issue #32） ──
+// ── 放送予定 ──
 // 作品の programs は、チャンネルごと・毎週の分が放送の始まりから並ぶ（人気の作品は40局を超え、1クールで500件を超える）。
 // チャンネルで絞って頼めないので、始まりから順に読み、これから先の分（HORIZON_DAYS 日まで）に届いたら止める。再放送は外す
 const PROGRAM_WORKS_PER_QUERY = 10
@@ -426,7 +426,7 @@ async function nextPrograms(token: string, id: string, after: string | null, dir
 }
 
 // complete: これから先の分（HORIZON_DAYS 日まで）を読み切れたか。始まりから8ページで届かなければ、終わりの側から読み直す
-// （長く続く作品は、過去の予定が多い）。それでも届かなければ false（「予定なし」とは区別する。#34）
+// （長く続く作品は、過去の予定が多い）。それでも届かなければ false（「予定なし」とは区別する）
 export interface UpcomingPrograms {
   slots: ProgramSlot[]
   complete: boolean
@@ -672,13 +672,9 @@ export function annictWorkReviewsUrl(annictId: number): string {
   return `https://annict.com/works/${annictId}/records`
 }
 
-// Annict の利用者のページ・コレクションの一覧
+// Annict の利用者のページ
 export function annictUserUrl(username: string): string {
   return `https://annict.com/@${encodeURIComponent(username)}`
-}
-
-export function annictCollectionsUrl(username: string): string {
-  return `${annictUserUrl(username)}/collections`
 }
 
 // ほかの人の感想（作品の詳細の「みんなの感想」）
@@ -838,7 +834,7 @@ export function fetchLibrary(token: string, opts: { fresh?: boolean } = {}): Pro
 }
 
 // 記録の一覧は、開くたびに全部を読む（状態ごとに分けて一部を控えから出すと、Annict のサイトやほかの端末での変更とずれることがある。
-// 2026-10-13 に試して、利用者の判断で戻した: 記録のずれは不可、手で読み直すのも無し）
+// 試して戻した: 記録のずれは不可、手で読み直すのも無し）
 async function readLibrary(token: string): Promise<LibraryEntry[]> {
   const out: LibraryEntry[] = []
   let after: string | null = null
@@ -1217,7 +1213,7 @@ function libraryStates(): Map<number, StatusState> | null {
   return new Map(lastLibrary.map((e) => [e.annictId, e.state]))
 }
 
-// 形の壊れた項目は捨てる（並べ替えや読み出しで落ちないように。#34）
+// 形の壊れた項目は捨てる（並べ替えや読み出しで落ちないように）
 function keptDetails(): Record<string, { at: string; detail: WorkDetail }> {
   const v = loadWorkDetailsRaw()
   if (!v || typeof v !== 'object' || Array.isArray(v)) return {}
@@ -1318,6 +1314,27 @@ export async function searchWorksByTitle(token: string, title: string): Promise<
     { titles: [title] },
   )
   return data.searchWorks.nodes
+}
+
+// Annict の作品 ID から、ブラウズの一覧と同じ形で引く（50件ずつ1回の問い合わせ）。並びは問い合わせの順とは限らない。無い ID は入らない
+export async function fetchWorksByAnnictIds(token: string, annictIds: readonly number[]): Promise<BrowseWork[]> {
+  const ids = [...new Set(annictIds)]
+  const out: BrowseWork[] = []
+  for (let i = 0; i < ids.length; i += 50) {
+    const data = await gql<{
+      searchWorks: { nodes: (Omit<BrowseWork, 'imageUrl'> & { image: { recommendedImageUrl: string | null; facebookOgImageUrl: string | null } | null })[] }
+    }>(
+      token,
+      `query($ids: [Int!], $first: Int) {
+        searchWorks(annictIds: $ids, first: $first) {
+          nodes { id annictId title titleEn media seasonYear seasonName malAnimeId watchersCount viewerStatusState satisfactionRate reviewsCount image { recommendedImageUrl facebookOgImageUrl } }
+        }
+      }`,
+      { ids: ids.slice(i, i + 50), first: 50 },
+    )
+    out.push(...data.searchWorks.nodes.map(({ image, ...w }) => ({ ...w, imageUrl: annictImageOf(image) })))
+  }
+  return out
 }
 
 // いくつかの題名を1回の問い合わせでまとめて探す（GraphQL のエイリアス）。返す並びは titles と同じ順で、1つの題名ごとに100件まで

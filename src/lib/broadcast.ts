@@ -5,7 +5,7 @@ import { syncJson } from './syncStore'
 import { readStoredBroadcast, saveStoredBroadcast } from './storage'
 import { getLang, t, weekdayShort } from './i18n'
 
-// 見るサービスと、見てる作品の次の放送（Issue #32。2026-10-13）。
+// 見るサービスと、見てる作品の次の放送。
 // 放送予定は Annict の公開の API（作品の programs）にある。チャンネルごと・毎週の分が入っていて、配信（動画サービス・ABEMA）と
 // 地上波（地域ごと）・BS・CS に分かれる。Annict の「放送予定」の機能（viewer.programs）は Annict のサイトでチャンネルを登録した人にしか出ないので使わず、
 // 見るサービスは Anipair の中で選んでもらう（Annict のサイトを挟まない）。放送予定は Annict の利用者が登録した情報なので、画面にそう添える
@@ -17,7 +17,7 @@ export const SERVICES = [
   { id: 'netflix', label: 'Netflix', channels: ['Netflix'] },
   { id: 'unext', label: 'U-NEXT', channels: ['U-NEXT'] },
   { id: 'prime', label: 'Prime Video', channels: ['Amazon プライム・ビデオ'] }, // i18n-ok: channels は Annict のチャンネル名（データ）
-  // ABEMA はチャンネルが多い（ABEMA アニメLIVE・ABEMA みんなのアニメなど）ので、Annict のチャンネルのまとまり「ABEMA」で見る（#34）
+  // ABEMA はチャンネルが多い（ABEMA アニメLIVE・ABEMA みんなのアニメなど）ので、Annict のチャンネルのまとまり「ABEMA」で見る
   { id: 'abema', label: 'ABEMA', channels: ['ABEMAビデオ', 'ABEMA アニメ'], group: 'ABEMA' }, // i18n-ok: channels は Annict のチャンネル名（データ）
   {
     id: 'danime',
@@ -181,7 +181,7 @@ function serviceOf(slot: Slot): (typeof SERVICES)[number] | undefined {
 }
 
 export function matches(slot: Slot, p: BroadcastChoice): boolean {
-  // 地域を選んだら、その地域の局と、全国の局（NHK など。Annict のまとまり「テレビ 全国」。#34）
+  // 地域を選んだら、その地域の局と、全国の局（NHK など。Annict のまとまり「テレビ 全国」）
   if (p.region && (slot.g === `テレビ ${p.region}` || slot.g === 'テレビ 全国')) return true // i18n-ok: Annict のチャンネルのまとまりの名前（データ）
   if (p.satellites.includes('bs') && slot.g.startsWith('BS')) return true
   if (p.satellites.includes('cs') && slot.g === 'スカパー') return true // i18n-ok: Annict のチャンネルのまとまりの名前（データ）

@@ -2,8 +2,8 @@ import { tx, type Text } from '../lib/i18n'
 
 // よくある質問（ヘルプの「文章で詳しく読む」の中に出す）。届いた問い合わせのうち、何度も来るものを足していく。
 // 外に出る文章なので、Annict に配慮した言い方にする（CLAUDE.md）。機能の説明は、画面とコードで確かめてから書く。
-// 答えは、まず短い答え（1文。太字で出す）、そのあとに説明（無ければ空）の形にそろえる（2026-10-19 利用者）
-// 英語の文言は、ボタンや項目の名前を画面の英語（用語集 docs/i18n-guide.md）に合わせる
+// 答えは、まず短い答え（1文。太字で出す）、そのあとに説明（無ければ空）の形にそろえる
+// 英語の文言は、ボタンや項目の名前を画面の英語に合わせる
 
 interface FaqItem {
   question: Text
@@ -84,12 +84,12 @@ const ITEMS: readonly FaqItem[] = [
   {
     question: {
       ja: 'Annictには「一時中断」と「視聴中止」がありますが、Anipairで分けられないのはなぜですか？',
-      en: 'Annict has both “On hold” and “Stopped watching”. Why can’t I tell them apart in Anipair?',
+      en: 'Annict has both “On hold” and “Stopped watching”. Why doesn’t Anipair keep them separate?',
     },
     short: { ja: '「途中で見るのをやめた」を、迷わず1回で記録できるようにするためです。', en: 'So that “I stopped watching partway” can be recorded in one tap, without hesitating.' },
     detail: {
       ja: 'Anipairは見たアニメをすばやく記録できることを大事にしていて、「1つの気持ちに、1つのボタン」を設計の考え方にしています。1つの気持ちに2つのボタンがあると、記録するたびに「中断」か「中止」かで迷いやすいので、「視聴中断」の1つにまとめました。Anipairで付けた視聴中断は、Annictには「視聴中止」として保存されます。Annictのサイトで付けた「一時中断」はそのまま残り、Anipairでは「視聴中断」と表示します。2つを分けて記録したいときは、Annictのサイトで付け替えられます。',
-      en: 'Anipair is built around recording what you’ve watched quickly, and its design principle is “one feeling, one button”. With two buttons for the same feeling, it’s easy to hesitate between “on hold” and “dropped” every time you record, so they’re combined into a single “Dropped”. A Dropped you set in Anipair is saved to Annict as “Stopped watching”. An “On hold” you set on the Annict website stays as it is, and Anipair shows it as “Dropped”. If you want to record the two separately, you can switch them on the Annict website.',
+      en: 'Anipair is built around recording what you’ve watched quickly, and its design principle is “one feeling, one button”. With two buttons for the same feeling, it’s easy to hesitate between “on hold” and “stopped watching” every time you record, so they’re combined into a single “Dropped”. When you mark an anime “Dropped” in Anipair, it’s saved to Annict as “Stopped watching”. “On hold” set on the Annict website stays as it is, and Anipair shows it as “Dropped”. If you want to record the two separately, you can change the status on the Annict website.',
     },
   },
   {
@@ -113,7 +113,7 @@ const ITEMS: readonly FaqItem[] = [
     short: { ja: 'しています。', en: 'Yes.' },
     detail: {
       ja: 'どの画面がどれくらい開かれたかだけを、Vercel Web Analyticsで集計しています。送るのは、開いた画面の名前・どこから来たか・国や地域・端末とブラウザの種類です。Cookieは使わず、Annictのアカウントや記録、入力した内容は送りません。詳しくはプライバシーポリシーにあります。',
-      en: 'Only how often each screen is opened is counted, using Vercel Web Analytics. What’s sent is the name of the screen opened, where the visit came from, the country or region, and the device and browser type. No cookies are used, and your Annict account, your records, and anything you type are never sent. See the Privacy Policy for details.',
+      en: 'Anipair uses Vercel Web Analytics only to count how often each screen is opened. It sends the name of the screen, where the visit came from, the country or region, and the device and browser type. No cookies are used, and your Annict account, your records, and anything you type are never sent. See the Privacy Policy for details.',
     },
   },
   {

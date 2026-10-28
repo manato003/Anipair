@@ -1,7 +1,7 @@
 import type { LibraryEntry, MyReview, RatingState, StatusState } from '../../lib/annict'
 import { RATING_ORDER } from '../../lib/reviewOps'
 import type { Cover } from '../../lib/storage'
-import type { Season } from '../../lib/season'
+import { compareSeasons, seasonOfWork, type Season } from '../../lib/season'
 import { t } from '../../lib/i18n'
 
 // 記録ページの分類と並べ替え。すべて純粋な関数
@@ -43,6 +43,7 @@ export function countBuckets(rows: RecordRow[]): Record<Bucket, number> {
 }
 
 // 並べ替えの種類。好きな順（自分の評価）は見たのときだけ、おすすめ順は見たいのときだけ（おすすめ順は好みの点数で並べるので Records が並べる）。
+// 記録順は見たには出さない（まとめて登録した人では日付がそろい、見た順にならないため）
 // 人気順は Annict でその作品を記録した人の数（ライブラリの読み込みで取っている）
 export type SortKey = 'rating' | 'popular' | 'recorded' | 'aired' | 'taste'
 // 降順（大きい・新しい・高いが先）と昇順。押している並べ替えをもう一度押すと入れ替わる
@@ -61,38 +62,20 @@ const SORT_LABEL: Record<SortKey, string> = {
   get taste() { return t('おすすめ順', 'Suggested') },
 }
 
-// 状態ごとに選べる並べ替え（先頭が最初に選ばれているもの）
-export function sortOptions(bucket: Bucket): { key: SortKey; label: string }[] {
-  const keys: SortKey[] =
-    bucket === 'watched' ? ['rating', 'popular', 'recorded', 'aired'] : bucket === 'wanna' ? ['recorded', 'popular', 'aired', 'taste'] : ['recorded', 'popular', 'aired']
-  return keys.map((key) => ({ key, label: SORT_LABEL[key] }))
+// 並べ方の説明（並べ替えの「i」で出す）。向きは降順のときの言い方
+const SORT_NOTE: Record<SortKey, string> = {
+  get rating() { return t('あなたの評価の高い順です（とても良い → 良い → 普通 → 良くない）。', 'Your highest ratings first (Great → Good → Average → Bad).') },
+  get popular() { return t('Annictでその作品を記録した人の多い順です。', 'Most people recording it on Annict first.') },
+  get recorded() { return t('Annictでいまの状態（見たい・見てるなど）にした日の新しい順です。', 'Most recently moved to this status on Annict first.') },
+  get aired() { return t('放送時期の新しい順です。', 'Newest air date first.') },
+  get taste() { return t('あなたが高く評価した作品に似ている作品や、好きなジャンル・制作会社の作品を先に並べます。', 'Anime similar to ones you rated highly, or in genres and studios you like, come first.') },
 }
 
-// いまの並べ方を1行で（並べ替えの下にいつも出す。ブラウズと同じ考え方）
-export function sortNote({ key, dir }: SortChoice): string {
-  const desc = dir === 'desc'
-  switch (key) {
-    case 'rating':
-      return desc
-        ? t('あなたの評価の高い順です。評価の無い作品は最後に並びます。', 'Sorted by your rating, highest first. Unrated anime come last.')
-        : t('あなたの評価の低い順です。評価の無い作品は最後に並びます。', 'Sorted by your rating, lowest first. Unrated anime come last.')
-    case 'popular':
-      return desc
-        ? t('Annictでこの作品を記録した人の多い順です。', 'Sorted by how many people recorded it on Annict, most first.')
-        : t('Annictでこの作品を記録した人の少ない順です。', 'Sorted by how many people recorded it on Annict, fewest first.')
-    case 'recorded':
-      return desc
-        ? t('Annictに記録した日の新しい順です。', 'Sorted by the date you recorded it on Annict, newest first.')
-        : t('Annictに記録した日の古い順です。', 'Sorted by the date you recorded it on Annict, oldest first.')
-    case 'aired':
-      return desc
-        ? t('放送の新しい順です。放送時期の分からない作品は最後に並びます。', 'Sorted by air date, newest first. Anime with no known air date come last.')
-        : t('放送の古い順です。放送時期の分からない作品は最後に並びます。', 'Sorted by air date, oldest first. Anime with no known air date come last.')
-    case 'taste':
-      return desc
-        ? t('あなたの評価から好みに合いそうな順です。', 'Sorted by how well they match your taste, based on your ratings.')
-        : t('あなたの評価から好みに合いそうな作品を後ろにした順です。', 'Sorted by how well they match your taste, best matches last.')
-  }
+// 状態ごとに選べる並べ替え（先頭が最初に選ばれているもの）
+export function sortOptions(bucket: Bucket): { key: SortKey; label: string; note: string }[] {
+  const keys: SortKey[] =
+    bucket === 'watched' ? ['rating', 'popular', 'aired'] : bucket === 'wanna' ? ['recorded', 'popular', 'aired', 'taste'] : ['recorded', 'popular', 'aired']
+  return keys.map((key) => ({ key, label: SORT_LABEL[key], note: SORT_NOTE[key] }))
 }
 
 function ratingRank(r: RatingState | null | undefined): number {
@@ -152,19 +135,19 @@ export type SeasonKey = 'WINTER' | 'SPRING' | 'SUMMER' | 'AUTUMN'
 
 export interface RecordFilter {
   ratings: readonly RatingFilter[]
-  yearFrom: number | null
-  yearTo: number | null
-  seasons: readonly SeasonKey[]
+  // 期間の始めと終わりのクール（どちらも含む。ブラウズの期間と同じ形）。片方が無ければ、そちらは端まで
+  from: Season | null
+  to: Season | null
   media: readonly MediaKind[]
   // ジャンルとテーマ（Shikimori の英語名）と、制作会社（Shikimori の名前）
   genres: readonly string[]
   studios: readonly string[]
   // 1つの放送クール（一覧の上で、ブラウズ・評価の画面と同じ形で選ぶ。絞り込みのシートの条件の数には入れない）。
-  // 選んでいるあいだは、放送年の範囲と季節は使わない
+  // 選んでいるあいだは、期間は使わない
   cour?: Season | null
 }
 
-export const EMPTY_FILTER: RecordFilter = { ratings: [], yearFrom: null, yearTo: null, seasons: [], media: [], genres: [], studios: [], cour: null }
+export const EMPTY_FILTER: RecordFilter = { ratings: [], from: null, to: null, media: [], genres: [], studios: [], cour: null }
 
 export const MEDIA_KINDS: readonly { id: MediaKind; label: string }[] = [
   { id: 'tv', label: 'TV' },
@@ -204,8 +187,7 @@ export function toggleIn<T>(list: readonly T[], item: T): T[] {
 export function activeFilterCount(f: RecordFilter): number {
   return (
     (f.ratings.length > 0 ? 1 : 0) +
-    (f.yearFrom !== null || f.yearTo !== null ? 1 : 0) +
-    (f.seasons.length > 0 ? 1 : 0) +
+    (f.from !== null || f.to !== null ? 1 : 0) +
     (f.media.length > 0 ? 1 : 0) +
     (f.genres.length > 0 ? 1 : 0) +
     (f.studios.length > 0 ? 1 : 0)
@@ -214,28 +196,44 @@ export function activeFilterCount(f: RecordFilter): number {
 
 // 作品の情報（ジャンル・制作会社）。MyAnimeList の ID ごと
 // minutes・episodes・airing: 1話の長さ（分）・全話数・放送中か（見てる作品のカードの残りと進み具合に使う。分からなければ null）
-export type MediaInfo = { genres: readonly string[]; studios: readonly string[]; minutes?: number | null; episodes?: number | null; airing?: boolean }
+// studioRefs: 制作会社の Shikimori の ID（ブラウズの条件検索で、名前から ID を引く）
+export type MediaInfo = {
+  genres: readonly string[]
+  studios: readonly string[]
+  studioRefs?: readonly { id: number; name: string }[]
+  minutes?: number | null
+  episodes?: number | null
+  airing?: boolean
+}
 
 function infoOf(row: RecordRow, info: ReadonlyMap<number, MediaInfo> | null): MediaInfo | undefined {
   const mal = Number(row.entry.malAnimeId)
   return info && Number.isInteger(mal) && mal > 0 ? info.get(mal) : undefined
 }
 
-// 条件に合う記録だけを残す。ジャンル・制作会社の条件は、作品の情報が無い作品（読み込み中・Shikimori に無い）を外す
+// 放送時期が期間（始めと終わりのクール。逆に選んでいても同じ期間）に入るか。時期の分からない作品は入らない。
+// 季節が分からず年だけ分かる作品は、その年が期間に掛かれば入れる
+function inPeriod(e: { seasonYear?: number | null; seasonName?: string | null }, from: Season | null, to: Season | null): boolean {
+  const [lo, hi] = from && to && compareSeasons(from, to) > 0 ? [to, from] : [from, to]
+  const s = seasonOfWork(e)
+  if (s) return (!lo || compareSeasons(s, lo) >= 0) && (!hi || compareSeasons(s, hi) <= 0)
+  const y = e.seasonYear
+  return !!y && (!lo || y >= lo.year) && (!hi || y <= hi.year)
+}
+
+// 条件に合う記録だけを残す（選んだ条件すべてに合うもの。1作品に複数同時に付くジャンルは選んだものを全部持つ作品、1つしか付かないほかの項目は項目の中のどれか）。ジャンル・制作会社の条件は、作品の情報が無い作品（読み込み中・Shikimori に無い）を外す
 export function applyFilter(rows: readonly RecordRow[], f: RecordFilter, info: ReadonlyMap<number, MediaInfo> | null): RecordRow[] {
   if (activeFilterCount(f) === 0 && !f.cour) return [...rows]
   return rows.filter((row) => {
     const e = row.entry
     if (f.ratings.length > 0 && !f.ratings.includes(row.review?.ratingOverallState ?? 'NONE')) return false
     if (f.cour && !(e.seasonYear === f.cour.year && e.seasonName?.toUpperCase() === f.cour.name.toUpperCase())) return false
-    if (f.yearFrom !== null && !(e.seasonYear && e.seasonYear >= f.yearFrom)) return false
-    if (f.yearTo !== null && !(e.seasonYear && e.seasonYear <= f.yearTo)) return false
-    if (f.seasons.length > 0 && !(e.seasonName && (f.seasons as readonly string[]).includes(e.seasonName))) return false
+    if ((f.from !== null || f.to !== null) && !inPeriod(e, f.from, f.to)) return false
     if (f.media.length > 0 && !f.media.includes(mediaKindOf(e.media))) return false
     if (f.genres.length > 0 || f.studios.length > 0) {
       const m = infoOf(row, info)
       if (!m) return false
-      if (f.genres.length > 0 && !f.genres.some((g) => m.genres.includes(g))) return false
+      if (!f.genres.every((g) => m.genres.includes(g))) return false
       if (f.studios.length > 0 && !f.studios.some((s) => m.studios.includes(s))) return false
     }
     return true

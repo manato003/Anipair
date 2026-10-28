@@ -82,7 +82,7 @@ function makeStudio(label: () => string, ids: readonly number[], names: readonly
   }
 }
 
-// 主な制作会社（2026-10-27 利用者と決めた20社）。ID と名前は Shikimori の制作会社の一覧で確かめた（2026-10-27）。
+// 主な制作会社（20社）。ID と名前は Shikimori の制作会社の一覧で確かめた（2026-10-27）。
 // サンライズは 2022年に Bandai Namco Filmworks に変わったので、両方の作品を出す
 export const PICK_STUDIOS: readonly PickStudio[] = [
   makeStudio(() => t('MAPPA', 'MAPPA'), [569], ['MAPPA']),
@@ -140,9 +140,9 @@ export function axisTable(axis: TableAxis, n: number): { title: string; preset: 
   }
 }
 
-// 作品情報のジャンル・テーマが、選んだジャンルのどれかに当たるか（ブラウズ・記録の絞り込みと同じく「どれか」）。選んでいなければ当たる
+// 作品情報のジャンル・テーマが、選んだジャンルを全部持つか（ブラウズ・記録の絞り込みと同じく、1作品に複数付くジャンルは「すべて」）。選んでいなければ当たる
 export function genresMatch(genres: readonly string[] | undefined, selected: readonly string[]): boolean {
-  return selected.length === 0 || (!!genres && selected.some((g) => genres.includes(g)))
+  return selected.length === 0 || (!!genres && selected.every((g) => genres.includes(g)))
 }
 
 // 作品名に含むか（大文字・小文字と前後の空白は区別しない）。英語の題名でも当てる

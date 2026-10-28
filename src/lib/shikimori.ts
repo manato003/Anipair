@@ -288,6 +288,34 @@ export async function findPerson(name: string, opts: FetchOptions = {}): Promise
   return null
 }
 
+export interface TitleHit {
+  malId: number
+  // 日本語の題名（Shikimori に無い作品は null）
+  japanese: string | null
+}
+
+const titleCache = new Map<string, Promise<TitleHit[]>>()
+
+// 英語・ローマ字の題名で作品を探す（Annict の検索は日本語の題名にしか当たらないので、日本語の題名に置き換えて引き直すため）。
+// 1回の起動の中では同じ語を1回だけ聞く（ブラウズの「もっと見る」のたびに聞き直さない）。失敗は控えない
+export function searchTitles(query: string, opts: FetchOptions = {}): Promise<TitleHit[]> {
+  // 大文字と小文字は区別せずに当たるので、小文字にそろえて CDN の控えを使い回す
+  const key = query.trim().toLowerCase()
+  let p = titleCache.get(key)
+  if (!p) {
+    p = call(`op=search&q=${encodeURIComponent(key)}`, opts).then((body) => {
+      const list = (body as { animes?: unknown } | null)?.animes
+      if (!Array.isArray(list)) throw badResponse()
+      return (list as { id?: unknown; japanese?: unknown }[]).flatMap((a) =>
+        typeof a?.id === 'number' && Number.isInteger(a.id) && a.id > 0 ? [{ malId: a.id, japanese: typeof a.japanese === 'string' && a.japanese ? a.japanese : null }] : [],
+      )
+    })
+    p.catch(() => titleCache.delete(key))
+    titleCache.set(key, p)
+  }
+  return p
+}
+
 // Shikimori のスタッフの役割（ロシア語）を日本語と英語に。よく出るものだけ。知らないものは null（画面では「スタッフ」）
 const ROLES: Record<string, Text> = {
   'Исполнение гл. муз. темы': { ja: '主題歌', en: 'Theme song' },
@@ -383,7 +411,12 @@ export async function fetchCharacterNames(ids: readonly number[], opts: FetchOpt
 const LIST_PAGES = 4
 
 // 制作会社の作品（新しい順。50件ずつ、最大4ページ）。作品の情報は控えにも入れる（一覧から詳細を開くときに読み直さない）
-export function fetchStudioWorks(id: number, opts: FetchOptions = {}): Promise<Media[]> {
+export async function fetchStudioWorks(id: number, opts: FetchOptions = {}): Promise<Media[]> {
+  return (await fetchStudioLinked(id, opts)).medias
+}
+
+// 制作会社の作品と、中継が覚えている Annict の作品 ID（確かめていない。使う側が Annict で引き直す。features/browse/annictLinks.ts）
+export function fetchStudioLinked(id: number, opts: FetchOptions = {}): Promise<{ medias: Media[]; annict: Map<number, number> }> {
   return fetchList('studio', id, opts)
 }
 
@@ -406,25 +439,82 @@ export function genreId(name: string): number | null {
 }
 
 // ジャンルの作品（人気順。50件ずつ、最大4ページ）
-export function fetchGenreWorks(id: number, opts: FetchOptions = {}): Promise<Media[]> {
-  return fetchList('genre', id, opts)
+export async function fetchGenreWorks(id: number, opts: FetchOptions = {}): Promise<Media[]> {
+  return (await fetchList('genre', id, opts)).medias
 }
 
-async function fetchList(op: 'studio' | 'genre', id: number, opts: FetchOptions): Promise<Media[]> {
-  const out: Media[] = []
+// 制作会社は v=7（応答に対応が付く）、ジャンルは v=6
+async function fetchList(op: 'studio' | 'genre', id: number, opts: FetchOptions): Promise<{ medias: Media[]; annict: Map<number, number> }> {
+  const medias: Media[] = []
+  const annict = new Map<number, number>()
   for (let page = 1; page <= LIST_PAGES; page++) {
-    const body = (await call(`op=${op}&id=${id}&page=${page}&v=6`, opts)) as { animes?: RawAnime[] }
+    const body = (await call(`op=${op}&id=${id}&page=${page}&v=${op === 'studio' ? 7 : 6}`, opts)) as { animes?: RawAnime[]; annict?: unknown }
     if (!body || !Array.isArray(body.animes)) throw badResponse()
     for (const raw of body.animes) {
       const m = normalize(raw)
       if (!m) continue
       mediaCache.set(m.idMal, m)
       noteEnglishTitle(m.idMal, m.title.english)
-      out.push(m)
+      medias.push(m)
     }
+    for (const [mal, aid] of linksOf(body.annict)) annict.set(mal, aid)
     if (body.animes.length < BATCH) break
   }
+  return { medias, annict }
+}
+
+// 応答の annict（MyAnimeList の ID → Annict の作品 ID）。形の合わないものは捨てる
+function linksOf(raw: unknown): Map<number, number> {
+  const out = new Map<number, number>()
+  if (!raw || typeof raw !== 'object') return out
+  for (const [mal, id] of Object.entries(raw as Record<string, unknown>)) {
+    if (Number.isInteger(Number(mal)) && Number(mal) > 0 && typeof id === 'number' && Number.isInteger(id) && id > 0) out.set(Number(mal), id)
+  }
   return out
+}
+
+// 期間の作品を、ジャンル（すべてを持つ）と制作会社（1社）で探す条件。期間は Annict の書き方（2022-spring）
+export interface FindCondition {
+  genres: readonly number[]
+  studio: number | null
+  from: string
+  to: string
+  order: 'popularity' | 'aired_on'
+}
+
+// 期間・ジャンル・制作会社で探す（50件ずつ、中継の上限の4ページまで）。annict は中継が覚えている Annict の作品 ID（確かめていない。使う側が Annict で引き直す）。
+// full: 1ページぶん返った（続きがあるかもしれない）
+export async function findWorks(c: FindCondition, page: number, opts: FetchOptions = {}): Promise<{ medias: Media[]; annict: Map<number, number>; full: boolean }> {
+  const genres = [...new Set(c.genres)].sort((a, b) => a - b)
+  const query = [
+    'op=find',
+    ...(genres.length > 0 ? [`genre=${genres.join(',')}`] : []),
+    ...(c.studio !== null ? [`studio=${c.studio}`] : []),
+    `from=${c.from}`,
+    `to=${c.to}`,
+    `order=${c.order}`,
+    `page=${page}`,
+    'v=1',
+  ].join('&')
+  const body = (await call(query, opts)) as { animes?: RawAnime[]; annict?: unknown }
+  if (!body || !Array.isArray(body.animes)) throw badResponse()
+  const medias: Media[] = []
+  for (const raw of body.animes) {
+    const m = normalize(raw)
+    if (!m) continue
+    mediaCache.set(m.idMal, m)
+    noteEnglishTitle(m.idMal, m.title.english)
+    medias.push(m)
+  }
+  return { medias, annict: linksOf(body.annict), full: body.animes.length >= BATCH }
+}
+
+// 題名で結び付けた MyAnimeList の ID → Annict の作品 ID を中継に覚えてもらう（次の人は題名で探さずに済む）。
+// 失敗しても困らないので、待たず・知らせない。Shikimori には届かないので、問い合わせの列にも並べない
+export function linkAnnict(pairs: readonly (readonly [number, number])[]): void {
+  for (let i = 0; i < pairs.length; i += BATCH) {
+    fetch(`${ENDPOINT}?op=link`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pairs: pairs.slice(i, i + BATCH) }) }).catch(() => undefined)
+  }
 }
 
 // 似た作品の一覧（似ている順の MyAnimeList の ID）。端末に30日、起動中はメモリに控える
@@ -452,7 +542,7 @@ export async function fetchSimilar(malId: number, opts: FetchOptions = {}): Prom
 
 // 端末に無い作品の似た作品を、中継の控え（Upstash）から50件ずつまとめて受け取り、端末に控える。
 // 中継は控えにある分だけを返し、Shikimori には聞かない（無い分は、このあと1件ずつ聞く）。
-// 初回のマッチングで70件ほどを0.7秒おきに1件ずつ頼んでいたのを、控えのある分は数回で済ませる（2026-10-13 のコードレビュー #31）。
+// 初回のマッチングで70件ほどを0.7秒おきに1件ずつ頼んでいたのを、控えのある分は数回で済ませる。
 // 読めなくても、1件ずつ聞く今までの道に戻るだけ
 async function prefetchSimilar(malIds: readonly number[], opts: FetchOptions): Promise<void> {
   const missing = malIds.filter((id) => !store().has(id))
@@ -500,6 +590,7 @@ export async function fetchSimilarMany(
 export function resetShikimoriMemory(): void {
   mediaCache.clear()
   characterCache.clear()
+  titleCache.clear()
   similarStore = null
 }
 

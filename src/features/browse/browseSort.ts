@@ -10,20 +10,47 @@ import { orderByScore, scoreWanna } from '../records/wannaRank'
 // おすすめ順（id は taste）は、記録の見たいのおすすめ順と同じ式（wannaRank.ts）で、クールの作品を手元で並べる
 export type BrowseSort = 'popular' | 'score' | 'taste' | 'newest'
 
-// 何を見ているか: 1つのクール（上のクール選び）・期間（絞り込みの放送年と季節）・タイトル検索
+// 何を見ているか: 1つのクール（上のクール選び）・期間（絞り込みの始めと終わりのクール）・タイトル検索
 export type BrowseMode = 'cour' | 'period' | 'search'
 
 // modes: その並べ方を出す場合。新しい順は1つのクールでは意味が無い（すべて同じ時期）。
-// おすすめ順はクールか期間の作品を集めて並べるもので、タイトル検索では出さない
+// おすすめ順はクールか期間の作品を集めて並べるもので、タイトル検索では出さない。
+// note: 並べ方の説明（並べ替えの「i」で出す）
 export const SORTS: readonly {
   id: BrowseSort
   label: string
+  note: string
   modes: readonly BrowseMode[]
 }[] = [
-  { id: 'popular', get label() { return t('人気順', 'Popular') }, modes: ['cour', 'period', 'search'] },
-  { id: 'score', get label() { return t('評価順', 'Top rated') }, modes: ['cour', 'period', 'search'] },
-  { id: 'taste', get label() { return t('おすすめ順', 'Suggested') }, modes: ['cour', 'period'] },
-  { id: 'newest', get label() { return t('放送日順', 'Air date') }, modes: ['period', 'search'] },
+  {
+    id: 'popular',
+    get label() { return t('人気順', 'Popular') },
+    get note() { return t('Annictでその作品を記録した人の多い順です。', 'Most people recording it on Annict first.') },
+    modes: ['cour', 'period', 'search'],
+  },
+  {
+    id: 'score',
+    get label() { return t('評価順', 'Top rated') },
+    get note() {
+      return t(
+        'ほかの人の評価が高い順です。Annictの満足度を使い、無ければShikimoriの点数を使います。評価した人の少ない作品は、点数を平均に寄せて並べます。',
+        'Highest rated by others first, using Annict satisfaction or, if missing, the Shikimori score. Anime with few ratings are pulled toward the average.',
+      )
+    },
+    modes: ['cour', 'period', 'search'],
+  },
+  {
+    id: 'taste',
+    get label() { return t('おすすめ順', 'Suggested') },
+    get note() { return t('あなたが高く評価した作品に似ている作品や、好きなジャンル・制作会社の作品を先に並べます。', 'Anime similar to ones you rated highly, or in genres and studios you like, come first.') },
+    modes: ['cour', 'period'],
+  },
+  {
+    id: 'newest',
+    get label() { return t('放送日順', 'Air date') },
+    get note() { return t('放送時期の新しい順です。', 'Newest air date first.') },
+    modes: ['period', 'search'],
+  },
 ]
 
 // いまの場合で使えない並べ方は、人気順にする

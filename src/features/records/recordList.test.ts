@@ -11,7 +11,6 @@ import {
   formatDate,
   mediaKindOf,
   optionState,
-  sortNote,
   sortOptions,
   sortRows,
   type MediaInfo,
@@ -114,20 +113,12 @@ describe('sortRows with a direction', () => {
   })
 })
 
-describe('sortOptions and sortNote', () => {
+describe('sortOptions', () => {
   it('offers rating only for watched, the taste order only for wanna, and popularity everywhere', () => {
-    expect(sortOptions('watched').map((o) => o.label)).toEqual(['好きな順', '人気順', '記録順', '放送日順'])
+    expect(sortOptions('watched').map((o) => o.label)).toEqual(['好きな順', '人気順', '放送日順'])
     expect(sortOptions('wanna').map((o) => o.label)).toEqual(['記録順', '人気順', '放送日順', 'おすすめ順'])
     expect(sortOptions('watching').map((o) => o.label)).toEqual(['記録順', '人気順', '放送日順'])
     expect(sortOptions('other').map((o) => o.label)).toEqual(['記録順', '人気順', '放送日順'])
-  })
-
-  it('says in words which way the list runs', () => {
-    expect(sortNote({ key: 'rating', dir: 'desc' })).toMatch(/^あなたの評価の高い順/)
-    expect(sortNote({ key: 'rating', dir: 'asc' })).toMatch(/^あなたの評価の低い順/)
-    expect(sortNote({ key: 'recorded', dir: 'asc' })).toBe('Annictに記録した日の古い順です。')
-    expect(sortNote({ key: 'popular', dir: 'desc' })).toBe('Annictでこの作品を記録した人の多い順です。')
-    expect(sortNote({ key: 'aired', dir: 'desc' })).toMatch(/^放送の新しい順/)
   })
 })
 
@@ -156,9 +147,13 @@ describe('applyFilter', () => {
 
   it('matches any choice within a condition, and all conditions together', () => {
     expect(ids(applyFilter(list, { ...EMPTY_FILTER, ratings: ['GREAT', 'NONE'] }, null))).toEqual([1, 3])
-    expect(ids(applyFilter(list, { ...EMPTY_FILTER, yearFrom: 2012, yearTo: 2020 }, null))).toEqual([2, 3])
-    expect(ids(applyFilter(list, { ...EMPTY_FILTER, yearFrom: 2016 }, null))).toEqual([3, 4])
-    expect(ids(applyFilter(list, { ...EMPTY_FILTER, seasons: ['SPRING', 'SUMMER'] }, null))).toEqual([1, 4])
+    // 期間は始めと終わりのクール（どちらも含む。逆に選んでも同じ）。片方だけなら、そちらは端まで
+    expect(ids(applyFilter(list, { ...EMPTY_FILTER, from: { year: 2015, name: 'autumn' }, to: { year: 2020, name: 'winter' } }, null))).toEqual([2, 3])
+    expect(ids(applyFilter(list, { ...EMPTY_FILTER, from: { year: 2020, name: 'winter' }, to: { year: 2015, name: 'autumn' } }, null))).toEqual([2, 3])
+    expect(ids(applyFilter(list, { ...EMPTY_FILTER, from: { year: 2015, name: 'winter' }, to: { year: 2015, name: 'summer' } }, null))).toEqual([])
+    expect(ids(applyFilter(list, { ...EMPTY_FILTER, from: { year: 2020, name: 'spring' } }, null))).toEqual([4])
+    expect(ids(applyFilter(list, { ...EMPTY_FILTER, to: { year: 2010, name: 'spring' } }, null))).toEqual([1])
+    expect(activeFilterCount({ ...EMPTY_FILTER, from: { year: 2020, name: 'spring' }, to: { year: 2024, name: 'autumn' } })).toBe(1)
     // 配信（WEB）は OVA と同じまとまり
     expect(ids(applyFilter(list, { ...EMPTY_FILTER, media: ['ova'] }, null))).toEqual([3])
     const f = { ...EMPTY_FILTER, media: ['tv' as const], ratings: ['GREAT' as const] }
@@ -177,6 +172,10 @@ describe('applyFilter', () => {
     expect(ids(applyFilter(list, { ...EMPTY_FILTER, genres: ['Romance'] }, info))).toEqual([1, 3])
     expect(ids(applyFilter(list, { ...EMPTY_FILTER, studios: ['ufotable'] }, info))).toEqual([2, 3])
     expect(ids(applyFilter(list, { ...EMPTY_FILTER, genres: ['Romance'], studios: ['ufotable'] }, info))).toEqual([3])
+    // 制作会社は1作品に1つなので、2つ選ぶとどちらか
+    expect(ids(applyFilter(list, { ...EMPTY_FILTER, studios: ['Kyoto Animation', 'ufotable'] }, info))).toEqual([1, 2, 3])
+    // ジャンルを2つ選ぶと、両方を持つ作品だけ（どちらか、ではない）
+    expect(ids(applyFilter(list, { ...EMPTY_FILTER, genres: ['Drama', 'Romance'] }, info))).toEqual([1])
     // 作品の情報をまだ読んでいなければ、ジャンルの条件には何も当てはまらない
     expect(ids(applyFilter(list, { ...EMPTY_FILTER, genres: ['Romance'] }, null))).toEqual([])
   })

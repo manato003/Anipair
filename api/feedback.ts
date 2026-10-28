@@ -34,12 +34,12 @@ const DAY_MS = 24 * 60 * 60 * 1000
 // 受け付ける要求の大きさ（文字数の上限より十分大きく、それ以上は読まない）
 const MAX_REQUEST_BYTES = 16 * 1024
 
-// GitHub への問い合わせを待つ上限（#34。答えが来ないとき、問い合わせを待たせ続けない）
+// GitHub への問い合わせを待つ上限（答えが来ないとき、問い合わせを待たせ続けない）
 const UPSTREAM_TIMEOUT_MS = 10_000
 const REPO_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/
 
 // 本文を上限のバイト数まで読む。超えたら読むのをやめて null（Content-Length が無い・偽りでも、上限より多くは読まない。
-// 2026-10-13 のコードレビュー #31: 全部読んでから文字数で見ていた）
+// 前は全部読んでから文字数で見ていた）
 async function readLimited(request: Request, max: number): Promise<string | null> {
   if (Number(request.headers.get('content-length') ?? '0') > max) return null
   if (!request.body) return ''

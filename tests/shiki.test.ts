@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { GET, handleShiki, localTake, storeFromEnv, upstashStore, type ShikiStore } from '../api/shiki'
+import { GET, handleShiki, localTake, seasonQuery, storeFromEnv, upstashStore, type ShikiStore } from '../api/shiki'
 
 type Fetch = (url: string, init: RequestInit) => Promise<Response>
 
@@ -166,10 +166,8 @@ describe('handleShiki keeps one URL per answer', () => {
 
   it('accepts only the versions the app uses for anime and studio lookups (other versions would bypass the CDN copy)', async () => {
     const fetchFn = upstream(200, { data: { animes: [RAW] } })
-    for (const v of ['1', '3', '7', '99', '06', '0']) {
-      expect((await handleShiki(req(`?op=animes&ids=1&v=${v}`), fetchFn)).status).toBe(400)
-      expect((await handleShiki(req(`?op=studio&id=1&page=1&v=${v}`), fetchFn)).status).toBe(400)
-    }
+    for (const v of ['1', '3', '7', '99', '06', '0']) expect((await handleShiki(req(`?op=animes&ids=1&v=${v}`), fetchFn)).status).toBe(400)
+    for (const v of ['1', '3', '8', '99', '06', '0']) expect((await handleShiki(req(`?op=studio&id=1&page=1&v=${v}`), fetchFn)).status).toBe(400)
     expect(fetchFn).not.toHaveBeenCalled()
     for (const v of ['4', '5', '6']) expect((await handleShiki(req(`?op=animes&ids=1&v=${v}`), fetchFn)).status).toBe(200)
     expect((await handleShiki(req('?op=animes&ids=1'), fetchFn)).status).toBe(200)
@@ -314,6 +312,28 @@ describe('handleShiki people (find a person by name)', () => {
   })
 })
 
+describe('handleShiki search (find anime by an English or romaji title)', () => {
+  it('asks GraphQL with the title only as a variable and returns MyAnimeList ids with Japanese titles', async () => {
+    const fetchFn = upstream(200, { data: { animes: [{ malId: '52991', japanese: ' 葬送のフリーレン ', name: 'x' }, { malId: '59978', japanese: null }, { malId: null }, { malId: '1.5' }] } })
+    const res = await handleShiki(req('?op=search&q=Frieren'), fetchFn)
+    const body = JSON.parse(String(fetchFn.mock.calls[0][1].body))
+    expect(body.variables).toEqual({ search: 'Frieren' })
+    expect(body.query).toContain('animes(search: $search, limit: 10, censored: true)')
+    expect(body.query).not.toContain('Frieren')
+    expect(res.status).toBe(200)
+    expect(res.headers.get('Cache-Control')).not.toBe('no-store')
+    expect(await json(res)).toEqual({ animes: [{ id: 52991, japanese: '葬送のフリーレン' }, { id: 59978, japanese: null }] })
+  })
+
+  it('rejects an empty, too long or control-character title and extra parameters without asking Shikimori', async () => {
+    const fetchFn = upstream(200, {})
+    for (const query of ['?op=search&q=', '?op=search&q=%20', `?op=search&q=${'a'.repeat(61)}`, '?op=search&q=%00x', '?op=search&q=a&v=1']) {
+      expect((await handleShiki(req(query), fetchFn)).status).toBe(400)
+    }
+    expect(fetchFn).not.toHaveBeenCalled()
+  })
+})
+
 describe('handleShiki person (the works of a person)', () => {
   it('asks the REST endpoint and returns de-duplicated anime ids for voice roles and staff work', async () => {
     const fetchFn = upstream(200, {
@@ -450,7 +470,7 @@ describe('handleShiki genre (the popular works of a genre)', () => {
 
 // 2026-10-12: Upstash Redis に Shikimori の公開データを作品ごとに控え、Shikimori へ送る回数を全利用者で数える
 function fakeStore(opts: { wait?: number | null; broken?: boolean } = {}) {
-  const data = new Map<string, { value: string; ttl: number }>()
+  const data = new Map<string, { value: string; ttl: number | null }>()
   let takes = 0
   const store: ShikiStore = {
     async get(keys) {
@@ -548,6 +568,15 @@ describe('upstashStore', () => {
     expect(JSON.parse(String(init.body))).toEqual([['MGET', 'k1', 'k2']])
   })
 
+  it('sets an expiry only when the entry has one', async () => {
+    const fetchFn = answer(['OK', 'OK'])
+    await upstashStore('https://x', 't', fetchFn).set([
+      { key: 'a', value: '1', ttl: 60 },
+      { key: 'b', value: '2', ttl: null },
+    ])
+    expect(JSON.parse(String(fetchFn.mock.calls[0][1].body))).toEqual([['SET', 'a', '1', 'EX', 60], ['SET', 'b', '2']])
+  })
+
   it('counts per second and per minute, and asks to wait past 4 a second or 80 a minute', async () => {
     const at = Date.UTC(2026, 9, 12, 0, 0, 45)
     expect(await upstashStore('https://x', 't', answer([1, 1, 1, 1])).take(at)).toBeNull()
@@ -643,5 +672,153 @@ describe('handleShiki cast', () => {
       const res = await handleShiki(req(query), upstream(200, {}))
       expect(res.status).toBe(400)
     }
+  })
+})
+
+
+// 2026-10-28: ブラウズの条件検索（期間＋ジャンル＋制作会社）と、MyAnimeList の ID → Annict の作品 ID の対応
+describe('seasonQuery (a period in Shikimori season syntax)', () => {
+  const c = (year: number, i: number) => year * 4 + i
+  it('joins whole years into a range and lists the cours at both ends', () => {
+    expect(seasonQuery(c(2022, 3), c(2026, 1))).toBe('fall_2022,2023_2025,winter_2026,spring_2026')
+    expect(seasonQuery(c(2022, 0), c(2024, 1))).toBe('2022_2023,winter_2024,spring_2024')
+    expect(seasonQuery(c(2022, 1), c(2025, 3))).toBe('spring_2022,summer_2022,fall_2022,2023_2025')
+    expect(seasonQuery(c(2022, 3), c(2023, 0))).toBe('fall_2022,winter_2023')
+  })
+
+  it('handles a period inside one year', () => {
+    expect(seasonQuery(c(2022, 1), c(2022, 2))).toBe('spring_2022,summer_2022')
+    expect(seasonQuery(c(2022, 0), c(2022, 3))).toBe('2022')
+    expect(seasonQuery(c(2022, 0), c(2022, 2))).toBe('winter_2022,spring_2022,summer_2022')
+    expect(seasonQuery(c(2022, 3), c(2022, 3))).toBe('fall_2022')
+  })
+})
+
+describe('handleShiki find (works of a period by genres and a studio)', () => {
+  const FIND = '?op=find&genre=1,10&from=2022-autumn&to=2026-spring&order=popularity&page=1&v=1'
+  // 2026年 春（期間の終わりのクール）
+  const NOW = Date.UTC(2026, 3, 28)
+
+  it('asks for the period, all the genres, and one studio, without adult works', async () => {
+    const fetchFn = upstream(200, { data: { animes: [RAW] } })
+    const res = await handleShiki(req('?op=find&genre=1,10&studio=858&from=2022-autumn&to=2026-spring&order=aired_on&page=2&v=1'), fetchFn)
+    const body = JSON.parse(String(fetchFn.mock.calls[0][1].body))
+    expect(body.variables).toEqual({ season: 'fall_2022,2023_2025,winter_2026,spring_2026', genre: '1,10', studio: '858', page: 2 })
+    expect(body.query).toContain('order: aired_on')
+    expect(body.query).toContain('censored: true')
+    expect(((await json(res)) as { animes: { id: number }[] }).animes[0].id).toBe(52991)
+  })
+
+  it('leaves out what is not chosen (a studio only)', async () => {
+    const fetchFn = upstream(200, { data: { animes: [] } })
+    await handleShiki(req('?op=find&studio=858&from=2022-winter&to=2022-autumn&order=popularity&page=1'), fetchFn)
+    expect(JSON.parse(String(fetchFn.mock.calls[0][1].body)).variables).toEqual({ season: '2022', genre: null, studio: '858', page: 1 })
+  })
+
+  it('accepts one shape only, and needs a genre or a studio', async () => {
+    const fetchFn = upstream(200, { data: { animes: [] } })
+    const P = 'from=2022-autumn&to=2026-spring&order=popularity&page=1'
+    for (const query of [
+      `?op=find&genre=10,1&${P}`,
+      `?op=find&genre=1,1&${P}`,
+      `?op=find&${P}`,
+      '?op=find&genre=1&from=2026-spring&to=2022-autumn&order=popularity&page=1',
+      '?op=find&genre=1&from=2022-fall&to=2026-spring&order=popularity&page=1',
+      '?op=find&genre=1&from=2022-autumn&to=2026-spring&order=ranked&page=1',
+      '?op=find&genre=1&from=2022-autumn&to=2026-spring&order=popularity',
+      '?op=find&genre=1&from=2022-autumn&to=2026-spring&order=popularity&page=5',
+      `?op=find&genre=1&studio=x&${P}`,
+      `?op=find&genre=1,2,3,4,5,6,7,8,9,10,11&${P}`,
+      `?op=find&genre=1&${P}&v=2`,
+      `?op=find&genre=1&${P}&ids=1`,
+    ]) {
+      expect((await handleShiki(req(query), fetchFn)).status, query).toBe(400)
+    }
+    expect(fetchFn).not.toHaveBeenCalled()
+  })
+
+  it('keeps the list (1 day while the period reaches now, 7 days for the past) and each anime by itself', async () => {
+    const s = fakeStore()
+    await handleShiki(req(FIND), upstream(200, { data: { animes: [RAW] } }), s.store, () => NOW)
+    expect(s.data.get('shiki:1:find:1,10:-:2022-autumn:2026-spring:popularity:1')?.ttl).toBe(86400)
+    expect(s.data.get('shiki:1:anime:52991')?.ttl).toBe(90 * 86400)
+    await handleShiki(req('?op=find&genre=1&from=2010-winter&to=2015-autumn&order=popularity&page=1'), upstream(200, { data: { animes: [] } }), s.store, () => NOW)
+    expect(s.data.get('shiki:1:find:1:-:2010-winter:2015-autumn:popularity:1')?.ttl).toBe(7 * 86400)
+    // 2回目は Shikimori に聞かない
+    const fetchFn = upstream(200, {})
+    const res = await handleShiki(req(FIND), fetchFn, s.store, () => NOW)
+    expect(fetchFn).not.toHaveBeenCalled()
+    expect(((await json(res)) as { animes: { id: number }[] }).animes.map((a) => a.id)).toEqual([52991])
+  })
+
+  it('adds the Annict ids it knows, only for the works in the answer, and never keeps them in the list', async () => {
+    const s = fakeStore()
+    s.data.set('shiki:1:annict:52991', { value: '12345', ttl: 1 })
+    s.data.set('shiki:1:annict:5114', { value: '999', ttl: 1 })
+    const res = await handleShiki(req(FIND), upstream(200, { data: { animes: [RAW] } }), s.store, () => NOW)
+    expect(((await json(res)) as { annict: unknown }).annict).toEqual({ 52991: 12345 })
+    expect(s.data.get('shiki:1:find:1,10:-:2022-autumn:2026-spring:popularity:1')?.value).not.toContain('12345')
+    expect(res.headers.get('cache-control')).toContain('s-maxage=3600')
+  })
+
+  it('waits at the shared limit without asking Shikimori', async () => {
+    const s = fakeStore({ wait: 7 })
+    const fetchFn = upstream(200, {})
+    const res = await handleShiki(req(FIND), fetchFn, s.store, () => NOW)
+    expect(res.status).toBe(429)
+    expect(res.headers.get('retry-after')).toBe('7')
+    expect(fetchFn).not.toHaveBeenCalled()
+  })
+
+  it('also keeps each anime of the studio and genre lists', async () => {
+    const s = fakeStore()
+    await handleShiki(req('?op=studio&id=11&page=1'), upstream(200, { data: { animes: [RAW] } }), s.store)
+    expect(s.data.get('shiki:1:anime:52991')?.ttl).toBe(90 * 86400)
+  })
+
+  // 2026-10-28: Tier表の作品選びで、制作会社の作品を足すときに使う
+  it('adds the Annict ids to the studio list from v=7, both when asking Shikimori and from the kept list', async () => {
+    const s = fakeStore()
+    s.data.set('shiki:1:annict:52991', { value: '12345', ttl: null })
+    const first = await handleShiki(req('?op=studio&id=11&page=1&v=7'), upstream(200, { data: { animes: [RAW] } }), s.store)
+    expect(((await json(first)) as { annict: unknown }).annict).toEqual({ 52991: 12345 })
+    expect(first.headers.get('cache-control')).toContain('s-maxage=3600')
+    expect(s.data.get('shiki:1:studio:11:1')?.value).not.toContain('12345')
+    const fetchFn = upstream(200, {})
+    const again = await handleShiki(req('?op=studio&id=11&page=1&v=7'), fetchFn, s.store)
+    expect(fetchFn).not.toHaveBeenCalled()
+    expect(((await json(again)) as { annict: unknown }).annict).toEqual({ 52991: 12345 })
+    // 前の版には付けない（CDN に7日控える形のまま）
+    const old = await handleShiki(req('?op=studio&id=11&page=1&v=6'), fetchFn, s.store)
+    expect((await json(old)) as object).not.toHaveProperty('annict')
+    expect(old.headers.get('cache-control')).toContain('s-maxage=604800')
+  })
+})
+
+describe('handleShiki link (remember MyAnimeList id → Annict id)', () => {
+  const post = (body: unknown, query = '?op=link') =>
+    new Request(`https://anipair.example/api/shiki${query}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: typeof body === 'string' ? body : JSON.stringify(body) })
+
+  it('remembers pairs with no expiry, only for anime the relay has seen', async () => {
+    const s = fakeStore()
+    s.data.set('shiki:1:anime:52991', { value: '{}', ttl: 1 })
+    s.data.set('shiki:1:anime:777', { value: 'null', ttl: 1 })
+    const res = await handleShiki(post({ pairs: [[52991, 12345], [777, 1], [424242, 2]] }), upstream(200, {}), s.store)
+    expect(res.status).toBe(204)
+    expect(s.data.get('shiki:1:annict:52991')).toEqual({ value: '12345', ttl: null })
+    expect(s.data.has('shiki:1:annict:777')).toBe(false)
+    expect(s.data.has('shiki:1:annict:424242')).toBe(false)
+  })
+
+  it('refuses other shapes, other params, too many pairs, and GET', async () => {
+    const s = fakeStore()
+    const bad: unknown[] = ['x', {}, { pairs: [] }, { pairs: [[1]] }, { pairs: [[1, 'a']] }, { pairs: [[0, 1]] }, { pairs: [[1.5, 1]] }, { pairs: Array.from({ length: 51 }, (_, i) => [i + 1, 1]) }]
+    for (const body of bad) {
+      expect((await handleShiki(post(body), upstream(200, {}), s.store)).status, JSON.stringify(body)).toBe(400)
+    }
+    expect((await handleShiki(post(`{"pairs":[${'[1,1],'.repeat(1000)}[1,1]]}`), upstream(200, {}), s.store)).status).toBe(413)
+    expect((await handleShiki(post({ pairs: [[1, 1]] }, '?op=link&x=1'), upstream(200, {}), s.store)).status).toBe(405)
+    expect((await handleShiki(post({ pairs: [[1, 1]] }, '?op=animes&ids=1'), upstream(200, {}), s.store)).status).toBe(405)
+    expect((await handleShiki(req('?op=link'), upstream(200, {}), s.store)).status).toBe(400)
   })
 })

@@ -133,7 +133,7 @@ describe('Records: the list it opens on', () => {
   })
 })
 
-// Issue #32: 見るサービスの入口は見てるの上に。選んだら、放送中の作品に次の放送を出す
+// 見るサービスの入口は見てるの上に。選んだら、放送中の作品に次の放送を出す
 describe('Records: 次の放送（見るサービス）', () => {
   it('offers to choose services, and after choosing shows the next broadcast on the card', async () => {
     const { resetBroadcastPrefs } = await import('../../lib/broadcast')
@@ -148,7 +148,7 @@ describe('Records: 次の放送（見るサービス）', () => {
       fireEvent.click(screen.getByRole('button', { name: '選ぶ' }))
       fireEvent.click(screen.getByRole('button', { name: 'dアニメストア' }))
       fireEvent.click(screen.getByRole('button', { name: '完了' }))
-      expect(screen.getByText('次の放送日はAnnictの放送予定から出しています。')).toBeTruthy()
+      expect(screen.getByRole('button', { name: '見るサービスを変える' })).toBeTruthy()
       expect(document.querySelector('.watchcard__air')?.textContent).toBe('次の放送 1/4(日) 0:00 dアニメストア')
       expect(programCalls.at(-1)).toEqual({ ids: ['W9'], enabled: true })
       // 今週の放送: 7日より先（2099年）の予定しかないので、無いと言う
@@ -198,15 +198,14 @@ describe('Records: 見たい sort', () => {
     expect(titles()).toEqual(['作品1', '作品2', '作品3'])
     expect(enabledLog.every((e) => !e)).toBe(true)
     expect(screen.getByRole('button', { name: /^記録順/ }).getAttribute('aria-pressed')).toBe('true')
-    expect(screen.getByText('Annictに記録した日の新しい順です。')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /^記録順/ }).textContent).toContain('↓')
   })
 
-  it('pressing the chosen order again turns it around, and says so', () => {
+  it('pressing the chosen order again turns it around, and the arrow says so', () => {
     render(<Records token="t" active />)
     openWanna()
     fireEvent.click(screen.getByRole('button', { name: /^記録順/ }))
     expect(titles()).toEqual(['作品3', '作品2', '作品1'])
-    expect(screen.getByText('Annictに記録した日の古い順です。')).toBeTruthy()
     expect(screen.getByRole('button', { name: /^記録順/ }).textContent).toContain('↑')
     // ほかの並べ替えを選ぶと、降順から始まる
     fireEvent.click(screen.getByRole('button', { name: /^放送日順/ }))
@@ -269,7 +268,7 @@ describe('Records: 絞り込み', () => {
 })
 
 describe('Records: 放送クールで絞り込む', () => {
-  it('chooses a cour above the list (starting from すべて), hides the year range in the sheet, steps it, and goes back to すべて', () => {
+  it('chooses a cour above the list (starting from すべて), hides the period in the sheet, steps it, and goes back to すべて', () => {
     render(<Records token="t" active />)
     openWanna()
     const near = () => screen.getByRole('group', { name: '近いクール' })
@@ -280,11 +279,11 @@ describe('Records: 放送クールで絞り込む', () => {
     // 試しの記録には放送時期が無いので、どのクールにも当てはまらない
     expect(titles()).toEqual([])
     expect(screen.getByText(/の作品はここにはありません/)).toBeTruthy()
-    // クールを選んでいるあいだ、シートの放送年の範囲は出さない（シートの条件の数にも入れない）
+    // クールを選んでいるあいだ、シートの期間は出さない（シートの条件の数にも入れない）
     expect(screen.getByRole('button', { name: /^絞り込み/ }).textContent).not.toMatch(/\d/)
     fireEvent.click(screen.getByRole('button', { name: /^絞り込み/ }))
     const sheet = screen.getByRole('dialog', { name: '絞り込み' })
-    expect(within(sheet).queryByRole('combobox', { name: '放送年（から）' })).toBeNull()
+    expect(within(sheet).queryByRole('combobox', { name: '放送時期（から）の年' })).toBeNull()
     fireEvent.click(within(sheet).getByRole('button', { name: /件を表示$/ }))
     fireEvent.click(screen.getByRole('button', { name: '前のクール' }))
     expect(within(near()).getByRole('button', { name: '前期' }).getAttribute('aria-pressed')).toBe('true')
@@ -315,7 +314,7 @@ describe('Records: 実績', () => {
     render(<Records token="t" active />)
     expect(screen.getAllByLabelText('まだ見ていません').length).toBe(1)
     fireEvent.click(screen.getByRole('tab', { name: /まとめ/ }))
-    // まとめの一覧では、どの項目のことかを言葉で示す（点だけでは、どれを押せば消えるか分からなかった。Issue #23）
+    // まとめの一覧では、どの項目のことかを言葉で示す（点だけでは、どれを押せば消えるか分からなかったため）
     expect(screen.getByRole('button', { name: /^実績.*まだ開いていません/ })).toBeTruthy()
     expect(screen.getAllByText('まだ開いていません')).toHaveLength(1)
     fireEvent.click(screen.getByRole('button', { name: /^実績/ }))

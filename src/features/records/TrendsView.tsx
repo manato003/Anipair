@@ -168,10 +168,10 @@ export function TrendsView(props: { rows: readonly RecordRow[]; data: TrendsData
           <div className="trend__sub">
             <p className="trend__headline">
               {harsh.label}
-              <span className="trend__fig">{t(`（${harsh.diff >= 0 ? '+' : ''}${harsh.diff.toFixed(1)}点）`, `(${harsh.diff >= 0 ? '+' : ''}${harsh.diff.toFixed(1)} pts)`)}</span>
+              <span className="trend__fig">{t(`（${harsh.diff >= 0 ? '+' : ''}${harsh.diff.toFixed(1)}点・${harsh.n}作品）`, `(${harsh.diff >= 0 ? '+' : ''}${harsh.diff.toFixed(1)} pts, ${harsh.n} anime)`)}</span>
             </p>
             <Balance value={harsh.diff} left={t('辛口', 'Harsher')} right={t('甘口', 'More generous')} />
-            <p className="trend__note">{t(`評価した${harsh.n}作品で、あなたの評価を10点満点に寄せた点と、世間の点数（Shikimori）を比べています。`, `Compares your ratings, scaled to 10 points, with the public score (Shikimori) across the ${harsh.n} anime you rated.`)}</p>
+            <p className="trend__note">{t('世間はShikimoriの点数です。', 'Public scores are from Shikimori.')}</p>
           </div>
         ) : (
           media && <p className="trend__note">{t('世間と比べるには、評価した作品があと少し要ります。', 'Rate a few more anime to compare with the public.')}</p>
@@ -189,9 +189,6 @@ export function TrendsView(props: { rows: readonly RecordRow[]; data: TrendsData
               title={t('よく見るジャンルの平均評価', 'Average rating of your most-watched genres')}
               axes={axes.map((a) => ({ label: genreName(a.name), sub: `${countText(a.count)}${a.average !== null ? t(`・${a.average.toFixed(1)}`, ` · ${a.average.toFixed(1)}`) : ''}`, value: a.average === null ? null : Math.max(0, Math.min(1, (a.average - 2) / 2)) }))}
             />
-            <p className="trend__note">
-              {t(`よく見るジャンルの上位${axes.length}つの、平均評価です（数字は本数・平均）。中心が「普通」、外側が「とても良い」で、外に広がるほど高く評価しています。`, `Average ratings for your top ${axes.length} genres (numbers show how many anime and the average). The center is “Okay” and the edge is “Great”, so the farther out, the higher you rate.`)}
-            </p>
           </>
         ) : (
           <p className="trend__note">{t('見た作品が増えると出ます。', 'This appears once you’ve watched more anime.')}</p>
@@ -218,9 +215,6 @@ export function TrendsView(props: { rows: readonly RecordRow[]; data: TrendsData
                 valueText: a.link === null ? '—' : `${Math.round(a.link * 100)}`,
               }))}
             />
-            <p className="trend__note">
-              {t('項目の評価が総合評価とどれだけ連動しているかです（100で完全に連動）。連動が強い項目ほど、その良し悪しで作品全体の評価が決まっています。項目を付けた作品が5本以上の項目だけ数えます。', 'How closely each category’s rating tracks your overall rating (100 means they move together perfectly). The stronger the link, the more that category decides your overall rating. Only categories rated on 5 or more anime are counted.')}
-            </p>
           </>
         ) : (
           <p className="trend__note">{t('作品の詳細の「詳細な評価と感想」で、映像・キャラクター・ストーリー・音楽を評価した作品が5本以上になると出ます。', 'This appears once you’ve rated animation, characters, story, and music on 5 or more anime using “Detailed rating and review” in the anime details.')}</p>
@@ -245,8 +239,8 @@ export function TrendsView(props: { rows: readonly RecordRow[]; data: TrendsData
               emphasis: !!golden && y.year >= golden.from && y.year <= golden.to,
               title: yearBarTitle(y),
             }))}
+            mark={golden ? t('黄金期', 'Golden era') : undefined}
           />
-          <p className="trend__note">{t('放送年ごとの見た本数です。', 'Anime watched, by air year.')}{golden ? t('明るい棒が、評価がいちばん高い3年間です。', ' The bright bars are the 3 years you rated highest.') : ''}</p>
         </section>
       )}
 
@@ -280,7 +274,6 @@ export function TrendsView(props: { rows: readonly RecordRow[]; data: TrendsData
               <ContrastList items={vs.overrated} />
             </>
           )}
-          <p className="trend__note">{t('世間の点数はShikimoriの10点満点です。', 'Public scores are on Shikimori’s 10-point scale.')}</p>
         </section>
       )}
 
@@ -314,8 +307,7 @@ export function TrendsView(props: { rows: readonly RecordRow[]; data: TrendsData
       {/* 記録のペース */}
       <section className="trend">
         <h3 className="trend__title">{t('記録のペース', 'Recording pace')}</h3>
-        <Columns title={t('直近12か月の、月ごとに見た本数', 'Anime watched per month, last 12 months')} every={2} bars={pace.map((p, i) => ({ label: p.label, value: p.count, emphasis: i === pace.length - 1, title: `${p.label} ${countText(p.count)}` }))} />
-        <p className="trend__note">{t('直近12か月に「見た」にした本数です（明るい棒が今月）。', 'Anime you marked as watched in the last 12 months (the bright bar is this month).')}</p>
+        <Columns title={t('直近12か月の、月ごとに見た本数', 'Anime watched per month, last 12 months')} every={2} mark={t('今月', 'This month')} bars={pace.map((p, i) => ({ label: p.label, value: p.count, emphasis: i === pace.length - 1, title: `${p.label} ${countText(p.count)}` }))} />
       </section>
       {shareCard && <ShareSheet card={shareCard} filename="anipair-trends.png" active={props.active} onClose={() => setShareCard(null)} />}
     </div>
@@ -367,8 +359,8 @@ function AffinityCard({ affinity }: { affinity: { liked: Affinity[]; unliked: Af
       )}
       <p className="trend__note">
         {t(
-          `出演の多さではなく、その声優の作品を世間の点数（Shikimori）よりどれだけ高く評価したかで並べています（数字は10点満点の差）。あなたの甘口・辛口のくせは差し引いています。同じシリーズは1つと数え、2つ以上のシリーズに出ている声優だけを出します（シリーズが少ないうちは控えめに出します）。比べた作品は${affinity.n}本です。`,
-          `Ranked not by how often they appear, but by how much higher you rated their anime than the public score (Shikimori); numbers are the difference on a 10-point scale. Your own tendency to rate harsher or more generously is subtracted. A series counts once, and only voice actors in 2 or more series are shown (with few series, results are kept modest). ${affinity.n} anime were compared.`,
+          `比べた作品は${affinity.n}本です。`,
+          `${affinity.n} anime were compared.`,
         )}
       </p>
     </>

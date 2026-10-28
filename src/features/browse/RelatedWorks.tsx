@@ -197,9 +197,7 @@ function ShikimoriRelated({ shiki, onOpen }: { shiki: Media | null; onOpen: (tar
           )
         })}
       </ol>
-      <p className="detail__hint">
-        {t('Annictにこの作品のシリーズが登録されていないため、Shikimoriの関連作品を表示しています。', 'Annict has no series registered for this anime, so related anime from Shikimori are shown instead.')}
-      </p>
+      <p className="detail__source">{t('関連作品はShikimoriの情報です。', 'Related anime data is from Shikimori.')}</p>
     </section>
   )
 }

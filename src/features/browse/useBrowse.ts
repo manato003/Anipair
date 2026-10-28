@@ -3,18 +3,21 @@ import { fetchCovers, quickCovers } from '../../lib/covers'
 import { browseWorks, fetchLibrary, type BrowseOrder, type BrowseWork, type RatingState } from '../../lib/annict'
 import { getMyReviews } from '../../lib/myReviews'
 import { t } from '../../lib/i18n'
-import { nextSeason, seasonOf, toSlug, type Season } from '../../lib/season'
-import { fetchMedia, type Media } from '../../lib/shikimori'
+import { compareSeasons, nextSeason, seasonOf, seasonOfWork, toSlug, type Season } from '../../lib/season'
+import { fetchMedia, searchTitles, type Media } from '../../lib/shikimori'
 import type { Cover } from '../../lib/storage'
 import { hasPendingWrites, messageOf } from '../../lib/useWriteQueue'
 import { malIdOf } from '../../lib/malId'
 import { forgetTaste, loadTaste } from '../match/tasteLoader'
-import { OLDEST_YEAR } from '../rate/queue'
+import { OLDEST_SEASON } from '../rate/queue'
 import { NO_PERIOD, periodActive, periodSlugs, type BrowsePeriod } from './browseFilter'
 import { rankByTaste, reverseScored, scoreOf, sortByScore, sortFor, type BrowseMode, type BrowseScore, type BrowseSort } from './browseSort'
+import { FIND_MAX_WORKS, findPage, type FindOrder, type Narrow } from './conditionSearch'
 import type { SortDir } from '../../components/SortRow'
 
 const DEBOUNCE_MS = 400
+// ジャンル・制作会社のチップを続けて押すあいだは、Shikimori に問い合わせない（押し終わってから1回）
+const NARROW_DEBOUNCE_MS = 700
 // 評価順は全件の点数が要るので、まとめて読む。上限はクール1つぶん（200作品前後）が収まる数
 const MAX_FOR_SCORE = 300
 
@@ -25,40 +28,105 @@ export function noLikesNote(): string {
 }
 
 // 上限まで集めたときの注意（期間が広いと、クールより作品が多い）
-export function cappedNote(): string {
+export function cappedNote(limit = MAX_FOR_SCORE): string {
   return t(
-    `作品が多いので、人気の上位${MAX_FOR_SCORE}作品を並べています。期間をしぼると、ほかの作品も並びます。`,
-    `There are a lot of anime, so this shows the top ${MAX_FOR_SCORE} by popularity. Narrow the period to see others.`,
+    `作品が多いので、人気の上位${limit}作品を並べています。期間をしぼると、ほかの作品も並びます。`,
+    `There are a lot of anime, so this shows the top ${limit} by popularity. Narrow the period to see others.`,
   )
 }
 
-// Annict に頼む条件。期間があればそのクールをまとめて、無ければ上のクール1つ（タイトル検索のときは期間だけ。期間が無ければ全期間）
-function filterOf(query: string, season: Season, period: BrowsePeriod): { titles?: string[]; seasons?: string[] } {
-  const latestYear = nextSeason(seasonOf(new Date())).year
-  const seasons = periodActive(period) ? periodSlugs(period, OLDEST_YEAR, latestYear) : query ? undefined : [toSlug(season)]
-  return { ...(query ? { titles: [query] } : {}), ...(seasons ? { seasons } : {}) }
+// Annict に頼む条件。keep は、届いた作品のうち一覧に残すもの（無ければ全部）
+interface BrowseFilter {
+  titles?: string[]
+  seasons?: string[]
+  keep?: (w: BrowseWork) => boolean
+}
+
+// かな・漢字を含まず、英字を含む語は、英語かローマ字の題名とみなす
+const JA_TEXT = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]/
+export function isLatinQuery(query: string): boolean {
+  return !JA_TEXT.test(query) && /[a-z]/i.test(query)
+}
+
+const fold = (s: string) => s.normalize('NFKC').toLowerCase()
+
+// 検索の語を、Annict に頼む題名に。Annict の検索は日本語の題名と読みにしか当たらないので、英語・ローマ字の語は
+// Shikimori で日本語の題名を引いて併せて頼む。そのときは、Shikimori が返した作品（MyAnimeList の ID）か、
+// 題名に語そのものを含む作品だけを残す（短い日本語の題名で、関係ない作品まで当たらないように）。Shikimori に聞けなければ、語だけで探す
+export async function searchFilter(query: string): Promise<Pick<BrowseFilter, 'titles' | 'keep'>> {
+  if (!isLatinQuery(query)) return { titles: [query] }
+  const hits = await searchTitles(query).catch(() => [])
+  const japanese = [...new Set(hits.flatMap((h) => (h.japanese ? [h.japanese] : [])))]
+  if (japanese.length === 0) return { titles: [query] }
+  const ids = new Set(hits.map((h) => h.malId))
+  const needle = fold(query)
+  return {
+    titles: [query, ...japanese],
+    keep: (w) => {
+      const id = malIdOf(w)
+      return (id !== null && ids.has(id)) || fold(w.title).includes(needle) || (!!w.titleEn && fold(w.titleEn).includes(needle))
+    },
+  }
+}
+
+// 期間があればそのクールをまとめて、無ければ上のクール1つ（タイトル検索のときは期間だけ。期間が無ければ全期間）
+async function filterOf(query: string, season: Season, period: BrowsePeriod): Promise<BrowseFilter> {
+  const seasons = periodActive(period) ? periodSlugs(period, OLDEST_SEASON, nextSeason(seasonOf(new Date()))) : query ? undefined : [toSlug(season)]
+  return { ...(query ? await searchFilter(query) : {}), ...(seasons ? { seasons } : {}) }
+}
+
+async function fetchPage(token: string, filter: BrowseFilter, opts: Parameters<typeof browseWorks>[2]) {
+  const { keep, ...asked } = filter
+  const page = await browseWorks(token, asked, opts)
+  return keep ? { ...page, works: page.works.filter(keep) } : page
+}
+
+// 続きの位置から1ページ読む（Annict の一覧か、条件検索）。capped: 読める上限まで来たが、まだ続きがありそう
+type Loader = (after: string | null) => Promise<{ works: BrowseWork[]; endCursor: string | null; hasNext: boolean; capped?: boolean }>
+
+// 期間の始めと終わりのクール（Annict の書き方）。期間がアプリの扱う範囲の外なら null
+function periodBounds(period: BrowsePeriod): { from: string; to: string } | null {
+  const slugs = periodSlugs(period, OLDEST_SEASON, nextSeason(seasonOf(new Date())))
+  return slugs.length > 0 ? { from: slugs[0], to: slugs[slugs.length - 1] } : null
+}
+
+// 条件検索のページ。期間が範囲の外なら空
+function findLoader(token: string, narrow: Narrow, period: BrowsePeriod, order: FindOrder): Loader {
+  const bounds = periodBounds(period)
+  return async (after) => (bounds ? findPage(token, narrow, bounds, order, after ? Number(after) : 1) : { works: [], endCursor: null, hasNext: false })
+}
+
+// 放送時期の古い順（時期の分からない作品は最後）
+function oldestFirst(works: readonly BrowseWork[]): BrowseWork[] {
+  return [...works].sort((a, b) => {
+    const sa = seasonOfWork(a)
+    const sb = seasonOfWork(b)
+    if (!sa || !sb) return sa ? -1 : sb ? 1 : 0
+    return compareSeasons(sa, sb)
+  })
 }
 
 // 作品を、50件ずつ上限（MAX_FOR_SCORE）まで集める（評価順とおすすめ順が、全件を手元で並べるために使う）。
 // capped: 上限で打ち切った（まだ続きがある）。途中で取り消されたら null
-async function collectAll(token: string, filter: ReturnType<typeof filterOf>, isCancelled: () => boolean): Promise<{ works: BrowseWork[]; capped: boolean } | null> {
+async function collectAll(load: Loader, isCancelled: () => boolean): Promise<{ works: BrowseWork[]; capped: boolean } | null> {
   const all: BrowseWork[] = []
   let after: string | null = null
   for (;;) {
-    const page = await browseWorks(token, filter, { after, first: 50 })
+    const page = await load(after)
     if (isCancelled()) return null
-    all.push(...page.works)
-    if (!page.hasNext) return { works: all, capped: false }
+    all.push(...page.works.filter((w) => !all.some((x) => x.id === w.id)))
+    if (!page.hasNext) return { works: all, capped: page.capped ?? false }
     if (all.length >= MAX_FOR_SCORE) return { works: all, capped: true }
     after = page.endCursor
   }
 }
 
-// active: 画面が表示されているか（隠れているだけで残っているタブは、評価のバッジを読み直さない）
-export function useBrowse(token: string, active = true) {
+// active: 画面が表示されているか（隠れているだけで残っているタブは、評価のバッジを読み直さない）。
+// narrow: 絞り込みのジャンル・制作会社（Shikimori の ID）。期間を選んでいるときだけ、期間の全作品からこの条件で探す（conditionSearch.ts）
+export function useBrowse(token: string, active = true, narrow: Narrow | null = null) {
   const [season, setSeasonState] = useState<Season>(() => seasonOf(new Date()))
   const [query, setQuery] = useState('')
-  // 絞り込みの期間（放送年と季節）。あれば上のクールの代わりに、その期間の作品を読む
+  // 絞り込みの期間（始めと終わりのクール）。あれば上のクールの代わりに、その期間の作品を読む
   const [period, setPeriodState] = useState<BrowsePeriod>(NO_PERIOD)
   // 作品を読み直すかどうかは、期間の中身で比べる（同じ期間を選び直しても読み直さない）
   const periodKey = JSON.stringify(period)
@@ -97,6 +165,23 @@ export function useBrowse(token: string, active = true) {
   const mode: BrowseMode = searched ? 'search' : periodActive(period) ? 'period' : 'cour'
   const effectiveSort = sortFor(sort, mode)
   const order: BrowseOrder = effectiveSort === 'newest' ? 'SEASON' : 'WATCHERS_COUNT'
+  // 条件検索の条件。チップを押しているあいだは前の条件のまま（画面は読み込んだ作品の中で絞って見せる）、押し終わってから切り替える。
+  // 条件を外したとき（期間をやめた・チップを全部外した）はすぐ戻す
+  const wantNarrow = mode === 'period' && narrow ? JSON.stringify(narrow) : ''
+  const [narrowedState, setNarrowed] = useState('')
+  const narrowed = wantNarrow === '' ? '' : narrowedState
+  useEffect(() => {
+    if (wantNarrow === '' || wantNarrow === narrowedState) return
+    const timer = setTimeout(() => {
+      setWorks(null)
+      setError(null)
+      setNarrowed(wantNarrow)
+    }, NARROW_DEBOUNCE_MS)
+    return () => clearTimeout(timer)
+  }, [wantNarrow, narrowedState])
+  // 条件検索のあいだ、絞り込みのシートに選択肢を出すための、期間の作品（Annict の人気順の1ページ目）。期間ごと
+  const [base, setBase] = useState<{ key: string; works: BrowseWork[] } | null>(null)
+  const baseKey = useRef('')
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -123,16 +208,35 @@ export function useBrowse(token: string, active = true) {
     listGen.current++
     ;(async () => {
       try {
-        const filter = filterOf(searched, season, JSON.parse(periodKey) as BrowsePeriod)
+        const per = JSON.parse(periodKey) as BrowsePeriod
+        const filter = await filterOf(searched, season, per)
+        if (cancelled) return
         setMoreError(null)
         setLoadingMore(false)
         // 前の並べ方の読み込み中の文言を残さない（評価順の途中で人気順に変えたときなど）
         setProgress(null)
         setSortNote(null)
         setCapped(false)
+        const narrowNow = narrowed ? (JSON.parse(narrowed) as Narrow) : null
+        // 条件検索のあいだも、シートの選択肢のために期間の作品を1ページ読んでおく（期間が変わったときだけ。読めなくても条件検索は続ける）
+        if (narrowNow && baseKey.current !== periodKey) {
+          baseKey.current = periodKey
+          fetchPage(token, filter, { first: 50 }).then(
+            (page) => setBase({ key: periodKey, works: page.works }),
+            () => undefined,
+          )
+        }
+        // 評価順・おすすめ順で全件を集める読み方。条件検索は人気順で、中継の上限（4ページ）まで
+        const loadAll: Loader = narrowNow ? findLoader(token, narrowNow, per, 'popularity') : (after) => fetchPage(token, filter, { after, first: 50 })
+        // 一覧が読めたら、期間の作品として覚える（条件検索に切り替えたときの、シートの選択肢）
+        const noteBase = (list: BrowseWork[]) => {
+          if (narrowNow || searched || !periodActive(per)) return
+          baseKey.current = periodKey
+          setBase({ key: periodKey, works: list })
+        }
         if (effectiveSort === 'score') {
           setProgress(t('作品を読み込み中', 'Loading anime'))
-          const collected = await collectAll(token, filter, () => cancelled)
+          const collected = await collectAll(loadAll, () => cancelled)
           if (!collected) return
           const all = collected.works
           // Annict の満足度が無い作品だけ、Shikimori の点数を取る
@@ -156,6 +260,7 @@ export function useBrowse(token: string, active = true) {
           }
           setScores((cur) => new Map([...cur, ...got]))
           setCapped(collected.capped)
+          noteBase(all)
           const byScore = sortByScore(all, shikimori, counts)
           setWorks(dir === 'asc' ? reverseScored(byScore, (w) => got.has(w.annictId)) : byScore)
           setCursor({ endCursor: null, hasNext: false })
@@ -165,7 +270,7 @@ export function useBrowse(token: string, active = true) {
           // 評価順と同じく、全件を集めてから手元で並べる（「もっと見る」は無い）。
           // 好みは見たいのおすすめ順と共通（起動中は使い回す）。好みを調べられなくても、一覧は人気順で見せる
           setProgress(t('作品を読み込み中', 'Loading anime'))
-          const collected = await collectAll(token, filter, () => cancelled)
+          const collected = await collectAll(loadAll, () => cancelled)
           if (!collected) return
           const all = collected.works
           let ordered = all
@@ -195,14 +300,28 @@ export function useBrowse(token: string, active = true) {
           setReasons(why)
           setSortNote(note)
           setCapped(collected.capped)
+          noteBase(all)
           setWorks(ordered)
           setCursor({ endCursor: null, hasNext: false })
           setProgress(null)
           await addCovers(all)
+        } else if (narrowNow && dir === 'asc') {
+          // Shikimori は逆の向きに並べられないので、人気順で上限まで集めて手元で並べる（人気の低い順・放送時期の古い順）
+          setProgress(t('作品を読み込み中', 'Loading anime'))
+          const collected = await collectAll(loadAll, () => cancelled)
+          if (!collected) return
+          setCapped(collected.capped)
+          setWorks(effectiveSort === 'newest' ? oldestFirst(collected.works) : [...collected.works].reverse())
+          setCursor({ endCursor: null, hasNext: false })
+          setProgress(null)
+          await addCovers(collected.works)
         } else {
-          const page = await browseWorks(token, filter, { order, direction: dir === 'asc' ? 'ASC' : 'DESC' })
+          const page = narrowNow
+            ? await findLoader(token, narrowNow, per, effectiveSort === 'newest' ? 'aired_on' : 'popularity')(null)
+            : await fetchPage(token, filter, { order, direction: dir === 'asc' ? 'ASC' : 'DESC' })
           if (cancelled) return
           setWorks(page.works)
+          noteBase(page.works)
           setCursor({ endCursor: page.endCursor, hasNext: page.hasNext })
           await addCovers(page.works)
         }
@@ -216,7 +335,7 @@ export function useBrowse(token: string, active = true) {
     return () => {
       cancelled = true
     }
-  }, [token, searched, season, periodKey, reloadTick, effectiveSort, order, dir, addCovers])
+  }, [token, searched, season, periodKey, reloadTick, effectiveSort, order, dir, addCovers, narrowed])
 
   // 隠れていたタブが再び表示されたときは、好みの控えを捨てる（そのあいだに評価が増えているかもしれない。次におすすめ順にしたときに読み直す）。
   // 一覧の記録の状態も、ほかの画面で変えたかもしれないので、自分のライブラリに合わせ直す（2026-10-06 の点検: 戻るまで古いままだった）。
@@ -313,7 +432,9 @@ export function useBrowse(token: string, active = true) {
     setLoadingMore(true)
     setMoreError(null)
     try {
-      const page = await browseWorks(token, filterOf(searched, season, period), { after: cursor.endCursor, order, direction: dir === 'asc' ? 'ASC' : 'DESC' })
+      const page = narrowed
+        ? await findLoader(token, JSON.parse(narrowed) as Narrow, period, effectiveSort === 'newest' ? 'aired_on' : 'popularity')(cursor.endCursor)
+        : await fetchPage(token, await filterOf(searched, season, period), { after: cursor.endCursor, order, direction: dir === 'asc' ? 'ASC' : 'DESC' })
       if (gen !== listGen.current) return
       setWorks((cur) => [...(cur ?? []), ...page.works.filter((w) => !cur?.some((c) => c.id === w.id))])
       setCursor({ endCursor: page.endCursor, hasNext: page.hasNext })
@@ -323,7 +444,7 @@ export function useBrowse(token: string, active = true) {
     } finally {
       if (gen === listGen.current) setLoadingMore(false)
     }
-  }, [token, searched, season, period, order, dir, cursor, loadingMore, addCovers])
+  }, [token, searched, season, period, order, dir, cursor, loadingMore, addCovers, narrowed, effectiveSort])
 
   // 詳細画面で状態や評価を変えたら、一覧の表示も合わせる
   const patchWork = useCallback((annictId: number, patch: { state?: BrowseWork['viewerStatusState']; rating?: RatingState | null }) => {
@@ -341,6 +462,9 @@ export function useBrowse(token: string, active = true) {
     }
   }, [])
 
+  // 絞り込みのシートの選択肢に使う作品。条件検索のあいだは、期間の作品と条件検索の結果を合わせる（制作会社は「どれか」なので、選んでいない会社も出す）
+  const pool = narrowed && works && base?.key === periodKey ? [...works, ...base.works.filter((b) => !works.some((w) => w.id === b.id))] : works
+
   return {
     season,
     setSeason,
@@ -351,6 +475,11 @@ export function useBrowse(token: string, active = true) {
     setPeriod,
     mode,
     capped,
+    // 上限の作品数（「人気の上位◯作品」の注意に出す）
+    capLimit: narrowed ? FIND_MAX_WORKS : MAX_FOR_SCORE,
+    // 期間の全作品から、ジャンル・制作会社の条件で探しているか
+    narrowed: narrowed !== '',
+    pool,
     sort: effectiveSort,
     dir,
     setSort,

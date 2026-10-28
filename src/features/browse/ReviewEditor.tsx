@@ -163,8 +163,8 @@ export function ReviewEditor(props: { token: string; workId: string; annictId: n
             </label>
             <p className="note">
               {t(
-                '詳細な評価（映像・キャラクター・ストーリー・音楽）と感想は、総合評価と同じくAnnictに保存され、Annictの作品ページなどで公開されます。選んでいる評価をもう一度押すと外せます。',
-                'Detailed ratings (animation, characters, story, music) and your review are saved to Annict like the overall rating, and appear publicly on Annict’s anime pages. Tap a selected rating again to clear it.',
+                '詳細な評価（映像・キャラクター・ストーリー・音楽）と感想は、総合評価と同じくAnnictに保存され、Annictの作品ページなどで公開されます。',
+                'Detailed ratings (animation, characters, story, music) and your review are saved to Annict like the overall rating, and appear publicly on Annict’s anime pages.',
               )}
             </p>
             <div className="review__foot">

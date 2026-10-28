@@ -2,7 +2,7 @@ import changelogJa from '../../../CHANGELOG.md?raw'
 import changelogEn from '../../../CHANGELOG.en.md?raw'
 import { getLang, t } from '../../lib/i18n'
 
-// 設定の「開発記録」（Issue #39）。節目は手で書き、版の項目は CHANGELOG から引く。
+// 設定の「開発記録」。節目は手で書き、版の項目は CHANGELOG から引く。
 // 節目の範囲は「始まりの版から次の節目の手前まで」。新しい版は自動で一番新しい節目に入るので、版を出すたびにここを直さなくてよい
 // （新しい節目を作るときだけ足す）。英語の画面では CHANGELOG.en.md を使い、英語版に無い版は日本語のまま出す
 

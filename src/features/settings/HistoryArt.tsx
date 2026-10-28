@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import type { HistoryArt as ArtKind } from './historyData'
 
 // 「開発記録」の節目の図。16:9 の画面の枠に、文字の色の線だけで描く（地の色が季節で変わっても馴染むように）。
-// 線画は見本（docs/design/history-2026-10-27.html）から写した
+// 線画は見本の HTML から写した
 const label = (x: number, y: number, size: number, text: string, bold = false) => (
   <text x={x} y={y} fontSize={size} textAnchor="middle" fill="currentColor" stroke="none" fontWeight={bold ? 700 : undefined}>
     {text}

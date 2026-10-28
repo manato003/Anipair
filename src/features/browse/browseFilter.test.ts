@@ -11,6 +11,8 @@ const works = [w(1, null), w(2, 'WATCHED', 'MOVIE', 2010, 'SPRING'), w(3, 'WANNA
 const info = new Map<number, MediaInfo>([
   [101, { genres: ['Romance'], studios: ['ufotable'] }],
   [102, { genres: ['Action'], studios: ['ufotable'] }],
+  [103, { genres: ['Fantasy', 'Isekai'], studios: ['MAPPA'] }],
+  [104, { genres: ['Fantasy'], studios: ['MAPPA', 'ufotable'] }],
 ])
 const ids = (l: BrowseWork[]) => l.map((x) => x.annictId)
 
@@ -34,7 +36,45 @@ describe('browseFilter', () => {
 
   it('filters by genre and studio from the work data', () => {
     expect(ids(applyBrowseFilter(works, { ...EMPTY_BROWSE_FILTER, genres: ['Romance'] }, info))).toEqual([1])
-    expect(ids(applyBrowseFilter(works, { ...EMPTY_BROWSE_FILTER, studios: ['ufotable'] }, info))).toEqual([1, 2])
+    expect(ids(applyBrowseFilter(works, { ...EMPTY_BROWSE_FILTER, studios: ['ufotable'] }, info))).toEqual([1, 2, 4])
+  })
+
+  it('keeps only works that match every condition: all the chosen genres, and any of the chosen records, formats and studios', () => {
+    expect(ids(applyBrowseFilter(works, { ...EMPTY_BROWSE_FILTER, genres: ['Fantasy'] }, info))).toEqual([3, 4])
+    expect(ids(applyBrowseFilter(works, { ...EMPTY_BROWSE_FILTER, genres: ['Fantasy', 'Isekai'] }, info))).toEqual([3])
+    // 記録・形式・制作会社は1作品に1つなので、項目の中はどれか
+    expect(ids(applyBrowseFilter(works, { ...EMPTY_BROWSE_FILTER, studios: ['MAPPA', 'Kyoto Animation'] }, info))).toEqual([3, 4])
+    expect(ids(applyBrowseFilter(works, { ...EMPTY_BROWSE_FILTER, genres: ['Isekai'], studios: ['MAPPA', 'ufotable'] }, info))).toEqual([3])
+    expect(ids(applyBrowseFilter(works, { ...EMPTY_BROWSE_FILTER, mine: ['none', 'wanna'] }, null))).toEqual([1, 3, 5])
+    expect(ids(applyBrowseFilter(works, { ...EMPTY_BROWSE_FILTER, mine: ['wanna', 'stopped'], genres: ['Fantasy'] }, info))).toEqual([3, 4])
+    expect(ids(applyBrowseFilter(works, { ...EMPTY_BROWSE_FILTER, mine: ['wanna'], genres: ['Fantasy'] }, info))).toEqual([3])
+  })
+
+  it('counts each choice within the current result, so a chip shows what adding it leaves', () => {
+    const c = browseFilterChoices(works, info, new Set(), { ...EMPTY_BROWSE_FILTER, genres: ['Fantasy'] })
+    // 並びは読み込んだ作品での多い順のまま。いまの結果（作品3・4）に無いジャンルは出さない
+    expect(c.genres).toEqual([
+      { name: 'Fantasy', count: 2 },
+      { name: 'Isekai', count: 1 },
+    ])
+    expect(c.studios).toEqual([
+      { name: 'ufotable', count: 1 },
+      { name: 'MAPPA', count: 2 },
+    ])
+    // 自分の記録は、ほかの項目で絞った中の数
+    expect(c.mine).toMatchObject({ wanna: 1, stopped: 1, none: 0 })
+    // 制作会社は「どれか」なので、制作会社を外して絞った中の数（MAPPA を選んでも ufotable の数は残る）
+    const byStudio = browseFilterChoices(works, info, new Set(), { ...EMPTY_BROWSE_FILTER, genres: ['Fantasy'], studios: ['MAPPA'] })
+    expect(byStudio.studios).toEqual([
+      { name: 'ufotable', count: 1 },
+      { name: 'MAPPA', count: 2 },
+    ])
+    // 選んでいるものは、結果が0でも外せるように残す
+    const none = browseFilterChoices(works, info, new Set(), { ...EMPTY_BROWSE_FILTER, genres: ['Romance', 'Action'] })
+    expect(none.genres).toEqual([
+      { name: 'Action', count: 0 },
+      { name: 'Romance', count: 0 },
+    ])
   })
 
   it('separates works marked "not watched" on the rate screen from the unrecorded ones (only while they have no record)', () => {
@@ -47,32 +87,39 @@ describe('browseFilter', () => {
 
   it('counts the period as one condition', () => {
     expect(browseFilterCount(EMPTY_BROWSE_FILTER, NO_PERIOD)).toBe(0)
-    expect(browseFilterCount({ ...EMPTY_BROWSE_FILTER, mine: ['none'] }, { yearFrom: 2018, yearTo: 2020, seasons: ['SPRING'] })).toBe(2)
+    expect(browseFilterCount({ ...EMPTY_BROWSE_FILTER, mine: ['none'] }, { from: { year: 2018, name: 'spring' }, to: null })).toBe(2)
   })
 
   it('counts the choices in the loaded works', () => {
     const c = browseFilterChoices(works, info)
     expect(c.mine).toEqual({ none: 2, unseen: 0, watched: 1, watching: 0, wanna: 1, stopped: 1 })
-    expect(c.studios).toEqual([{ name: 'ufotable', count: 2 }])
+    expect(c.studios).toEqual([
+      { name: 'ufotable', count: 3 },
+      { name: 'MAPPA', count: 2 },
+    ])
   })
 })
 
 describe('browse period', () => {
-  it('turns the years and seasons into the cours Annict searches, oldest first', () => {
-    expect(periodSlugs({ yearFrom: 2018, yearTo: 2019, seasons: ['SPRING', 'AUTUMN'] }, 1970, 2027)).toEqual(['2018-spring', '2018-autumn', '2019-spring', '2019-autumn'])
-    // 季節が空なら4つとも。年が逆でも同じ
-    expect(periodSlugs({ yearFrom: 2019, yearTo: 2018, seasons: [] }, 1970, 2027)).toHaveLength(8)
-    // 年の片方が無ければ端まで（範囲の外は切る）
-    expect(periodSlugs({ yearFrom: 2026, yearTo: null, seasons: ['WINTER'] }, 1970, 2027)).toEqual(['2026-winter', '2027-winter'])
-    expect(periodSlugs({ yearFrom: null, yearTo: null, seasons: ['SUMMER'] }, 1970, 2027)).toHaveLength(58)
+  const oldest = { year: 1970, name: 'winter' } as const
+  const latest = { year: 2027, name: 'winter' } as const
+
+  it('turns the first and last cour into every cour between them, oldest first', () => {
+    expect(periodSlugs({ from: { year: 2018, name: 'autumn' }, to: { year: 2019, name: 'spring' } }, oldest, latest)).toEqual(['2018-autumn', '2019-winter', '2019-spring'])
+    // 逆に選んでいても同じ
+    expect(periodSlugs({ from: { year: 2019, name: 'spring' }, to: { year: 2018, name: 'autumn' } }, oldest, latest)).toHaveLength(3)
+    // 片方が無ければ端まで（範囲の外は切る）
+    expect(periodSlugs({ from: { year: 2026, name: 'autumn' }, to: null }, oldest, latest)).toEqual(['2026-autumn', '2027-winter'])
+    expect(periodSlugs({ from: null, to: { year: 1970, name: 'spring' } }, oldest, latest)).toEqual(['1970-winter', '1970-spring'])
+    expect(periodSlugs({ from: { year: 2030, name: 'winter' }, to: null }, oldest, latest)).toEqual([])
   })
 
   it('names the period shortly', () => {
-    expect(periodLabel({ yearFrom: 2018, yearTo: 2020, seasons: ['SUMMER', 'SPRING'] })).toBe('2018〜2020年 春・夏')
-    expect(periodLabel({ yearFrom: 2020, yearTo: 2020, seasons: [] })).toBe('2020年')
-    expect(periodLabel({ yearFrom: 2018, yearTo: null, seasons: [] })).toBe('2018年〜')
-    expect(periodLabel({ yearFrom: null, yearTo: 2010, seasons: [] })).toBe('〜2010年')
-    expect(periodLabel({ yearFrom: null, yearTo: null, seasons: ['WINTER'] })).toBe('すべての年の 冬')
+    expect(periodLabel({ from: { year: 2022, name: 'spring' }, to: { year: 2026, name: 'autumn' } })).toBe('2022年 春〜2026年 秋')
+    expect(periodLabel({ from: { year: 2026, name: 'autumn' }, to: { year: 2022, name: 'spring' } })).toBe('2022年 春〜2026年 秋')
+    expect(periodLabel({ from: { year: 2020, name: 'summer' }, to: { year: 2020, name: 'summer' } })).toBe('2020年 夏')
+    expect(periodLabel({ from: { year: 2018, name: 'winter' }, to: null })).toBe('2018年 冬〜')
+    expect(periodLabel({ from: null, to: { year: 2010, name: 'autumn' } })).toBe('〜2010年 秋')
     expect(periodActive(NO_PERIOD)).toBe(false)
   })
 })

@@ -79,7 +79,7 @@ img.cover--contain {
 .detail__label {
   color: var(--sub);
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 /* 中身の塊（あなたの記録・作品について・スタッフ・キャスト・ほかのサイトで見る）。塊は板で囲んで見出しを大きく、
@@ -148,7 +148,7 @@ img.cover--contain {
 .mini-ratings--chips .mini-rating {
   min-height: 0;
   padding: 6px 12px;
-  border-radius: 999px;
+  border-radius: var(--radius-s);
   font-size: 0.8rem;
 }
 
@@ -181,7 +181,7 @@ img.cover--contain {
   margin-top: 10px;
 }
 
-/* ジャンル: 押せない小さな札（押せる丸いボタンと形を分ける） */
+/* ジャンル: 押せない小さな札。ほかの押せない札（バッジ）と同じ錠剤の形にして、角 6px の押せるボタンと形を分ける */
 .tags {
   display: flex;
   flex-wrap: wrap;
@@ -193,7 +193,7 @@ img.cover--contain {
 
 .tag {
   padding: 2px 8px;
-  border-radius: 6px;
+  border-radius: 999px;
   background: color-mix(in srgb, var(--paper) 9%, transparent);
   font-size: 0.78rem;
 }
@@ -258,7 +258,7 @@ img.cover--contain {
   margin-top: 4px;
   color: var(--muted);
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 /* 「続きを読む」は右端（親指の届く側）。注意書きはそのすぐ左 */
@@ -410,7 +410,7 @@ img.cover--contain {
 }
 
 /* 配信サービスで探す（検索ページへのリンク）。外のサイトを開くので ↗ を添え、記録のボタンと見分ける */
-/* 見るサービスごとの次の放送（Issue #32）。名前と日時を1行ずつ、細い線で区切る */
+/* 見るサービスごとの次の放送。名前と日時を1行ずつ、細い線で区切る */
 .airings {
   display: grid;
   list-style: none;
@@ -465,7 +465,7 @@ img.cover--contain {
   margin-bottom: 6px;
   color: var(--paper);
   font-size: 0.85rem;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .related__count {
@@ -497,7 +497,7 @@ img.cover--contain {
 .related__tag {
   margin-right: 8px;
   color: var(--paper);
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .related__item--current .related__tag {
@@ -581,7 +581,7 @@ a.related__title {
 
 .community__who {
   color: var(--paper);
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .community__rating {
@@ -681,7 +681,7 @@ a.related__title {
   background: rgb(0 0 0 / 0.62);
   color: #fff;
   font-size: 0.66rem;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .similar__title {
@@ -691,7 +691,7 @@ a.related__title {
   -webkit-line-clamp: 2;
   color: var(--paper);
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 500;
   line-height: 1.4;
 }
 
@@ -874,7 +874,7 @@ a.related__title {
 .review__axis-name {
   color: var(--muted);
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .review__body {

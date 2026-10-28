@@ -39,7 +39,7 @@
 /* 並べ替えの向き（↓ 降順・↑ 昇順）。押している並べ替えにだけ出す */
 .sortdir {
   margin-left: 4px;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .records__sortnote {
@@ -61,7 +61,7 @@
   max-width: 100%;
   padding: 4px 10px;
   border: 1px solid var(--brand-lavender);
-  border-radius: 999px;
+  border-radius: var(--radius-s);
   background: color-mix(in srgb, var(--brand-lavender) 14%, transparent);
   color: var(--paper);
   font-size: 0.75rem;
@@ -88,21 +88,59 @@
   margin-top: 14px;
 }
 
+/* シートを分けた部分の見出し（ブラウズ: 読み込む期間／読み込んだN作品から）。段の名前（.detail__label）より一段上 */
+.filtersheet__part {
+  margin-top: 18px;
+  color: var(--paper);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.filtersheet__block > .filtersheet__part {
+  margin-top: 14px;
+}
+
+.filtersheet__part + .filtersheet__group,
+.filtersheet__part + .filtersheet__choices > .filtersheet__group:first-child {
+  margin-top: 10px;
+}
+
+/* 期間を変えて読み直しているあいだの、前に読み込んだ分の選択肢（高さを保つために残し、薄くする） */
+.filtersheet__choices--stale {
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+
 .filtersheet__chips {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.filtersheet__years {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+/* 期間の始めと終わり（クールを年と季節で） */
+.filtersheet__cours {
+  display: grid;
+  gap: 8px;
 }
 
-/* 見た目は base.css の選択欄と同じ。ここでは幅だけ */
-.filtersheet__years select {
-  flex: 1;
+.filtersheet__cour {
+  display: grid;
+  grid-template-columns: 3em minmax(0, 1fr) minmax(0, 0.8fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.filtersheet__courlabel {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.filtersheet__cour select {
+  min-width: 0;
+}
+
+.filtersheet__cour select:disabled {
+  opacity: 0.5;
 }
 
 .filtersheet__more {
@@ -189,7 +227,7 @@
   overflow: hidden;
   color: var(--paper);
   font-size: 0.9rem;
-  font-weight: 700;
+  font-weight: 500;
   line-height: 1.45;
   text-decoration: none;
 }
@@ -229,7 +267,7 @@
   background: none;
   color: var(--muted);
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: 500;
   cursor: pointer;
 }
 
@@ -261,7 +299,7 @@
 .trend__title {
   color: var(--muted);
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .trend__title:not(:first-child) {
@@ -423,7 +461,7 @@
 
 .chart__axis-name {
   fill: var(--paper);
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .chart__axis-sub {
@@ -448,6 +486,13 @@
   font-size: 9px;
 }
 
+/* 強調した棒の上の札（黄金期・今月）。棒と同じ色 */
+.chart__mark {
+  fill: var(--brand-lavender);
+  font-size: 10px;
+  font-weight: 500;
+}
+
 /* 順位の横棒（よく見る声優など） */
 .rankbars {
   display: grid;
@@ -465,7 +510,7 @@
 
 .rankbars__name {
   overflow: hidden;
-  font-weight: 700;
+  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -516,7 +561,7 @@
 .diverging__name {
   grid-area: name;
   overflow: hidden;
-  font-weight: 700;
+  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -783,7 +828,7 @@
 
 .ep__count {
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
 
@@ -874,7 +919,7 @@
   margin-left: auto;
   padding: 0 9px;
   border: 1px solid var(--line-strong);
-  border-radius: 999px;
+  border-radius: var(--radius-s);
   background: none;
   color: var(--paper);
   font: inherit;
@@ -969,7 +1014,7 @@
 }
 
 .eplist__label {
-  font-weight: 700;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1001,7 +1046,7 @@
   background: none;
   color: var(--tone);
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: 500;
   cursor: pointer;
   touch-action: manipulation;
 }
@@ -1030,7 +1075,7 @@
   background: none;
   color: var(--paper);
   font-size: 0.78rem;
-  font-weight: 700;
+  font-weight: 500;
   text-decoration: none;
   cursor: pointer;
   touch-action: manipulation;
@@ -1264,7 +1309,7 @@
   /* 選んでいないタブは補足の色（半透明にすると、細い字のコントラストが 4.5:1 を割る） */
   color: var(--sub);
   font-size: 0.7rem;
-  font-weight: 700;
+  font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -1278,6 +1323,7 @@
 .rtabs__tab[aria-selected='true'] {
   border-bottom-color: var(--fg);
   color: var(--fg);
+  font-weight: 700;
 }
 
 /* 作品の4つと、まとめを分ける細い線 */
@@ -1320,11 +1366,11 @@
   margin-left: auto;
   padding: 6px 12px 6px 6px;
   border: 1px solid var(--line-strong);
-  border-radius: 999px;
+  border-radius: var(--radius-s);
   background: none;
   color: var(--fg);
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 500;
   cursor: pointer;
 }
 
@@ -1396,6 +1442,71 @@
   font-weight: 700;
 }
 
+/* 並べ方の説明を開く「i」。並べ替えの文字より薄く小さくし、すぐ後ろに寄せる（押せる広さは指の分とる）。
+   行の高さは文字のボタンで決まるので、縦は行の中央に置く（上端にそろうと、文字より 2px 上に見えた） */
+.rsort .rsort__info {
+  align-self: center;
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin: -2px 0 -2px -12px;
+  padding: 0;
+  border-radius: 50%;
+  color: color-mix(in oklab, var(--sub) 70%, transparent);
+}
+
+.rsort .rsort__info .icon {
+  width: 15px;
+  height: 15px;
+}
+
+.rsort .rsort__info:hover,
+.rsort .rsort__info[aria-expanded='true'] {
+  color: var(--fg);
+}
+
+/* 並べ方の説明のパネル。クール選びと同じ不透明な板（後ろの表紙の色が混ざると読みにくい） */
+.sortinfo {
+  position: fixed;
+  z-index: 30;
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: var(--bg-top);
+  box-shadow:
+    var(--panel-edge),
+    0 18px 40px rgb(0 0 0 / 0.16);
+  font-size: 0.8rem;
+  line-height: 1.6;
+  animation: courpick-in 0.16s cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+
+.sortinfo__list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.sortinfo__list dt {
+  font-weight: 700;
+}
+
+.sortinfo__list dd {
+  margin: 0;
+  color: var(--sub);
+}
+
+.sortinfo__foot {
+  margin: 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  color: var(--sub);
+  font-size: 0.75rem;
+}
+
 .records--items .records__controls,
 .records--browse .records__controls {
   gap: 8px;
@@ -1427,7 +1538,7 @@
 }
 
 .shelf__score {
-  font-weight: 700;
+  font-weight: 500;
 }
 
 /* 自分の記録ではない印（評価の画面で「見てない」にした作品）は、塗らずに線だけ */
@@ -1490,7 +1601,7 @@
   display: -webkit-box;
   overflow: hidden;
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: 500;
   line-height: 1.4;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -1506,7 +1617,7 @@
   background: var(--fg);
   color: var(--bg-bot);
   font-size: 0.65rem;
-  font-weight: 700;
+  font-weight: 500;
   line-height: 1.6;
 }
 
@@ -1623,10 +1734,10 @@
 
 .watchcard__next {
   font-size: 0.85rem;
-  font-weight: 700;
+  font-weight: 500;
 }
 
-/* 次の放送（Issue #32）。次の話のすぐ下に、少し控えめに */
+/* 次の放送。次の話のすぐ下に、少し控えめに */
 .watchcard__air {
   color: var(--fg);
   font-size: 0.8rem;
@@ -1687,7 +1798,7 @@
 
 .week__time {
   font-variant-numeric: tabular-nums;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .week__title {
@@ -1708,7 +1819,7 @@
   font-size: 0.8rem;
 }
 
-/* カレンダーへの入れ方は端末で分ける（2026-10-21 利用者）。スマホ（指で触る）はファイル（.ics）を開くと標準のカレンダーの「追加しますか」が出る。
+/* カレンダーへの入れ方は端末で分ける。スマホ（指で触る）はファイル（.ics）を開くと標準のカレンダーの「追加しますか」が出る。
    PC はファイルを開くと使っていないアプリ（Outlook など）が開くので、ファイルは出さず、1件ずつ Google カレンダーの予定の画面を開くリンクにする */
 .week__gcal {
   display: none;
@@ -1802,7 +1913,7 @@
   font-weight: 700;
 }
 
-/* まとめの一覧で、まだ開いていない項目（実績）の札。上のタブの光る点と同じ色で、どれのことかを言葉で示す（Issue #23） */
+/* まとめの一覧で、まだ開いていない項目（実績）の札。上のタブの光る点と同じ色で、どれのことかを言葉で示す */
 .folder__new {
   grid-column: 3;
   grid-row: 1 / span 2;
@@ -1812,7 +1923,7 @@
   background: color-mix(in srgb, #ffcf5a 30%, transparent);
   color: var(--paper);
   font-size: 0.72rem;
-  font-weight: 700;
+  font-weight: 500;
   white-space: nowrap;
 }
 
@@ -1833,17 +1944,26 @@
     grid-template-columns: 92px minmax(0, 1fr);
     column-gap: 28px;
     align-items: start;
+    max-width: none;
     padding: 0 24px;
   }
 
+  /* 表紙の一覧は画面の幅いっぱいに（左右に余白を取らず、1行に並ぶ表紙を増やす）。上の帯の字も左端に寄せてある（app.css） */
   .records.records--browse {
-    max-width: var(--wide);
+    max-width: none;
     padding: 0 24px;
   }
 
   .records--items .records__body {
     grid-column: 2;
     grid-row: 1;
+  }
+
+  /* 図と文の項目（傾向・ふり返り）は、棒や目盛りが横に間延びしないよう、今までの本文の幅までにして、残りの幅の中央に置く（設定の本文と同じ） */
+  .records--items .records__body--charts {
+    width: 100%;
+    max-width: calc(var(--wide) - 168px);
+    justify-self: center;
   }
 
   /* 左端の縦の列（記録と設定）。流しても上の帯の下に貼りつく */
@@ -1866,11 +1986,11 @@
     margin-right: 8px;
     padding: 10px 2px;
     border: 0;
-    border-radius: var(--radius-m);
+    border-radius: var(--radius-s);
     background: none;
     color: var(--fg);
     font-size: 0.72rem;
-    font-weight: 700;
+    font-weight: 500;
     opacity: 0.55;
     cursor: pointer;
   }
@@ -1889,6 +2009,7 @@
   .rrail__item[aria-current='true'] {
     background: color-mix(in oklab, var(--fg) 9%, transparent);
     opacity: 1;
+    font-weight: 700;
   }
 
   .rrail__item:hover {
@@ -1933,7 +2054,7 @@
 .watchcard__ratelabel {
   color: var(--sub);
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .watchcard__rate .mini-ratings {
@@ -1965,4 +2086,14 @@
 
 .filtersheet__foot--end {
   justify-content: flex-end;
+}
+
+/* 選べる数の上限まで選んだときの、押せないチップと知らせ（ブラウズの制作会社） */
+.filtersheet__chips .chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.filtersheet__maxnote {
+  margin-top: 8px;
 }

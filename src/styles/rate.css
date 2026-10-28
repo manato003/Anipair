@@ -39,10 +39,6 @@
   z-index: 5;
 }
 
-.rate__head--stepper {
-  align-items: center;
-}
-
 .rate__head .stepper {
   gap: 8px;
 }
@@ -52,6 +48,11 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
+}
+
+/* クールの行は中央でそろえる（‹ › と右の丸いボタンの高さを合わせる）。上の .rate__head より後に書く（前に書くと baseline に負ける） */
+.rate__head--stepper {
+  align-items: center;
 }
 
 .rate__meta {
@@ -69,7 +70,7 @@
 
 .count {
   font-size: 1rem;
-  font-weight: 700;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
 
@@ -97,7 +98,7 @@
 
 .progress__count {
   font-size: 0.85rem;
-  font-weight: 700;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -366,7 +367,7 @@
 
 .clear__season {
   color: var(--muted);
-  font-weight: 700;
+  font-weight: 500;
   letter-spacing: 0.12em;
   animation: clear-fade 0.4s 0.1s both;
 }
@@ -483,7 +484,7 @@
   background: color-mix(in srgb, var(--tone) 12%, var(--ink-raised));
   color: var(--tone);
   font-size: 0.85rem;
-  font-weight: 700;
+  font-weight: 500;
   line-height: 1.3;
   cursor: pointer;
   touch-action: manipulation;
@@ -647,7 +648,7 @@
   background: none;
   color: var(--paper);
   font-size: 0.82rem;
-  font-weight: 700;
+  font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
   touch-action: manipulation;
@@ -707,9 +708,9 @@
   min-height: 60px;
   padding: 6px 8px;
   border: 1px solid transparent;
-  border-radius: var(--radius-m);
+  border-radius: var(--radius-s);
   font-size: 1rem;
-  font-weight: 700;
+  font-weight: 500;
   cursor: pointer;
   touch-action: manipulation;
   transition: transform 0.08s ease, background 0.1s ease;
@@ -956,7 +957,7 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 500;
   line-height: 1.35;
 }
 
@@ -968,7 +969,7 @@
   border: 1px solid var(--fg);
   border-radius: 999px;
   font-size: 0.7rem;
-  font-weight: 700;
+  font-weight: 500;
   white-space: nowrap;
 }
 

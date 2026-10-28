@@ -62,7 +62,9 @@
   /* 表紙の枠の縦横比。表紙の画像（Shikimori・MyAnimeList のポスター）の標準の 225:318 に合わせる（2:3 にすると左右が約5%切れていた） */
   --cover-ratio: 0.7075;
   --col: 440px;
-  /* 形の決まり: 押せる操作（ボタン・検索欄・矢印・選択欄・切り替え）は丸い形に、文字の色をわずかに敷いた地。
+  /* 形の決まり: 押せる操作（ボタン・検索欄・選択欄・切り替え）は角 6px（--radius-s）に、文字の色をわずかに敷いた地。
+     文字の無いアイコンだけのボタン（?・設定・閉じる）は丸。押せない札（ジャンル・バッジ）は錠剤の形。置いておく板（パネル・表紙・カード）は角 10px（--radius-m）。
+     太字は見出しと選ばれている状態だけ。ボタン・札・補足のラベル・件数は 500 にして、強弱を残す。
      中身をまとめる箱（作品の詳細の塊・傾向の数字）は、XMB の情報の板のような半透明の板（上がわずかに明るく、上端に細い光の線） */
   --control: color-mix(in oklab, var(--fg) 5%, transparent);
   --panel: linear-gradient(180deg, color-mix(in oklab, var(--fg) 7%, transparent), color-mix(in oklab, var(--fg) 2.5%, transparent) 72px);
@@ -108,9 +110,11 @@ body,
 }
 
 /* 季節の地。ページ全体が流れても地は動かない（iOS の Safari は background-attachment: fixed を効かせないので、固定した層に描く）。
-   html にも同じ地を敷く（PC の流し棒の溝と、iOS で端を引っぱったときに見える所） */
+   html にも同じ地を敷く（PC の流し棒の溝と、iOS で端を引っぱったときに見える所）。
+   単色の部分は地の上端の色にする。iOS 26 の Safari は theme-color を使わず、上端（ノッチのまわり）をページの地の色で塗るので、
+   下端の色だと、上に貼りつく帯の無い画面（評価・マッチング・ブラウズ）で上端が一段暗くなり、ぼかしの境目が見えた（実機） */
 html {
-  background: linear-gradient(180deg, var(--bg-top), var(--bg-bot)) fixed var(--bg-bot);
+  background: linear-gradient(180deg, var(--bg-top), var(--bg-bot)) fixed var(--bg-top);
 }
 
 body::before {
@@ -119,6 +123,29 @@ body::before {
   inset: 0;
   z-index: -1;
   background: linear-gradient(180deg, var(--bg-top), var(--bg-bot));
+}
+
+/* スマホの上端に貼りつく、地の上端の色の細い帯（index.html の .topedge。見た目は地と同じで見えない）。
+   iOS 26 以降の Safari は、上端に貼りつく要素があればその色で上端をつなぎ、無ければ上端の近くの中身をぼかす。
+   評価・マッチング・ブラウズ・設定で上の方の文字がぼやけた（記録は分類の帯が貼りつくのでぼやけない。iOS 27 の実機）。
+   Safari は上端の数 px 内側を当たり判定で調べ、fixed・sticky で、幅が画面の 90% 以上、高さが 10px を超える要素だけを数えるとされる
+   （疑似要素で 6px にしたときは効かなかった）。なので本物の要素にし、pointer-events は切らない。
+   高さは、評価・マッチングで最初の部品が始まる 12px まで。記録の分類の帯・ブラウズの細い1行（z-index 3・4）より下に置く */
+.topedge {
+  display: none;
+}
+
+@media (max-width: 959px) {
+  .topedge {
+    position: fixed;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 2;
+    display: block;
+    height: calc(env(safe-area-inset-top) + 12px);
+    background: var(--bg-top);
+  }
 }
 
 /* シートを開いているあいだは、後ろのページを流さない（lib/pageScroll.ts） */
@@ -153,6 +180,22 @@ input {
 
 a {
   color: var(--brand-blue);
+}
+
+/* 外のサイトへ移るリンク（新しいタブで開くもの）は、文字の後ろに ↗ を付けて、押すとアプリを離れると分かるようにする。
+   印は Icons.tsx の ExternalIcon と同じ形を、文字の色で描く。アプリの中のページ（/privacy.html など）と、
+   部品の中にアイコンを置いたリンク（配信サービスの札など）には付けない */
+a[target='_blank']:not([href^='/']):not(:has(.icon))::after {
+  content: '';
+  display: inline-block;
+  width: 0.8em;
+  height: 0.8em;
+  margin-left: 0.2em;
+  vertical-align: -0.05em;
+  background-color: currentColor;
+  opacity: 0.75;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 4h6v6'/%3E%3Cpath d='M20 4 11 13'/%3E%3Cpath d='M18 14v4.5A1.5 1.5 0 0 1 16.5 20h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10'/%3E%3C/svg%3E")
+    center / contain no-repeat;
 }
 
 :focus-visible {
@@ -215,11 +258,11 @@ kbd {
   min-height: 40px;
   padding: 0 18px;
   border: 1px solid var(--line-strong);
-  border-radius: 999px;
+  border-radius: var(--radius-s);
   background: var(--control);
   color: var(--fg);
   font-size: 0.85rem;
-  font-weight: 700;
+  font-weight: 500;
   text-decoration: none;
   cursor: pointer;
 }
@@ -229,7 +272,6 @@ kbd {
   border-color: transparent;
   background: var(--brand-gradient);
   color: var(--ink);
-  font-weight: 700;
 }
 
 .btn:disabled {
@@ -324,8 +366,10 @@ kbd {
   transform: translate(-50%, 0);
 }
 
-/* 前回の内容を表示しているときの一言（StaleNote）。保存中の札の少し上に浮かべる。読み直しの失敗は「もう一度」を押せるようにする */
-.stale-toast {
+/* 前回の内容を表示しているときの一言（StaleNote）。保存中の札の少し上に浮かべる。読み直しの失敗は「もう一度」を押せるようにする。
+   一度だけの知らせ（TipToast）も同じ札（位置は下の .tip-toast） */
+.stale-toast,
+.tip-toast {
   position: fixed;
   bottom: calc(128px + env(safe-area-inset-bottom));
   left: 50%;
@@ -364,6 +408,13 @@ kbd {
   .stale-toast {
     bottom: 72px;
   }
+}
+
+/* 一度だけの知らせは画面の上に。スマホでは答えるボタンやシートの操作が下に集まり、下に出すと作品名やボタンに重なる。シートより手前 */
+.tip-toast {
+  top: calc(10px + env(safe-area-inset-top));
+  bottom: auto;
+  z-index: 40;
 }
 
 .save--error {
@@ -407,7 +458,7 @@ kbd {
   background: var(--paper);
   color: var(--ink);
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: 500;
   letter-spacing: 0;
   white-space: nowrap;
   opacity: 0;
@@ -468,11 +519,11 @@ kbd {
   flex: none;
   padding: 6px 12px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--radius-s);
   background: none;
   color: var(--muted);
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 500;
   cursor: pointer;
 }
 
@@ -495,7 +546,7 @@ kbd {
   height: 40px;
   padding: 0 16px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--radius-s);
   background: var(--control);
   font-size: 0.85rem;
 }
@@ -507,13 +558,13 @@ kbd {
   overflow: hidden;
   padding: 2px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--radius-s);
 }
 
 .toggle button {
   padding: 6px 12px;
   border: 0;
-  border-radius: 999px;
+  border-radius: 4px;
   background: none;
   color: var(--muted);
   font-size: 0.8rem;
@@ -533,7 +584,7 @@ kbd {
   background: var(--tone);
   color: var(--ink);
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: 500;
   white-space: nowrap;
 }
 
@@ -568,7 +619,7 @@ kbd {
   min-height: 40px;
   padding: 0 12px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-s);
   background: none;
   color: var(--fg);
   font-size: 1.1rem;
@@ -598,7 +649,8 @@ kbd {
   }
 }
 
-/* クールを選ぶパネル。地の色を透かした半透明の板（すりガラス）で、細い線だけで縁取る。年は数字だけを格子に、季節は4つの札 */
+/* クールを選ぶパネル。不透明な板を細い線で縁取る（後ろを透かすと、表紙の色が混ざって数字が読みにくい）。
+   年は数字だけを格子に、季節は4つをつなげた1本の溝 */
 .courpick {
   position: fixed;
   z-index: 30;
@@ -606,13 +658,11 @@ kbd {
   gap: 8px;
   padding: 14px 14px 16px;
   border: 1px solid var(--line);
-  border-radius: 16px;
-  background: color-mix(in oklab, var(--bg-top) 78%, transparent);
+  border-radius: var(--radius-m);
+  background: var(--bg-top);
   box-shadow:
     var(--panel-edge),
     0 18px 40px rgb(0 0 0 / 0.16);
-  -webkit-backdrop-filter: blur(18px) saturate(1.2);
-  backdrop-filter: blur(18px) saturate(1.2);
   animation: courpick-in 0.16s cubic-bezier(0.3, 0.7, 0.2, 1);
 }
 
@@ -626,7 +676,6 @@ kbd {
 .courpick__label {
   color: var(--sub);
   font-size: 0.75rem;
-  font-weight: 700;
 }
 
 .courpick__years {
@@ -642,7 +691,7 @@ kbd {
 .courpick__seasons button {
   min-height: 40px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-s);
   background: none;
   color: var(--fg);
   font-size: 0.95rem;
@@ -657,29 +706,31 @@ kbd {
   font-weight: 700;
 }
 
+/* 季節は1本の溝の中に4つを並べ、いま見ているクールだけを塗る */
 .courpick__seasons {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-s);
+  background: var(--control);
 }
 
 .courpick__seasons button {
-  border: 1px solid var(--line-strong);
-  background: var(--control);
-  font-weight: 700;
+  min-height: 36px;
+  border-radius: 4px;
 }
 
 /* いま見ているクール */
 .courpick__seasons button[aria-current='true'] {
-  border-color: var(--fg);
   background: var(--fg);
   color: var(--bg-bot);
+  font-weight: 700;
 }
 
 .courpick__seasons button:disabled {
-  border-style: dashed;
-  background: none;
   color: var(--sub);
+  opacity: 0.5;
   cursor: default;
 }
 
@@ -691,21 +742,35 @@ kbd {
   }
 }
 
+/* ‹ › 。真ん中のボタンと同じく枠も塗りも無い矢印だけにして、「2026年 秋」と1つのまとまりに見せる */
 .stepper__btn {
+  display: inline-grid;
+  place-items: center;
   width: 40px;
   height: 40px;
   flex: none;
-  border: 1px solid var(--line-strong);
-  border-radius: 999px;
-  background: var(--control);
-  font-size: 1.2rem;
-  line-height: 1;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-s);
+  background: none;
+  color: var(--fg);
   cursor: pointer;
+}
+
+.stepper__btn .icon {
+  width: 20px;
+  height: 20px;
 }
 
 .stepper__btn:disabled {
   opacity: 0.35;
   cursor: default;
+}
+
+@media (hover: hover) {
+  .stepper__btn:not(:disabled):hover {
+    background: var(--control);
+  }
 }
 
 /* 並べ方のボタンの向きの矢印（押している軸をもう一度押すと逆の順。押していない方も幅を取っておく） */
@@ -856,9 +921,11 @@ kbd {
 
 /* 中身を開く1枚（作品の詳細・参加作品の一覧）。画面いっぱいに地の色で開き、中身は読みやすい幅の列に置く。
    閉じるボタンは列の上端に貼りつけて、流しても見える（中身の上に重なるので、ボタンにだけ塗りを付ける） */
+/* 単色の部分は地の上端の色に（グラデーションが全面を塗るので見えない）。iOS 26 以降の Safari は、上端に触れる fixed の要素の
+   背景色で上端をつなぐとされ、開いているあいだ上端に来るのはこの幕。下端の色だと、上端が暗くつながる（.topedge と同じ理由。2026-10-28） */
 .sheet-backdrop--page {
   align-items: stretch;
-  background: linear-gradient(180deg, var(--bg-top), var(--bg-bot)) var(--bg-bot);
+  background: linear-gradient(180deg, var(--bg-top), var(--bg-bot)) var(--bg-top);
 }
 
 .sheet.sheet--page {
@@ -934,6 +1001,8 @@ kbd {
   inset: 0;
   z-index: 30;
   cursor: pointer;
+  /* body に描くので、アプリと同じ拡大を掛ける（Tour.tsx は座標をこの値で割って置く） */
+  zoom: var(--zoom);
 }
 
 .tour__spot {
@@ -1025,7 +1094,7 @@ kbd {
 
 .tour__count {
   font-size: 0.85rem;
-  font-weight: 700;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1084,7 +1153,7 @@ kbd {
   margin-bottom: 8px;
   color: var(--muted);
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .help__list {
@@ -1113,7 +1182,7 @@ kbd {
 
 .help__more summary {
   padding: 12px 0;
-  font-weight: 700;
+  font-weight: 500;
   cursor: pointer;
 }
 
@@ -1213,15 +1282,14 @@ kbd {
   }
 }
 
-/* 選択欄（プルダウン）とチェックの印: ほかの押せる操作と同じ丸い形と地。開いた一覧は地と文字の色をはっきり決める
+/* 選択欄（プルダウン）とチェックの印: ほかの押せる操作と同じ角と地。開いた一覧は地と文字の色をはっきり決める
    （欄の地は半透明なので、決めないと一覧の地がブラウザ任せになり、暗いテーマで白い字が明るい地に乗って読めなかった） */
 .filter select,
-.filtersheet__years select,
-.tierpick__cour select {
+.filtersheet__cour select {
   height: 40px;
   padding: 0 12px 0 14px;
   border: 1px solid var(--line-strong);
-  border-radius: 999px;
+  border-radius: var(--radius-s);
   background: var(--control);
   color: var(--fg);
   font-family: inherit;
@@ -1384,7 +1452,7 @@ input[type='radio'] {
 /* 作品の要点（放送時期・形式・放送中・全◯話・一気見の目安）。項目の途中では折らず、項目の間で折る */
 .fact {
   /* 項目の中では折り返さず、項目と項目のあいだで折り返す（inline-block の切れ目。inline のままだと切れ目が無く、
-     英語の画面で作品の詳細の要点の行が1行のまま題名の欄からはみ出し、画面が横に動いた。2026-10-21 利用者の実機） */
+     英語の画面で作品の詳細の要点の行が1行のまま題名の欄からはみ出し、画面が横に動いた。実機） */
   display: inline-block;
   white-space: nowrap;
 }
@@ -1422,7 +1490,7 @@ input[type='radio'] {
   color: var(--muted);
   font: inherit;
   font-size: 0.78rem;
-  font-weight: 700;
+  font-weight: 500;
   cursor: pointer;
 }
 
@@ -1523,7 +1591,7 @@ input[type='radio'] {
 .cc__sub {
   margin-top: 6px;
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 500;
   color: var(--muted);
 }
 
@@ -1538,7 +1606,7 @@ input[type='radio'] {
   margin-top: 6px;
   color: var(--sub);
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .quick__label:first-child {

@@ -30,6 +30,11 @@ export function isDefaultFilter(f: MatchFilter): boolean {
   return f.fromYear === null && FORMAT_GROUPS.every((g) => f.formats.includes(g.id))
 }
 
+// 同じ条件か（形式は並びを問わない）
+export function sameFilter(a: MatchFilter, b: MatchFilter): boolean {
+  return a.fromYear === b.fromYear && a.formats.length === b.formats.length && a.formats.every((f) => b.formats.includes(f))
+}
+
 // 保存された値を検証して読む。壊れていれば既定に戻す（形式が0個・知らない年もここで弾く）
 export function parseMatchFilter(value: unknown): MatchFilter {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return { ...DEFAULT_FILTER, formats: [...DEFAULT_FILTER.formats] }

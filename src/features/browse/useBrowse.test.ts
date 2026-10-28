@@ -39,8 +39,18 @@ vi.mock('../../lib/covers', async (orig) => ({ ...(await orig<typeof import('../
 // 視聴者の少ない 3 の Shikimori の点数が一番高い（9.5 → 95）。1 は 7.0。2 は点数なし
 vi.mock('../../lib/shikimori', () => ({
   fetchMedia: vi.fn(async (ids: number[]) => new Map(ids.map((id) => [id, { idMal: id, score: id === 103 ? 9.5 : id === 101 ? 7 : null }]))),
+  searchTitles: vi.fn(async () => []),
 }))
 vi.mock('../../lib/myReviews', () => ({ getMyReviews: vi.fn(async () => new Map()) }))
+// 条件検索（期間の全作品から、ジャンル・制作会社で探す）。ページの番号ごとに1作品
+const findCalls: { narrow: unknown; period: unknown; order: string; page: number }[] = []
+vi.mock('./conditionSearch', async (orig) => ({
+  ...(await orig<typeof import('./conditionSearch')>()),
+  findPage: vi.fn(async (_t: string, narrow: unknown, period: unknown, order: string, page: number) => {
+    findCalls.push({ narrow, period, order, page })
+    return { works: [w(50 + page, 10)], endCursor: page < 2 ? String(page + 1) : null, hasNext: page < 2, capped: false }
+  }),
+}))
 
 const { useBrowse } = await import('./useBrowse')
 
@@ -65,14 +75,14 @@ describe('useBrowse sorting', () => {
   it('period: reads every cour of the period instead of one, offers 新しい順, and goes back to the cour', async () => {
     const hook = await setup()
     calls.length = 0
-    act(() => hook.result.current.setPeriod({ yearFrom: 2018, yearTo: 2019, seasons: ['SPRING'] }))
+    act(() => hook.result.current.setPeriod({ from: { year: 2018, name: 'autumn' }, to: { year: 2019, name: 'spring' } }))
     await waitFor(() => expect(hook.result.current.works).not.toBeNull())
     expect(hook.result.current.mode).toBe('period')
-    expect(calls.at(-1)?.filter).toEqual({ seasons: ['2018-spring', '2019-spring'] })
+    expect(calls.at(-1)?.filter).toEqual({ seasons: ['2018-autumn', '2019-winter', '2019-spring'] })
     act(() => hook.result.current.setSort('newest'))
     await waitFor(() => expect(calls.at(-1)?.order).toBe('SEASON'))
     expect(hook.result.current.sort).toBe('newest')
-    act(() => hook.result.current.setPeriod({ yearFrom: null, yearTo: null, seasons: [] }))
+    act(() => hook.result.current.setPeriod({ from: null, to: null }))
     await waitFor(() => expect(hook.result.current.mode).toBe('cour'))
     expect(hook.result.current.sort).toBe('popular')
   })
@@ -126,7 +136,7 @@ describe('useBrowse sorting', () => {
   it('setting the same period again keeps the list (no reload)', async () => {
     const hook = await setup()
     calls.length = 0
-    act(() => hook.result.current.setPeriod({ yearFrom: null, yearTo: null, seasons: [] }))
+    act(() => hook.result.current.setPeriod({ from: null, to: null }))
     expect(hook.result.current.works).not.toBeNull()
     expect(calls).toEqual([])
   })
@@ -170,8 +180,71 @@ describe('useBrowse sorting', () => {
     expect(hook.result.current.sort).toBe('newest')
     expect(calls.at(-1)?.order).toBe('SEASON')
     // タイトルと期間は両方に当てはまるものを探す
-    act(() => hook.result.current.setPeriod({ yearFrom: 2023, yearTo: 2023, seasons: ['AUTUMN'] }))
+    act(() => hook.result.current.setPeriod({ from: { year: 2023, name: 'autumn' }, to: { year: 2023, name: 'autumn' } }))
     await waitFor(() => expect(calls.at(-1)?.filter).toEqual({ titles: ['フリーレン'], seasons: ['2023-autumn'] }))
     vi.useRealTimers()
+  })
+})
+
+describe('useBrowse searching by an English or romaji title', () => {
+  async function search(query: string) {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const hook = await setup()
+    act(() => hook.result.current.setQuery(query))
+    await act(async () => {
+      vi.advanceTimersByTime(500)
+    })
+    vi.useRealTimers()
+    return hook
+  }
+
+  it('also asks Annict for the Japanese titles from Shikimori and keeps only the works Shikimori found', async () => {
+    const { searchTitles } = await import('../../lib/shikimori')
+    vi.mocked(searchTitles).mockResolvedValueOnce([{ malId: 101, japanese: '作品1' }, { malId: 105, japanese: '作品1' }, { malId: 999, japanese: null }])
+    const hook = await search('Sakuhin')
+    await waitFor(() => expect(calls.at(-1)?.filter).toEqual({ titles: ['Sakuhin', '作品1'] }))
+    expect(searchTitles).toHaveBeenCalledWith('Sakuhin')
+    // 1ページ目の 1・2 のうち、Shikimori が返した MyAnimeList の ID（101）の作品だけ
+    await waitFor(() => expect(hook.result.current.works?.map((x) => x.annictId)).toEqual([1]))
+  })
+
+  it('searches by the words alone when Shikimori fails or finds nothing, and never asks it for Japanese words', async () => {
+    const { searchTitles } = await import('../../lib/shikimori')
+    vi.mocked(searchTitles).mockClear()
+    vi.mocked(searchTitles).mockRejectedValueOnce(new Error('Shikimoriが混み合っています'))
+    const hook = await search('Frieren')
+    await waitFor(() => expect(hook.result.current.works?.map((x) => x.annictId)).toEqual([1, 2]))
+    expect(calls.at(-1)?.filter).toEqual({ titles: ['Frieren'] })
+    expect(hook.result.current.error).toBeNull()
+    act(() => hook.result.current.setQuery('フリーレン'))
+    await waitFor(() => expect(calls.at(-1)?.filter).toEqual({ titles: ['フリーレン'] }))
+    expect(searchTitles).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('useBrowse narrowing a period by genres and studios', () => {
+  it('searches the whole period after the chips settle, keeps the period’s works for the filter sheet, and loads more by page', async () => {
+    findCalls.length = 0
+    let narrow: { genres: number[]; studios: number[] } | null = null
+    const hook = renderHook(() => useBrowse('t', true, narrow))
+    await waitFor(() => expect(hook.result.current.works).not.toBeNull())
+    act(() => hook.result.current.setPeriod({ from: { year: 2022, name: 'spring' }, to: { year: 2023, name: 'winter' } }))
+    await waitFor(() => expect(hook.result.current.works?.map((x) => x.annictId)).toEqual([1, 2]))
+    // 1クールだけのときは条件検索にしない。期間のときだけ
+    narrow = { genres: [10], studios: [] }
+    hook.rerender()
+    await waitFor(() => expect(hook.result.current.narrowed).toBe(true), { timeout: 2000 })
+    await waitFor(() => expect(hook.result.current.works?.map((x) => x.annictId)).toEqual([51]))
+    expect(findCalls[0]).toEqual({ narrow: { genres: [10], studios: [] }, period: { from: '2022-spring', to: '2023-winter' }, order: 'popularity', page: 1 })
+    // シートの選択肢には、期間の作品も入る
+    expect(hook.result.current.pool?.map((x) => x.annictId)).toEqual([51, 1, 2])
+    await act(() => hook.result.current.loadMore())
+    expect(hook.result.current.works?.map((x) => x.annictId)).toEqual([51, 52])
+    expect(hook.result.current.hasMore).toBe(false)
+    // 条件を外したら、すぐ期間の一覧に戻る
+    narrow = null
+    hook.rerender()
+    expect(hook.result.current.narrowed).toBe(false)
+    await waitFor(() => expect(hook.result.current.works?.map((x) => x.annictId)).toEqual([1, 2]))
   })
 })

@@ -81,7 +81,6 @@ export function YearReview(props: {
                   <span className="kpi__label">{t('平均評価', 'Average rating')}</span>
                 </div>
               </div>
-              <p className="trend__note">{t('Annictで「見た」にした日で数えています（昔の作品をまとめて記録したときは、その日の年に入ります）。', 'Counted by the date you marked each anime as watched on Annict (older anime recorded in bulk count toward the year you recorded them).')}</p>
             </section>
 
             <section className="trend">

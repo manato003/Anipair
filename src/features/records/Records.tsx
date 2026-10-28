@@ -17,11 +17,13 @@ import type { Cover } from '../../lib/storage'
 import { rememberScroll, restoreScroll, scrollToTop } from '../../lib/pageScroll'
 import { useSwipeIntercept } from '../../lib/useSwipeNav'
 import { useWide } from '../../lib/useWide'
+import { useTuckOnScroll } from '../../lib/useTuckOnScroll'
 import { seasonLabel, type Season } from '../../lib/season'
 import { CourNav } from '../../components/CourNav'
 import { PinnedLine } from '../../components/PinnedLine'
 import { formatMinutes } from '../../lib/watchFacts'
 import { workMeta } from '../browse/detail'
+import { periodLabel } from '../browse/browseFilter'
 import { WorkDetail, type WorkSeed } from '../browse/WorkDetail'
 import { malIdOf } from '../../lib/malId'
 import { genreName } from '../match/taste'
@@ -30,7 +32,6 @@ import {
   BUCKETS,
   EMPTY_FILTER,
   MEDIA_KINDS,
-  SEASON_KEYS,
   STATE_OPTIONS,
   activeFilterCount,
   applyFilter,
@@ -38,7 +39,6 @@ import {
   filterRows,
   formatDate,
   optionState,
-  sortNote,
   sortOptions,
   sortRows,
   type Bucket,
@@ -194,7 +194,7 @@ export function Records({ token, github = null, active }: { token: string; githu
   // 見てる作品の1話の長さ（残りの時間の目安）。見てるを開いたときだけ、見てる作品の分を読む
   const watchingEntries = useMemo(() => watchingRows.map((row) => row.entry), [watchingRows])
   const watchMedia = useMediaInfo(watchingEntries, showWatching)
-  // 見てる作品の次の放送（Issue #32）。見るサービスを選んだ人だけ、放送中の作品の放送予定を読む
+  // 見てる作品の次の放送。見るサービスを選んだ人だけ、放送中の作品の放送予定を読む
   const broadcastPrefs = useBroadcastPrefs()
   const wantsBroadcast = hasChoice(broadcastPrefs)
   const [servicesOpen, setServicesOpen] = useState(false)
@@ -206,7 +206,7 @@ export function Records({ token, github = null, active }: { token: string; githu
       .map((row) => row.entry.workId)
   }, [wantsBroadcast, watchingRows, watchMedia.info])
   const programs = useUpcomingPrograms(token, programWorkIds, showWatching && wantsBroadcast)
-  // 放送の時刻を過ぎたら、次の回へ進める（開いたままでも古い「次の放送」を出し続けない。#34）
+  // 放送の時刻を過ぎたら、次の回へ進める（開いたままでも古い「次の放送」を出し続けない）
   const now = useClock(showWatching && wantsBroadcast)
   // 見てるの表示: カード（次の話を記録する）か、今週の放送（これから7日の放送を日ごとに）。見るサービスを選んでいるときだけ切り替えられる
   const [watchView, setWatchView] = useState<'cards' | 'week'>('cards')
@@ -251,10 +251,11 @@ export function Records({ token, github = null, active }: { token: string; githu
     return priorityFirst([...scored.reverse(), ...ranked.filter((row) => !scores.has(malIdOf(row.entry) ?? -1))], isPriority)
   }, [filtered, bucket, deferredQuery, sort, scores, notes])
   const filterCount = activeFilterCount(filter)
-  // 一覧の上で選ぶクール。選ぶと、絞り込みのシートの放送年の範囲と季節は外す（条件が重なるので）
-  const chooseCour = (cour: Season | null) => setFilter((f) => (cour ? { ...f, cour, yearFrom: null, yearTo: null, seasons: [] } : { ...f, cour: null }))
+  // 一覧の上で選ぶクール。選ぶと、絞り込みのシートの期間は外す（条件が重なるので）
+  const chooseCour = (cour: Season | null) => setFilter((f) => (cour ? { ...f, cour, from: null, to: null } : { ...f, cour: null }))
   // クールと並べ替えの帯。スマホで流して見えなくなったら、上のタブの下に細い1行で出す
   const barRef = useRef<HTMLDivElement>(null)
+  const tucked = useTuckOnScroll(barRef, active && wide)
   const rtabsRef = useRef<HTMLDivElement>(null)
   // 見てる作品の次の話。話の一覧を読み込んだ作品はその値（この画面で記録した直後も合う）、まだならライブラリの次の話
   const watchNext = (row: RecordRow): string | null => {
@@ -322,6 +323,25 @@ export function Records({ token, github = null, active }: { token: string; githu
   const dot = achievementsUnseen && <span className="viewswitch__dot" aria-label={t('まだ見ていません', 'Not viewed yet')} />
   const courName = filter.cour ? seasonLabel(filter.cour) : t('すべてのクール', 'All seasons')
 
+  // 検索と絞り込み。スマホは帯の上に1行、PC は帯の中（クールと並べ替えと同じ行）
+  const tools = (
+    <div className="records__tools">
+      <input
+        className="search"
+        type="search"
+        placeholder={t('タイトルで絞り込む', 'Filter by title')}
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        aria-label={t('タイトルで絞り込む', 'Filter by title')}
+      />
+      <button type="button" className="btn records__filterbtn" aria-pressed={filterCount > 0} onClick={() => setFilterOpen(true)}>
+        <FilterIcon />
+        {t('絞り込み', 'Filter')}
+        {filterCount > 0 && <span className="chip__count">{filterCount}</span>}
+      </button>
+    </div>
+  )
+
   return (
     <section className="records records--items">
       <h1 className="visually-hidden">{t('記録', 'Records')}</h1>
@@ -353,7 +373,8 @@ export function Records({ token, github = null, active }: { token: string; githu
         </div>
       )}
 
-      <div className="records__body" ref={bodyRef}>
+      {/* 傾向・ふり返りは図と文の項目なので、PC で画面の幅いっぱいに伸ばさない（records.css） */}
+      <div className={item === 'trends' || item === 'year' ? 'records__body records__body--charts' : 'records__body'} ref={bodyRef}>
         <header className="rhead">
           {!wide && isSummary(item) && item !== 'summary' && (
             <button type="button" className="rhead__back" onClick={() => select('summary')}>
@@ -379,28 +400,13 @@ export function Records({ token, github = null, active }: { token: string; githu
 
         {bucket ? (
           <>
-            <div className="records__controls">
-              <div className="records__tools">
-                <input
-                  className="search"
-                  type="search"
-                  placeholder={t('タイトルで絞り込む', 'Filter by title')}
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  aria-label={t('タイトルで絞り込む', 'Filter by title')}
-                />
-                <button type="button" className="btn records__filterbtn" aria-pressed={filterCount > 0} onClick={() => setFilterOpen(true)}>
-                  <FilterIcon />
-                  {t('絞り込み', 'Filter')}
-                  {filterCount > 0 && <span className="chip__count">{filterCount}</span>}
-                </button>
-              </div>
-            </div>
+            {!wide && <div className="records__controls">{tools}</div>}
 
             {/* クールと並べ替えの帯（ブラウズと同じ形）。記録はもともと全クールなので「すべて」から。
-                PC は流しても上に残す（貼りつきは親の箱の中でしか効かないので、操作の欄の外に置く） */}
-            <div className="browse__bar records__bar" ref={barRef}>
-              <CourNav value={filter.cour ?? null} onChange={chooseCour} allowAll />
+                PC は上に貼りつき、下へ流すあいだは引っ込んで、上へ流すと戻る（貼りつきは親の箱の中でしか効かないので、操作の欄の外に置く）。
+                PC は検索の欄も帯に入れて1つの帯にする（browse.css） */}
+            <div className={tucked ? 'browse__bar records__bar browse__bar--tucked' : 'browse__bar records__bar'} ref={barRef}>
+              <CourNav value={filter.cour ?? null} onChange={chooseCour} allowAll lead={wide ? tools : undefined} />
               <SortRow options={sortOptions(bucket)} value={sort.key} dir={sort.dir} onChoose={chooseSort} />
             </div>
             <PinnedLine
@@ -411,10 +417,6 @@ export function Records({ token, github = null, active }: { token: string; githu
             />
 
             <div className="records__controls records__controls--notes">
-              <p className="note records__sortnote">
-                {sortNote(sort)}
-                {bucket === 'wanna' && visible.some((row) => noteOf(notes, row.entry.annictId)?.priority) ? t('★優先の作品を先に並べています。', ' Starred (★) anime are listed first.') : ''}
-              </p>
               {filterCount > 0 && <ActiveFilters filter={filter} onChange={setFilter} />}
               {tasteLoading && <Loading label={t('好みを分析しています', 'Analyzing your taste')} />}
               {tasteError && (
@@ -495,11 +497,11 @@ export function Records({ token, github = null, active }: { token: string; githu
                 {/* 見るサービスの入口は、使う場所に置く（設定の奥だけだと気づかれない） */}
                 <div className="watchcards__head">
                   <p className="watchcards__broadcast">
-                    {wantsBroadcast ? t('次の放送日はAnnictの放送予定から出しています。', 'Next air dates come from Annict’s broadcast schedule. ') : t('見るサービスを選ぶと、次の放送日が出ます。', 'Pick where you watch to see next air dates. ')}
+                    {!wantsBroadcast && t('見るサービスを選ぶと、次の放送日が出ます。', 'Pick where you watch to see next air dates. ')}
                     <button type="button" className="link" onClick={() => setServicesOpen(true)}>
                       {wantsBroadcast ? t('見るサービスを変える', 'Change where I watch') : t('選ぶ', 'Choose')}
                     </button>
-                    {/* 読めなかったときは黙らずに言い、その場でやり直せるようにする（#34） */}
+                    {/* 読めなかったときは黙らずに言い、その場でやり直せるようにする */}
                     {wantsBroadcast && programs.failed && (
                       <>
                         <br />
@@ -582,7 +584,7 @@ export function Records({ token, github = null, active }: { token: string; githu
                   {s.icon}
                   <b>{s.label}</b>
                   <small>{s.sub}</small>
-                  {/* まとめのタブの光る点が、どれのことかを言葉で示す（点だけでは、どれを押せば消えるか分からなかった。Issue #23） */}
+                  {/* まとめのタブの光る点が、どれのことかを言葉で示す（点だけでは、どれを押せば消えるか分からなかったため） */}
                   {s.id === 'achievements' && achievementsUnseen && <span className="folder__new">{t('まだ開いていません', 'Not opened yet')}</span>}
                 </button>
               </li>
@@ -669,20 +671,7 @@ function ActiveFilters({ filter: f, onChange }: { filter: RecordFilter; onChange
       label: `${t('評価', 'Rating')}: ${joinList(f.ratings.map((x) => (x === 'NONE' ? t('評価なし', 'Not rated') : RATING_LABEL[x])))}`,
       clear: () => onChange({ ...f, ratings: [] }),
     })
-  if (f.yearFrom !== null || f.yearTo !== null) {
-    const years =
-      f.yearFrom !== null && f.yearTo !== null
-        ? t(`${f.yearFrom}〜${f.yearTo}年`, `${f.yearFrom}–${f.yearTo}`)
-        : f.yearFrom !== null
-          ? t(`${f.yearFrom}年〜`, `${f.yearFrom} or later`)
-          : t(`〜${f.yearTo}年`, `${f.yearTo} or earlier`)
-    items.push({ label: years, clear: () => onChange({ ...f, yearFrom: null, yearTo: null }) })
-  }
-  if (f.seasons.length > 0)
-    items.push({
-      label: `${t('季節', 'Season')}: ${joinList(SEASON_KEYS.filter((x) => f.seasons.includes(x.id)).map((x) => x.label))}`,
-      clear: () => onChange({ ...f, seasons: [] }),
-    })
+  if (f.from !== null || f.to !== null) items.push({ label: t(`期間: ${periodLabel(f)}`, `Period: ${periodLabel(f)}`), clear: () => onChange({ ...f, from: null, to: null }) })
   if (f.media.length > 0)
     items.push({
       label: `${t('形式', 'Format')}: ${joinList(MEDIA_KINDS.filter((x) => f.media.includes(x.id)).map((x) => x.label))}`,
@@ -763,7 +752,7 @@ const WATCH_VIEWS: readonly { value: 'cards' | 'week'; label: string }[] = [
   { value: 'week', get label() { return t('今週の放送', 'This week') } },
 ]
 
-// 今週の放送予定（Issue #32）。これから7日の放送を、日ごとに時刻の順で。押すと作品の詳細
+// 今週の放送予定。これから7日の放送を、日ごとに時刻の順で。押すと作品の詳細
 function WeekSchedule(props: { days: { day: string; items: WeekItem<RecordRow>[] }[]; loading: boolean; failed: boolean; onRetry: () => void; onOpen: (row: RecordRow) => void }) {
   return (
     <div className="week">
@@ -809,7 +798,6 @@ function WeekSchedule(props: { days: { day: string; items: WeekItem<RecordRow>[]
           </button>
         </p>
       )}
-      <p className="week__note">{t('見てるの作品のうち、放送中の作品だけを並べています。Annictに登録されていない予定は出ません。', 'Only airing anime from your Watching list are shown. Broadcasts not registered on Annict don’t appear.')}</p>
     </div>
   )
 }

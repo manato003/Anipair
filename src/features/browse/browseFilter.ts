@@ -1,10 +1,13 @@
 import type { BrowseWork, StatusState } from '../../lib/annict'
 import { t } from '../../lib/i18n'
-import { SEASON_KEYS, mediaKindOf, type MediaInfo, type MediaKind, type SeasonKey } from '../records/recordList'
+import { compareSeasons, nextSeason, seasonLabel, toSlug, type Season } from '../../lib/season'
+import { mediaKindOf, type MediaInfo, type MediaKind } from '../records/recordList'
 import { malIdOf } from '../../lib/malId'
 
-// ブラウズの絞り込み。どの項目も空なら絞らない。項目の中は「どれか」、項目どうしは「すべて」（記録の絞り込みと同じ考え方）。
-// 放送年と季節（期間）は、Annict から読む作品そのものを決める（上のクールの代わりに、期間のクールをまとめて読む）。
+// ブラウズの絞り込み。どの項目も空なら絞らない。項目どうしは、選んだ条件にすべて合う作品だけを残す（記録の絞り込みと同じ考え方）。
+// 項目の中は、1作品に複数同時に付くもの（ジャンル）は選んだものを全部持つ作品（ファンタジーと異世界なら両方）。
+// 1作品に1つしか付かないもの（自分の記録・形式・制作会社）は「どれか」（見たと見たいなら、どちらか）。
+// 期間（始めと終わりのクール）は、Annict から読む作品そのものを決める（上のクールの代わりに、期間のクールをまとめて読む）。
 // ほかの項目は、読み込んだ作品の中で絞る
 export type MineFilter = 'none' | 'unseen' | 'watched' | 'watching' | 'wanna' | 'stopped'
 
@@ -19,48 +22,40 @@ export interface BrowseFilter {
 
 export const EMPTY_BROWSE_FILTER: BrowseFilter = { mine: [], media: [], genres: [], studios: [] }
 
-// 期間（放送年の「から〜まで」と季節）。年の片方が無ければ、そちらは端まで。季節が空なら4つとも
+// 期間（始めと終わりのクール。どちらも含む）。片方が無ければ、そちらは端まで
 export interface BrowsePeriod {
-  yearFrom: number | null
-  yearTo: number | null
-  seasons: readonly SeasonKey[]
+  from: Season | null
+  to: Season | null
 }
 
-export const NO_PERIOD: BrowsePeriod = { yearFrom: null, yearTo: null, seasons: [] }
+export const NO_PERIOD: BrowsePeriod = { from: null, to: null }
 
 export function periodActive(p: BrowsePeriod): boolean {
-  return p.yearFrom !== null || p.yearTo !== null || p.seasons.length > 0
+  return p.from !== null || p.to !== null
+}
+
+// 始めと終わりを古い順に（逆に選んでいても同じ期間）
+function ordered(p: BrowsePeriod): BrowsePeriod {
+  return p.from && p.to && compareSeasons(p.from, p.to) > 0 ? { from: p.to, to: p.from } : p
 }
 
 // 期間に入るクールを、Annict の検索に渡す形（2018-spring）で。古い順。Annict は「2018-all」を受け付けないので、クールを並べる
-export function periodSlugs(p: BrowsePeriod, oldestYear: number, latestYear: number): string[] {
-  let from = p.yearFrom ?? oldestYear
-  let to = p.yearTo ?? latestYear
-  if (from > to) [from, to] = [to, from]
-  const names = (p.seasons.length > 0 ? SEASON_KEYS.filter((k) => p.seasons.includes(k.id)) : SEASON_KEYS).map((k) => k.id.toLowerCase())
+export function periodSlugs(p: BrowsePeriod, oldest: Season, latest: Season): string[] {
+  const { from, to } = ordered(p)
+  const first = from && compareSeasons(from, oldest) > 0 ? from : oldest
+  const last = to && compareSeasons(to, latest) < 0 ? to : latest
   const out: string[] = []
-  for (let y = Math.max(from, oldestYear); y <= Math.min(to, latestYear); y++) for (const n of names) out.push(`${y}-${n}`)
+  for (let s = first; compareSeasons(s, last) <= 0; s = nextSeason(s)) out.push(toSlug(s))
   return out
 }
 
-// 期間の短い名前（「2018〜2020年 春・夏」「2018年〜」「すべての年の 春」）
+// 期間の短い名前（「2022年 春〜2026年 秋」「2022年 春〜」「〜2010年 秋」）
 export function periodLabel(p: BrowsePeriod): string {
-  const from = p.yearFrom !== null && p.yearTo !== null ? Math.min(p.yearFrom, p.yearTo) : p.yearFrom
-  const to = p.yearFrom !== null && p.yearTo !== null ? Math.max(p.yearFrom, p.yearTo) : p.yearTo
-  const years =
-    from !== null && to !== null
-      ? from === to
-        ? t(`${from}年`, `${from}`)
-        : t(`${from}〜${to}年`, `${from}–${to}`)
-      : from !== null
-        ? t(`${from}年〜`, `${from} onward`)
-        : to !== null
-          ? t(`〜${to}年`, `Through ${to}`)
-          : t('すべての年の', 'All years')
-  const seasons = SEASON_KEYS.filter((k) => p.seasons.includes(k.id))
-    .map((k) => k.label)
-    .join(t('・', ', '))
-  return seasons ? t(`${years} ${seasons}`, `${years} · ${seasons}`) : years
+  const { from, to } = ordered(p)
+  if (from && to) return compareSeasons(from, to) === 0 ? seasonLabel(from) : t(`${seasonLabel(from)}〜${seasonLabel(to)}`, `${seasonLabel(from)} – ${seasonLabel(to)}`)
+  if (from) return t(`${seasonLabel(from)}〜`, `${seasonLabel(from)} onward`)
+  if (to) return t(`〜${seasonLabel(to)}`, `Through ${seasonLabel(to)}`)
+  return t('すべての期間', 'All periods')
 }
 
 export const MINE_CHOICES: readonly { id: MineFilter; label: string }[] = [
@@ -114,18 +109,22 @@ export function applyBrowseFilter(
     if (f.genres.length > 0 || f.studios.length > 0) {
       const m = infoOf(w, info)
       if (!m) return false
-      if (f.genres.length > 0 && !f.genres.some((g) => m.genres.includes(g))) return false
+      if (!f.genres.every((g) => m.genres.includes(g))) return false
       if (f.studios.length > 0 && !f.studios.some((s) => m.studios.includes(s))) return false
     }
     return true
   })
 }
 
-// 選択肢: 自分の記録は件数つき、ジャンル・制作会社は読み込んだ作品にあるもの（多い順、同数は名前順）
+// 選択肢と件数。f はいまの条件で、件数は「それを足したら何作品になるか」
+// （「どれか」の項目〈自分の記録・制作会社〉は、その項目を外してほかの項目で絞った作品の中の数。ジャンルは、いまの結果の中で持っている数）。
+// ジャンル・制作会社は読み込んだ作品にあるものを、読み込んだ作品で多い順（同数は名前順）に並べ、選んでも並びは動かさない。
+// いまの結果に1つも無いもの（足すと0作品になる）は出さない。選んでいるものは外せるように残す
 export function browseFilterChoices(
   works: readonly BrowseWork[],
   info: ReadonlyMap<number, MediaInfo> | null,
   unseen: ReadonlySet<number> = new Set(),
+  f: BrowseFilter = EMPTY_BROWSE_FILTER,
 ): {
   mine: Record<MineFilter, number>
   genres: { name: string; count: number }[]
@@ -139,15 +138,28 @@ export function browseFilterChoices(
     wanna: 0,
     stopped: 0,
   }
-  for (const w of works) mine[mineOf(w.viewerStatusState, unseen.has(w.annictId))]++
-  const genres = new Map<string, number>()
-  const studios = new Map<string, number>()
-  for (const w of works) {
-    const m = infoOf(w, info)
-    if (!m) continue
-    for (const g of new Set(m.genres)) genres.set(g, (genres.get(g) ?? 0) + 1)
-    for (const st of new Set(m.studios)) studios.set(st, (studios.get(st) ?? 0) + 1)
+  for (const w of applyBrowseFilter(works, { ...f, mine: [] }, info, unseen)) mine[mineOf(w.viewerStatusState, unseen.has(w.annictId))]++
+  const tally = (list: readonly BrowseWork[]) => {
+    const genres = new Map<string, number>()
+    const studios = new Map<string, number>()
+    for (const w of list) {
+      const m = infoOf(w, info)
+      if (!m) continue
+      for (const g of new Set(m.genres)) genres.set(g, (genres.get(g) ?? 0) + 1)
+      for (const st of new Set(m.studios)) studios.set(st, (studios.get(st) ?? 0) + 1)
+    }
+    return { genres, studios }
   }
-  const ranked = (m: Map<string, number>) => [...m].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
-  return { mine, genres: ranked(genres), studios: ranked(studios) }
+  const all = tally(works)
+  const now = tally(applyBrowseFilter(works, f, info, unseen))
+  const withoutStudios = tally(applyBrowseFilter(works, { ...f, studios: [] }, info, unseen))
+  // 読み直して読み込んだ作品から消えた、選んでいるものも末尾に残す
+  const ranked = (m: Map<string, number>, counts: Map<string, number>, selected: readonly string[]) => [
+    ...[...m]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([name]) => ({ name, count: counts.get(name) ?? 0 }))
+      .filter((c) => c.count > 0 || selected.includes(c.name)),
+    ...selected.filter((name) => !m.has(name)).map((name) => ({ name, count: 0 })),
+  ]
+  return { mine, genres: ranked(all.genres, now.genres, f.genres), studios: ranked(all.studios, withoutStudios.studios, f.studios) }
 }

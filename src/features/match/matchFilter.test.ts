@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Media } from '../../lib/shikimori'
-import { DEFAULT_FILTER, isDefaultFilter, matchesFilter, parseMatchFilter, type MatchFilter } from './matchFilter'
+import { DEFAULT_FILTER, isDefaultFilter, matchesFilter, parseMatchFilter, sameFilter, type MatchFilter } from './matchFilter'
 import { rankCandidates } from './taste'
 
 function media(idMal: number, extra: Partial<Media> = {}): Media {
@@ -43,6 +43,12 @@ describe('parseMatchFilter', () => {
     expect(isDefaultFilter(DEFAULT_FILTER)).toBe(true)
     expect(isDefaultFilter({ formats: ['tv'], fromYear: null })).toBe(false)
     expect(isDefaultFilter({ ...DEFAULT_FILTER, fromYear: 2000 })).toBe(false)
+  })
+
+  it('compares filters regardless of the order of formats', () => {
+    expect(sameFilter({ formats: ['tv', 'movie'], fromYear: 2010 }, { formats: ['movie', 'tv'], fromYear: 2010 })).toBe(true)
+    expect(sameFilter({ formats: ['tv', 'movie'], fromYear: 2010 }, { formats: ['tv'], fromYear: 2010 })).toBe(false)
+    expect(sameFilter(DEFAULT_FILTER, { ...DEFAULT_FILTER, fromYear: 2000 })).toBe(false)
   })
 })
 

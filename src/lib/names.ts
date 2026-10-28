@@ -3,9 +3,9 @@ import { englishPersonOf } from './englishNames'
 import { personKey } from './shikimori'
 import { englishTitleOf } from './englishTitles'
 
-// 作品名・人名・話の番号・役職を、いまの言語で出す（英語対応の第3段。2026-10-20 利用者）。
+// 作品名・人名・話の番号・役職を、いまの言語で出す。
 // 英語の作品名は、公式の英題（Shikimori の english。The Apothecary Diaries など）があればそれ、無ければローマ字の題名
-// （Annict の titleEn・Shikimori の name。Kusuriya no Hitorigoto など）。英語圏で配信を見ている人には公式の英題の方が通じる（2026-10-20 利用者）。
+// （Annict の titleEn・Shikimori の name。Kusuriya no Hitorigoto など）。英語圏で配信を見ている人には公式の英題の方が通じる。
 // Annict の作品の英題は、表紙を取るときに読んだ Shikimori の作品データから覚えたもの（lib/englishTitles.ts。MyAnimeList の ID で引く）。
 // 英語名が無ければ日本語のまま。照合・検索・保存には、これまでどおり日本語の title を使う（ここは表示だけ）
 const en = () => getLang() === 'en'

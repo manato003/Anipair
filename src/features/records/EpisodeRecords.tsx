@@ -21,10 +21,12 @@ export function EpisodeRecorder(props: {
   undoable: ReadonlySet<string>
   // この画面で付けた記録のうち、感想を付けた話
   commented: ReadonlySet<string>
-  // comment: 評価の前に「感想を書く」で書いていたら、一緒に記録する
-  onRecord: (episode: Episode, rating: RatingState, comment?: string) => void
-  // 記録した話に、あとから感想を付ける（書きたい人だけ）
-  onComment: (episode: Episode, rating: RatingState, text: string) => void
+  // 評価を押したら評価だけ、まだ記録していない話で感想を送ったら感想だけ（rating は null）で記録する
+  onRecord: (episode: Episode, rating: RatingState | null, comment?: string) => void
+  // この欄で記録した話に、あとから感想を付ける（直す）
+  onComment: (episode: Episode, text: string) => void
+  // この欄で記録した話の評価を付け直す（感想だけで記録した話に評価を付けるときも。記録は増やさない）
+  onRerate: (episode: Episode, rating: RatingState) => void
   // 前に（別の機会に）記録した話に、感想を付ける。送り終えたら onSent
   onCommentExisting: (episode: Episode, text: string, onSent: () => void) => void
   onUndo: (episode: Episode) => void
@@ -41,15 +43,14 @@ export function EpisodeRecorder(props: {
   const [index, setIndex] = useState<number | null>(null)
   // この欄で記録した話（古い順）。取り消すと、ひとつ前に記録した話へさかのぼる（2026-10-12 の総点検: 直前の1話しか取り消せなかった）。
   // 取り消せるのは、この画面で付けたものの間だけ
-  const [history, setHistory] = useState<readonly { episode: Episode; rating: RatingState }[]>([])
+  // 感想だけで記録した話は rating が null
+  const [history, setHistory] = useState<readonly { episode: Episode; rating: RatingState | null }[]>([])
   const last = history.length > 0 ? history[history.length - 1] : null
-  // 感想を書いている話と、その本文（下書きは端末に残す）。評価を押して次の話へ進んでも書いている先は変えないが、
+  // 感想を書いている話と、その本文（下書きは端末に残す）。評価と感想は別々に送る。評価を押して次の話へ進んでも書いている先は変えないが、
   // ‹ › や一覧で話を選び直したら、選んだ話の感想に切り替える（欄の話と、評価を押す話を食い違わせない）
   const [writing, setWriting] = useState<CommentTarget | null>(null)
   const [text, setText] = useState('')
   const [savedFor, setSavedFor] = useState<string | null>(null)
-  // この欄で記録した話の評価（あとから感想を付けるとき、その評価のまま送る）
-  const [ratedHere, setRatedHere] = useState<ReadonlyMap<string, RatingState>>(new Map())
   // 評価を押した直後か（そのあいだの「感想を書く」は、いま記録した話に付ける。話を選び直したら、選んだ話に付ける）
   const [followLast, setFollowLast] = useState(false)
   // 記録済みの話で「もう一度記録する」を押した話（そのあいだだけ評価のボタンを出す）
@@ -76,10 +77,9 @@ export function EpisodeRecorder(props: {
   const current = episodes[at] ?? null
   const { tracked, total } = episodeProgress(episodes)
   const clamp = (i: number) => Math.max(0, Math.min(i, episodes.length))
-  // その話の感想の書き方: この欄で記録した話は、その記録に付ける。前に記録した話は、前の記録に付ける。まだの話は、書いてから評価する
+  // その話の感想の送り先: この欄で記録した話は、その記録に付ける。前に記録した話は、前の記録に付ける。まだの話は、感想だけで記録する
   const targetFor = (episode: Episode): CommentTarget => {
-    const rated = ratedHere.get(episode.id)
-    if (rated && props.undoable.has(episode.id)) return { episode, mode: 'after', rating: rated }
+    if (props.undoable.has(episode.id) && history.some((h) => h.episode.id === episode.id)) return { episode, mode: 'after' }
     if (episode.viewerDidTrack) return { episode, mode: 'existing' }
     return { episode, mode: 'before' }
   }
@@ -101,26 +101,30 @@ export function EpisodeRecorder(props: {
   }
   const rate = (rating: RatingState) => {
     if (!current) return
-    // 評価の前に書いていた感想は、一緒に記録する
-    const consumed = writing?.mode === 'before' && writing.episode.id === current.id
-    const withComment = consumed ? text.trim() : ''
-    props.onRecord(current, rating, withComment || undefined)
-    if (consumed) {
-      clearEpisodeDraft(current.id)
-      setWriting(null)
-    }
-    setSavedFor(withComment ? current.id : null)
+    // この欄で記録した話（感想だけで記録した話も）は、その記録の評価を付け直す。もう1つ記録を足すと、見返した回数になってしまう
+    if (here) props.onRerate(current, rating)
+    else props.onRecord(current, rating)
+    // 書きかけの感想は送らずに残し、送り先をいま付けた記録にする
+    if (writing?.mode === 'before' && writing.episode.id === current.id) setWriting({ episode: current, mode: 'after' })
+    setSavedFor(null)
     setHistory((cur) => [...cur.filter((h) => h.episode.id !== current.id), { episode: current, rating }])
-    setRatedHere((cur) => new Map(cur).set(current.id, rating))
     setFollowLast(true)
     setAgainFor(null)
     setIndex(clamp(at + 1))
   }
   const saveComment = () => {
-    if (!writing || writing.mode === 'before' || !text.trim()) return
+    if (!writing || !text.trim()) return
     const { episode } = writing
-    if (writing.mode === 'after') {
-      props.onComment(episode, writing.rating, text.trim())
+    if (writing.mode === 'before') {
+      // 評価なしで記録する（評価はあとから押せば、この記録に付く）
+      props.onRecord(episode, null, text.trim())
+      clearEpisodeDraft(episode.id)
+      setHistory((cur) => [...cur.filter((h) => h.episode.id !== episode.id), { episode, rating: null }])
+      // 送った話に留まる（記録が付くと「次に見る話」が先へ動くので、位置を決めておかないと評価が次の話に付く）
+      setIndex(clamp(episodes.findIndex((e) => e.id === episode.id)))
+      setFollowLast(false)
+    } else if (writing.mode === 'after') {
+      props.onComment(episode, text.trim())
       clearEpisodeDraft(episode.id)
     } else {
       // 前の記録に付けるときは、届いてから下書きを消す（記録が見つからなければ、下書きが残る）
@@ -142,17 +146,22 @@ export function EpisodeRecorder(props: {
   const here = current ? (history.find((h) => h.episode.id === current.id && props.undoable.has(h.episode.id)) ?? null) : null
   // 記録済みの話で評価を押すと、Annict では前の記録はそのままで、記録がもう1つ増える（見返した回数として。評価は付け替わらない）。
   // 付け替えと思って押さないよう、記録済みの話（この画面で付けたものを除く）は評価のボタンを出さず、前回の評価と
-  // 「もう一度記録する」「Annictで直す」を出す。もう一度記録するときだけ、点線の評価のボタンにする（2026-10-12 の総点検、利用者の指摘）
+  // 「もう一度記録する」「Annictで直す」を出す。もう一度記録するときだけ、点線の評価のボタンにする
   const recordedBefore = current !== null && current.viewerDidTrack && here === null
   const locked = recordedBefore && againFor !== current.id
   const adding = recordedBefore && againFor === current.id
   // 3段目に出す記録: 評価を押した直後は直前の記録。話を選び直したら、その話をこの画面で記録していればその記録（記録済みの話なら、代わりに前回の評価）
   const shown = followLast && last ? last : (here ?? (recordedBefore ? null : last))
   const ratingLabel = (r: RatingState) => RATINGS.find((x) => x.rating === r)?.label ?? ''
+  const shownText = (s: { episode: Episode; rating: RatingState | null }) =>
+    s.rating === null
+      ? t(`${episodeLabel(s.episode)}を感想だけで記録`, `Recorded ${episodeLabel(s.episode)} with a review only`)
+      : t(`${episodeLabel(s.episode)}を「${ratingLabel(s.rating)}」で記録`, `Recorded ${episodeLabel(s.episode)} as “${ratingLabel(s.rating)}”`) +
+        (savedFor === s.episode.id || props.commented.has(s.episode.id) ? t('・感想つき', ' · with review') : '')
   // 「感想を書く」の行き先: 評価を押した直後は、いま記録した話（あとから付ける）。それ以外は、いま選んでいる話。
   // 評価の前から見える場所に置く（記録のあとにだけ出していると、見つけられない）
   const commentTarget: CommentTarget | null =
-    followLast && last && props.undoable.has(last.episode.id) ? { episode: last.episode, mode: 'after', rating: last.rating } : current ? targetFor(current) : null
+    followLast && last && props.undoable.has(last.episode.id) ? { episode: last.episode, mode: 'after' } : current ? targetFor(current) : null
   const showCommentButton = commentTarget !== null && writing?.episode.id !== commentTarget.episode.id
   // 送っていない下書きがあれば、そう分かる名前にする（書いただけでは Annict に届いていない）
   const commentButtonLabel = !commentTarget
@@ -224,8 +233,7 @@ export function EpisodeRecorder(props: {
           <p className="ep__msg" role="status">
             {shown ? (
               <>
-                {t(`${episodeLabel(shown.episode)}を「${ratingLabel(shown.rating)}」で記録`, `Recorded ${episodeLabel(shown.episode)} as “${ratingLabel(shown.rating)}”`)}
-                {savedFor === shown.episode.id || props.commented.has(shown.episode.id) ? t('・感想つき', ' · with review') : ''}
+                {shownText(shown)}
                 {props.undoable.has(shown.episode.id) && (
                   <button type="button" className="link" onClick={() => undo(shown)}>
                     {t('取り消す', 'Undo')}
@@ -265,7 +273,6 @@ export function EpisodeRecorder(props: {
         <div className="ep__comment">
           <label className="ep__comment-label" htmlFor={`ep-comment-${writing.episode.id}`}>
             {t(`${episodeLabel(writing.episode)}の感想`, `Review of ${episodeLabel(writing.episode)}`)}
-            {writing.mode === 'before' && <span className="ep__comment-hint">{t('書いたら、上の評価を押してください。感想と一緒に記録します', 'When you’re done, tap a rating above. It will be recorded with your review')}</span>}
             {writing.mode === 'existing' && <span className="ep__comment-hint">{t('前に付けたこの話の記録に、感想を付けます', 'Adds a review to your earlier record of this episode')}</span>}
           </label>
           <textarea
@@ -283,11 +290,9 @@ export function EpisodeRecorder(props: {
             <button type="button" className="link" onClick={() => setWriting(null)}>
               {t('閉じる', 'Close')}
             </button>
-            {writing.mode !== 'before' && (
-              <button type="button" className="btn btn--primary" disabled={!text.trim()} onClick={saveComment}>
-                {t('保存', 'Save')}
-              </button>
-            )}
+            <button type="button" className="btn btn--primary" disabled={!text.trim()} onClick={saveComment}>
+              {t('送る', 'Send')}
+            </button>
           </div>
         </div>
       )}
@@ -297,8 +302,8 @@ export function EpisodeRecorder(props: {
   )
 }
 
-// 感想を付ける先。before: まだ記録していない話（書いてから評価すると一緒に記録）、after: この欄で記録した話、existing: 前に記録した話
-type CommentTarget = { episode: Episode; mode: 'before' } | { episode: Episode; mode: 'after'; rating: RatingState } | { episode: Episode; mode: 'existing' }
+// 感想を付ける先。before: まだ記録していない話（送ると感想だけで記録）、after: この欄で記録した話、existing: 前に記録した話
+type CommentTarget = { episode: Episode; mode: 'before' | 'after' | 'existing' }
 
 // 4段階の評価のボタン。押すとすぐ記録する（評価が記録の一部）
 // 記録済みの話の前回の評価。出したときに探す（読める範囲に無ければ、Annict で見られると案内する）

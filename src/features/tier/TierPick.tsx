@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { ChipSection } from '../../components/FilterParts'
+import { ChipSection, CourField } from '../../components/FilterParts'
 import { CoverImage } from '../../components/CoverImage'
 import { Spinner } from '../../components/Loading'
 import { Sheet } from '../../components/Sheet'
@@ -8,12 +8,12 @@ import { fetchCovers, quickCovers } from '../../lib/covers'
 import { getLang, t } from '../../lib/i18n'
 import { malIdOf } from '../../lib/malId'
 import { workTitle } from '../../lib/names'
-import { SEASON_NAMES, nextSeason, seasonLabel, seasonNameLabel, seasonOf, seasonOfWork, yearsDescending, type Season, type SeasonName } from '../../lib/season'
-import { fetchStudioWorks, type Media } from '../../lib/shikimori'
+import { nextSeason, seasonLabel, seasonOf, seasonOfWork, yearsDescending, type Season } from '../../lib/season'
+import { fetchStudioLinked, type Media } from '../../lib/shikimori'
 import type { Cover } from '../../lib/storage'
 import { messageOf } from '../../lib/useWriteQueue'
 import { STATUS_LABEL } from '../browse/detail'
-import { resolveAnnictWorks } from '../match/resolve'
+import { linkWorks } from '../browse/annictLinks'
 import { genreName } from '../match/taste'
 import { OLDEST_SEASON } from '../rate/queue'
 import { toggleIn, type RecordRow } from '../records/recordList'
@@ -166,18 +166,18 @@ export function TierPick(props: {
     setMoreLoading(false)
   }
 
-  // 制作会社の作品（Shikimori。会社ごとに新しい順で最大200作品）
-  const [studioData, setStudioData] = useState<{ id: string; works: Media[] } | null>(null)
+  // 制作会社の作品（Shikimori。会社ごとに新しい順で最大200作品）と、中継が覚えている Annict の作品 ID（足すときに確かめて使う）
+  const [studioData, setStudioData] = useState<{ id: string; works: Media[]; annict: ReadonlyMap<number, number> } | null>(null)
   const [studioError, setStudioError] = useState<{ id: string; message: string } | null>(null)
   const studioGen = useRef(0)
   const loadStudio = async (s: PickStudio) => {
     const my = ++studioGen.current
     try {
-      const parts = await Promise.all(s.ids.map((id) => fetchStudioWorks(id)))
+      const parts = await Promise.all(s.ids.map((id) => fetchStudioLinked(id)))
       if (my !== studioGen.current) return
       const seen = new Set<number>()
-      const works = parts.flat().filter((m) => !seen.has(m.idMal) && !!seen.add(m.idMal))
-      setStudioData({ id: s.id, works })
+      const works = parts.flatMap((p) => p.medias).filter((m) => !seen.has(m.idMal) && !!seen.add(m.idMal))
+      setStudioData({ id: s.id, works, annict: new Map(parts.flatMap((p) => [...p.annict])) })
     } catch (e) {
       if (my === studioGen.current) setStudioError({ id: s.id, message: messageOf(e) })
     }
@@ -319,7 +319,8 @@ export function TierPick(props: {
     setResolveError(null)
     setResolving((cur) => new Set([...cur, ...ids]))
     try {
-      const found = await resolveAnnictWorks(props.token, medias)
+      // 中継の対応は Annict で引き直して確かめ、無い・外れた作品は題名で探す（見つかった対応は中継に覚えてもらう。annictLinks.ts）
+      const found = await linkWorks(props.token, medias, studioData?.annict ?? new Map())
       const works = medias.flatMap((m) => {
         const w = found.get(m.idMal)
         return w ? [workOfBrowse(w)] : []
@@ -335,9 +336,10 @@ export function TierPick(props: {
 
   const filterCount = (from ? 1 : 0) + (to ? 1 : 0) + lists.length + genres.length + (studio ? 1 : 0)
   const listNames = LISTS.filter((l) => lists.includes(l.id)).map((l) => l.label)
+  // 「・」は日本語の文の中の区切り（英語は ', ' で区切る）
   const sourceText =
     source === 'own'
-      ? t(`${listNames.join('・')}のリストから`, `From ${listNames.join(', ')}`)
+      ? t(`${listNames.join('・')}のリストから`, `From ${listNames.join(', ')}`) // i18n-ok
       : source === 'studio' && studio
         ? t(`${studio.label}の作品から`, `From ${studio.label} anime`)
         : t('Annictの全作品から', 'From all anime on Annict')
@@ -367,7 +369,7 @@ export function TierPick(props: {
         <div className="tierpick__filters">
           <section className="filtersheet__group">
             <h3 className="detail__label">{t('放送時期', 'Aired')}</h3>
-            <div className="tierpick__cours">
+            <div className="filtersheet__cours">
               <CourField label={t('から', 'From')} value={from} years={years} fallback="winter" onChange={setFrom} />
               <CourField label={t('まで', 'To')} value={to} years={years} fallback="autumn" onChange={setTo} />
             </div>
@@ -461,7 +463,6 @@ export function TierPick(props: {
           })}
         </div>
       </div>
-      {source === 'studio' && (from || to) && <p className="note">{t('制作会社の作品は、放送時期を年で絞ります。', 'Studio anime are filtered by year.')}</p>}
 
       {failed && (
         <p className="note" role="alert">
@@ -521,7 +522,7 @@ export function TierPick(props: {
                     disabled={busy || lost || (!on && full)}
                     onClick={() => (it.addedId !== null ? commit(removeWork(tableRef.current, it.addedId)) : void add([it]))}
                   >
-                    {busy ? <Spinner /> : on ? '✓' : '＋'}
+                    {busy ? <Spinner /> : on ? '✓' : '＋' /* i18n-ok: 記号なので訳さない */}
                   </button>
                 </li>
               )
@@ -558,7 +559,7 @@ export function TierPick(props: {
 
 // 並べ方のボタンの名前。向きは押している方のボタンの矢印で示す（読み上げでは向きを言葉で添える）
 function sortName(by: PickOrder['by']): string {
-  return by === 'season' ? t('新着順', 'Newest') : t('人気順', 'Popular')
+  return by === 'season' ? t('放送日順', 'Air date') : t('人気順', 'Popular')
 }
 
 function sortDirection(by: PickOrder['by'], dir: PickOrder['dir']): string {
@@ -580,40 +581,5 @@ function Fold(props: { title: string; picked: readonly string[]; children: React
       </button>
       {open && <div className="filtersheet__chips">{props.children}</div>}
     </section>
-  )
-}
-
-// クールを年と季節で選ぶ。年を「指定なし」にすると、そちらの端まで。年を選ぶと季節は fallback（から: 冬・まで: 秋）から始まる
-function CourField(props: { label: string; value: Season | null; years: readonly number[]; fallback: SeasonName; onChange: (value: Season | null) => void }) {
-  const { value } = props
-  return (
-    <div className="tierpick__cour">
-      <span className="tierpick__courlabel">{props.label}</span>
-      <select
-        value={value?.year ?? ''}
-        onChange={(e) => props.onChange(e.target.value ? { year: Number(e.target.value), name: value?.name ?? props.fallback } : null)}
-        aria-label={t(`放送時期（${props.label}）の年`, `Aired (${props.label.toLowerCase()}) year`)}
-      >
-        <option value="">{t('指定なし', 'Any')}</option>
-        {props.years.map((y) => (
-          <option key={y} value={y}>
-            {t(`${y}年`, String(y))}
-          </option>
-        ))}
-      </select>
-      <select
-        value={value?.name ?? ''}
-        disabled={!value}
-        onChange={(e) => value && props.onChange({ year: value.year, name: e.target.value as SeasonName })}
-        aria-label={t(`放送時期（${props.label}）の季節`, `Aired (${props.label.toLowerCase()}) season`)}
-      >
-        {!value && <option value="">—</option>}
-        {SEASON_NAMES.map((n) => (
-          <option key={n} value={n}>
-            {seasonNameLabel(n)}
-          </option>
-        ))}
-      </select>
-    </div>
   )
 }

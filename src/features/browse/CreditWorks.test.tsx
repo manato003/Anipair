@@ -85,7 +85,7 @@ describe('CreditWorks', () => {
     expect(findPerson).toHaveBeenCalledWith('上坂すみれ')
     await waitFor(() => expect(screen.getByText('参加した作品（4作品）')).toBeTruthy())
     const titles = () => [...document.querySelectorAll('.creditworks__title')].map((e) => e.textContent)
-    // 1つの一覧。新着順（年の分からない作品は最後）、宣伝（CM）は出さない。分け方のタブは無い
+    // 1つの一覧。放送日順（年の分からない作品は最後）、宣伝（CM）は出さない。分け方のタブは無い
     expect(screen.queryByRole('tab')).toBeNull()
     expect(titles()).toEqual(['作品2', '作品5', '作品1', '作品3'])
     // 役割の札: 出演と主題歌の両方なら並べる
@@ -100,7 +100,6 @@ describe('CreditWorks', () => {
     // 人気順
     fireEvent.click(screen.getByRole('button', { name: '人気順' }))
     expect(titles()).toEqual(['作品1', '作品5', '作品2', '作品3'])
-    expect(screen.getByText('Shikimoriでリストに入れている人の多い順です。')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: /作品5/ }))
     expect(screen.getByTestId('opened').textContent).toBe('5')
   })
@@ -143,20 +142,17 @@ describe('CreditWorks', () => {
     expect(screen.getByText('このジャンルの人気の作品（3作品）')).toBeTruthy()
     const titles = () => [...document.querySelectorAll('.creditworks__title')].map((e) => e.textContent)
     expect(titles()).toEqual(['作品1', '作品2', '作品4'])
-    fireEvent.click(screen.getByRole('button', { name: '新着順' }))
+    fireEvent.click(screen.getByRole('button', { name: '放送日順' }))
     expect(titles()).toEqual(['作品4', '作品2', '作品1'])
-    expect(screen.getByText('Shikimoriで人気の上位の作品を、放送の新しい順に並べています。')).toBeTruthy()
     // 押している方をもう一度押すと逆の順。ボタンは増えず、向きは矢印と読み上げの名前で示す
-    fireEvent.click(screen.getByRole('button', { name: '新着順・新しい順（押すと逆の順）' }))
+    fireEvent.click(screen.getByRole('button', { name: '放送日順・新しい順（押すと逆の順）' }))
     expect(titles()).toEqual(['作品1', '作品2', '作品4'])
-    expect(screen.getByText('Shikimoriで人気の上位の作品を、放送の古い順に並べています。')).toBeTruthy()
     expect(screen.getAllByRole('button', { name: /順/ })).toHaveLength(2)
     // 別の軸に移ると、その軸の既定の向き（多い順）から
     fireEvent.click(screen.getByRole('button', { name: '人気順' }))
     expect(titles()).toEqual(['作品1', '作品2', '作品4'])
     fireEvent.click(screen.getByRole('button', { name: '人気順・多い順（押すと逆の順）' }))
     expect(titles()).toEqual(['作品4', '作品2', '作品1'])
-    expect(screen.getByText('Shikimoriでリストに入れている人の少ない順です。')).toBeTruthy()
     expect(screen.queryByRole('link', { name: 'Annictで見る' })).toBeNull()
   })
 

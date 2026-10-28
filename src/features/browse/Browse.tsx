@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { PinnedLine } from '../../components/PinnedLine'
 import { useWide } from '../../lib/useWide'
+import { useTuckOnScroll } from '../../lib/useTuckOnScroll'
 import { CoverImage } from '../../components/CoverImage'
 import { Empty } from '../../components/Empty'
 import { HeadActions } from '../../components/ControlCenter'
@@ -25,23 +26,31 @@ import { EMPTY_BROWSE_FILTER, MINE_CHOICES, NO_PERIOD, applyBrowseFilter, browse
 import { SORTS } from './browseSort'
 import { STATUS_LABEL, workMeta } from './detail'
 import { cappedNote, useBrowse } from './useBrowse'
+import { MAX_FIND_STUDIOS, narrowOf } from './conditionSearch'
 import { WorkDetail } from './WorkDetail'
 import { Loading, Spinner } from '../../components/Loading'
 import { useViewingSeason } from '../../lib/theme'
 
 export function Browse({ token, active = true }: { token: string; active?: boolean }) {
-  const b = useBrowse(token, active)
-  const wide = useWide()
-  // いま見ているものと並べ替えの帯（スマホで流して見えなくなったら、細い1行で出す）
-  const barRef = useRef<HTMLDivElement>(null)
-  const q = useWriteQueue()
-  const [open, setOpen] = useState<BrowseWork | null>(null)
-  const coverOf = (w: BrowseWork) => b.covers.get(w.annictId) ?? null
-  // 絞り込み。期間（放送年と季節）は useBrowse が読む作品を決め、ほかは読み込んだ作品の中で絞る。
+  // 絞り込み。期間（始めと終わりのクール）は useBrowse が読む作品を決め、ほかは読み込んだ作品の中で絞る。
+  // 期間を選んでジャンル・制作会社をかけたときは、期間の全作品からその条件で探し直す（useBrowse・conditionSearch.ts）。
   // ジャンル・制作会社は、シートを開いたときかその条件をかけているときだけ Shikimori から読む
   const [filter, setFilter] = useState<BrowseFilter>(EMPTY_BROWSE_FILTER)
   const [filterOpen, setFilterOpen] = useState(false)
-  const media = useMediaInfo(b.works, filterOpen || filter.genres.length > 0 || filter.studios.length > 0)
+  // 制作会社の名前 → Shikimori の ID（読み込んだ作品の情報から覚えていく。条件検索で使う）
+  const [studioIds, setStudioIds] = useState<ReadonlyMap<string, number>>(new Map())
+  const b = useBrowse(token, active, narrowOf(filter.genres, filter.studios, studioIds))
+  const wide = useWide()
+  // いま見ているものと並べ替えの帯（スマホで流して見えなくなったら、細い1行で出す）
+  const barRef = useRef<HTMLDivElement>(null)
+  const tucked = useTuckOnScroll(barRef, active && wide)
+  const q = useWriteQueue()
+  const [open, setOpen] = useState<BrowseWork | null>(null)
+  const coverOf = (w: BrowseWork) => b.covers.get(w.annictId) ?? null
+  const media = useMediaInfo(b.pool, filterOpen || filter.genres.length > 0 || filter.studios.length > 0)
+  // 知らない制作会社が増えたときだけ覚え直す（描画の中で前と比べて更新する。覚えた名前は上書きしないので、繰り返さない）
+  const newStudios = [...(media.info?.values() ?? [])].flatMap((m) => m.studioRefs ?? []).filter((s) => !studioIds.has(s.name))
+  if (newStudios.length > 0) setStudioIds(new Map([...studioIds, ...newStudios.map((s): [string, number] => [s.name, s.id])]))
   const filterCount = browseFilterCount(filter, b.period)
   const hasPeriod = periodActive(b.period)
   // 地の色を、見ているクールの季節に（タイトルで探しているときと、期間で見ているときは、いまの季節）
@@ -51,15 +60,31 @@ export function Browse({ token, active = true }: { token: string; active?: boole
   const works = useMemo(() => (b.works ? applyBrowseFilter(b.works, filter, media.info, unseen) : null), [b.works, filter, media.info, unseen])
   // 上に貼りつく1行に出す、いま見ているもの
   const pinnedWhat = b.searching ? t(`「${b.query.trim()}」`, `“${b.query.trim()}”`) : hasPeriod ? periodLabel(b.period) : seasonLabel(b.season)
-  // 評価順・おすすめ順の説明に入れる向きの言葉
-  const rateDir = b.dir === 'desc' ? t('高い', 'highest') : t('低い', 'lowest')
-  const tasteDir = b.dir === 'desc' ? { ja: '好みに合いそうな順', en: 'most likely matches first' } : { ja: '好みに合いそうな順の逆', en: 'least likely matches first' }
   // いま読み込んでいる一覧の名前（期間かクール）
   const listName = hasPeriod ? periodLabel(b.period) : seasonLabel(b.season)
   const clearAll = () => {
     setFilter(EMPTY_BROWSE_FILTER)
     b.setPeriod(NO_PERIOD)
   }
+
+  // 検索と絞り込み。スマホは帯の上に1行、PC は帯の中（クールと並べ替えと同じ行）
+  const tools = (
+    <div className="records__tools">
+      <input
+        className="search"
+        type="search"
+        placeholder={t('タイトルで探す', 'Search by title')}
+        value={b.query}
+        onChange={(e) => b.setQuery(e.target.value)}
+        aria-label={t('タイトルで探す', 'Search by title')}
+      />
+      <button type="button" className="btn records__filterbtn" aria-pressed={filterCount > 0} onClick={() => setFilterOpen(true)}>
+        <FilterIcon />
+        {t('絞り込み', 'Filter')}
+        {filterCount > 0 && <span className="chip__count">{filterCount}</span>}
+      </button>
+    </div>
+  )
 
   return (
     <section className="records records--browse">
@@ -70,27 +95,13 @@ export function Browse({ token, active = true }: { token: string; active?: boole
         </span>
       </header>
 
-      <div className="records__controls">
-        <div className="records__tools">
-          <input
-            className="search"
-            type="search"
-            placeholder={t('タイトルで探す', 'Search by Japanese title')}
-            value={b.query}
-            onChange={(e) => b.setQuery(e.target.value)}
-            aria-label={t('タイトルで探す', 'Search by Japanese title')}
-          />
-          <button type="button" className="btn records__filterbtn" aria-pressed={filterCount > 0} onClick={() => setFilterOpen(true)}>
-            <FilterIcon />
-            {t('絞り込み', 'Filter')}
-            {filterCount > 0 && <span className="chip__count">{filterCount}</span>}
-          </button>
-        </div>
-      </div>
+      {!wide && <div className="records__controls">{tools}</div>}
 
-      {/* いま見ているもの（クールか期間）と並べ替えの帯。PC は流しても上に残す（下まで流しても、どのクールの一覧かが分かるように）。
-          貼りつきは親の箱の中でしか効かないので、操作の欄の外（一覧全体の直下）に置く */}
-      <div className="browse__bar" ref={barRef}>
+      {/* いま見ているもの（クールか期間）と並べ替えの帯。PC は上に貼りつき、下へ流すあいだは引っ込んで、上へ流すと戻る。
+          貼りつきは親の箱の中でしか効かないので、操作の欄の外（一覧全体の直下）に置く。PC は検索の欄も帯に入れて1つの帯にする */}
+      <div className={tucked ? 'browse__bar browse__bar--tucked' : 'browse__bar'} ref={barRef}>
+        {/* PC の検索の欄は、クールを出しているときは近道と1つのまとまりに（CourNav の lead）、それ以外は帯の左に */}
+        {wide && (b.searching || hasPeriod) && tools}
         {/* 期間で絞っているときは、クールの代わりに期間を出す（クール選びに戻れる） */}
         {!b.searching && hasPeriod && (
           <div className="browse__period">
@@ -106,10 +117,10 @@ export function Browse({ token, active = true }: { token: string; active?: boole
         )}
         {!b.searching && !hasPeriod && (
           <>
-            <CourNav value={b.season} onChange={(s) => s && b.setSeason(s)} />
+            <CourNav value={b.season} onChange={(s) => s && b.setSeason(s)} lead={wide ? tools : undefined} />
           </>
         )}
-        <SortRow options={SORTS.filter((o) => o.modes.includes(b.mode)).map((o) => ({ key: o.id, label: o.label }))} value={b.sort} dir={b.dir} onChoose={b.setSort} />
+        <SortRow options={SORTS.filter((o) => o.modes.includes(b.mode)).map((o) => ({ key: o.id, label: o.label, note: o.note }))} value={b.sort} dir={b.dir} onChoose={b.setSort} />
       </div>
 
       {/* スマホで帯が上へ流れたら、上の端に細い1行で出す（押すと帯まで戻る） */}
@@ -120,28 +131,9 @@ export function Browse({ token, active = true }: { token: string; active?: boole
       />
 
       <div className="records__controls records__controls--notes">
-        {/* いまの並べ方が何の順かを、いつも1行で出す（人気順と評価順の違い、向きが分かるように） */}
-        {b.sort === 'popular' && <p className="note records__sortnote">{b.dir === 'desc' ? t('Annictでこの作品を記録した人の多い順です。', 'Sorted by how many people recorded it on Annict, most first.') : t('Annictでこの作品を記録した人の少ない順です。', 'Sorted by how many people recorded it on Annict, fewest first.')}</p>}
-        {b.sort === 'newest' && <p className="note records__sortnote">{b.dir === 'desc' ? t('放送の新しい順です。', 'Sorted by air date, newest first.') : t('放送の古い順です。', 'Sorted by air date, oldest first.')}</p>}
-        {b.sort === 'score' && (
-          <p className="note records__sortnote">
-            {b.sortNote ??
-              t(
-                `ほかの人の評価が${rateDir}順です。評価した人の少ない作品は、点数を平均に寄せて並べます（Shikimoriの点数。Annictの満足度があればそちら）。点数の無い作品は最後に並びます。`,
-                `Sorted by other people’s ratings, ${rateDir} first. Anime with few ratings are pulled toward the average (Shikimori scores, or Annict satisfaction when available). Anime without a score come last.`,
-              )}
-          </p>
-        )}
-        {b.sort === 'taste' && b.works && (
-          <p className="note records__sortnote">
-            {b.sortNote ??
-              t(
-                `あなたの評価から${tasteDir.ja}に並べています。情報の無い作品は最後に並びます。`,
-                `Sorted by your ratings, ${tasteDir.en}. Anime with no data come last.`,
-              )}
-          </p>
-        )}
-        {b.capped && b.works && <p className="note">{cappedNote()}</p>}
+        {/* 並べ方は並べ替えのボタンと矢印で分かるので、文で出すのは点数を読めなかったときなどの知らせだけ */}
+        {(b.sort === 'score' || (b.sort === 'taste' && b.works)) && b.sortNote && <p className="note records__sortnote">{b.sortNote}</p>}
+        {b.capped && b.works && <p className="note">{cappedNote(b.capLimit)}</p>}
         {/* 期間は、クール一覧ではクールの代わりの行に出ているので、条件の並びには検索のときだけ出す */}
         {filterCount - (hasPeriod && !b.searching ? 1 : 0) > 0 && (
           <BrowseActiveFilters
@@ -164,15 +156,15 @@ export function Browse({ token, active = true }: { token: string; active?: boole
           </Empty>
         ) : !b.works ? (
           <Loading block label={b.progress ?? (b.searching ? t('検索中', 'Searching') : t(`${listName}の作品を読み込み中`, `Loading anime from ${listName}`))} remaining={b.progressWork} />
-        ) : b.works.length === 0 ? (
+        ) : b.works.length === 0 && !b.narrowed ? (
           <Empty
             mood="empty"
             title={t('見つかりませんでした', 'Nothing found')}
             body={
               hasPeriod
                 ? b.searching
-                  ? t('別の言葉で探すか、放送年と季節の条件をゆるめてください。', 'Try different words, or loosen the year and season filters.')
-                  : t('この期間の作品はAnnictにありません。放送年と季節の条件をゆるめてください。', 'Annict has no anime for this period. Loosen the year and season filters.')
+                  ? t('別の言葉で探すか、期間を広げてください。', 'Try different words, or widen the period.')
+                  : t('この期間の作品はAnnictにありません。期間を広げてください。', 'Annict has no anime for this period. Widen the period.')
                 : b.searching
                   ? t('別の言葉で探してください。一部だけでも探せます。', 'Try different words. A partial title works too.')
                   : t('このクールの作品はAnnictにまだありません。', 'Annict doesn’t have anime for this season yet.')
@@ -260,7 +252,7 @@ export function Browse({ token, active = true }: { token: string; active?: boole
 
       {filterOpen && (
         <BrowseFilterSheet
-          works={b.works}
+          works={b.pool}
           searching={b.searching}
           filter={filter}
           period={b.period}
@@ -268,8 +260,8 @@ export function Browse({ token, active = true }: { token: string; active?: boole
           unseen={unseen}
           infoError={media.error}
           resultCount={works?.length ?? 0}
-          hasMore={b.hasMore}
           active={active}
+          studioMax={hasPeriod && !b.searching ? MAX_FIND_STUDIOS : undefined}
           onChange={setFilter}
           onPeriodChange={b.setPeriod}
           onClose={() => setFilterOpen(false)}

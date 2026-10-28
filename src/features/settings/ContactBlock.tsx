@@ -5,7 +5,7 @@ import { t } from '../../lib/i18n'
 import { Section } from './Section'
 
 // 設定の「お問い合わせ」。送る入口を先に、よくある質問をその下に置く（ヘルプの「文章で詳しく読む」と同じ質問）。
-// 前は「このアプリについて」の中のリンクだけで、見つけにくかった（2026-10-11 利用者）
+// 前は「このアプリについて」の中のリンクだけで、見つけにくかった
 export function ContactBlock() {
   const [open, setOpen] = useState(false)
   return (
@@ -19,7 +19,7 @@ export function ContactBlock() {
           <button type="button" className="btn btn--primary" onClick={() => setOpen(true)}>
             {t('質問・不具合・要望を送る', 'Send feedback')}
           </button>
-          {/* X の DM でも受け付ける。補足の薄い文字だと見つからなかったので、送るボタンと並べる（#30。2026-10-13 利用者） */}
+          {/* X の DM でも受け付ける。補足の薄い文字だと見つからなかったので、送るボタンと並べる */}
           <a className="btn" href="https://x.com/anipairAPP" target="_blank" rel="noreferrer">
             {t('XのDMで送る', 'Send via X DM')}
           </a>

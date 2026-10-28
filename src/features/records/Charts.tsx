@@ -54,8 +54,9 @@ export function Radar(props: { axes: readonly { label: string; sub: string; valu
   )
 }
 
-// 縦棒（年ごと・月ごと）。強調するものは主の色、ほかは灰色（強調の形）。ラベルは間引いて出す
-export function Columns(props: { bars: readonly { label: string; value: number; emphasis?: boolean; title: string }[]; title: string; every?: number }) {
+// 縦棒（年ごと・月ごと）。強調するものは主の色、ほかは灰色（強調の形）。ラベルは間引いて出す。
+// mark は強調した棒（続いた数本）の上に書く札（黄金期・今月）
+export function Columns(props: { bars: readonly { label: string; value: number; emphasis?: boolean; title: string }[]; title: string; every?: number; mark?: string }) {
   const n = props.bars.length
   const width = 320
   const height = 120
@@ -64,6 +65,16 @@ export function Columns(props: { bars: readonly { label: string; value: number; 
   const bar = Math.min(24, Math.max(3, slot * 0.6))
   const max = Math.max(1, ...props.bars.map((b) => b.value))
   const every = props.every ?? Math.max(1, Math.ceil(n / 8))
+  const em = props.bars.flatMap((b, i) => (b.emphasis ? [i] : []))
+  const center = (i: number) => 4 + i * slot + slot / 2
+  // 札は強調した棒の真ん中、いちばん高い棒の上。端では図の外にはみ出さないように寄せる
+  const mark =
+    props.mark && em.length > 0
+      ? {
+          x: Math.max(props.mark.length * 5 + 2, Math.min(width - props.mark.length * 5 - 2, (center(em[0]) + center(em[em.length - 1])) / 2)),
+          y: height - (Math.max(...em.map((i) => props.bars[i].value)) / max) * (height - 14) - 4,
+        }
+      : null
   return (
     <svg className="chart chart--columns" viewBox={`0 0 ${width} ${height + pad}`} role="img" aria-label={props.title}>
       <title>{props.title}</title>
@@ -94,6 +105,11 @@ export function Columns(props: { bars: readonly { label: string; value: number; 
           </g>
         )
       })}
+      {mark && (
+        <text className="chart__mark" x={mark.x} y={mark.y} textAnchor="middle">
+          {props.mark}
+        </text>
+      )}
     </svg>
   )
 }

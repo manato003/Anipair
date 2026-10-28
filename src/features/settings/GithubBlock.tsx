@@ -74,7 +74,7 @@ export function GithubBlock(props: { github: GithubConnection | null; onChange: 
           </button>
         </div>
       ) : !setup ? (
-        // 手順と入力欄は、連携したい人が押したときだけ出す（#30: 説明・箇条書き・3つの手順が、いつも全部出ていた）
+        // 手順と入力欄は、連携したい人が押したときだけ出す（前は説明・箇条書き・3つの手順が、いつも全部出ていた）
         <div className="settings__actions">
           <button type="button" className="btn" onClick={() => setSetup(true)}>
             {t('連携する', 'Connect')}
@@ -85,8 +85,8 @@ export function GithubBlock(props: { github: GithubConnection | null; onChange: 
           {/* なぜ GitHub なのか（連携しようとしている人にだけ） */}
           <p className="settings__lead">
             {t(
-              '興味なし・保留・見てない・見たいの印とメモ・見るサービスはAnipairだけの記録で、Annictには置けません。Anipairは記録を置く運営サーバーを持たないので、あなた自身のGitHubのリポジトリに保存します。連携しない場合は、この端末の中にだけ残ります。',
-              'Not interested, Later, Haven’t seen, Want to watch marks and notes, and where you watch are records only Anipair keeps, so they can’t be stored on Annict. Anipair has no server of its own to hold them, so they’re saved in your own GitHub repository. If you don’t connect, they stay only on this device.',
+              '興味なし・保留・見てない・見たいの印とメモ・見るサービス・Tier表はAnipairだけの記録で、Annictには置けません。GitHubと連携すると、あなた自身のリポジトリに保存します。連携しない場合は、この端末の中にだけ残ります。',
+              'Not interested, Later, Haven’t seen, Want to watch marks and notes, where you watch, and tier lists are records only Anipair keeps, so they can’t be stored on Annict. Connecting GitHub saves them in your own repository. If you don’t connect, they stay only on this device.',
             )}
           </p>
           <details className="settings__fold" open>

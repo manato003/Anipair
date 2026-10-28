@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { t } from '../lib/i18n'
+import { SEASON_NAMES, seasonNameLabel, type Season, type SeasonName } from '../lib/season'
 import { Loading, Spinner } from './Loading'
 
-// 絞り込みのシート（記録・ブラウズ）で共通の部品。項目の中は「どれか」に当てはまるもの
+// 絞り込みのシート（記録・ブラウズ）で共通の部品
 
 // 選べるもののチップの段。件数があれば添える。first を渡すと、最初はその数だけ出して「ほかの〜も見る」で広げる
 export function ChipSection<T extends string>(props: {
@@ -12,8 +13,12 @@ export function ChipSection<T extends string>(props: {
   onToggle: (id: T) => void
   first?: number
   moreLabel?: (rest: number) => string
+  // 選べる数の上限。上限まで選んだら、ほかは押せなくして maxNote を出す
+  max?: number
+  maxNote?: string
 }) {
   const [all, setAll] = useState(false)
+  const full = props.max !== undefined && props.selected.length >= props.max
   const limit = props.first && !all ? props.first : Infinity
   const head = props.items.slice(0, limit)
   // 選んでいるのに最初の分に入っていないものも出す（外せるように）
@@ -23,12 +28,20 @@ export function ChipSection<T extends string>(props: {
       <h3 className="detail__label">{props.title}</h3>
       <div className="filtersheet__chips">
         {shown.map((it) => (
-          <button key={it.id} type="button" className="chip" aria-pressed={props.selected.includes(it.id)} onClick={() => props.onToggle(it.id)}>
+          <button
+            key={it.id}
+            type="button"
+            className="chip"
+            aria-pressed={props.selected.includes(it.id)}
+            disabled={full && !props.selected.includes(it.id)}
+            onClick={() => props.onToggle(it.id)}
+          >
             {it.label}
             {it.count !== undefined && <span className="chip__count">{it.count}</span>}
           </button>
         ))}
       </div>
+      {full && props.maxNote && <p className="note filtersheet__maxnote">{props.maxNote}</p>}
       {props.items.length > limit && (
         <button type="button" className="link filtersheet__more" onClick={() => setAll(true)}>
           {props.moreLabel ? props.moreLabel(props.items.length - limit) : t(`ほかの${props.items.length - limit}件も見る`, `Show ${props.items.length - limit} more`)}
@@ -38,31 +51,38 @@ export function ChipSection<T extends string>(props: {
   )
 }
 
-// 放送年の「から〜まで」。years は新しい順
-export function YearRange(props: { years: readonly number[]; from: number | null; to: number | null; onChange: (from: number | null, to: number | null) => void }) {
+// クールを年と季節で選ぶ（期間の始めと終わり。並べて置くときは filtersheet__cours で包む）。年を「指定なし」にすると、そちらの端まで。年を選ぶと季節は fallback（から: 冬・まで: 秋）から始まる
+export function CourField(props: { label: string; value: Season | null; years: readonly number[]; fallback: SeasonName; onChange: (value: Season | null) => void }) {
+  const { value } = props
   return (
-    <section className="filtersheet__group">
-      <h3 className="detail__label">{t('放送年', 'Air year')}</h3>
-      <div className="filtersheet__years">
-        <select value={props.from ?? ''} onChange={(e) => props.onChange(e.target.value ? Number(e.target.value) : null, props.to)} aria-label={t('放送年（から）', 'Air year (from)')}>
-          <option value="">{t('指定なし', 'Any')}</option>
-          {[...props.years].reverse().map((y) => (
-            <option key={y} value={y}>
-              {t(`${y}年`, `${y}`)}
-            </option>
-          ))}
-        </select>
-        <span aria-hidden>{t('〜', '–')}</span>
-        <select value={props.to ?? ''} onChange={(e) => props.onChange(props.from, e.target.value ? Number(e.target.value) : null)} aria-label={t('放送年（まで）', 'Air year (to)')}>
-          <option value="">{t('指定なし', 'Any')}</option>
-          {props.years.map((y) => (
-            <option key={y} value={y}>
-              {t(`${y}年`, `${y}`)}
-            </option>
-          ))}
-        </select>
-      </div>
-    </section>
+    <div className="filtersheet__cour">
+      <span className="filtersheet__courlabel">{props.label}</span>
+      <select
+        value={value?.year ?? ''}
+        onChange={(e) => props.onChange(e.target.value ? { year: Number(e.target.value), name: value?.name ?? props.fallback } : null)}
+        aria-label={t(`放送時期（${props.label}）の年`, `Aired (${props.label.toLowerCase()}) year`)}
+      >
+        <option value="">{t('指定なし', 'Any')}</option>
+        {props.years.map((y) => (
+          <option key={y} value={y}>
+            {t(`${y}年`, String(y))}
+          </option>
+        ))}
+      </select>
+      <select
+        value={value?.name ?? ''}
+        disabled={!value}
+        onChange={(e) => value && props.onChange({ year: value.year, name: e.target.value as SeasonName })}
+        aria-label={t(`放送時期（${props.label}）の季節`, `Aired (${props.label.toLowerCase()}) season`)}
+      >
+        {!value && <option value="">—</option>}
+        {SEASON_NAMES.map((n) => (
+          <option key={n} value={n}>
+            {seasonNameLabel(n)}
+          </option>
+        ))}
+      </select>
+    </div>
   )
 }
 

@@ -408,7 +408,7 @@
 .profile__name {
   color: var(--muted);
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .profile__title {
@@ -544,14 +544,14 @@
   background: #ff4d6d;
   color: #fff;
   font-size: 0.6rem;
-  font-weight: 700;
+  font-weight: 500;
   letter-spacing: 0.05em;
 }
 
 .title__equipped {
   color: var(--tint);
   font-size: 0.7rem;
-  font-weight: 700;
+  font-weight: 500;
   letter-spacing: 0.1em;
 }
 
@@ -617,7 +617,7 @@
   justify-self: center;
   padding: 8px 14px;
   border: 1px dashed var(--line-strong);
-  border-radius: 999px;
+  border-radius: var(--radius-s);
   background: none;
   color: var(--muted);
   font-size: 0.75rem;
@@ -756,7 +756,7 @@
 .awaken__eyebrow {
   color: var(--muted);
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 500;
   letter-spacing: 0.2em;
   animation: clear-fade 0.5s 0.2s both;
 }

@@ -46,6 +46,8 @@ const KEYS = {
   onboarding: 'animax.onboarding.v1',
   // スマホで「シートはタップで閉じる」の案内を見たか
   sheetHint: 'animax.sheetHint.v1',
+  // 押した結果が画面に出ない操作の、一度だけの知らせ（lib/tips.ts）で、もう出したものの名前の並び。端末ごと
+  tipsSeen: 'animax.tipsSeen.v1',
   // 「開発記録」を最後に開いたときの版（新しい版が出たら、設定に新着の点を付ける。features/settings/historySeen.ts）。端末ごと
   historySeen: 'animax.historySeen.v1',
   // クールごとの人気作の ID の控え（進み具合の分母。だれのものでも同じなので、トークンが変わっても使える）
@@ -69,6 +71,8 @@ const KEYS = {
   peopleEn: 'animax.peopleEn.v1',
   wikiSynopses: 'animax.wikiSynopses.v1',
   workLinks: 'animax.workLinks.v1',
+  // Annict に無かった作品（MyAnimeList の ID → 次に題名で探してよい時刻）。ブラウズの条件検索で、毎回題名で探し直さないため（features/browse/annictLinks.ts）
+  annictMiss: 'animax.annictMiss.v1',
   // 下の「人ごとの記録」がいま誰のものか（Annict のユーザー名）
   owner: 'animax.owner.v1',
   // ログアウト・アカウントの切り替えで退避した、人ごとの記録（ユーザー名 → 鍵 → 値）。同じ人がログインし直したら戻す
@@ -171,7 +175,7 @@ export class StorageFullError extends Error {
 }
 
 // 端末の保存容量があふれたときに捨ててよい控え（どれも、Annict・Shikimori から読み直せば作り直せる）
-const REBUILDABLE: readonly string[] = [KEYS.covers, KEYS.similar, KEYS.library, KEYS.seasonWorks, KEYS.seasonTops, KEYS.reviews, KEYS.titleEn, KEYS.peopleEn, KEYS.wikiSynopses, KEYS.workLinks]
+const REBUILDABLE: readonly string[] = [KEYS.covers, KEYS.similar, KEYS.library, KEYS.seasonWorks, KEYS.seasonTops, KEYS.reviews, KEYS.titleEn, KEYS.peopleEn, KEYS.wikiSynopses, KEYS.workLinks, KEYS.annictMiss]
 
 function isQuotaError(e: unknown): boolean {
   return e instanceof DOMException && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || e.code === 22)
@@ -615,10 +619,21 @@ export function saveHistorySeen(version: string): void {
   write(KEYS.historySeen, version)
 }
 
-// 初めて使う人に一度だけ出す案内（使い方のシート・シートの閉じ方）を、まだ見ていないことにする（preview の ?firstrun。lib/welcomePreview.ts）
+// 一度だけの知らせ（lib/tips.ts）で、もう出したものの名前
+export function loadTipsSeen(): string[] {
+  const value = readJson(KEYS.tipsSeen)
+  return Array.isArray(value) ? value.filter((x): x is string => typeof x === 'string') : []
+}
+
+export function saveTipsSeen(ids: readonly string[]): void {
+  write(KEYS.tipsSeen, JSON.stringify(ids))
+}
+
+// 初めて使う人に一度だけ出す案内（使い方のシート・シートの閉じ方・一度だけの知らせ）を、まだ見ていないことにする（preview の ?firstrun。lib/welcomePreview.ts）
 export function resetFirstRunHints(): void {
   write(KEYS.onboarding, null)
   write(KEYS.sheetHint, null)
+  write(KEYS.tipsSeen, null)
 }
 
 // キー割り当ての検証は lib/keymap.ts の parseKeymap が行う
@@ -691,7 +706,7 @@ export function loadPrograms(): Map<string, StoredPrograms> {
   for (const [id, e] of Object.entries(v as Record<string, unknown>)) {
     if (!e || typeof e !== 'object') continue
     const { at, slots, partial } = e as { at?: unknown; slots?: unknown; partial?: unknown }
-    // 読んだ日時が読めない控えは捨てる（古いと判断できず、読み直されないまま残るので。#34）
+    // 読んだ日時が読めない控えは捨てる（古いと判断できず、読み直されないまま残るので）
     if (typeof at !== 'string' || !Number.isFinite(Date.parse(at)) || !Array.isArray(slots)) continue
     const ok = slots.filter(
       (s): s is StoredPrograms['slots'][number] =>
@@ -742,7 +757,7 @@ export function saveKeymapRaw(value: unknown): void {
 }
 
 // だれのものでもない、作り直せる控えの表（lib/persistedMap.ts。形を確かめるのも向こう）
-export type CacheName = 'titleEn' | 'peopleEn' | 'wikiSynopses' | 'workLinks'
+export type CacheName = 'titleEn' | 'peopleEn' | 'wikiSynopses' | 'workLinks' | 'annictMiss'
 
 export function loadCacheRaw(name: CacheName): unknown {
   return readJson(KEYS[name])

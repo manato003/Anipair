@@ -78,6 +78,15 @@ export function BackIcon() {
   )
 }
 
+// 次へ（BackIcon の向きを逆にしたもの）
+export function NextIcon() {
+  return (
+    <Icon>
+      <path d="M9 5.5 15.5 12 9 18.5" />
+    </Icon>
+  )
+}
+
 // 実績（トロフィー）
 export function TrophyIcon() {
   return (

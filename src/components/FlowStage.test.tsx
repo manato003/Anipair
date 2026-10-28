@@ -26,14 +26,13 @@ describe('FlowStage', () => {
     expect(screen.getByRole('button', { name: '答え' })).toBeTruthy()
   })
 
-  it('shows the placeholder instead of a work while there is none, and a hint where the last answer will go', () => {
+  it('shows the placeholder instead of a work while there is none, and leaves the last-answer row empty', () => {
     render(
-      <FlowStage current={null} placeholder={<p>作品を読み込み中</p>} prev={null} next={null} emptyPrev="答えた候補は、ここに残ります">
+      <FlowStage current={null} placeholder={<p>作品を読み込み中</p>} prev={null} next={null}>
         <span />
       </FlowStage>,
     )
     expect(screen.getByText('作品を読み込み中')).toBeTruthy()
-    expect(screen.getByText('答えた候補は、ここに残ります')).toBeTruthy()
     expect(screen.queryByRole('button', { name: '詳しく見る' })).toBeNull()
   })
 })

@@ -102,14 +102,6 @@ export function TierBoard(props: { table: TierTable; view: TierView; active: boo
           <p className="note">{t('まだ置いていない作品はありません。', 'Every anime is placed.')}</p>
         ) : (
           <>
-            {!table.manual && (
-            <p className="note tierpool__note">
-              {t(
-                'Annictで評価を付けていない作品と、段から外した作品です。評価を付けた作品は、その評価の段へ自動で置きます。',
-                'Anime you haven’t rated on Annict, and anime you took off the list. Rated anime are placed in their tier automatically.',
-              )}
-            </p>
-            )}
             <ul className="tierrow__items tierpool__items">{view.unplaced.map(tile)}</ul>
           </>
         )}
@@ -123,8 +115,8 @@ export function TierBoard(props: { table: TierTable; view: TierView; active: boo
         {view.excluded.length === 0 ? (
           <p className="note">
             {t(
-              '表紙をここへ引いてくるか、「1枚ずつ振り分ける」の「表に入れない」で、この表から外せます。共有のリンクには出ません。',
-              'Drag a cover here, or choose “Leave out” in “Place one by one”, to leave it out of this list. It won’t appear in the shared link.',
+              '表紙をここへ引くと、この表から外せます。',
+              'Drag a cover here to leave it out of this list.',
             )}
           </p>
         ) : (

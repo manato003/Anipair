@@ -12,7 +12,7 @@ vi.mock('./throttle', () => ({
     },
 }))
 
-const { fetchCharacterNames, fetchGenreWorks, fetchMedia, fetchPersonWorks, fetchRelated, fetchSimilar, fetchSimilarMany, fetchStudioWorks, findPerson, genreId, normalize, peekMedia, personKey, resetShikimoriMemory, shikimoriUrl, workData } = await import('./shikimori')
+const { fetchCharacterNames, fetchGenreWorks, fetchMedia, fetchPersonWorks, fetchRelated, fetchSimilar, fetchSimilarMany, fetchStudioLinked, fetchStudioWorks, findPerson, genreId, searchTitles, normalize, peekMedia, personKey, resetShikimoriMemory, shikimoriUrl, workData } = await import('./shikimori')
 
 const fetchMock = vi.fn<(url: string) => Promise<Response>>()
 
@@ -241,7 +241,7 @@ describe('fetchSimilarMany', () => {
   })
 })
 
-// 2026-10-13 のコードレビュー #31: 中継の控えにある分は、まとめて1回で受け取る
+// 中継の控えにある分は、まとめて1回で受け取る
 describe('fetchSimilarMany uses the shared store first', () => {
   it('takes what the proxy has in one request per 50 works, and asks one by one only for the rest', async () => {
     const urls: string[] = []
@@ -361,6 +361,15 @@ describe('people and studios', () => {
     expect(fetchMock.mock.calls[0][0]).toBe(`/api/shiki?op=people&q=${encodeURIComponent('上坂すみれ')}`)
   })
 
+  it('searchTitles asks once per title (in lower case) and keeps only valid ids, but asks again after a failure', async () => {
+    fetchMock.mockResolvedValueOnce(reply({}, 502)).mockResolvedValueOnce(reply({ animes: [{ id: 52991, japanese: '葬送のフリーレン' }, { id: 59978, japanese: null }, { id: 'x' }, { id: 0 }] }))
+    await expect(searchTitles(' Frieren ')).rejects.toThrow()
+    const hits = [{ malId: 52991, japanese: '葬送のフリーレン' }, { malId: 59978, japanese: null }]
+    expect(await searchTitles('Frieren')).toEqual(hits)
+    expect(await searchTitles('FRIEREN')).toEqual(hits)
+    expect(fetchMock.mock.calls.map((c) => c[0])).toEqual(['/api/shiki?op=search&q=frieren', '/api/shiki?op=search&q=frieren'])
+  })
+
   it('findPerson returns null when no Japanese name matches', async () => {
     fetchMock.mockResolvedValueOnce(reply({ people: [{ id: 1, name: 'Someone', japanese: '別の 人' }, { id: 2, name: 'No Japanese', japanese: null }] }))
     expect(await findPerson('上坂すみれ')).toBeNull()
@@ -425,8 +434,15 @@ describe('people and studios', () => {
     const works = await fetchStudioWorks(11)
     expect(works).toHaveLength(51)
     expect(works[0].studioRefs).toEqual([{ id: 11, name: 'Madhouse' }])
-    expect(fetchMock.mock.calls.map((c) => c[0])).toEqual(['/api/shiki?op=studio&id=11&page=1&v=6', '/api/shiki?op=studio&id=11&page=2&v=6'])
+    expect(fetchMock.mock.calls.map((c) => c[0])).toEqual(['/api/shiki?op=studio&id=11&page=1&v=7', '/api/shiki?op=studio&id=11&page=2&v=7'])
     expect(peekMedia(5)?.idMal).toBe(5)
+  })
+
+  it('fetchStudioLinked also gathers the Annict ids the relay knows, dropping bad ones', async () => {
+    fetchMock.mockResolvedValueOnce(reply({ animes: [raw(5), raw(6)], annict: { 5: 123, 6: 'x', '-1': 4 } }))
+    const { medias, annict } = await fetchStudioLinked(12)
+    expect(medias.map((m) => m.idMal)).toEqual([5, 6])
+    expect(annict).toEqual(new Map([[5, 123]]))
   })
 
   it('fetchGenreWorks asks for the genre lists page by page, and genreId knows the Shikimori ids of genres and themes only', async () => {

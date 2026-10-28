@@ -257,7 +257,7 @@ describe('genreName', () => {
   })
 })
 
-describe('addSeries (#36: the series of anime you liked comes first)', () => {
+describe('addSeries (the series of anime you liked comes first)', () => {
   const great: Seed = { malId: 1, title: '好きな作品', weight: 2 }
   const good: Seed = { malId: 2, title: 'まあ好き', weight: 1 }
   const bad: Seed = { malId: 3, title: '苦手', weight: -1.5 }

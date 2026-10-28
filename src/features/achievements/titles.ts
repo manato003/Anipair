@@ -65,7 +65,7 @@ const SEASON_TITLES: readonly { id: string; name: Text; goal: number; rarity: Ra
   { id: 'season-half-1', name: { ja: '中天に至りし者', en: 'Halfway Up the Sky' }, goal: 1, rarity: 'bronze', half: true },
   { id: 'season-full-1', name: { ja: '初めの頂を踏みし者', en: 'First Summit Climber' }, goal: 1, rarity: 'bronze' },
   // 4クール＝1年
-  { id: 'season-full-4', name: { ja: '暦を一巡りせし者', en: 'Calendar Turner' }, goal: 4, rarity: 'silver' },
+  { id: 'season-full-4', name: { ja: '暦を一巡りせし者', en: 'One Who Turned the Year' }, goal: 4, rarity: 'silver' },
   // 12クール＝3年
   { id: 'season-full-12', name: { ja: '三巡りの暦守', en: 'Keeper of Three Calendars' }, goal: 12, rarity: 'gold' },
   { id: 'season-full-40', name: { ja: '時を喰らう者', en: 'Time Devourer' }, goal: 40, rarity: 'amethyst' },
@@ -121,7 +121,7 @@ const DECADE_GOAL = 0.8
 const DECADES: readonly { from: number; name: Text }[] = [
   { from: 1970, name: { ja: 'ロボットの夜明けを知る者', en: 'Witness of the Robot Dawn' } },
   { from: 1980, name: { ja: 'ビデオデッキの守り人', en: 'Keeper of the VCR' } },
-  { from: 1990, name: { ja: 'セル画の最後の目撃者', en: 'Last Witness of the Cels' } },
+  { from: 1990, name: { ja: 'セル画の最後の目撃者', en: 'Last Witness of Cel Animation' } },
   { from: 2000, name: { ja: '深夜枠の開拓者', en: 'Late-Night Slot Pioneer' } },
   { from: 2010, name: { ja: '円盤の時代の語り部', en: 'Storyteller of the Disc Era' } },
   { from: 2020, name: { ja: '配信の海を渡る者', en: 'Sailor of the Streaming Sea' } },
@@ -159,7 +159,7 @@ export const HIDDEN_COUNT = HIDDEN.length
 // 特別な称号: 持てる人が決まっているもの。手に入れた人にだけ見せ、数にも伏せ字の枠にも入れない（ほかの人には取れないので）。
 // Annict を創った shimbaco さんへの敬意として。ユーザー名は Annict の API が返すログイン中の本人のもの
 const SPECIAL: readonly { id: string; name: Text; condition: Text; rarity: Rarity; test: (f: Facts) => boolean }[] = [
-  { id: 'special-creator', name: { ja: '記録の世界を創りし者', en: 'Maker of the Record World' }, condition: { ja: 'Annictを創った人だけが持つ称号', en: 'A title only the creator of Annict can hold' }, rarity: 'origin', test: (f) => f.stats?.username === 'shimbaco' },
+  { id: 'special-creator', name: { ja: '記録の世界を創りし者', en: 'Creator of the Realm of Records' }, condition: { ja: 'Annictを創った人だけが持つ称号', en: 'A title only the creator of Annict can hold' }, rarity: 'origin', test: (f) => f.stats?.username === 'shimbaco' },
   // Annict サポーターの称号も考えたが、サポーターかは API に無い（プロフィールページにしか出ない）ので入れない。
   // Annict は API で取れるものだけを使う（設計の原則）。編集者も外から見分ける方法が無い
 ]
@@ -368,8 +368,8 @@ export function evaluateTitles(f: Facts): Title[] {
   out.push({
     id: 'decade-three-eras',
     // ゼロ年代から二〇年代＝平成から令和
-    name: t('二つの元号を渡りし者', 'Heisei-Reiwa Crosser'),
-    condition: t('ゼロ年代・テン年代・二〇年代のそれぞれで、人気作の半分に答える', 'Answer half of the popular anime in each of the 2000s, 2010s and 2020s'),
+    name: t('二つの元号を渡りし者', 'Walker of Two Eras'),
+    condition: t('ゼロ年代・テン年代・二〇年代のそれぞれで、人気作の半分に答える', 'Answer half of the popular anime in each of the 2000s, 2010s, and 2020s'),
     group: 'decade',
     rarity: 'amethyst',
     hidden: false,

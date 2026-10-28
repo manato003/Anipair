@@ -74,8 +74,9 @@ describe('fromMyLists', () => {
 })
 
 describe('genresMatch', () => {
-  it('当たるのは選んだジャンルのどれか。選んでいなければ当たり、作品情報が無ければ外れる', () => {
-    expect(genresMatch(['Romance', 'School'], ['Sci-Fi', 'Romance'])).toBe(true)
+  it('当たるのは選んだジャンルを全部持つ作品。選んでいなければ当たり、作品情報が無ければ外れる', () => {
+    expect(genresMatch(['Romance', 'School'], ['School', 'Romance'])).toBe(true)
+    expect(genresMatch(['Romance', 'School'], ['Sci-Fi', 'Romance'])).toBe(false)
     expect(genresMatch(['Action'], ['Romance'])).toBe(false)
     expect(genresMatch(undefined, [])).toBe(true)
     expect(genresMatch(undefined, ['Romance'])).toBe(false)
@@ -85,7 +86,7 @@ describe('genresMatch', () => {
 describe('fromMyLists のジャンル・制作会社', () => {
   const rows = [row(1, 'WATCHED', { mal: '11', watchers: 3 }), row(2, 'WATCHED', { mal: '12', watchers: 2 }), row(3, 'WATCHED', { watchers: 1 })]
   const info = new Map<number, MediaInfo>([
-    [11, { genres: ['Romance'], studios: ['MAPPA'] }],
+    [11, { genres: ['Romance', 'Isekai'], studios: ['MAPPA'] }],
     [12, { genres: ['Isekai'], studios: ['Bandai Namco Filmworks'] }],
   ])
   const base = { lists: ['watched'] as const, query: '', from: null, to: null, order: { by: 'popular', dir: 'DESC' } as const, info }
@@ -94,8 +95,9 @@ describe('fromMyLists のジャンル・制作会社', () => {
 
   it('ジャンル・制作会社で絞り、作品情報の無い作品は出さない', () => {
     expect(ids(fromMyLists(rows, base))).toEqual([1, 2, 3])
-    expect(ids(fromMyLists(rows, { ...base, genres: ['Romance', 'Isekai'] }))).toEqual([1, 2])
-    expect(ids(fromMyLists(rows, { ...base, genres: ['Isekai'] }))).toEqual([2])
+    // 2つ選ぶと、両方を持つ作品だけ
+    expect(ids(fromMyLists(rows, { ...base, genres: ['Romance', 'Isekai'] }))).toEqual([1])
+    expect(ids(fromMyLists(rows, { ...base, genres: ['Isekai'] }))).toEqual([1, 2])
     // サンライズのチップは、名前の変わったあとの Bandai Namco Filmworks の作品にも当たる
     expect(ids(fromMyLists(rows, { ...base, studio: sunrise }))).toEqual([2])
     expect(ids(fromMyLists(rows, { ...base, genres: ['Romance'], info: null }))).toEqual([])
@@ -122,7 +124,7 @@ describe('fromStudio', () => {
     ...opts,
   })
   const list = [
-    media(1, { seasonYear: 2018, genres: ['Action'] }),
+    media(1, { seasonYear: 2018, genres: ['Action'], themes: ['Isekai'] }),
     media(2, { seasonYear: 2022, themes: ['Isekai'] }),
     media(3, { seasonYear: null }),
     media(4, { isAdult: true }),
@@ -144,7 +146,8 @@ describe('fromStudio', () => {
 
   it('作品名（日本語・英語・ローマ字）・ジャンル（テーマも）・放送年で絞る。年は から・まで の年を含み、年の分からない作品は出さない', () => {
     expect(ids(fromStudio(list, { ...base, query: 'jujutsu' }))).toEqual([6])
-    expect(ids(fromStudio(list, { ...base, genres: ['Isekai', 'Action'] }))).toEqual([2, 1])
+    expect(ids(fromStudio(list, { ...base, genres: ['Isekai'] }))).toEqual([2, 1])
+    expect(ids(fromStudio(list, { ...base, genres: ['Isekai', 'Action'] }))).toEqual([1])
     expect(ids(fromStudio(list, { ...base, from: { year: 2022, name: 'autumn' }, to: { year: 2024, name: 'winter' } }))).toEqual([6, 2])
     expect(ids(fromStudio(list, { ...base, from: { year: 2024, name: 'winter' }, to: { year: 2018, name: 'spring' } }))).toEqual([6, 2, 1])
     expect(ids(fromStudio(list, { ...base, to: { year: 2019, name: 'autumn' } }))).toEqual([1])

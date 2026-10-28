@@ -17,7 +17,7 @@ const HAND = [
 export function ThemeBlock() {
   const [prefs, choose] = useThemePrefs()
   return (
-    // 見出しは画面の名前（表示）と重なるので付けず、行を並べる（#30）
+    // 見出しは画面の名前（表示）と重なるので付けず、行を並べる
     <Section id="settings-theme">
       {/* 見出しは両方の言語で（読めない言語になっていても見つけられるように） */}
       <SettingRow label="言語 / Language"> {/* i18n-ok */}
@@ -26,13 +26,13 @@ export function ThemeBlock() {
       <SettingRow label={t('テーマの色', 'Theme color')} hint={t('自動は見ているクールの季節の色', 'Auto uses the color of the season you’re viewing')}>
         <Choices label={t('テーマの色', 'Theme color')} choices={COLORS} value={prefs.color} onChoose={(v) => choose('color', v)} />
       </SettingRow>
-      <SettingRow label={t('明るさ', 'Brightness')} hint={t('自動は端末の設定どおり', 'Auto follows your device setting')}>
+      <SettingRow label={t('明るさ', 'Brightness')}>
         <Choices label={t('明るさ', 'Brightness')} choices={BRIGHTNESS} value={prefs.brightness} onChoose={(v) => choose('brightness', v)} />
       </SettingRow>
       <SettingRow label={t('時刻で色を変える', 'Shift color by time of day')} hint={t('深夜ほど少し暗く', 'A little darker late at night')}>
         <Choices label={t('時刻で色を変える', 'Shift color by time of day')} choices={TOD} value={prefs.tod} onChoose={(v) => choose('tod', v)} />
       </SettingRow>
-      <SettingRow label={t('画面の動き', 'Motion')} hint={t('自動は端末の「動きを減らす」どおり', 'Auto follows your device’s “Reduce motion” setting')} after={<MotionNote motion={prefs.motion} />}>
+      <SettingRow label={t('画面の動き', 'Motion')} after={<MotionNote motion={prefs.motion} />}>
         <Choices label={t('画面の動き', 'Motion')} choices={MOTION} value={prefs.motion} onChoose={(v) => choose('motion', v)} />
       </SettingRow>
       <SettingRow label={t('片手操作', 'One-handed mode')} hint={t('よく押すボタンを親指の側に', 'Puts the buttons you press most on your thumb’s side')}>

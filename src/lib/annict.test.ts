@@ -453,7 +453,7 @@ describe('fetchLibrary: one read for screens that ask together', () => {
   })
 })
 
-// 放送予定（Issue #32）: 始まりから順に読み、これから先の分に届いたら止める。過ぎた分・再放送・28日より先は外す
+// 放送予定: 始まりから順に読み、これから先の分に届いたら止める。過ぎた分・再放送・28日より先は外す
 describe('fetchUpcomingPrograms', () => {
   const NOW = new Date('2026-10-13T03:00:00Z')
   const prog = (at: string, ch = 'dアニメストア', rebroadcast = false) => ({ startedAt: at, rebroadcast, channel: { name: ch, channelGroup: { name: '動画サービス' } } })
@@ -481,7 +481,7 @@ describe('fetchUpcomingPrograms', () => {
     expect(got.get('W1')).toEqual({ slots: [{ at: '2026-10-16T15:00:00Z', ch: 'dアニメストア', g: '動画サービス', k: 3 }], complete: true })
   })
 
-  // #34: 過去の予定が多い作品（長く続く作品）は、始まりから8ページで届かない。終わりの側から読み、届かなければ読み切れなかったと返す
+  // 過去の予定が多い作品（長く続く作品）は、始まりから8ページで届かない。終わりの側から読み、届かなければ読み切れなかったと返す
   it('reads from the end when the start does not reach today, and says when it could not read everything', async () => {
     const past = (cursor: string) => ({ pageInfo: { hasNextPage: true, endCursor: cursor }, nodes: [prog('2020-01-01T00:00:00Z')] })
     const asked: string[] = []

@@ -12,7 +12,7 @@ function tours(topic: HelpTopic): readonly TourStep[] {
     case 'rate':
       return [
         { target: '.stepper', title: t('クールを選ぶ', 'Choose a season'), body: t('矢印や年・季節を押すと、さかのぼるクールを変えられます。', 'Use the arrows, or pick a year and season, to change which season you look back on.') },
-        { target: '.progress', title: t('進み具合', 'Progress'), body: t('このクールの人気作のうち、答えた数です。全部に答えると「踏破」です。', 'How many of this season’s popular anime you’ve answered. Answer them all to complete the season.') },
+        { target: '.progress', title: t('進み具合', 'Progress'), body: t('このクールの人気作のうち、答えた数です。全部に答えると「踏破」です。', 'How many of this season’s popular anime you’ve answered. Answer them all to clear the season.') },
         {
           target: '.app__screen:not([hidden]) .bell',
           title: t('コントロールセンター', 'Control center'),
@@ -26,13 +26,13 @@ function tours(topic: HelpTopic): readonly TourStep[] {
         },
         {
           target: '.answers__main',
-          title: t('見ていない・気になる', 'Not seen or interested'),
+          title: t('見ていない・気になる', 'Haven’t seen or want to watch'),
           body: t('見ていなければ「見てない」、気になる作品は「見たい」。いちばんよく押すボタンです。', 'If you haven’t seen it, tap “Haven’t seen”. If it looks interesting, tap “Want to watch”. These are the buttons you’ll use most.'),
         },
         {
           target: '.answers__ratings',
           title: t('見た作品を評価する', 'Rate what you’ve watched'),
-          body: t('「良くない」から「とても良い」までの4段階です。見たけれど内容を覚えていなければ「覚えてない」。', 'Rate it from “Bad” to “Great” in four steps. If you watched it but don’t remember it, tap “Don’t remember”.'),
+          body: t('「良くない」から「とても良い」までの4段階です。見たけれど内容を覚えていなければ「覚えてない」。', 'Rate it from “Bad” to “Great” on a four-point scale. If you watched it but don’t remember it, tap “Don’t remember”.'),
         },
         {
           target: '.answers__sub',
@@ -86,7 +86,7 @@ function tours(topic: HelpTopic): readonly TourStep[] {
           title: t('作品', 'Anime'),
           body: t(
             '表紙か題名を押すと詳細が開きます。見てるの作品は次の話をその場で記録できます。一覧の上で見るサービスを選ぶと、放送中の作品に次の放送日が出ます。「今週の放送」で、これから7日の放送を日ごとに見られます。見た・見てるの作品は詳細の「話ごとの記録」で話を4段階で評価して記録できます。',
-            'Tap a cover or title to open details. For anime you’re watching, you can record the next episode right there. Pick where you watch above the list to see the next air date on airing anime, and use “This week” to see the next 7 days of broadcasts by day. For Watched and Watching anime, rate episodes in four steps under “Episode records” in the details.',
+            'Tap a cover or title to open details. For anime you’re watching, you can record the next episode right there. Pick where you watch above the list to see the next air date on airing anime, and use “This week” to see the next 7 days of broadcasts by day. For Watched and Watching anime, rate episodes on a four-point scale under “Episode records” in the details.',
           ),
         },
         {
@@ -94,13 +94,13 @@ function tours(topic: HelpTopic): readonly TourStep[] {
           title: t('Tier表', 'Tier list'),
           body: t(
             '表紙を引いて（スマホは長押ししてから）、好きな段と位置へ落とせます。表紙を押すと作品の詳細が開きます。キーボードでは表紙を選んで、下に出る段のボタンで動かせます。段の中の順番は「左へ」「右へ」でも入れ替えられます。段の数と名前は「表の設定」で変えられます。「＋ 新しい表」では、見たい作品・今期のアニメ・ジャンル・制作会社から何の表かを選ぶか、作品名で探して、好きな作品を集めた表を作れます（表は5つまで）。「リンクで共有」で作ったリンクは、ログインしていない人も開いて見られます。ここで並べ替えても、Annictの評価は変わりません。',
-            'Drag a cover (on a phone, press and hold first) and drop it in any tier and position. Tap a cover for details. With a keyboard, select a cover and use the tier buttons below. “Left” and “Right” also reorder within a tier. Change the number and names of tiers in “List settings”. With “+ New list”, choose what the list is of (your Want to watch list, this season, a genre or a studio) or search by title to make a list of anime you pick (up to 5 lists). A link made with “Share as a link” can be opened by anyone, even without logging in. Reordering here doesn’t change your Annict ratings.',
+            'Drag a cover (on a phone, press and hold first) and drop it in any tier and position. Tap a cover for details. With a keyboard, select a cover and use the tier buttons below. “Left” and “Right” also reorder within a tier. Change the number and names of tiers in “List settings”. With “+ New list”, choose what the list covers (your Want to watch list, this season, a genre, or a studio) or search by title to make a list of anime you pick (up to 5 lists). A link made with “Share as a link” can be opened by anyone, even without logging in. Reordering here doesn’t change your Annict ratings.',
           ),
         },
         {
           target: '.app__screen:not([hidden]) .records__filterbtn',
           title: t('絞り込み', 'Filter'),
-          body: t('評価・放送年・季節・形式・ジャンル・制作会社で絞り込めます。かけた条件は一覧の上に出て、押すと外せます。', 'Filter by rating, air year, season, format, genre, or studio. Active filters show above the list; tap one to remove it.'),
+          body: t('評価・放送時期（始めと終わりのクール）・形式・ジャンル・制作会社で絞り込めます。かけた条件は一覧の上に出て、押すと外せます。', 'Filter by rating, air period (first and last season), format, genre, or studio. Active filters show above the list; tap one to remove it.'),
         },
         {
           target: '.app__screen:not([hidden]) .rsort',
@@ -114,14 +114,14 @@ function tours(topic: HelpTopic): readonly TourStep[] {
       ]
     case 'browse':
       return [
-        { target: '.app__screen:not([hidden]) .records--browse .search', title: t('タイトルで探す', 'Search by Japanese title'), body: t('題名の一部を入れると、Annictの作品から探します。', 'Type part of the Japanese title to search Annict’s anime. Annict’s search doesn’t match romanized or English titles.') },
+        { target: '.app__screen:not([hidden]) .records--browse .search', title: t('タイトルで探す', 'Search by title'), body: t('題名の一部を入れると、Annictの作品から探します。英語やローマ字の題名でも探せます。', 'Type part of a title to search Annict’s anime. English and romanized titles work too.') },
         { target: '.app__screen:not([hidden]) .records--browse .stepper', title: t('クールを選ぶ', 'Choose a season'), body: t('クールごとの作品の一覧を見られます。', 'See the list of anime for each season.') },
         {
           target: '.app__screen:not([hidden]) .records--browse .records__filterbtn',
           title: t('絞り込み', 'Filter'),
           body: t(
-            '放送年と季節を選ぶと、何年分でもまとめて見られます（クールの代わり）。自分の記録（未記録・見たなど）・形式・ジャンル・制作会社でも絞り込めます。',
-            'Pick air years and seasons to browse any span of years at once (instead of a single season). You can also filter by your own records (Not recorded, Watched, and so on), format, genre, or studio.',
+            '始めと終わりのクールを選ぶと、何年分でもまとめて見られます（クールの代わり）。自分の記録（未記録・見たなど）・形式・ジャンル・制作会社でも絞り込めます。選んだ条件すべてに合う作品が残ります。',
+            'Pick a first and last season to browse any span at once (instead of a single season). You can also filter by your own records (Not recorded, Watched, and so on), format, genre, or studio. Only anime that match everything you pick stay.',
           ),
         },
         {
@@ -129,7 +129,7 @@ function tours(topic: HelpTopic): readonly TourStep[] {
           title: t('並べ替え', 'Sort'),
           body: t(
             '人気順はAnnictで記録した人の多い順、評価順はほかの人の評価が高い順（評価した人の少ない作品は、点数を平均に寄せて並べます）、おすすめ順はあなたの評価から好みに合いそうな順です。',
-            'Popular sorts by how many people recorded it on Annict. Rating sorts by others’ ratings (anime with few ratings are pulled toward the average). Suggested sorts by what’s likely to match your taste, based on your ratings.',
+            'Popular sorts by how many people recorded it on Annict. Top rated sorts by others’ ratings (anime with few ratings are pulled toward the average). Suggested sorts by what’s likely to match your taste, based on your ratings.',
           ),
         },
         {
@@ -164,8 +164,8 @@ function tours(topic: HelpTopic): readonly TourStep[] {
           target: '#settings-github',
           title: t('GitHub連携（任意）', 'GitHub sync (optional)'),
           body: t(
-            '連携すると、興味なし・保留・見てない・見たいの印とメモ・見るサービスをPCとスマホで共有でき、毎日自動でバックアップされます。',
-            'Once connected, your Not interested, Later, and Haven’t seen marks, Want to watch notes, and Where I watch choices are shared between your computer and phone, and backed up automatically every day.',
+            '連携すると、興味なし・保留・見てない・見たいの印とメモ・見るサービス・Tier表をPCとスマホで共有でき、毎日自動でバックアップされます。',
+            'Once connected, your Not interested, Later, and Haven’t seen marks, Want to watch notes, Where I watch choices, and tier lists are shared between your computer and phone, and backed up automatically every day.',
           ),
         },
         { target: '#settings-backup', title: t('バックアップ', 'Backup'), body: t('連携しなくても、作品ごとの記録をファイルに書き出せます。', 'Even without connecting, you can export your records per anime to a file.') },
@@ -174,7 +174,7 @@ function tours(topic: HelpTopic): readonly TourStep[] {
           title: t('答えのボタン', 'Answer buttons'),
           body: t('評価とマッチングの答えのボタンを、アイコンと名前・アイコンだけ・名前だけから選べます。', 'Choose how the answer buttons on Rate and Match look: icon and name, icon only, or name only.'),
         },
-        { target: '#settings-effects', title: t('演出', 'Effects'), body: t('10件ごとや踏破の演出の強さを選べます。', 'Choose how strong the effects are for every 10 answers and for completing a season.') },
+        { target: '#settings-effects', title: t('演出', 'Effects'), body: t('10件ごとや踏破の演出の強さを選べます。', 'Choose how strong the effects are for every 10 answers and for clearing a season.') },
         {
           target: '#settings-broadcast',
           title: t('見るサービス', 'Where I watch'),
@@ -208,7 +208,7 @@ export function topics(): readonly { id: HelpTopic; title: string; items: readon
           t('見た作品', 'Anime you’ve watched'),
           t(
             '「良くない」から「とても良い」までの4段階で評価します。見たけれど内容を覚えていなければ「覚えてない」です。',
-            'Rate it in four steps, from “Bad” to “Great”. If you watched it but don’t remember it, tap “Don’t remember”.',
+            'Rate it on a four-point scale, from “Bad” to “Great”. If you watched it but don’t remember it, tap “Don’t remember”.',
           ),
         ],
         [t('見ていない作品', 'Anime you haven’t watched'), t('見ていなければ「見てない」、気になる作品は「見たい」です。', 'Tap “Haven’t seen” if you haven’t watched it, or “Want to watch” if it looks interesting.')],
@@ -270,8 +270,8 @@ export function topics(): readonly { id: HelpTopic; title: string; items: readon
         [
           t('見てる作品', 'Anime you’re watching'),
           t(
-            'カードに次の話と残りの話数が出ます。カードの4段階の評価を押すと、その話をその場で記録できます。一覧の上で見るサービスを選ぶと、放送中の作品に次の放送日が出て、「今週の放送」でこれから7日の放送を日ごとに見られます（カレンダーに入れることもできます）。',
-            'Each card shows the next episode and how many are left. Tap one of the four ratings on the card to record that episode on the spot. Pick where you watch above the list to see the next air date on airing anime, and use “This week” to see the next 7 days of broadcasts by day (you can also add them to your calendar).',
+            'カードに次の話と残りの話数が出ます。カードの4段階の評価を押すと、その話をその場で記録できます。一覧の上で見るサービスを選ぶと、放送中の作品に次の放送日が出て、「今週の放送」でこれから7日の放送を日ごとに見られます（カレンダーに入れることもできます）。放送日はAnnictの放送予定から出すので、Annictに登録されていない予定は出ません。',
+            'Each card shows the next episode and how many are left. Tap one of the four ratings on the card to record that episode on the spot. Pick where you watch above the list to see the next air date on airing anime, and use “This week” to see the next 7 days of broadcasts by day (you can also add them to your calendar). Air dates come from Annict’s broadcast schedule, so airings not registered on Annict aren’t shown.',
           ),
         ],
         [
@@ -288,19 +288,19 @@ export function topics(): readonly { id: HelpTopic; title: string; items: readon
         [
           t('話ごとの記録', 'Episode records'),
           t(
-            '「見た」「見てる」の作品を押して詳細を開き、「話ごとの記録」の行を押して開くと、話を4段階で評価してAnnictに記録できます。評価を押すと、同じ場所に次の話が出るので、続けて押せます。‹ › か、下に並ぶ話の一覧から、ほかの話も選べます。見てる作品は最終話まで記録すると、作品の評価を付けて「見た」にできます。記録済みの話を選ぶと、評価のボタンの代わりに前回の評価が出ます。見返して2回目の記録を付けるときは「もう一度記録する」を押します（前の記録はそのまま残ります）。この画面で記録した話は、選び直せば「取り消す」で取り消せます。前に付けた記録の評価を直したり消したりするのは、「Annictで直す」から開くAnnictの話のページでできます。記録欄の右下の「感想を書く」で、その話の感想も残せます。書いてから評価を押せば一緒に記録し、評価したあとに押せばその記録に付けます（書かなくても記録はできています）。',
-            'Open a Watched or Watching anime, tap the “Episode records” row to expand it, and rate episodes in four steps and record them on Annict. After you tap a rating, the next episode appears in the same place, so you can keep tapping. Use ‹ › or the episode list below to pick other episodes. Once you’ve recorded the last episode of an anime you’re watching, you can rate the whole anime and mark it Watched. When you pick an episode that’s already recorded, your previous rating is shown instead of the rating buttons. To record a second time when rewatching, tap “Record again” (the earlier record stays). An episode you recorded on this screen can be undone with “Undo” if you select it again. To fix or delete the rating on an earlier record, use “Edit on Annict” to open the episode’s page on Annict. “Write a review” at the bottom right of the record area lets you leave a review for that episode. If you write one first and then tap a rating, they’re recorded together; if you tap it after rating, it’s added to that record (you can also record without writing anything).',
+            '「見た」「見てる」の作品を押して詳細を開き、「話ごとの記録」の行を押して開くと、話を4段階で評価してAnnictに記録できます。評価を押すと、同じ場所に次の話が出るので、続けて押せます。‹ › か、下に並ぶ話の一覧から、ほかの話も選べます。見てる作品は最終話まで記録すると、作品の評価を付けて「見た」にできます。記録済みの話を選ぶと、評価のボタンの代わりに前回の評価が出ます。見返して2回目の記録を付けるときは「もう一度記録する」を押します（前の記録はそのまま残ります）。この画面で記録した話は、選び直せば「取り消す」で取り消せます。前に付けた記録の評価を直したり消したりするのは、「Annictで直す」から開くAnnictの話のページでできます。記録欄の右下の「感想を書く」で、その話の感想も送れます。評価と感想は別々に送れます。感想を先に送った話は、あとで押した評価がその記録に付きます。この画面で評価した話を選び直して評価を押すと、記録は増やさずに評価を付け直します。',
+            'Open a Watched or Watching anime, tap the “Episode records” row to expand it, then rate episodes on a four-point scale to record them on Annict. After you tap a rating, the next episode appears in the same place, so you can keep tapping. Use ‹ › or the episode list below to pick other episodes. Once you’ve recorded the last episode of an anime you’re watching, you can rate the whole anime and mark it Watched. When you pick an episode that’s already recorded, your previous rating is shown instead of the rating buttons. To record a second time when rewatching, tap “Record again” (the earlier record stays). An episode you recorded on this screen can be undone with “Undo” if you select it again. To fix or delete the rating on an earlier record, use “Edit on Annict” to open the episode’s page on Annict. “Write a review” at the bottom right of the record area lets you send a review for that episode. Ratings and reviews are sent separately. If you send a review first, a rating you tap later is added to that same record. Tapping a rating again on an episode you rated on this screen changes the rating without adding another record.',
           ),
         ],
         [
           t('絞り込み', 'Filter'),
-          t('評価・放送年・季節・形式・ジャンル・制作会社で絞り込めます。かけた条件は一覧の上に出て、押すと外せます。', 'Filter by rating, air year, season, format, genre, or studio. Active filters show above the list; tap one to remove it.'),
+          t('評価・放送時期（始めと終わりのクール）・形式・ジャンル・制作会社で絞り込めます。かけた条件は一覧の上に出て、押すと外せます。', 'Filter by rating, air period (first and last season), format, genre, or studio. Active filters show above the list; tap one to remove it.'),
         ],
         [
           t('並べ替え', 'Sort'),
           t(
-            '好きな順（あなたの評価の高い順。見たの一覧だけ）・人気順・記録順・放送日順。押している並べ替えをもう一度押すと、向きが逆になります。',
-            'Favorites (your highest ratings first; Watched list only), popular, recorded date, or air date. Tap the current sort again to reverse the order.',
+            '好きな順（あなたの評価の高い順。見たの一覧だけ）・人気順・記録順（見た以外の一覧）・放送日順。押している並べ替えをもう一度押すと、向きが逆になります。評価や放送時期の無い作品は最後に並びます。',
+            '“Favorites first” (your highest ratings first; Watched list only), “Popular”, “Date recorded” (all lists except Watched), or “Air date”. Tap the current sort again to reverse the order. Anime with no rating or air date come last.',
           ),
         ],
         [t('編集', 'Edit'), t('一覧のまま、状態や評価を変えられます。', 'Change status or ratings without leaving the list.')],
@@ -317,7 +317,35 @@ export function topics(): readonly { id: HelpTopic; title: string; items: readon
         ],
         [
           t('実績', 'Achievements'),
-          t('答えた数やクールの踏破で手に入る称号を見られます。手に入れた称号を押すと、プロフィールに掲げられます。', 'See the titles you earn by answering anime and completing seasons. Tap a title you’ve earned to display it on your profile.'),
+          t('答えた数やクールの踏破で手に入る称号を見られます。手に入れた称号を押すと、プロフィールに掲げられます。クールの紋章は、各クールの人気作のうち答えた割合で、すべて答えると金に輝きます。', 'See the titles you earn by answering anime and clearing seasons. Tap a title you’ve earned to display it on your profile. The season crest shows the share of each season’s popular anime you’ve answered, and shines gold when you’ve answered them all.'),
+        ],
+        [
+          t('傾向の数字', 'Numbers in Trends'),
+          t(
+            '世間の点数はShikimoriの10点満点です。項目と総合評価の連動は100で完全に連動し、強い項目ほど、その良し悪しで作品全体の評価が決まっています（項目を付けた作品が5本以上の項目だけ）。声優は出演の多さではなく、世間の点数よりどれだけ高く評価したかで並べ、あなたの甘口・辛口のくせは差し引きます（2つ以上のシリーズに出ている声優だけ）。',
+            'Public scores are on Shikimori’s 10-point scale. A category link of 100 means it moves perfectly with your overall rating; the stronger the link, the more that category decides your overall rating (only categories rated on 5 or more anime). Voice actors are ranked not by how often they appear, but by how much higher you rated their anime than the public score, with your own harsh or generous tendency subtracted (only voice actors in 2 or more series).',
+          ),
+        ],
+        [
+          t('年間ふり返り', 'Year in review'),
+          t(
+            'Annictで「見た」にした日の年で数えます。昔の作品をまとめて記録したときは、記録した日の年に入ります。',
+            'Anime are counted by the year you marked them as watched on Annict. Older anime recorded in bulk count toward the year you recorded them.',
+          ),
+        ],
+        [
+          t('Tier表', 'Tier list'),
+          t(
+            '表紙を引くと（スマホは長押ししてから）好きな段と位置へ動かせます。表紙を押すと作品の詳細が開きます。ここで動かしても、Annictの評価は変わりません。',
+            'Drag a cover (on a phone, press and hold first) to move it to any tier and position. Tap a cover for details. Moving anime here doesn’t change your Annict ratings.',
+          ),
+        ],
+        [
+          t('まだ置いていない作品', 'Not placed yet'),
+          t(
+            'Annictで評価を付けていない作品と、段から外した作品です。評価を付けた作品は、その評価の段に最初から置かれます。表から外すには、表紙を「表に入れない作品」へ引くか、「1枚ずつ振り分ける」で「表に入れない」を押します。外した作品は共有のリンクに出ません。',
+            'Anime you haven’t rated on Annict, and anime you took out of a tier. Rated anime start in the tier for their rating. To leave an anime out of the list, drag its cover to “Left out of this list”, or choose “Leave out” in “Place one by one”. Left-out anime don’t appear in the shared link.',
+          ),
         ],
       ],
     },
@@ -332,20 +360,20 @@ export function topics(): readonly { id: HelpTopic; title: string; items: readon
         [
           t('並べ替え', 'Sort'),
           t(
-            '人気順（見た人の多い順）・評価順（ほかの人の評価が高い順）・おすすめ順（あなたの好みに合いそうな順）・放送日順。押している並べ替えをもう一度押すと、向きが逆になります。',
-            'Popular (most watched first), rating (highest rated by others first), suggested (most likely to match your taste first), or air date. Tap the current sort again to reverse the order.',
+            '人気順（見た人の多い順）・評価順（ほかの人の評価が高い順）・おすすめ順（あなたの好みに合いそうな順）・放送日順。押している並べ替えをもう一度押すと、向きが逆になります。評価順では、評価した人の少ない作品の点数を平均に寄せて並べます（Shikimoriの点数。Annictの満足度があればそちら）。点数や情報の無い作品は最後に並びます。',
+            '“Popular” (most watched first), “Top rated” (highest rated by others first), “Suggested” (most likely to match your taste first), or “Air date”. Tap the current sort again to reverse the order. In “Top rated”, anime with few ratings are pulled toward the average (Shikimori scores, or Annict satisfaction when available). Anime with no score or data come last.',
           ),
         ],
         [
           t('絞り込み', 'Filter'),
           t(
-            '放送年（から〜まで）と季節を選ぶと、クールの代わりにその期間の作品を見られます。タイトルで検索しているときも使えます。自分の記録（未記録・見たなど）・形式・ジャンル・制作会社でも絞り込めます。',
-            'Pick an air year range (from–to) and seasons to see anime from that period instead of a single season. It also works while searching by title. You can also filter by your own records (Not recorded, Watched, and so on), format, genre, or studio.',
+            '放送時期の始めと終わりのクールを選ぶと、クールの代わりにその期間の作品を見られます。タイトルで検索しているときも使えます。自分の記録（未記録・見たなど）・形式・ジャンル・制作会社でも絞り込めます。',
+            'Pick a first and last season to see anime from that period instead of a single season. It also works while searching by title. You can also filter by your own records (Not recorded, Watched, and so on), format, genre, or studio.',
           ),
         ],
         [
           t('詳細', 'Details'),
-          t('作品を押すと開きます。状態と評価を付けられ、あらすじ・キャスト・スタッフ・関連作品も読めます。', 'Tap an anime to open it. Set a status and rating, and read the synopsis, cast, staff, and related anime.'),
+          t('作品を押すと開きます。状態と評価を付けられ、あらすじ・キャスト・スタッフ・関連作品も読めます。選んでいる状態や評価をもう一度押すと外せます。', 'Tap an anime to open it. Set a status and rating, and read the synopsis, cast, staff, and related anime. Tap a selected status or rating again to clear it.'),
         ],
         [t('関連作品', 'Related anime'), t('題名を押すと、その作品の詳細を重ねて開きます。そこでもそのまま記録できます。', 'Tap a title to open that anime’s details on top. You can record it right there, too.')],
         [
@@ -366,8 +394,8 @@ export function topics(): readonly { id: HelpTopic; title: string; items: readon
         [
           t('GitHub連携（任意）', 'GitHub sync (optional)'),
           t(
-            '興味なし・保留・見てない・見たいの印とメモ・見るサービスをPCとスマホで共有でき、毎日自動でバックアップされます。連携しなくても、記録をファイルに書き出せます。',
-            'Your Not interested, Later, and Haven’t seen marks, Want to watch notes, and Where I watch choices are shared between your computer and phone, and backed up automatically every day. Even without connecting, you can export your records to a file.',
+            '興味なし・保留・見てない・見たいの印とメモ・見るサービス・Tier表をPCとスマホで共有でき、毎日自動でバックアップされます。Anipairは記録を置く運営サーバーを持たないので、あなた自身のGitHubのリポジトリに保存します。連携しなくても、記録をファイルに書き出せます。',
+            'Your Not interested, Later, and Haven’t seen marks, Want to watch notes, Where I watch choices, and tier lists are shared between your computer and phone, and backed up automatically every day. Anipair has no server of its own to hold them, so they’re saved in your own GitHub repository. Even without connecting, you can export your records to a file.',
           ),
         ],
         [

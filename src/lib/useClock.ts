@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-// いまの時刻を、1分ごとに更新する（active のあいだだけ）。放送の時刻を過ぎたら「次の放送」を次の回へ進めるため（#34）
+// いまの時刻を、1分ごとに更新する（active のあいだだけ）。放送の時刻を過ぎたら「次の放送」を次の回へ進めるため
 export function useClock(active: boolean, stepMs = 60_000): Date {
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {

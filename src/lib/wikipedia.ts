@@ -6,7 +6,7 @@ import { persistedMap } from './persistedMap'
 // ネタバレを避けるため、「あらすじ」の節の冒頭の段落だけを使う（後ろの段落ほど物語の先まで書かれている）。
 // Annict・Shikimori・MyAnimeList には、日本語で権利のはっきりしたあらすじが無い（設計の原則）
 // 英語の画面では、日本語版の記事から英語版の記事（言語間リンク）をたどり、英語版の「Plot」などの節の冒頭を使う。
-// 英語版の記事か、その節が無ければ、日本語版のあらすじを出す（2026-10-20 利用者）
+// 英語版の記事か、その節が無ければ、日本語版のあらすじを出す
 
 const HOSTS: Record<Lang, string> = { ja: 'ja.wikipedia.org', en: 'en.wikipedia.org' }
 const LICENSE_URLS: Record<Lang, string> = {

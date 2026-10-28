@@ -18,7 +18,7 @@ async function verifyAnnictToken(token: string): Promise<string> {
 // ログインする前の最初の画面
 // 右上の「EN／あ」で言語を切り替える（ほかの画面では、右上の並びにある同じボタン。components/LangToggle.tsx）
 // loggedOut: この端末でログアウトしたあと。「Annictでログイン」は、ブラウザで Annict にログインしているアカウントでそのまま入るので、
-// 別のアカウントに替えたい人に入り方を添える（Anipair からは Annict のログインを見られも消せもしないので、状態は言わずに手順だけ。2026-10-13 利用者）
+// 別のアカウントに替えたい人に入り方を添える（Anipair からは Annict のログインを見られも消せもしないので、状態は言わずに手順だけ）
 export function Welcome(props: {
   clientId: string | null
   busy: boolean
@@ -101,10 +101,10 @@ export function Welcome(props: {
         </p>
       )}
       {/* ボタンの下の補足は小さく、1つずつ「・」で分ける。多くの人に関わる新規登録を先に（別のアカウントは少数）。
-          主役はキャッチコピーとログインのボタン（2026-10-13 利用者「できるだけシンプルに」） */}
+          主役はキャッチコピーとログインのボタン（できるだけシンプルに） */}
       <ul className="welcome__notes">
         <li>
-          {t('アカウントをお持ちでない方は、', 'Anipair uses your Annict account, an anime tracking service from Japan. If you don’t have one, ')}
+          {t('アカウントをお持ちでない方は、', 'Anipair uses an account on Annict, a Japanese anime tracking service. If you don’t have one, ')}
           <a href="https://annict.com/sign_up" target="_blank" rel="noreferrer">
             {t('Annictで新規登録', 'sign up on Annict')}
           </a>

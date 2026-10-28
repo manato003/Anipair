@@ -7,6 +7,7 @@ import { Sheet } from '../../components/Sheet'
 import { useSheetLayer } from '../../components/sheetLayer'
 import type { GithubConnection } from '../../lib/github'
 import { t } from '../../lib/i18n'
+import { tellOnce } from '../../lib/tips'
 import { fetchCovers, quickCovers } from '../../lib/covers'
 import { seasonLabel, seasonNameLabel, seasonOf } from '../../lib/season'
 import type { Cover } from '../../lib/storage'
@@ -163,6 +164,11 @@ export function TierView(props: {
     timer.current = setTimeout(() => flush.current?.(), SYNC_DELAY)
   }
   const change = (next: TierTable) => commit(saveTable(next))
+  // 表の上で作品を動かした。Annict の評価と結びついていないことは画面に出ないので、初めて動かしたときに一度だけ知らせる
+  const move = (next: TierTable) => {
+    change(next)
+    tellOnce('tierNotRating', t('Tier表で動かしても、Annictの評価は変わりません。', 'Moving anime in a tier list doesn’t change your Annict ratings.'))
+  }
   const changeRef = useRef(change)
   useEffect(() => {
     changeRef.current = change
@@ -269,12 +275,7 @@ export function TierView(props: {
         </p>
       )}
 
-      <p className="note tierview__scope">
-        {t(
-          `${scopeLabel(table.scope)}。表紙を引くと（スマホは長押ししてから）好きな段と位置へ動かせます。表紙を押すと作品の詳細が開きます。ここで動かしても、Annictの評価は変わりません。`,
-          `${scopeLabel(table.scope)}. Drag a cover (on a phone, press and hold first) to move it to any tier and position. Tap a cover for details. Moving them here doesn’t change your Annict ratings.`,
-        )}
-      </p>
+      <p className="note tierview__scope">{scopeLabel(table.scope)}</p>
 
       {/* 置いていない作品の欄は表の下にあり、作品が多いと何画面も先になる。表の上にも本数と入口を出す */}
       {view.unplaced.length > 0 && (
@@ -294,9 +295,9 @@ export function TierView(props: {
         </section>
       )}
 
-      <TierBoard table={table} view={view} active={props.active} onChange={change} onOpen={props.onOpen} />
+      <TierBoard table={table} view={view} active={props.active} onChange={move} onOpen={props.onOpen} />
 
-      {sorting && <TierSort table={table} view={view} active={props.active} onChange={change} onClose={() => setSorting(false)} />}
+      {sorting && <TierSort table={table} view={view} active={props.active} onChange={move} onClose={() => setSorting(false)} />}
 
       {adding && <TierPick token={props.token} rows={props.rows} table={table} preset={preset} active={props.active} onChange={change} onClose={() => setAdding(false)} />}
 
@@ -609,7 +610,6 @@ function TierSettings(props: {
             +
           </button>
         </div>
-        <p className="note">{t('段は下に増え、下から減ります。減らした段の作品は「まだ置いていない」に戻ります。', 'Tiers are added and removed at the bottom. Anime in a removed tier go back to “Not placed yet”.')}</p>
 
         <ol className="tiersettings__names">
           {table.tiers.map((tier, i) => (

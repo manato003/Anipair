@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { LibraryEntry } from '../../lib/annict'
 import type { Cover } from '../../lib/storage'
+import { mergeWatchDeck } from './useWatching'
 import { pickWatching, toWatchCards } from './watching'
 
 const entry = (annictId: number, state: LibraryEntry['state'], stateAt: string | null, malAnimeId: string | null = String(100 + annictId)): LibraryEntry => ({
@@ -39,8 +40,7 @@ describe('covers', () => {
 })
 
 describe('mergeWatchDeck', () => {
-  it('keeps answered cards and the shown one, and takes the rest from the fresh deck', async () => {
-    const { mergeWatchDeck } = await import('./useWatching')
+  it('keeps answered cards and the shown one, and takes the rest from the fresh deck', () => {
     const card = (n: number) => toWatchCards([{ workId: `W${n}`, annictId: n, title: `作品${n}`, malAnimeId: null, state: 'WATCHING', stateAt: null }], new Map())[0]
     const cur = [card(1), card(2), card(3)]
     expect(mergeWatchDeck(cur, 1, [card(2), card(4)]).map((c) => c.entry.workId)).toEqual(['W1', 'W2', 'W4'])

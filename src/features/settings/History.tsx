@@ -6,7 +6,7 @@ import { briefOf, dateRange, loadHistory, versionRange, type ChangeBlock, type C
 import { HistoryArt } from './HistoryArt'
 import { markHistorySeen } from './historySeen'
 
-// 「開発記録」の1枚（Issue #39）。一番上に最新の版の短いまとめ（全部は「詳しく見る」で節目を開いて読む）、その下に節目を新しい順に並べ、下へ送るほど昔へさかのぼる。
+// 「開発記録」の1枚。一番上に最新の版の短いまとめ（全部は「詳しく見る」で節目を開いて読む）、その下に節目を新しい順に並べ、下へ送るほど昔へさかのぼる。
 // 節目を押すと、その節目の版の項目を1枚で開く（作品の詳細と同じ、寄って開く動き）。
 // 左の細い列の横棒は節目の数だけ並び、いま見ている節目の棒を長く濃くする（上と下にあといくつあるかが分かる。押すとその節目へ送る）
 

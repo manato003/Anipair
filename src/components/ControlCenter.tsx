@@ -44,8 +44,8 @@ export function NoticesBell(props: { active?: boolean; onOpenChange?: (open: boo
             {notices.length === 0 ? (
               <p className="cc__empty">
                 {t(
-                  'いま知らせはありません。記録を保存できなかったときや、読み直せなかったときは、ここに出ます。',
-                  'No notifications right now. Records that couldn’t be saved, or data that couldn’t be reloaded, will show up here.',
+                  'いま知らせはありません。',
+                  'No notifications right now.',
                 )}
               </p>
             ) : (

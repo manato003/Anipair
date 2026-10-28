@@ -105,13 +105,13 @@ export function BackupBlock(props: { annictToken: string; github: GithubConnecti
             : t('前回から変更がないため、保存しませんでした', 'Nothing has changed since the last backup, so nothing was saved')}
         </p>
       )}
-      {/* 中身の細かい説明は畳む（#30） */}
+      {/* 中身の細かい説明は畳む */}
       <details className="settings__fold">
         <summary>{t('書き出す中身', 'What’s included')}</summary>
         <p className="settings__lead">
           {t(
-            '視聴状況とその日時、評価（5項目と本文）、興味なし・保留・見てない、見たいの優先とメモを含みます。話ごとの記録は含みません（Annictに残ります）。',
-            'Includes watch status and dates, ratings (the 5 categories and your review text), Not interested / Later / Haven’t seen, and the priority and note for Want to watch. Per-episode records aren’t included (they stay on Annict).',
+            '視聴状況とその日時、評価（5項目と本文）、興味なし・保留・見てない、見たいの優先とメモ、Tier表を含みます。話ごとの記録は含みません（Annictに残ります）。',
+            'Includes watch status and dates, ratings (the 5 categories and your review text), Not interested / Later / Haven’t seen, the priority and note for Want to watch, and your tier lists. Per-episode records aren’t included (they stay on Annict).',
           )}
         </p>
       </details>

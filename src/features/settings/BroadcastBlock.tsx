@@ -4,7 +4,7 @@ import { choiceSummary, useBroadcastPrefs } from '../../lib/broadcast'
 import { t } from '../../lib/i18n'
 import { Section, SettingRow } from './Section'
 
-// 見るサービス（Issue #32）。記録の「見てる」からも同じシートを開ける
+// 見るサービス。記録の「見てる」からも同じシートを開ける
 export function BroadcastBlock() {
   const prefs = useBroadcastPrefs()
   const [open, setOpen] = useState(false)

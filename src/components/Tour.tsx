@@ -3,11 +3,14 @@ import { createPortal } from 'react-dom'
 import { t } from '../lib/i18n'
 import { registerSheet } from '../lib/sheetHistory'
 import { useModalFocus } from '../lib/useModalFocus'
+import { appZoom } from './sheetLayer'
 import type { PresentStep } from './tourSteps'
 
 // 画面の上で示す使い方。画面を暗くし、説明するボタンだけを明るく切り抜いて、矢印つきの吹き出しで1つずつ示す。
 // 一度に全部を重ねると、スマホでは吹き出しが重なって読めないので、1つずつ「次へ」で進む（どこをタップしても次へ）。
-// 画面の一番外（body）に出す。画面の中の重なりの順（z-index）に左右されないように。手順の選び方は tourSteps.ts
+// 画面の一番外（body）に出す。画面の中の重なりの順（z-index）に左右されないように。手順の選び方は tourSteps.ts。
+// body はアプリの zoom（大きな画面での拡大）の外なので、.tour にも同じ zoom を掛け、測った座標と画面の大きさはその値で割って使う
+// （掛けないと 4K で吹き出しの字が周りの半分の大きさだった。2026-10-28）
 
 type Rect = { top: number; left: number; width: number; height: number }
 
@@ -46,7 +49,8 @@ export function Tour(props: { label: string; steps: readonly PresentStep[]; onCl
     el.scrollIntoView?.({ block: tall ? 'start' : 'center', inline: 'nearest' })
     const measure = () => {
       const r = el.getBoundingClientRect()
-      setRect({ top: r.top - PAD, left: r.left - PAD, width: r.width + PAD * 2, height: r.height + PAD * 2 })
+      const z = appZoom()
+      setRect({ top: r.top / z - PAD, left: r.left / z - PAD, width: r.width / z + PAD * 2, height: r.height / z + PAD * 2 })
     }
     measure()
     window.addEventListener('resize', measure)
@@ -87,8 +91,9 @@ export function Tour(props: { label: string; steps: readonly PresentStep[]; onCl
   // 吹き出しは示すボタンの下、入らなければ上、それも入らなければ（PC の大きな表紙など）右か左。
   // どこにも入らなければ（示すものが画面いっぱいのとき）画面の下端に重ねて、矢印は出さない。
   // 矢印はボタンの真ん中を指す（上下に出すときは横の位置、左右に出すときは縦の位置）
-  const vw = typeof window === 'undefined' ? 390 : window.innerWidth
-  const vh = typeof window === 'undefined' ? 844 : window.innerHeight
+  const zoom = typeof window === 'undefined' ? 1 : appZoom()
+  const vw = typeof window === 'undefined' ? 390 : window.innerWidth / zoom
+  const vh = typeof window === 'undefined' ? 844 : window.innerHeight / zoom
   const width = Math.min(BUBBLE_W, vw - EDGE * 2)
   let bubble: { top: number; left: number; arrow: number; place: 'below' | 'above' | 'right' | 'left' | 'over' } | null = null
   if (rect) {

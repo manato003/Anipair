@@ -16,11 +16,13 @@ import { useShortcuts } from '../../lib/useShortcuts'
 import { RATINGS } from '../rate/queue'
 import { MatchDetail } from './MatchDetail'
 import { MatchFilterControls } from './MatchFilterControls'
+import { sameFilter, type MatchFilter } from './matchFilter'
 import { ENOUGH_LIKED } from './tasteLoader'
 import { displayTitleOf, useMatching, type MatchAnswer, type MatchCard } from './useMatching'
 import { FlowStage, type FlowPrev } from '../../components/FlowStage'
 import { Loading, LoadingMark } from '../../components/Loading'
 import { malIdOf } from '../../lib/malId'
+import { tellOnce } from '../../lib/tips'
 
 // 形式の名前（呼んだときの言語で。知らない形式は Shikimori の名前のまま）
 function formatName(format: string): string {
@@ -53,6 +55,16 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
     const card = m.current
     if (card) setAnsweredLog((log) => [...log, { key: String(card.media.idMal), title: displayTitleOf(card.media), cover: card.media.cover, mark: matchMark(a) }])
     m.answer(a)
+    // 押した先が画面に出ないもの（Annict の見たいリスト・この端末だけ）は、初めて押したときに一度だけ知らせる
+    if (a.kind === 'wanna') tellOnce('wannaToAnnict', t('「見たい」にした作品は、Annictの見たいリストに入ります。', 'Anime you mark Want to watch go to your Annict Want to watch list.'))
+    if ((a.kind === 'pass' || a.kind === 'skip') && !props.github)
+      tellOnce(
+        'passOnDevice',
+        t(
+          '興味なし・保留はこの端末だけに記録します。設定でGitHubと連携すると、PCとスマホで共有できます。',
+          'Not interested and Later are saved on this device only. Connect GitHub in Settings to share them between your computer and phone.',
+        ),
+      )
   }
   const undo = () => {
     if (!m.canUndo) return
@@ -65,8 +77,9 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
     return m.run()
   }
 
-  // 絞り込みのシート。開いているあいだは、下のカードにキーが効かないようにする
-  const [filterOpen, setFilterOpen] = useState(false)
+  // 絞り込みのシート（開いたときの条件。変えたら「提案し直す」を主のボタンにする）。開いているあいだは、下のカードにキーが効かないようにする
+  const [filterAt, setFilterAt] = useState<MatchFilter | null>(null)
+  const filterOpen = filterAt !== null
   // 右上の「?」の使い方を開いているあいだは、答えのキーを止める
   const [helpOpen, setHelpOpen] = useState(false)
 
@@ -106,7 +119,7 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
             )}
             {showDeck && (
               <span className="rate__links">
-                <button type="button" className="link" onClick={() => setFilterOpen(true)}>
+                <button type="button" className="link" onClick={() => setFilterAt(m.filter)}>
                   {t('条件', 'Filters')}
                 </button>
                 <button type="button" className="link" onClick={run}>
@@ -157,22 +170,14 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
               mood="propose"
               title={t('次に見る作品を探す', 'Find your next anime')}
               body={t(
-                'Annictの記録から好みを調べて、まだ記録していない作品を提案します。「見たい」を押すとAnnictの見たいリストに入ります。',
-                'Anipair learns your taste from your Annict records and suggests anime you haven’t logged yet. Press “Want to watch” to add one to your Annict Want to watch list.',
+                'Annictの記録から好みを調べて、まだ記録していない作品を提案します。',
+                'Anipair learns your taste from your Annict records and suggests anime you haven’t logged yet.',
               )}
             >
               <MatchFilterControls filter={m.filter} onChange={m.setFilter} />
               <button type="button" className="btn btn--primary" onClick={run}>
                 {t('提案してもらう', 'Get suggestions')}
               </button>
-              {!props.github && (
-                <p className="note">
-                  {t(
-                    '興味なし・保留にした作品はこの端末だけに記録します。設定でGitHubと連携すると、PCとスマホで共有できます。',
-                    'Anime you mark Not interested or Later are saved on this device only. Connect GitHub in Settings to share them between your computer and phone.',
-                  )}
-                </p>
-              )}
             </Empty>
           ) : m.phase.kind === 'loading' ? (
             <div className="flow__loading" aria-busy>
@@ -216,7 +221,6 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
           prev={answeredLog.at(-1) ?? null}
           next={showCard && m.next ? { key: String(m.next.media.idMal), title: displayTitleOf(m.next.media), cover: m.next.media.cover } : null}
           ahead={showCard ? m.cards.slice(m.index + 2, m.index + 5).map((c) => c.media.cover) : []}
-          emptyPrev={t('答えた候補はここに印を付けて残ります', 'Anime you answer stay here with a mark')}
         >
         <div className="answers answers--tiered" aria-disabled={!m.current}>
           <div className="answers__sub">
@@ -315,20 +319,14 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
 
       {/* .rate の直下の要素は position を上書きされるので、シートは外に出す */}
       {filterOpen && (
-        <Sheet label={t('候補の条件', 'Suggestion filters')} active={props.active} onClose={() => setFilterOpen(false)}>
+        <Sheet label={t('候補の条件', 'Suggestion filters')} active={props.active} onClose={() => setFilterAt(null)}>
           <section className="detail__section">
             <MatchFilterControls filter={m.filter} onChange={m.setFilter} />
-            <p className="detail__hint">
-              {t(
-                '条件を変えても、いまの候補はそのままです。「提案し直す」で新しい条件の候補になります。',
-                'Changing the filters doesn’t affect the current suggestions. Press “Refresh” to get suggestions with the new filters.',
-              )}
-            </p>
             <button
               type="button"
-              className="btn btn--primary"
+              className={filterAt && !sameFilter(filterAt, m.filter) ? 'btn btn--primary' : 'btn'}
               onClick={() => {
-                setFilterOpen(false)
+                setFilterAt(null)
                 void run()
               }}
             >

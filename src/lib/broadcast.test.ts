@@ -42,7 +42,7 @@ describe('matches', () => {
     expect(matches(slot('x', 'AT-X', 'スカパー'), p)).toBe(false)
   })
 
-  // #34: 地域を選んだら全国の局（NHK など）も。ABEMA はまとまりで見る（ABEMA アニメLIVE など名前の違うチャンネルも）
+  // 地域を選んだら全国の局（NHK など）も。ABEMA はまとまりで見る（ABEMA アニメLIVE など名前の違うチャンネルも）
   it('includes nationwide stations with any region, and every ABEMA channel', () => {
     const p = { services: ['abema' as const], region: '近畿' as const, satellites: [] }
     expect(matches(slot('x', 'NHK総合', 'テレビ 全国'), p)).toBe(true)

@@ -80,6 +80,15 @@ describe('SeasonPicker', () => {
     expect(onChange).not.toHaveBeenCalled()
   })
 
+  it('stays open while the year list scrolls, and closes when the page scrolls', () => {
+    setup({ year: 2020, name: 'spring' })
+    openPicker()
+    fireEvent.scroll(within(panel()).getByRole('group', { name: '年' }))
+    expect(screen.queryByRole('dialog')).not.toBeNull()
+    fireEvent.scroll(window)
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
   it('steps by one season with the arrows, unless the screen handles them itself', () => {
     const onChange = setup({ year: 2020, name: 'winter' })
     fireEvent.click(screen.getByRole('button', { name: '前のクール' }))

@@ -19,7 +19,10 @@ function shikiDevProxy(): Plugin {
     try {
       const { handleShiki } = await load()
       const url = new URL(req.originalUrl ?? req.url ?? '/', 'http://localhost')
-      const out = await handleShiki(new Request(url, { method: req.method }))
+      // 書き込み（POST ?op=link）は本文も渡す
+      const chunks: Buffer[] = []
+      if (req.method === 'POST') for await (const chunk of req) chunks.push(chunk as Buffer)
+      const out = await handleShiki(new Request(url, { method: req.method, ...(req.method === 'POST' ? { body: Buffer.concat(chunks) } : {}) }))
       res.statusCode = out.status
       out.headers.forEach((value, key) => res.setHeader(key, value))
       res.end(Buffer.from(await out.arrayBuffer()))

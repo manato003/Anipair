@@ -2,6 +2,24 @@
 
 Changes to Anipair, newest first. Your records and the data saved on your device carry over from version to version.
 
+## v0.23.0 — 2026-10-28
+
+Browse filters can now search every anime in a period. Anipair makes better use of large PC screens, and you can search by English or romanized titles and post a review for an episode on its own.
+
+- You can now search for anime by their English or romanized titles
+- When you pick a period in Browse filters and add genres or studios, Anipair searches every anime in that period, not just the ones already loaded
+- Filters now show only anime that have all the genres and studios you picked. In Records, you can also choose the period by its first and last seasons
+- You can now send an episode’s rating and review separately, so a review alone can be saved too
+- On PC, Records and Browse use the full width of the screen, with search, season, and sort in a single bar. The bar tucks away as you scroll down and comes back when you scroll up
+- Tap the “i” next to sort to see what each sort order does. Record order was removed from the sort options for Watched
+- Links that take you to another site now end with ↗
+- Explanations that are obvious from the screen were removed, and ones you only need to read once moved to How to use (?). For Want to watch, Not interested, Later, notes, and tier lists, a one-time message now appears at the top the first time you tap them, instead of text on the screen
+- Once a MyAnimeList anime has been matched to its Annict entry, Anipair remembers the pair, so it doesn’t have to search by title again (when adding a studio’s anime to a tier list, or searching a period in Browse). Only the public anime IDs are stored
+- On iPhone Safari, text at the top of the screen no longer looks blurry, and the top edge now matches the background color
+- Fixed the How to use guide showing small text on large screens such as 4K. The season panel no longer closes when you scroll the list of years
+- Reviewed the wording on the English screens
+- “About this app” in Settings now mentions that anime ID pairs are stored too, and covers the processing for tier list share links
+
 ## v0.22.0 — 2026-10-27
 
 Added “Development history” to News in Settings, so you can look back at how Anipair has changed.

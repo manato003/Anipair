@@ -87,8 +87,6 @@ export function FlowStage(props: {
   next: FlowItem | null
   // 答えの欄
   children: ReactNode
-  // 直前の答えが無いときの一言
-  emptyPrev?: string
   // 次の次から先の作品の表紙（先に読んでおき、続けて速く答えても前の表紙が残らないように）
   ahead?: readonly (Cover | null)[]
 }) {
@@ -111,7 +109,8 @@ export function FlowStage(props: {
           </span>
         </div>
       ) : (
-        <p className="flow__row flow__row--empty">{props.emptyPrev ?? t('答えた作品はここに印を付けて残ります', 'Anime you answer stay here with a mark')}</p>
+        // 1本答えれば、ここに印付きで並ぶのが見えるので、空のあいだは何も書かない（2026-10-28）
+        <p className="flow__row flow__row--empty" aria-hidden />
       )}
 
       {current ? (

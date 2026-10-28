@@ -35,7 +35,7 @@ export function AboutBlock({ showTagline = true, welcome = false }: { showTaglin
           }}
         />
       )}
-      {/* 要点は3つの短い文に。細かいこと（サーバーの処理・通信先・画像・権利）は畳む（#30: 6つの長い箇条書きだった） */}
+      {/* 要点は3つの短い文に。細かいこと（サーバーの処理・通信先・画像・権利）は畳む（前は6つの長い箇条書きだった） */}
       <ul className="settings__list settings__lead">
         <li>{t('個人が開発した、Annictの非公式アプリです。Annictの運営とは関係ありません。', 'Anipair is an unofficial Annict app made by an individual developer. It is not affiliated with Annict.')}</li>
         <li>
@@ -56,8 +56,8 @@ export function AboutBlock({ showTagline = true, welcome = false }: { showTaglin
         <ul className="settings__list settings__lead">
           <li>
             {t(
-              'サーバーで動くのは、ログインの受け渡し・Shikimoriへの中継・問い合わせの受け付けの3つの処理だけです。問い合わせの内容は送ったときだけ開発者に届きます（公開はされません）。',
-              'The server runs only three things: completing the login, relaying requests to Shikimori, and receiving feedback. Feedback reaches the developer only when you send it (it is not made public).',
+              'サーバーで動くのは、ログインの受け渡し・Shikimoriへの中継・問い合わせの受け付け・Tier表の共有のリンクの4つの処理だけです。問い合わせの内容は送ったときだけ開発者に届きます（公開はされません）。Tier表をリンクで共有したときは、表の題名・段の名前・作品のIDと並びだけを置きます（Annictの名前やトークンは送りません。作った人が消せます）。',
+              'The server runs only four things: completing the login, relaying requests to Shikimori, receiving feedback, and Tier list share links. Feedback reaches the developer only when you send it (it is not made public). When you share a Tier list as a link, only the list title, tier names, and the anime IDs and their order are stored (your Annict name and token are not sent, and the creator can delete it).',
             )}
           </li>
           <li>
@@ -69,8 +69,8 @@ export function AboutBlock({ showTagline = true, welcome = false }: { showTaglin
           </li>
           <li>
             {t(
-              '通信先はAnnict・Shikimori・Wikipedia・Google Fontsです（英語の画面では、声優・スタッフの英語名を引くためにWikidataも）。Shikimoriの作品データは上に書いたサーバーの処理（Vercel）を通して受け取ります。その処理はShikimoriの公開データを控えたり、問い合わせの回数を数えたりするために、Upstash（Redis）を使います（利用者の情報は置きません）。GitHubと連携した場合は、GitHubにも送信します。問い合わせを送ったときは、その内容だけがこのサイトの関数を通して運営者の非公開のGitHubリポジトリに届きます。開いた画面の集計のために、画面の名前・参照元・国や地域・端末とブラウザの種類をVercel Web Analyticsに送ります。',
-              'Anipair connects to Annict, Shikimori, Wikipedia, and Google Fonts (and, on the English screen, Wikidata for the English names of voice actors and staff). Shikimori’s anime data is received through the server process above (on Vercel), which uses Upstash (Redis) to keep copies of Shikimori’s public data and to count requests (no user information is stored there). If you connect GitHub, data is also sent to GitHub. When you send feedback, only its contents reach the developer’s private GitHub repository through this site’s function. To count screen views, the screen name, referrer, country or region, and device and browser type are sent to Vercel Web Analytics.',
+              '通信先はAnnict・Shikimori・Wikipedia・Google Fontsです（英語の画面では、声優・スタッフの英語名を引くためにWikidataも）。Shikimoriの作品データは上に書いたサーバーの処理（Vercel）を通して受け取ります。その処理はShikimoriの公開データを控えたり、MyAnimeListとAnnictで同じ作品を指すIDの組（公開されている作品のIDどうし）を覚えたり、問い合わせの回数を数えたりするために、Upstash（Redis）を使います（利用者の情報は置きません）。GitHubと連携した場合は、GitHubにも送信します。問い合わせを送ったときは、その内容だけがこのサイトの関数を通して運営者の非公開のGitHubリポジトリに届きます。開いた画面の集計のために、画面の名前・参照元・国や地域・端末とブラウザの種類をVercel Web Analyticsに送ります。',
+              'Anipair connects to Annict, Shikimori, Wikipedia, and Google Fonts (and, on the English screen, Wikidata for the English names of voice actors and staff). Shikimori’s anime data is received through the server process above (on Vercel), which uses Upstash (Redis) to keep copies of Shikimori’s public data, to remember which MyAnimeList ID and Annict ID point to the same anime (public anime IDs only), and to count requests (no user information is stored there). If you connect GitHub, data is also sent to GitHub. When you send feedback, only its contents reach the developer’s private GitHub repository through this site’s function. To count screen views, the screen name, referrer, country or region, and device and browser type are sent to Vercel Web Analytics.',
             )}
           </li>
           <li>

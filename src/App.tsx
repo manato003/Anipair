@@ -34,6 +34,7 @@ import { hasPendingWrites } from './lib/useWriteQueue'
 import { useArrowNav } from './lib/useArrowNav'
 import { useSwipeNav, type SwipeDir } from './lib/useSwipeNav'
 import { TitleToastView } from './features/achievements/TitleToastView'
+import { TipToast } from './components/TipToast'
 import { SheetLayer } from './components/sheetLayer'
 import { setNavigator } from './lib/navigate'
 import type { SettingsRequest } from './features/settings/Settings'
@@ -78,7 +79,7 @@ const TABS: { id: Tab; readonly label: string }[] = [
   { id: 'settings', get label() { return t('設定', 'Settings') } },
 ]
 
-// 最後に開いていた画面（ページを読み込み直したら、そこへ戻る。2026-10-12 利用者の要望）。
+// 最後に開いていた画面（ページを読み込み直したら、そこへ戻る）。
 // そのタブのあいだだけ覚える（sessionStorage）。アプリを開き直したときは、いつもの評価の画面から
 const TAB_KEY = 'animax.tab'
 function loadTab(signedIn: boolean): Tab {
@@ -94,7 +95,7 @@ function loadTab(signedIn: boolean): Tab {
 }
 
 // ログインしたら、読み込み直したあとに「○○でログインしました」と一度だけ出す。「Annictでログイン」は Annict にログインしている
-// アカウントでそのまま入るので、別のアカウントのつもりで前のアカウントに入っても気づけるように（2026-10-13 利用者）
+// アカウントでそのまま入るので、別のアカウントのつもりで前のアカウントに入っても気づけるように
 const SIGNED_IN_KEY = 'anipair.signedInAs'
 function loadSignedInAs(): string | null {
   try {
@@ -171,12 +172,12 @@ export default function App() {
   // 端末の容量が足りず、切り替えられなかった
   const [switchFailed, setSwitchFailed] = useState(false)
   // ログインした直後の知らせ（読むのは描画のとき、消すのは描画のあと。開発の二重の呼び出しで消えないように）。
-  // 意図したアカウントか確かめるためのものなので、閉じるまで残す（前は6秒で消えた。#33・#34）
+  // 意図したアカウントか確かめるためのものなので、閉じるまで残す（前は6秒で消えた）
   const [signedInAs, setSignedInAsShown] = useState(() => (token ? loadSignedInAs() : null))
   useEffect(() => {
     if (signedInAs) setSignedInAs(null)
   }, [signedInAs])
-  // 見るサービスを GitHub と同期する（開いたときと、選び直したあと。どの画面で選び直しても。#34: 記録の画面を開くまで送っていなかった）
+  // 見るサービスを GitHub と同期する（開いたときと、選び直したあと。どの画面で選び直しても。前は記録の画面を開くまで送っていなかった）
   const broadcastPrefs = useBroadcastPrefs()
   const broadcastSyncedAt = useRef<string | null | undefined>(undefined)
   useEffect(() => {
@@ -328,6 +329,8 @@ export default function App() {
   const shown = showSettings ? null : tab
   // 記録・ブラウズ・設定は、ページ全体で流す（Safari の下のバーが縮むように）。評価・マッチングは1画面に収める
   const pageScroll = shown !== 'rate' && shown !== 'match'
+  // ページ全体で流す画面の名前（CSS が使う。PC では表紙の一覧の記録・ブラウズだけ、画面の幅いっぱいに広げる）
+  const page = pageScroll ? (shown ?? 'settings') : undefined
   // 分類を替えたら、その画面で前に流した位置に戻す（初めては先頭）
   useLayoutEffect(() => restoreScroll(tab), [tab])
   useEffect(() => {
@@ -364,7 +367,7 @@ export default function App() {
   useArrowNav(step, token !== null && !switching)
 
   return (
-    <div className="app" data-page={pageScroll || undefined}>
+    <div className="app" data-page={page}>
       {/* アクセス解析: 開いた画面だけを数える（lib/analytics.ts） */}
       {analyticsEnabled(window.location.hostname) && (
         <Analytics route={screenPath(tab, token !== null)} path={screenPath(tab, token !== null)} beforeSend={withoutQuery} />
@@ -475,10 +478,12 @@ export default function App() {
       {token && <MascotPeek enabled={pageScroll && !switching} />}
       {/* 称号を手に入れたときの右上の知らせ */}
       {token && <TitleToastView />}
+      {/* 押した結果が画面に出ない操作の、一度だけの知らせ（lib/tips.ts） */}
+      {token && <TipToast />}
       {/* ログインする前は、最初の画面（設定のログイン）しか使えないので、分類の帯を出さない */}
       {token && (
         <nav className="tabs" aria-label={t('画面の切り替え', 'Screens')}>
-          {/* 広い画面だけ、上の帯の左に出す。押すとページを読み込み直す（開いていた画面に戻る。2026-10-12 利用者の要望） */}
+          {/* 広い画面だけ、上の帯の左に出す。押すとページを読み込み直す（開いていた画面に戻る） */}
           <button type="button" className="tabs__brand" aria-label={t('Anipair（読み込み直す）', 'Anipair (reload)')} title={t('読み込み直す', 'Reload')} onClick={reloadPage}>
             <Logo size="small" />
           </button>

@@ -273,7 +273,6 @@ function SeasonCrest({ coverage }: { coverage: Map<string, Coverage> }) {
   return (
     <section className="titles">
       <h2 className="titles__heading">{t('クールの紋章', 'Season crest')}</h2>
-      <p className="titles__lead">{t('各クールの人気作のうち、答えた割合です。すべて答えると金に輝きます。', 'The share of popular anime you’ve answered, season by season. Answer them all and it shines gold.')}</p>
       <div className="crest" role="table" aria-label={t('クールの紋章', 'Season crest')}>
         <div className="crest__row crest__row--head" role="row">
           <span role="columnheader" />

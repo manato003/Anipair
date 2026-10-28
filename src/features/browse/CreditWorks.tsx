@@ -48,7 +48,7 @@ const HIDDEN_FORMATS = new Set(['PV', 'CM'])
 // 最初に出す件数（多い人は数百ある）
 const FIRST = 60
 
-// 新着順: 放送年の新しい順（逆は古い順。年の分からない作品はどちらでも最後）。人気順: Shikimori でリストに入れている人の多い順（逆は少ない順）
+// 放送日順: 放送年の新しい順（逆は古い順。年の分からない作品はどちらでも最後）。人気順: Shikimori でリストに入れている人の多い順（逆は少ない順）
 function orderWorks(works: readonly CreditWork[], order: Order): CreditWork[] {
   const sign = order.dir === 'DESC' ? 1 : -1
   return [...works].sort((a, b) => {
@@ -62,24 +62,12 @@ function orderWorks(works: readonly CreditWork[], order: Order): CreditWork[] {
 
 // 並べ方のボタンの名前。向きは押している方のボタンの矢印で示す（読み上げでは向きを言葉で添える）
 function sortName(by: Order['by']): string {
-  return by === 'newest' ? t('新着順', 'Newest') : t('人気順', 'Popular')
+  return by === 'newest' ? t('放送日順', 'Air date') : t('人気順', 'Popular')
 }
 
 function sortDirection(order: Order): string {
   if (order.by === 'newest') return order.dir === 'DESC' ? t('新しい順', 'newest first') : t('古い順', 'oldest first')
   return order.dir === 'DESC' ? t('多い順', 'most first') : t('少ない順', 'least first')
-}
-
-// 並べ方の説明（ジャンルは人気の上位を引いた一覧なので、それを添える）
-function orderNote(order: Order, genre: boolean): string {
-  if (order.by === 'popular')
-    return order.dir === 'DESC'
-      ? t('Shikimoriでリストに入れている人の多い順です。', 'Sorted by how many people have added it to their Shikimori list, most first.')
-      : t('Shikimoriでリストに入れている人の少ない順です。', 'Sorted by how many people have added it to their Shikimori list, least first.')
-  const by = order.dir === 'DESC' ? t('新しい順', 'newest first') : t('古い順', 'oldest first')
-  return genre
-    ? t(`Shikimoriで人気の上位の作品を、放送の${by}に並べています。`, `The most popular anime on Shikimori, sorted by air date, ${by}.`)
-    : t(`放送の${by}です。`, `Sorted by air date, ${by}.`)
 }
 
 // 成人向けと宣伝の映像は出さない
@@ -211,7 +199,6 @@ export function CreditWorks(
                 )
               })}
             </div>
-            <p className="note">{orderNote(order, !!genre)}</p>
           </>
         )}
 

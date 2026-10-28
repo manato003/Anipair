@@ -13,7 +13,8 @@ import {
   type SeasonName,
 } from '../lib/season'
 import { getLang, t } from '../lib/i18n'
-import { useSheetLayer } from './sheetLayer'
+import { BackIcon, NextIcon } from './Icons'
+import { layerZoom, useSheetLayer } from './sheetLayer'
 
 interface Props {
   value: Season
@@ -32,7 +33,7 @@ const EDGE = 16
 const GAP = 8
 
 // ‹ 2026年 秋 ▾ › 。隣のクールへは ‹ › で、遠いクールへは真ん中のボタンで開くパネルで動く。
-// ボタンは枠も塗りも無い文字だけにして、地に溶け込ませる。パネルは地の色を透かした半透明の板（ボタンの下に開く）。
+// ‹ › と真ん中のボタンは、どれも枠も塗りも無いボタンにして、1つのまとまりに見せる。パネルは不透明な板（ボタンの下に開く）。
 // パネルでは年を選んでから季節を押すと、そのクールへ移って閉じる。外側を押す・Esc・ページを流すと、移らずに閉じる。
 // パネルは画面ごとの層（シートと同じ）に描く。見出しや帯の重なりの中で描くと、下に潜る
 export function SeasonPicker({ value, min, max, onChange, onPrevious, onNext }: Props) {
@@ -60,9 +61,11 @@ export function SeasonPicker({ value, min, max, onChange, onPrevious, onNext }: 
     }
     const r = buttonRef.current?.getBoundingClientRect()
     if (!r) return
-    const width = Math.min(340, window.innerWidth - EDGE * 2)
-    const left = Math.min(Math.max(EDGE, r.left + r.width / 2 - width / 2), window.innerWidth - width - EDGE)
-    setPos({ top: r.bottom + GAP, left, width })
+    const z = layerZoom(layer)
+    const vw = window.innerWidth / z
+    const width = Math.min(340, vw - EDGE * 2)
+    const left = Math.min(Math.max(EDGE, (r.left + r.width / 2) / z - width / 2), vw - width - EDGE)
+    setPos({ top: r.bottom / z + GAP, left, width })
     setYear(shown.year)
     setOpen(true)
   }
@@ -76,21 +79,25 @@ export function SeasonPicker({ value, min, max, onChange, onPrevious, onNext }: 
     if (open) panelRef.current?.querySelector<HTMLButtonElement>('.courpick__years [aria-pressed="true"]')?.focus()
   }, [open])
 
-  // 外側を押す・ページを流す・画面の大きさが変わると閉じる
+  // 外側を押す・ページを流す・画面の大きさが変わると閉じる。
+  // scroll は捕捉で拾うので、パネルの中（年の一覧）を流したときは閉じない
   useEffect(() => {
     if (!open) return
     const onDown = (e: PointerEvent) => {
       const t = e.target as Node
       if (!panelRef.current?.contains(t) && !buttonRef.current?.contains(t)) close(false)
     }
-    const onMove = () => close(false)
+    const onScroll = (e: Event) => {
+      if (!(e.target instanceof Node && panelRef.current?.contains(e.target))) close(false)
+    }
+    const onResize = () => close(false)
     document.addEventListener('pointerdown', onDown, true)
-    window.addEventListener('scroll', onMove, true)
-    window.addEventListener('resize', onMove)
+    window.addEventListener('scroll', onScroll, true)
+    window.addEventListener('resize', onResize)
     return () => {
       document.removeEventListener('pointerdown', onDown, true)
-      window.removeEventListener('scroll', onMove, true)
-      window.removeEventListener('resize', onMove)
+      window.removeEventListener('scroll', onScroll, true)
+      window.removeEventListener('resize', onResize)
     }
   }, [open])
 
@@ -111,7 +118,7 @@ export function SeasonPicker({ value, min, max, onChange, onPrevious, onNext }: 
         disabled={compareSeasons(shown, min) <= 0}
         aria-label={t('前のクール', 'Previous season')}
       >
-        ‹
+        <BackIcon />
       </button>
       <button
         ref={buttonRef}
@@ -142,7 +149,7 @@ export function SeasonPicker({ value, min, max, onChange, onPrevious, onNext }: 
         disabled={compareSeasons(shown, max) >= 0}
         aria-label={t('次のクール', 'Next season')}
       >
-        ›
+        <NextIcon />
       </button>
       {open &&
         createPortal(

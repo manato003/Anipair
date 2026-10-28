@@ -17,7 +17,7 @@ export function VodSearchSection(props: { title: string }) {
           </a>
         ))}
       </div>
-      <p className="detail__hint">{t('各サービスで題名を検索します。配信していない作品もあります。', 'Searches each service by title. Some anime may not be available.')}</p>
+      <p className="detail__hint">{t('配信していない作品もあります。', 'Some anime may not be available.')}</p>
     </section>
   )
 }

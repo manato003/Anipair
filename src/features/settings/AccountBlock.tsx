@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { annictCollectionsUrl, fetchViewer } from '../../lib/annict'
+import { fetchViewer } from '../../lib/annict'
 import { AnnictHealth } from './AnnictHealth'
 import { t } from '../../lib/i18n'
 import { Section, StatusChip } from './Section'
@@ -38,7 +38,7 @@ export function AccountBlock(props: { token: string; onChange: (token: string | 
           {t('ログアウト', 'Log out')}
         </button>
       </div>
-      {/* 説明は1行に。細かいこと（端末の記録の戻り方・GitHub のトークン）は畳む（#30: 5行あって読まれにくかった） */}
+      {/* 説明は1行に。細かいこと（端末の記録の戻り方・GitHub のトークン）は畳む（前は5行あって読まれにくかった） */}
       <p className="settings__hint">{t('ログアウトしても、Annictの記録は消えません。', 'Logging out doesn’t delete your records on Annict.')}</p>
       <details className="settings__fold">
         <summary>{t('詳しく', 'Details')}</summary>
@@ -52,18 +52,8 @@ export function AccountBlock(props: { token: string; onChange: (token: string | 
             ' Nobody else logging in will see them in the app. Your GitHub token is removed, so enter it again when you reconnect.',
           )}
         </p>
-        {/* コレクションは Annict の機能（API では読み書きできないので、Anipair では作らずに案内する） */}
-        {viewer && (
-          <p className="settings__lead">
-            {t('作品をまとめるコレクションは、', 'You can create collections of anime ')}
-            <a href={annictCollectionsUrl(viewer.username)} target="_blank" rel="noreferrer">
-              {t('Annictで作れます', 'on Annict')}
-            </a>
-            {t('。', '.')}
-          </p>
-        )}
         {/* 消す方は、端末を手放すときなどにしか使わないので畳んだ中に置き、確認を挟む。
-            前は「ログアウト」と並んでいて、Annict のログインまで切れそうに見えた（2026-10-13 利用者） */}
+            前は「ログアウト」と並んでいて、Annict のログインまで切れそうに見えた */}
         <div className="settings__actions">
           <button
             type="button"

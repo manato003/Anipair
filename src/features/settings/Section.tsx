@@ -26,7 +26,7 @@ export function StatusChip(props: { tone?: 'ok' | 'off'; children: ReactNode }) 
 }
 
 // 1つの設定を1行に。名前と1行の補足（20字前後まで。長い説明は置かない）が左、操作が右（スマホは名前の下）。
-// 行のあいだは細い線で区切る（設定の画面は箱で囲まない。2026-10-13 #30: 説明が長く、どれが操作か分かりにくかった）
+// 行のあいだは細い線で区切る（設定の画面は箱で囲まない。前は説明が長く、どれが操作か分かりにくかった）
 export function SettingRow(props: { label: string; hint?: ReactNode; children: ReactNode; after?: ReactNode }) {
   return (
     <div className="setting-row">

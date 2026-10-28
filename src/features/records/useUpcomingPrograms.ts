@@ -4,10 +4,10 @@ import type { Slot } from '../../lib/broadcast'
 import { isRecentWork } from '../../lib/season'
 import { loadPrograms, savePrograms, type StoredPrograms } from '../../lib/storage'
 
-// 見てる作品の、これから先の放送予定（Issue #32）。放送中の作品（今期・前期のもの、または Shikimori で放送中のもの）だけを読む。
+// 見てる作品の、これから先の放送予定。放送中の作品（今期・前期のもの、または Shikimori で放送中のもの）だけを読む。
 // 端末に控え、半日たった作品だけ読み直す（Annict の再取得の目安は、放送中の作品で数日〜1週間）。読めなくても、記録の画面は止めない。
 // 記録の「見てる」と作品の詳細の両方から使うので、控えは作品ごとに足していき、7日読んでいない作品の分だけ捨てる。
-// 読み切れなかった作品（partial）は、控えても古いものとして扱い、次に開いたときに読み直す（#34）
+// 読み切れなかった作品（partial）は、控えても古いものとして扱い、次に開いたときに読み直す
 const STALE_MS = 12 * 3600 * 1000
 const DROP_MS = 7 * 86400 * 1000
 

@@ -8,3 +8,17 @@ export const SheetLayer = createContext<HTMLElement | null>(null)
 export function useSheetLayer(): HTMLElement {
   return useContext(SheetLayer) ?? document.body
 }
+
+// 層の拡大率。大きな画面ではアプリ全体を zoom で拡大する（styles/app.css の --zoom）。
+// getBoundingClientRect と innerWidth は拡大した後の寸法で、層に置く要素の top・left はさらに拡大されるので、この値で割ってから渡す
+// （割らないと 4K で右下へ倍ずれて、画面の外に出た）
+export function layerZoom(layer: HTMLElement): number {
+  const z = (layer as HTMLElement & { currentCSSZoom?: number }).currentCSSZoom
+  if (z) return z
+  return appZoom()
+}
+
+// アプリ全体の拡大率（:root の --zoom）。アプリの外（body）に描く要素が、アプリと同じ大きさに見えるように使う
+export function appZoom(): number {
+  return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--zoom')) || 1
+}

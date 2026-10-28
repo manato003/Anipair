@@ -20,7 +20,7 @@
       </div>
 
       <h1>プライバシーポリシー</h1>
-      <p class="date">制定日: 2026年10月2日 / 更新日: 2026年10月26日</p>
+      <p class="date">制定日: 2026年10月2日 / 更新日: 2026年10月28日</p>
 
       <p class="lead">
         Anipair（以下「本アプリ」）は、個人が開発・運営する、無料・非商用の非公式アプリです。
@@ -103,7 +103,7 @@
             <strong>作品情報の提供元</strong>（現在は<a href="https://shikimori.io/" rel="noreferrer">Shikimori</a>）:
             ジャンル、似た作品、関連作品、表紙の画像の場所、声優・スタッフ・制作会社の参加作品などの公開データ。本アプリの中継の仕組みを通して取得し、利用者を特定する情報は送りません。
             参加作品を探すときは、作品の詳細に載っている人物の名前（Annictに公開されている名前）を送ります。
-            中継はShikimoriの公開データを控えたり、Shikimoriへの問い合わせの回数を数えたりするために、Upstash（Redis）を使います。中継がそこに利用者の情報を置くことはありません。
+            中継はShikimoriの公開データを控えたり、MyAnimeListとAnnictで同じ作品を指すIDの組（公開されている作品のIDどうし）を覚えたり、Shikimoriへの問い合わせの回数を数えたりするために、Upstash（Redis）を使います。中継がそこに利用者の情報を置くことはありません。
             共有のリンクで開かれたTier表の作品の題名と表紙も、この中継を通して取得します。
           </li>
           <li>
@@ -180,7 +180,7 @@
 
       <section class="en" lang="en">
         <h1>Privacy Policy (English)</h1>
-        <p class="date">Effective date: October 2, 2026 / Last updated: October 26, 2026</p>
+        <p class="date">Effective date: October 2, 2026 / Last updated: October 28, 2026</p>
         <p>
           Anipair is a free, non-commercial, unofficial app developed and run by an individual. The operator does not collect or store any user information, except what you send through the feedback form, tier lists you choose to share as a link, and anonymous, aggregated usage statistics.
         </p>
@@ -204,7 +204,7 @@
           <h2>3. Services Anipair connects to</h2>
           <ul>
             <li><strong>Annict</strong>: login, reading and writing your watch records and ratings, and anime information, using only Annict's public API. Your records are stored in your own Annict account.</li>
-            <li><strong>Anime data provider</strong> (currently Shikimori): public data such as genres, similar and related anime, cover image locations, and the works of voice actors, staff and studios, fetched through Anipair's proxy without any information that identifies you. To look up the works of a person, Anipair sends that person's public name as listed on Annict. The proxy uses Upstash (Redis) to keep copies of Shikimori's public data and to count requests to Shikimori; the proxy stores no information about you there. Titles and covers on shared tier lists are fetched through this proxy too.</li>
+            <li><strong>Anime data provider</strong> (currently Shikimori): public data such as genres, similar and related anime, cover image locations, and the works of voice actors, staff and studios, fetched through Anipair's proxy without any information that identifies you. To look up the works of a person, Anipair sends that person's public name as listed on Annict. The proxy uses Upstash (Redis) to keep copies of Shikimori's public data, to remember which MyAnimeList and Annict entries are the same anime (only the public anime IDs), and to count requests to Shikimori; the proxy stores no information about you there. Titles and covers on shared tier lists are fetched through this proxy too.</li>
             <li><strong>Wikipedia</strong> (ja.wikipedia.org, and en.wikipedia.org on the English screen): when you open the details of an anime, or tap an anime on a shared tier list, its synopsis is read from the article through Wikipedia's public API, without any information that identifies you. On the English screen, the English article linked from the Japanese article is used when there is one.</li>
             <li><strong>Wikidata</strong> (www.wikidata.org and query.wikidata.org): on the English screen, the English names of voice actors and staff shown in anime details and trends are looked up by their Japanese names. When you tap an anime on a shared tier list, its Wikipedia article, official website and X account are looked up by its MyAnimeList ID. Both use Wikidata's public API, without any information that identifies you.</li>
             <li><strong>GitHub</strong>, only if you connect it: your pass, skip and "not watched" records, your priority marks and notes on "want to watch" anime, the streaming services you choose, your tier lists (including the edit keys of shared links), and backups are saved to your own repository.</li>

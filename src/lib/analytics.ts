@@ -18,7 +18,7 @@ export function screenPath(tab: string, signedIn: boolean): string {
 
 // 送る直前に、URL を「サイト + 画面の道筋」だけにする。
 // 「Annictでログイン」から戻った直後の URL には、Annict の認可コード（?code=…）が一瞬付くので、クエリとハッシュは必ず外す。
-// URL として読めなければ送らない（null。外せないまま送らないように。2026-10-13 のコードレビュー #31）
+// URL として読めなければ送らない（null。外せないまま送らないように）
 export function withoutQuery(event: BeforeSendEvent): BeforeSendEvent | null {
   try {
     const u = new URL(event.url)

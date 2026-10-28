@@ -31,11 +31,11 @@
   min-height: 40px;
   padding: 0 14px;
   border: 1px solid var(--line-strong);
-  border-radius: 999px;
+  border-radius: var(--radius-s);
   background: var(--control);
   color: var(--fg);
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 500;
   cursor: pointer;
 }
 
@@ -57,10 +57,12 @@
   padding-top: 6px;
 }
 
-/* PC: 帯を1行に。クールの選択（前後の矢印・年・季節）を中央、近道（前期・今期・来期）をその左隣、並べ替えを右端に。
+/* PC: 検索・絞り込み、クールの選択（近道と、前後の矢印・年・季節）、並べ替えを1つの帯にする。
+   幅が足りるときは1行で、年・季節を帯の中央に置き、左に検索と近道、右端に並べ替え（左右の列を同じ幅にして中央をそろえる）。
+   幅が足りないあいだは、検索を1行目、クールと並べ替えを2行目にする（どちらの行も左端をそろえる）。
    流しても上の帯のすぐ下に残し、下まで流してもどのクールの一覧かが分かるようにする */
 @media (min-width: 960px) {
-  /* 記録と共通の、操作を横に流す並び（records.css）をやめ、1行ずつ（探す・帯・並べ方の1行） */
+  /* 記録と共通の、操作を横に流す並び（records.css）をやめ、1行ずつ（帯の下の知らせ） */
   .records--browse .records__controls {
     display: grid;
   }
@@ -69,43 +71,140 @@
     position: sticky;
     top: var(--topbar);
     z-index: 3;
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    column-gap: 20px;
+    gap: 10px 16px;
     /* 画面の端から端まで（一覧の幅の箱に見えないように）。中身は一覧の幅にそろえる */
     margin-inline: calc((100% - 100vw) / 2);
     padding: 10px calc((100vw - 100%) / 2);
     border-bottom: 1px solid var(--line);
     background: var(--bg-top);
+    transition: transform 0.2s ease;
   }
 
-  .browse__bar > * {
-    grid-column: 1 / span 2;
+  /* 下へ流すあいだは、上の帯の裏へ引っ込める（lib/useTuckOnScroll。上の帯の方を手前に重ねてある）。キーで帯の中へ移ったときは出す */
+  .browse__bar--tucked:not(:focus-within) {
+    transform: translateY(-100%);
   }
 
-  .browse__bar > .cournav {
+  :root[data-motion='reduce'] .browse__bar {
+    transition: none;
+  }
+
+  /* 2行のとき: 検索は1行を占める（欄は伸ばしすぎない）。近道と年・季節と並べ替えは次の行 */
+  .browse__bar > .cournav,
+  .cournav__lead {
     display: contents;
+  }
+
+  .browse__bar .records__tools {
+    flex: 0 0 100%;
+  }
+
+  .browse__bar .records__tools > .search {
+    flex: 0 1 600px;
   }
 
   .cournav__near {
     display: flex;
-    grid-column: 1;
-    justify-self: end;
-  }
-
-  .cournav .stepper {
-    grid-column: 2;
   }
 
   .browse__bar > .rsort {
+    margin-left: auto;
+  }
+}
+
+/* 1行に収まる幅。左の列: 検索と近道（近道は年・季節のすぐ左に寄せる）。真ん中: 年・季節（期間で絞っているときは期間）。右の列: 並べ替え。
+   左右の列は同じ幅なので、左の列に3つ入るぶん検索の欄が細くなる。欄が日本語で約 230px、英語で約 150px 取れる幅から1行にする
+   （ブラウズは画面の幅いっぱい、記録は左の縦の列と近道の「すべて」のぶん狭い） */
+@media (min-width: 1440px) {
+  .records--browse .browse__bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    column-gap: 24px;
+  }
+
+  .records--browse .cournav__lead {
+    grid-column: 1;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+  }
+
+  .records--browse .browse__bar .records__tools {
+    flex: 0 1 480px;
+    min-width: 0;
+  }
+
+  .records--browse .browse__bar .records__tools > .search {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .records--browse .cournav__lead > .cournav__near {
+    flex: none;
+    margin-left: auto;
+  }
+
+  .records--browse .browse__bar > .records__tools {
+    grid-column: 1;
+  }
+
+  .records--browse .browse__bar .stepper,
+  .records--browse .browse__bar > .browse__period {
+    grid-column: 2;
+  }
+
+  .records--browse .browse__bar > .rsort {
     grid-column: 3;
     justify-self: end;
   }
+}
 
-  /* タイトルで探しているとき（クールも期間も無い）は、並べ替えを左から */
-  .browse__bar:not(:has(> .cournav, > .browse__period)) > .rsort {
-    grid-column: 1 / -1;
-    justify-self: start;
+@media (min-width: 1660px) {
+  .records--items .browse__bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    column-gap: 24px;
+  }
+
+  .records--items .cournav__lead {
+    grid-column: 1;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+  }
+
+  .records--items .browse__bar .records__tools {
+    flex: 0 1 480px;
+    min-width: 0;
+  }
+
+  .records--items .browse__bar .records__tools > .search {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .records--items .cournav__lead > .cournav__near {
+    flex: none;
+    margin-left: auto;
+  }
+
+  .records--items .browse__bar > .records__tools {
+    grid-column: 1;
+  }
+
+  .records--items .browse__bar .stepper,
+  .records--items .browse__bar > .browse__period {
+    grid-column: 2;
+  }
+
+  .records--items .browse__bar > .rsort {
+    grid-column: 3;
+    justify-self: end;
   }
 }
 
@@ -115,17 +214,13 @@
   gap: 8px;
 }
 
-/* 記録の「すべて」を含む近道は4つを等分に。「すべて」のあいだは、矢印の枠を点線にして地を抜き、クールの文字を補足の色に（いまは絞っていない。触るとそのクールで絞る）。
+/* 記録の「すべて」を含む近道は4つを等分に。「すべて」のあいだは、矢印とクールの文字を補足の色に（いまは絞っていない。触るとそのクールで絞る）。
    薄くすると文字のコントラストが 4.5:1 を割るので、透明にはしない */
 .cournav__near--all {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-.cournav--all .stepper__btn {
-  border-style: dashed;
-  background: none;
-}
-
+.cournav--all .stepper__btn,
 .cournav--all .stepper__current {
   color: var(--sub);
 }
@@ -156,7 +251,7 @@
   background: var(--bg-top);
   color: var(--fg);
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 500;
   cursor: pointer;
 }
 

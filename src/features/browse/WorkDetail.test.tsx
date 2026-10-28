@@ -431,7 +431,7 @@ describe('WorkDetail', () => {
     const enqueue = vi.fn(q.enqueue)
     const onRelatedChange = vi.fn()
     render(<WorkDetail readOnly token="t" work={work} cover={null} relatedEnqueue={enqueue} onRelatedChange={onRelatedChange} onClose={() => undefined} />)
-    // 読むだけのシートに説明の文は出さない（消し忘れのメモに見えた。2026-10-04 利用者）
+    // 読むだけのシートに説明の文は出さない（消し忘れのメモに見えるため）
     expect(screen.queryByText(/画面の下のボタン/)).toBeNull()
     fireEvent.click(await screen.findByRole('button', { name: '続編' }))
     const sheet = screen.getByRole('dialog', { name: '続編' })
@@ -510,7 +510,7 @@ describe('WorkDetail: when it was recorded', () => {
   })
 })
 
-// Issue #32: 放送中の作品は、見るサービスごとの次の放送を早い順に並べる（見てるのカードは一番早いものだけ）
+// 放送中の作品は、見るサービスごとの次の放送を早い順に並べる（見てるのカードは一番早いものだけ）
 describe('WorkDetail: 次の放送', () => {
   it('offers to choose services, then lists each chosen service by its next broadcast', async () => {
     const { resetBroadcastPrefs, setBroadcastPrefs } = await import('../../lib/broadcast')
@@ -538,7 +538,7 @@ describe('WorkDetail: 次の放送', () => {
     }
   })
 
-  // 2026-10-27 利用者: 今期・来期の作品（と Shikimori で放送中の作品）だけ。前のクールに終わった作品・古い作品には出さない
+  // 今期・来期の作品（と Shikimori で放送中の作品）だけ。前のクールに終わった作品・古い作品には出さない
   it('shows it only for this season and next season', async () => {
     const { seasonOf, nextSeason, previousSeason } = await import('../../lib/season')
     const cur = seasonOf(new Date())

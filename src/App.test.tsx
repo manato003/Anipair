@@ -135,7 +135,7 @@ describe('App login-expired banner', () => {
   })
 })
 
-// 2026-10-12 利用者の要望: 読み込み直したら最後に見ていた画面へ。PC の上の帯のロゴで読み込み直す
+// 読み込み直したら最後に見ていた画面へ。PC の上の帯のロゴで読み込み直す
 describe('App remembers the screen across a reload', () => {
   const current = () => document.querySelector('nav.tabs [aria-current="page"]')?.textContent
   it('opens the screen that was open before reloading, and the rate screen in a new session', async () => {

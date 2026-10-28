@@ -15,8 +15,8 @@ export function BroadcastSheet(props: { onClose: () => void }) {
       <h2 className="detail__title">{t('見るサービス', 'Where I watch')}</h2>
       <p className="note">
         {t(
-          '選んだサービスで、記録の「見てる」の作品に次の放送日を出します。選ぶとすぐ反映されます。放送予定はAnnictに登録された情報です。',
-          'Next air dates appear on the anime under Watching in Records, based on the services you pick. Changes apply right away. Air dates come from the schedule registered on Annict.',
+          '選んだサービスで、記録の「見てる」の作品に次の放送日を出します。',
+          'Next air dates appear on the anime under Watching in Records, based on the services you pick.',
         )}
       </p>
       <ChipSection

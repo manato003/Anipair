@@ -607,7 +607,7 @@ describe('when the device storage is full', () => {
   })
 })
 
-// #34: 読んだ日時が読めない控えは、古いと判断できず読み直されないので捨てる。予定の日時も確かめる
+// 読んだ日時が読めない控えは、古いと判断できず読み直されないので捨てる。予定の日時も確かめる
 describe('loadPrograms', () => {
   it('drops entries whose time cannot be read, and keeps the partial mark', async () => {
     const { loadPrograms } = await import('./storage')

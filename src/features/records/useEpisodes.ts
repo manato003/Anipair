@@ -26,6 +26,8 @@ export function useEpisodes(token: string, workIds: readonly string[], enqueue: 
   const recordIds = useRef(new Map<string, Promise<string | null>>())
   // 記録を頼んだ時刻（話の ID ごと。閉じて開き直したあとの取り消しの送り直しで、それより新しい記録を探す）
   const recordedAt = useRef(new Map<string, number>())
+  // この画面で付けた記録のいまの中身（話の ID ごと）。評価と感想は別々に付け直せるので、片方を直すときにもう片方をそのまま送る
+  const contents = useRef(new Map<string, { rating: RatingState | null; comment: string }>())
   const [undoable, setUndoable] = useState<ReadonlySet<string>>(new Set())
   // この画面で付けた記録のうち、感想を付けた話（「感想を書く」を「感想を直す」にする）
   const [commented, setCommented] = useState<ReadonlySet<string>>(new Set())
@@ -93,6 +95,7 @@ export function useEpisodes(token: string, workIds: readonly string[], enqueue: 
       patchEpisode(workId, episode.id, 1)
       forgetPast()
       if (comment) setCommented((cur) => new Set(cur).add(episode.id))
+      contents.current.set(episode.id, { rating, comment: comment ?? '' })
       let resolveId: (id: string | null) => void = () => undefined
       const created = new Promise<string | null>((resolve) => (resolveId = resolve))
       recordIds.current.set(episode.id, created)
@@ -132,6 +135,7 @@ export function useEpisodes(token: string, workIds: readonly string[], enqueue: 
       })
       patchEpisode(workId, episode.id, -1)
       forgetPast()
+      contents.current.delete(episode.id)
       setCommented((cur) => {
         const next = new Set(cur)
         next.delete(episode.id)
@@ -151,26 +155,57 @@ export function useEpisodes(token: string, workIds: readonly string[], enqueue: 
     [token, enqueue, patchEpisode, forgetPast],
   )
 
-  // この画面で付けた記録に、感想を付ける（直す）。評価だけで記録したい人の手間は増やさない（書きたい人が、記録のあとに押す）
-  const comment = useCallback(
-    (title: string, episode: Episode, rating: RatingState | null, text: string) => {
+  // この画面で付けた記録の評価か感想を付け直す（記録はもう1つ増やさない）。感想だけで記録した話に、あとから評価を付けるときもこれ
+  const amend = useCallback(
+    (taskLabel: string, failure: (label: string) => string, episode: Episode, change: { rating: RatingState | null } | { comment: string }) => {
       const pending = recordIds.current.get(episode.id)
       if (!pending) return
-      setCommented((cur) => new Set(cur).add(episode.id))
+      const next = { ...(contents.current.get(episode.id) ?? { rating: null, comment: '' }), ...change }
+      contents.current.set(episode.id, next)
       const since = recordedAt.current.get(episode.id) ?? Date.now()
       const label = episodeLabel(episode)
       enqueue(
-        t(`「${title}」${label}の感想`, `Review of “${title}” ${label}`),
+        taskLabel,
         async () => {
           // 記録の送信を待つ。送り直しで ID を受け取れなかったときは、自分の最近の記録から探す
           const id = (await pending) ?? (await resolveUncertainRecord(token, episode.id)) ?? (await findMyRecord(token, episode.id, since))
-          if (!id) throw new WriteError(t(`${label}の記録がまだAnnictに届いていないので、感想を付けられませんでした。記録を送り直してから、もう一度試してください。`, `Couldn’t add a review because your record of ${label} hasn’t reached Annict yet. Resend the record, then try again.`))
-          await updateRecord(token, id, text, rating)
+          if (!id) throw new WriteError(failure(label))
+          await updateRecord(token, id, next.comment, next.rating)
         },
-        [{ kind: 'episodeComment', episodeId: episode.id, comment: text, rating, since }],
+        [{ kind: 'episodeComment', episodeId: episode.id, comment: next.comment, rating: next.rating, since }],
       )
     },
     [token, enqueue],
+  )
+
+  // この画面で付けた記録に、感想を付ける（直す）
+  const comment = useCallback(
+    (title: string, episode: Episode, text: string) => {
+      if (!recordIds.current.has(episode.id)) return
+      setCommented((cur) => new Set(cur).add(episode.id))
+      const label = episodeLabel(episode)
+      amend(
+        t(`「${title}」${label}の感想`, `Review of “${title}” ${label}`),
+        (l) => t(`${l}の記録がまだAnnictに届いていないので、感想を付けられませんでした。記録を送り直してから、もう一度試してください。`, `Couldn’t add a review because your record of ${l} hasn’t reached Annict yet. Resend the record, then try again.`),
+        episode,
+        { comment: text },
+      )
+    },
+    [amend],
+  )
+
+  // この画面で付けた記録の評価を付け直す
+  const rerate = useCallback(
+    (title: string, episode: Episode, rating: RatingState) => {
+      const label = episodeLabel(episode)
+      amend(
+        t(`「${title}」${label}の評価`, `Rating of “${title}” ${label}`),
+        (l) => t(`${l}の記録がまだAnnictに届いていないので、評価を付けられませんでした。記録を送り直してから、もう一度試してください。`, `Couldn’t rate because your record of ${l} hasn’t reached Annict yet. Resend the record, then try again.`),
+        episode,
+        { rating },
+      )
+    },
+    [amend],
   )
 
   // 前に（別の機会に）記録した話に、感想を付ける。自分の記録を探して、その評価のまま感想を足す。
@@ -199,6 +234,7 @@ export function useEpisodes(token: string, workIds: readonly string[], enqueue: 
     record,
     undo,
     comment,
+    rerate,
     commentExisting,
     // 読めなかった作品を、もう一度読む
     retry: () => {

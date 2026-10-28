@@ -111,7 +111,7 @@ export function collectPool(seeds: Seed[], similar: ReadonlyMap<number, readonly
 // 同じシリーズとして扱う関連作品の種類（Shikimori の relationKind）と、上乗せの割合。じかにつながる続編・前作を満額、外伝は小さく。
 // parent_story は、シリーズの大元を指すことがある（『機動戦士ガンダムSEED』→ 1979年の『機動戦士ガンダム』）ので入れない。
 // スピンオフ・別の版・総集編・登場人物の共通・原作も入れない。外伝を満額にすると、短い特別編やスピンオフの OVA が上位を埋めた
-// （2026-10-21 利用者の記録で、30枚のうち2〜13位がシリーズ作。scripts/match_eval.ts --show）
+// （実際の記録で試すと、30枚のうち2〜13位がシリーズ作になった）
 const SERIES_KINDS: ReadonlyMap<string, number> = new Map([
   ['sequel', 1],
   ['prequel', 1],
@@ -124,7 +124,7 @@ const SHORT_MINUTES = 10
 // 似た作品の一覧に入っていないシリーズ作を、新しく候補に足す数の上限（作品の情報を読む数を抑える）
 export const SERIES_LIMIT = 30
 
-// 好きな作品のシリーズ作（続編・前作・外伝など）を候補に足し、印を付ける（2026-10-21 利用者 #36: 好評価の作品のシリーズ作は高めに出す）。
+// 好きな作品のシリーズ作（続編・前作・外伝など）を候補に足し、印を付ける（好評価の作品のシリーズ作は高めに出す）。
 // 似た作品の一覧（Shikimori）にはシリーズ作が入らないことが多いので、好きな作品の関連作品から直接足す。
 // 記録した・興味なしの作品（exclude）は足さない。関連作品は、好みを作るときに読んだ作品の情報（seedMedia）にあるものだけ使う
 export function addSeries(pool: readonly PoolEntry[], seeds: readonly Seed[], seedMedia: ReadonlyMap<number, Media>, exclude: ReadonlySet<number>): PoolEntry[] {

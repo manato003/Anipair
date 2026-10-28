@@ -112,7 +112,7 @@ export function WorkDetail(
   })
   // 画面に出す題名（英語の画面では英語名。開いた元に英語名が無ければ、詳細を読んだあとの英語名）
   const shownTitle = workTitle({ title: work.title, titleEn: work.titleEn ?? detail?.titleEn })
-  // 放送中の作品の、見るサービスごとの次の放送（Issue #32。記録の「見てる」のカードは一番早いものだけなので、ここで全部を並べる）
+  // 放送中の作品の、見るサービスごとの次の放送（記録の「見てる」のカードは一番早いものだけなので、ここで全部を並べる）
   const broadcastPrefs = useBroadcastPrefs()
   const [servicesOpen, setServicesOpen] = useState(false)
   // 出すのは今期・来期の作品と、Shikimori で放送中の作品（前のクールから続く2クール目・長く続く作品）だけ。終わった作品には出さない
@@ -288,7 +288,8 @@ export function WorkDetail(
           undoable={eps.undoable}
           commented={eps.commented}
           onRecord={(ep, r, comment) => eps.record(shownTitle, work.id, ep, r, comment)}
-          onComment={(ep, r, text) => eps.comment(shownTitle, ep, r, text)}
+          onComment={(ep, text) => eps.comment(shownTitle, ep, text)}
+          onRerate={(ep, r) => eps.rerate(shownTitle, ep, r)}
           onCommentExisting={(ep, text, onSent) => eps.commentExisting(shownTitle, ep, text, onSent)}
           onUndo={(ep) => eps.undo(shownTitle, work.id, ep)}
           onFinish={finish}
@@ -365,11 +366,7 @@ export function WorkDetail(
                         </button>
                       ))}
                     </div>
-                    <p className="detail__hint">
-                      {state
-                        ? t(`選んでいる「${STATUS_LABEL[state]}」をもう一度押すと、記録から外します。`, `Tap “${STATUS_LABEL[state]}” again to remove it from your records.`)
-                        : t('まだ記録していません。', 'Not recorded yet.')}
-                    </p>
+                    {!state && <p className="detail__hint">{t('まだ記録していません。', 'Not recorded yet.')}</p>}
                     {state && stateAt && (
                       <p className="detail__when">
                         {t('「', 'Marked “')}
@@ -695,7 +692,7 @@ function BroadcastSection(props: {
               ))}
             </ul>
           ) : (
-            // 見つからないことと、Annict に無いことは同じではない（読むのは4週間先までで、Annict の登録が無い作品もある。#34）
+            // 見つからないことと、Annict に無いことは同じではない（読むのは4週間先までで、Annict の登録が無い作品もある）
             <p className="detail__hint">
               {props.partial
                 ? t('放送予定が多く、これから先の分を読み切れませんでした。', 'There are too many scheduled airings to load everything ahead.')
@@ -703,7 +700,6 @@ function BroadcastSection(props: {
             </p>
           )}
           <p className="detail__hint">
-            {t('Annictの放送予定より（登録されていない予定は出ません）。', 'From Annict’s airing schedule (unregistered airings aren’t shown). ')}
             <button type="button" className="link" onClick={props.onChoose}>
               {t('見るサービスを変える', 'Change where I watch')}
             </button>

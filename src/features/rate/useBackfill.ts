@@ -45,7 +45,7 @@ function mergeBackfillDeck(cur: readonly Card[], index: number, fresh: readonly 
 }
 
 // 山を始めるクール。初めての人は、前のクール（放送の終わったクール）から始める。今のクールは始まって間もないと
-// 「良い」「とても良い」を付けられる作品が少なく、マッチングが「好きな作品の記録がまだありません」で止まるため（2026-10-21 利用者）。
+// 「良い」「とても良い」を付けられる作品が少なく、マッチングが「好きな作品の記録がまだありません」で止まるため。
 // 決めたクールは控える（案内を閉じて開き直しても、山が今のクールへ移らない）。案内を見たことのある人は、前と同じく今のクール
 export function initialBackfillSeason(now = new Date()): Season {
   const saved = loadBackfillSeason()

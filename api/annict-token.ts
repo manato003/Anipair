@@ -47,7 +47,7 @@ const UPSTREAM_TIMEOUT_MS = 10_000
 const MAX_REQUEST_BYTES = 4 * 1024
 
 // 本文を上限のバイト数まで読む。超えたら読むのをやめて null（Content-Length が無い・偽りでも、上限より多くは読まない。
-// 2026-10-13 のコードレビュー #31: 全部読んでから文字数で見ていた）
+// 前は全部読んでから文字数で見ていた）
 async function readLimited(request: Request, max: number): Promise<string | null> {
   if (Number(request.headers.get('content-length') ?? '0') > max) return null
   if (!request.body) return ''
@@ -112,7 +112,7 @@ export async function exchangeToken(request: Request, env: TokenEnv, fetchFn: Fe
   let res: Response
   try {
     res = await fetchFn(ANNICT_TOKEN_URL, {
-      // Annict が答えないとき、ログインを待たせ続けない（#34）
+      // Annict が答えないとき、ログインを待たせ続けない
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
       method: 'POST',
       headers: { 'User-Agent': USER_AGENT, 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
