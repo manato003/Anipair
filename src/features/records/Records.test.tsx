@@ -312,7 +312,7 @@ describe('Records: まとめ', () => {
 describe('Records: 実績', () => {
   it('marks まとめ and 実績 until the achievements are first opened', async () => {
     render(<Records token="t" active />)
-    expect(screen.getAllByLabelText('まだ見ていません').length).toBe(1)
+    expect(document.querySelectorAll('.viewswitch__dot').length).toBe(1)
     fireEvent.click(screen.getByRole('tab', { name: /まとめ/ }))
     // まとめの一覧では、どの項目のことかを言葉で示す（点だけでは、どれを押せば消えるか分からなかったため）
     expect(screen.getByRole('button', { name: /^実績.*まだ開いていません/ })).toBeTruthy()
@@ -320,7 +320,7 @@ describe('Records: 実績', () => {
     fireEvent.click(screen.getByRole('button', { name: /^実績/ }))
     // 実績は別のファイルから読む（読み終えるのを待つ）
     expect(await screen.findByTestId('achievements')).toBeTruthy()
-    expect(screen.queryByLabelText('まだ見ていません')).toBeNull()
+    expect(document.querySelector('.viewswitch__dot')).toBeNull()
     expect(screen.queryByText('まだ開いていません')).toBeNull()
     // 実績では、記録の操作（編集・絞り込み）は出さない
     expect(screen.queryByRole('button', { name: '編集' })).toBeNull()
@@ -329,7 +329,7 @@ describe('Records: 実績', () => {
     // 覚醒を見たあとは点を付けない
     localStorage.setItem('animax.titles.v1', JSON.stringify({ equipped: null, seen: [], awakened: true }))
     render(<Records token="t" active />)
-    expect(screen.queryByLabelText('まだ見ていません')).toBeNull()
+    expect(document.querySelector('.viewswitch__dot')).toBeNull()
     localStorage.clear()
   })
 })

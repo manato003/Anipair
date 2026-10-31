@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_KEYMAP, actionsForKey, assignKey, clash, hadReservedKeys, keyLabel, normalizeKey, parseKeymap, rangeLabel, type KeyAction, type Keymap } from './keymap'
+import { DEFAULT_KEYMAP, actionsForKey, assignKey, clash, hadReservedKeys, keyLabel, normalizeKey, parseKeymap, parseKeysOn, rangeLabel, type KeyAction, type Keymap } from './keymap'
 
 describe('normalizeKey', () => {
   it.each([
@@ -125,5 +125,15 @@ describe('labels', () => {
     expect(rangeLabel(['1', '2', '3', '4'])).toBe('1〜4')
     expect(rangeLabel(['1', '3', '2', '4'])).toBe('1324')
     expect(rangeLabel(['a', 's', 'd', 'f'])).toBe('ASDF')
+  })
+})
+
+describe('parseKeysOn', () => {
+  it('is off by default, on for a device that changed the keys before, and follows the saved choice', () => {
+    expect(parseKeysOn(null, false)).toBe(false)
+    expect(parseKeysOn(null, true)).toBe(true)
+    expect(parseKeysOn(false, true)).toBe(false)
+    expect(parseKeysOn(true, false)).toBe(true)
+    expect(parseKeysOn('yes', false)).toBe(false)
   })
 })

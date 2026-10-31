@@ -1,16 +1,18 @@
 import { useEffect, useRef } from 'react'
-import { actionsForKey, useKeymap, type KeyAction } from './keymap'
+import { actionsForKey, useKeymap, useKeysOn, type KeyAction } from './keymap'
 
 // 画面ごとの操作を、設定されたキーに結びつける。入力欄での打鍵と、修飾キー付き・長押しの連打は無視する。
-// enabled が false のあいだは何もしない（隠しているだけで残っているタブが、キーに反応しないように）
+// enabled が false のあいだは何もしない（隠しているだけで残っているタブが、キーに反応しないように）。
+// 設定でキー操作を切っているあいだも何もしない
 export function useShortcuts(handlers: Partial<Record<KeyAction, () => void>>, enabled = true): void {
   const keymap = useKeymap()
+  const keysOn = useKeysOn()
   const ref = useRef(handlers)
   useEffect(() => {
     ref.current = handlers
   })
   useEffect(() => {
-    if (!enabled) return
+    if (!enabled || !keysOn) return
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return
       const t = e.target
@@ -25,5 +27,5 @@ export function useShortcuts(handlers: Partial<Record<KeyAction, () => void>>, e
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [keymap, enabled])
+  }, [keymap, keysOn, enabled])
 }

@@ -354,6 +354,11 @@ img {
     border-top: 0;
   }
 
+  /* テーマの色が夜のとき、三日月（base.css の --moon）を帯の右の空に置く。広い画面では地の月がこの帯に隠れるため */
+  :root[data-night] .tabs {
+    background: var(--moon) no-repeat right 64px center / 30px 30px, var(--tabs-bg);
+  }
+
   .app[data-page] .tabs {
     top: 0;
     bottom: auto;

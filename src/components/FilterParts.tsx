@@ -8,7 +8,8 @@ import { Loading, Spinner } from './Loading'
 // 選べるもののチップの段。件数があれば添える。first を渡すと、最初はその数だけ出して「ほかの〜も見る」で広げる
 export function ChipSection<T extends string>(props: {
   title: string
-  items: readonly { id: T; label: string; count?: number }[]
+  // count は件数か、短い添え書き（苦手な項目の巻き添えの割合など）
+  items: readonly { id: T; label: string; count?: number | string }[]
   selected: readonly T[]
   onToggle: (id: T) => void
   first?: number
@@ -19,7 +20,7 @@ export function ChipSection<T extends string>(props: {
 }) {
   const [all, setAll] = useState(false)
   const full = props.max !== undefined && props.selected.length >= props.max
-  const limit = props.first && !all ? props.first : Infinity
+  const limit = props.first !== undefined && !all ? props.first : Infinity
   const head = props.items.slice(0, limit)
   // 選んでいるのに最初の分に入っていないものも出す（外せるように）
   const shown = [...head, ...props.items.filter((it) => props.selected.includes(it.id) && !head.includes(it))]

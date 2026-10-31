@@ -3,6 +3,7 @@ import { getLang, t } from '../../lib/i18n'
 import { malIdOf } from '../../lib/malId'
 import { workTitle } from '../../lib/names'
 import type { Media } from '../../lib/shikimori'
+import { studioName } from '../../lib/studios'
 import { matchesFilter, type MatchFilter } from './matchFilter'
 
 // 好みの推定と候補の順位付け。すべて純粋な関数
@@ -299,12 +300,27 @@ export function genreName(g: string): string {
   return getLang() === 'en' ? g : (GENRE_JA[g] ?? g)
 }
 
-// 好きなものの上位。profile の重みが正で、重みの大きい順（同点は名前順）
-function likedNames(names: readonly string[], prefix: 'g' | 't', profile: ReadonlyMap<string, number>, limit: number): string[] {
-  return names
-    .filter((n) => (profile.get(`${prefix}:${n}`) ?? 0) > 0)
-    .sort((a, b) => (profile.get(`${prefix}:${b}`) ?? 0) - (profile.get(`${prefix}:${a}`) ?? 0) || a.localeCompare(b))
+// 好みに合うジャンルとテーマの上位。profile の重みが正で、重みの大きい順（同点は名前順）
+function likedNames(m: Media, profile: ReadonlyMap<string, number>, limit: number): string[] {
+  const keys = [...m.genres.map((n) => `g:${n}`), ...m.themes.map((n) => `t:${n}`)]
+  return keys
+    .filter((k) => (profile.get(k) ?? 0) > 0)
+    .sort((a, b) => (profile.get(b) ?? 0) - (profile.get(a) ?? 0) || a.slice(2).localeCompare(b.slice(2)))
     .slice(0, limit)
+    .map((k) => k.slice(2))
+}
+
+// 好みの重みが上位の制作会社。割合の閾値（旧 0.3）は記録が多いとどの会社も届かなかったので、順位で決める
+const TOP_STUDIOS = 5
+const topStudioCache = new WeakMap<ReadonlyMap<string, number>, ReadonlySet<string>>()
+function topStudios(profile: ReadonlyMap<string, number>): ReadonlySet<string> {
+  let top = topStudioCache.get(profile)
+  if (!top) {
+    const studios = [...profile].filter(([k, v]) => k.startsWith('s:') && v > 0)
+    top = new Set(studios.sort((a, b) => b[1] - a[1]).slice(0, TOP_STUDIOS).map(([k]) => k.slice(2)))
+    topStudioCache.set(profile, top)
+  }
+  return top
 }
 
 export function explain(m: Media, entry: PoolEntry, profile: ReadonlyMap<string, number>, sequel: boolean): string[] {
@@ -321,12 +337,11 @@ export function explain(m: Media, entry: PoolEntry, profile: ReadonlyMap<string,
     const titles = from.map((s) => t(`『${s.title}』`, `“${workTitle(s)}”`))
     reasons.push(t(`${titles.join('')}が好きな人のおすすめ`, `Recommended for fans of ${titles.join(' and ')}`))
   }
-  const genres = likedNames(m.genres, 'g', profile, 2)
-  if (genres.length) reasons.push(t(`好きなジャンル: ${list(genres)}`, `${genres.length === 1 ? 'Genre' : 'Genres'} you like: ${list(genres)}`))
-  const themes = likedNames(m.themes, 't', profile, 2)
-  if (themes.length) reasons.push(t(`好きなテーマ: ${list(themes)}`, `${themes.length === 1 ? 'Theme' : 'Themes'} you like: ${list(themes)}`))
-  const studio = m.studios.find((s) => (profile.get(`s:${s}`) ?? 0) > 0.3)
-  if (studio) reasons.push(t(`好きな制作会社: ${studio}`, `Studio you like: ${studio}`))
+  // ジャンルとテーマは利用者が登録したものではなく評価から推し量ったものなので、「好きな〜」でなく「好みに合う」と書く
+  const liked = likedNames(m, profile, 3)
+  if (liked.length) reasons.push(t(`あなたの好みに合う: ${list(liked)}`, `Matches your taste: ${list(liked)}`))
+  const studio = m.studios.find((s) => topStudios(profile).has(s))
+  if (studio) reasons.push(t(`あなたがよく見る制作会社: ${studioName(studio)}`, `A studio you watch often: ${studio}`))
   if (sequel && !entry.series) reasons.push(t('前作を見ています', 'You’ve seen the prequel'))
   return reasons
 }

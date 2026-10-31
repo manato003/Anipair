@@ -11,6 +11,7 @@ export const COLORS = [
   { value: 'summer', get label() { return t('夏', 'Summer') } },
   { value: 'autumn', get label() { return t('秋', 'Fall') } },
   { value: 'winter', get label() { return t('冬', 'Winter') } },
+  { value: 'night', get label() { return t('夜', 'Night') } },
 ] as const satisfies readonly { value: ThemePrefs['color']; label: string }[]
 export const BRIGHTNESS = [
   { value: 'auto', get label() { return t('自動', 'Auto') } },

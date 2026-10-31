@@ -5,7 +5,7 @@ import { applyTheme, DEFAULT_THEME, parseTheme, reducedMotion, setViewingSeason,
 afterEach(() => {
   setViewingSeason(null)
   const root = document.documentElement
-  for (const k of ['scheme', 'season', 'darker', 'hand', 'motion']) delete root.dataset[k]
+  for (const k of ['scheme', 'season', 'night', 'darker', 'hand', 'motion']) delete root.dataset[k]
 })
 
 describe('theme', () => {
@@ -29,6 +29,17 @@ describe('theme', () => {
     expect(document.documentElement.dataset.season).toBe('spring')
     applyTheme({ ...DEFAULT_THEME, color: 'winter' })
     expect(document.documentElement.dataset.season).toBe('winter')
+  })
+
+  it('keeps the night color dark and still marks the season for the mascot', () => {
+    expect(parseTheme({ color: 'night' }).color).toBe('night')
+    applyTheme({ ...DEFAULT_THEME, color: 'night', brightness: 'light' }, new Date(2026, 9, 8))
+    const root = document.documentElement
+    expect(root.dataset.night).toBe('')
+    expect(root.dataset.scheme).toBe('dark')
+    expect(root.dataset.season).toBe('autumn')
+    applyTheme({ ...DEFAULT_THEME, color: 'winter' })
+    expect(root.dataset.night).toBeUndefined()
   })
 
   it('weakens the time-of-day shade on the light background', () => {

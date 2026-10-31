@@ -9,7 +9,8 @@ import { SeasonPicker } from './SeasonPicker'
 // 来期の作品は放送前から Annict にあるので、来期まで選べる。
 // allowAll: 「すべて」を選べる（記録。もともと全クールの一覧）。すべてのあいだは矢印・年・季節を薄くし、触るとそのクールで絞る
 // lead: 近道の前に置くもの（PC の帯の検索）。近道と1つのまとまりにして、年・季節を帯の中央に置けるようにする（browse.css）
-export function CourNav(props: { value: Season | null; onChange: (season: Season | null) => void; allowAll?: boolean; lead?: ReactNode }) {
+// leadOnly: lead だけを出す（ブラウズで題名を探している・期間で見ているとき）。検索の欄を同じ場所に置いたままにして、打っている途中で欄が作り直されないようにする
+export function CourNav(props: { value: Season | null; onChange: (season: Season | null) => void; allowAll?: boolean; lead?: ReactNode; leadOnly?: boolean }) {
   const today = seasonOf(new Date())
   const latest = nextSeason(today)
   const near: readonly { label: string; season: Season }[] = [
@@ -37,12 +38,12 @@ export function CourNav(props: { value: Season | null; onChange: (season: Season
       {props.lead ? (
         <div className="cournav__lead">
           {props.lead}
-          {nearGroup}
+          {!props.leadOnly && nearGroup}
         </div>
       ) : (
         nearGroup
       )}
-      <SeasonPicker value={value ?? today} min={OLDEST_SEASON} max={latest} onChange={props.onChange} />
+      {!props.leadOnly && <SeasonPicker value={value ?? today} min={OLDEST_SEASON} max={latest} onChange={props.onChange} />}
     </div>
   )
 }

@@ -2,7 +2,7 @@
 import { StrictMode, createElement, type ReactNode } from 'react'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { saveOauthState } from '../../lib/storage'
+import { rememberOauthState } from '../../lib/storage'
 import { useAnnictLogin } from './useAnnictLogin'
 
 const fetchMock = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>()
@@ -38,7 +38,7 @@ describe('useAnnictLogin', () => {
   })
 
   it('on a return from Annict: hands the token over (App saves it with the account switch), and cleans the address', async () => {
-    saveOauthState('st')
+    rememberOauthState('st')
     goTo('/?code=abc&state=st')
     tokenReply(200, { access_token: 'TOKEN' })
     const onToken = vi.fn()
@@ -54,7 +54,7 @@ describe('useAnnictLogin', () => {
   })
 
   it('removes the code from the address even when the login fails', async () => {
-    saveOauthState('st')
+    rememberOauthState('st')
     goTo('/?code=abc&state=wrong')
     const onToken = vi.fn()
     const { result } = renderHook(() => useAnnictLogin(onToken))
@@ -67,14 +67,14 @@ describe('useAnnictLogin', () => {
   })
 
   it('shows the cancellation on access_denied', async () => {
-    saveOauthState('st')
+    rememberOauthState('st')
     goTo('/?error=access_denied&state=st')
     const { result } = renderHook(() => useAnnictLogin(vi.fn()))
     await waitFor(() => expect(result.current.error).toContain('キャンセル'))
   })
 
   it('shows the error when the function fails, and saves nothing', async () => {
-    saveOauthState('st')
+    rememberOauthState('st')
     goTo('/?code=abc&state=st')
     tokenReply(400, { error: 'invalid_grant' })
     const onToken = vi.fn()
@@ -85,7 +85,7 @@ describe('useAnnictLogin', () => {
   })
 
   it('uses the code only once under StrictMode (which runs effects twice)', async () => {
-    saveOauthState('st')
+    rememberOauthState('st')
     goTo('/?code=abc&state=st')
     tokenReply(200, { access_token: 'TOKEN' })
     const onToken = vi.fn()
@@ -96,7 +96,7 @@ describe('useAnnictLogin', () => {
   })
 
   it('clearError dismisses the message', async () => {
-    saveOauthState('st')
+    rememberOauthState('st')
     goTo('/?code=abc&state=wrong')
     const { result } = renderHook(() => useAnnictLogin(vi.fn()))
     await waitFor(() => expect(result.current.error).not.toBeNull())

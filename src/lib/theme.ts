@@ -2,14 +2,15 @@ import { useEffect } from 'react'
 import { seasonOf, type SeasonName } from './season'
 
 // 画面の色の設定（設定の「表示」）。端末ごと。
-// - color: 地の色。auto は、いま見ているクールの季節（評価の画面が知らせる。知らせが無ければ今日の季節）
+// - color: 地の色。auto は、いま見ているクールの季節（評価の画面が知らせる。知らせが無ければ今日の季節）。
+//   night は紹介ページの「夜から深夜へ」の色。いつも暗い地で、明るさの「明るい」は効かない
 // - brightness: auto は端末の明暗に従う。darker は季節の色を黒に大きく寄せる（暗い部屋・有機 EL 向け）
 // - tod: 時刻で地を少し暗くする（深夜がいちばん暗い）
 // - hand: 片手操作。left にすると、よく押すボタンを左に寄せる（スマホだけ。styles の [data-hand='left']）
 // - motion: 画面の動き。auto は端末の「動きを減らす」に従う。on は端末の設定にかかわらず動かす、reduce は止める。
 //   端末の設定は、本人が選んだのではなく初めから入っていることがあり、人によって見え方が変わっていた。
 //   アプリの中で選べるようにし、端末の設定で止まっているときは、設定の「表示」でそう知らせる
-export type ThemeColor = 'auto' | SeasonName
+export type ThemeColor = 'auto' | 'night' | SeasonName
 export type Brightness = 'auto' | 'light' | 'dark' | 'darker'
 export type Hand = 'right' | 'left'
 export type Motion = 'auto' | 'on' | 'reduce'
@@ -29,7 +30,7 @@ const SEASONS: readonly SeasonName[] = ['spring', 'summer', 'autumn', 'winter']
 export function parseTheme(value: unknown): ThemePrefs {
   const v = value && typeof value === 'object' ? (value as Record<string, unknown>) : {}
   return {
-    color: v.color === 'auto' || SEASONS.includes(v.color as SeasonName) ? (v.color as ThemeColor) : DEFAULT_THEME.color,
+    color: v.color === 'auto' || v.color === 'night' || SEASONS.includes(v.color as SeasonName) ? (v.color as ThemeColor) : DEFAULT_THEME.color,
     brightness: ['auto', 'light', 'dark', 'darker'].includes(v.brightness as string) ? (v.brightness as Brightness) : DEFAULT_THEME.brightness,
     tod: typeof v.tod === 'boolean' ? v.tod : DEFAULT_THEME.tod,
     hand: v.hand === 'left' ? 'left' : 'right',
@@ -98,14 +99,18 @@ function systemDark(): boolean {
   return typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches
 }
 
-// <html> に印を付ける（styles/base.css の [data-scheme] [data-season] [data-darker] [data-hand] と --tod が受ける）
+// <html> に印を付ける（styles/base.css の [data-scheme] [data-season] [data-night] [data-darker] [data-hand] と --tod が受ける）
 export function applyTheme(prefs: ThemePrefs, now: Date = new Date()): void {
   current = prefs
   if (typeof document === 'undefined') return
   const root = document.documentElement
-  const dark = prefs.brightness === 'dark' || prefs.brightness === 'darker' || (prefs.brightness === 'auto' && systemDark())
+  const night = prefs.color === 'night'
+  const dark = night || prefs.brightness === 'dark' || prefs.brightness === 'darker' || (prefs.brightness === 'auto' && systemDark())
   root.dataset.scheme = dark ? 'dark' : 'light'
-  root.dataset.season = prefs.color === 'auto' ? (viewing ?? seasonOf(now).name) : prefs.color
+  // 夜の色でも季節の印は付ける（マスコットの芽と差し色は季節のまま）
+  root.dataset.season = prefs.color === 'auto' || night ? (viewing ?? seasonOf(now).name) : prefs.color
+  if (night) root.dataset.night = ''
+  else delete root.dataset.night
   if (prefs.brightness === 'darker') root.dataset.darker = ''
   else delete root.dataset.darker
   if (prefs.hand === 'left') root.dataset.hand = 'left'

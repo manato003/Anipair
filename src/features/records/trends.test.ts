@@ -10,6 +10,7 @@ import {
   formatShare,
   genreAxes,
   goldenPeriod,
+  percents,
   harshness,
   mainstream,
   monthlyPace,
@@ -113,6 +114,29 @@ describe('years', () => {
   it('finds the best three years with at least four rated works', () => {
     expect(goldenPeriod(rows)).toEqual({ from: 2010, to: 2012, average: 3.75, n: 4 })
     expect(goldenPeriod(rows.slice(0, 3))).toBeNull()
+  })
+
+  it('does not stretch the golden era over years without ratings', () => {
+    const gap = [
+      row(1, 'WATCHED', 'GREAT', { seasonYear: 2007 }),
+      row(2, 'WATCHED', 'GREAT', { seasonYear: 2007 }),
+      row(3, 'WATCHED', 'GREAT', { seasonYear: 2008 }),
+      row(4, 'WATCHED', 'GREAT', { seasonYear: 2008 }),
+      row(5, 'WATCHED', 'BAD', { seasonYear: 2012 }),
+    ]
+    expect(goldenPeriod(gap)).toEqual({ from: 2007, to: 2008, average: 4, n: 4 })
+    const single = gap.slice(0, 2).concat(row(6, 'WATCHED', 'GREAT', { seasonYear: 2007 }), row(7, 'WATCHED', 'GREAT', { seasonYear: 2007 }))
+    expect(goldenPeriod(single)).toEqual({ from: 2007, to: 2007, average: 4, n: 4 })
+  })
+})
+
+describe('percents', () => {
+  it('always adds up to 100', () => {
+    // 四捨五入だと 33+33+33 = 99、38+38+25 = 101 になる組
+    expect(percents([1, 1, 1])).toEqual([34, 33, 33])
+    expect(percents([3, 3, 2])).toEqual([38, 37, 25])
+    expect(percents([82, 24, 3, 0])).toEqual([75, 22, 3, 0])
+    expect(percents([0, 0])).toEqual([0, 0])
   })
 })
 

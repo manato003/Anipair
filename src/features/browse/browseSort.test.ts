@@ -108,7 +108,7 @@ describe('rankByTaste', () => {
     const { reasons } = rankByTaste(works, details, taste)
     expect(reasons.get(2)).toContain('『好きな作品』が好きな人のおすすめ')
     expect(reasons.get(3)).toContain('『好きな作品』')
-    expect(reasons.get(1)).toContain('好きなジャンル')
+    expect(reasons.get(1)).toContain('あなたの好みに合う')
     // 苦手なジャンルだけの作品・情報の無い作品には出さない
     expect([...reasons.keys()].sort()).toEqual([1, 2, 3])
   })

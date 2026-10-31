@@ -28,6 +28,20 @@
   font-size: 0.9rem;
 }
 
+/* 苦手な項目（条件のシート） */
+.dislikes__lead {
+  margin-top: 6px;
+}
+
+.dislikes__hint {
+  margin-top: 8px;
+}
+
+/* 1つずつ足したジャンル（束ねた項目のチップのすぐ下） */
+.dislikes__added {
+  margin-top: 8px;
+}
+
 .card__step {
   flex: none;
   color: var(--muted);

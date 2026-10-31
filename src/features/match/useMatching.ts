@@ -4,12 +4,14 @@ import { t } from '../../lib/i18n'
 import { shikiTitle } from '../../lib/names'
 import { annictMissingLinks, updateStatus, type RatingState, type WorkRef } from '../../lib/annict'
 import { rateNow } from '../../lib/rateNow'
-import { fetchMedia, type Media } from '../../lib/shikimori'
+import { fetchMedia, fetchPersonWorks, type Media } from '../../lib/shikimori'
 import { loadMatchFilterRaw, saveMatchFilterRaw } from '../../lib/storage'
 import { useCoalescedTask } from '../../lib/useCoalescedTask'
 import { WriteError, messageOf, useWriteQueue } from '../../lib/useWriteQueue'
 import { activePassIds } from './passes'
 import { loadLocalPasses, setPass, syncPasses } from './passStore'
+import { activePeople, makeDislikeTest, type Dislikes } from './dislikes'
+import { loadLocalDislikes, setDislike, syncDislikes } from './dislikeStore'
 import { resolveAnnictWork } from './resolve'
 import { isDefaultFilter, parseMatchFilter, type MatchFilter } from './matchFilter'
 import { malIdOf } from '../../lib/malId'
@@ -20,6 +22,8 @@ import { forgetTaste, loadTaste } from './tasteLoader'
 // 以前は50件（形式や放送年で絞っているときだけ100件）。似た作品の上限を外したあと、50件では広がった候補が届かず、
 // 100件で隠した好きな作品が最もよく戻った（2026-10-07、scripts/match_eval.ts）。絞っているときも、絞ったあとに候補が残る
 const POOL_SIZE = 100
+// 苦手な項目・制作会社を選んでいるときは、詳しく調べる候補を増やす（当たる作品を除いたあとにも候補が残るように）
+const POOL_SIZE_DISLIKED = 150
 const MAX_CARDS = 30
 
 // wanna: 見たい / pass: パス（3ヶ月出さない）/ skip: スルー（今は決めない。1週間後にまた出す）/
@@ -79,6 +83,11 @@ export function useMatching(annictToken: string, github: GithubConnection | null
   // 絞り込み条件。変えても提案は作り直さない（次に提案するときに効く）。run が読むので ref にも持つ
   const [filter, setFilterState] = useState<MatchFilter>(() => parseMatchFilter(loadMatchFilterRaw()))
   const filterRef = useRef(filter)
+  // 苦手な項目。変えても提案は作り直さない（絞り込みと同じ）
+  const [dislikes, setDislikesState] = useState<Dislikes>(loadLocalDislikes)
+  const dislikesRef = useRef(dislikes)
+  // 提案を作ったときに、苦手な項目で除いた作品の数と、参加作品を読めずに除けなかった人
+  const [dislikeNote, setDislikeNote] = useState<{ dropped: number; unread: string[] } | null>(null)
   // 候補（MAL の ID）ごとの、Annict の作品を探す問い合わせ。詳細のシートと「見たい」などの送信で使い回す
   const resolved = useRef(new Map<number, Promise<WorkRef | null>>())
   // この画面で記録した候補（MAL の ID）。送信待ち・失敗のあいだは Annict のライブラリにまだ無いので、提案し直すときに自分で除く
@@ -93,6 +102,7 @@ export function useMatching(annictToken: string, github: GithubConnection | null
     resolved.current = new Map()
     undoStack.current = []
     setUndoCount(0)
+    setDislikeNote(null)
     const filter = filterRef.current
     // 提案を作るたびに好みを読み直す（評価が増えたあとでも、新しい好みで提案できるように）。読んだ好みは、記録ページの傾向などが使い回す
     forgetTaste()
@@ -114,6 +124,10 @@ export function useMatching(annictToken: string, github: GithubConnection | null
         setPhase({ kind: 'loading', step: t('興味なし・保留の作品をGitHubから読み込み中', 'Loading Not interested / Later anime from GitHub') })
         try {
           passes = await syncPasses(github)
+          // 苦手な項目も、ほかの端末で選んだ分を合わせてから使う
+          const merged = await syncDislikes(github)
+          dislikesRef.current = merged
+          setDislikesState(merged)
           setSyncNote(null)
         } catch (e) {
           setSyncNote(t(`GitHubと同期できませんでした（${messageOf(e)}）。この端末の記録だけで進めます。`, `Couldn’t sync with GitHub (${messageOf(e)}). Continuing with the records on this device only.`))
@@ -121,22 +135,60 @@ export function useMatching(annictToken: string, github: GithubConnection | null
         if (!alive()) return
       }
 
+      const dislikes = dislikesRef.current
+      // 苦手な人物の参加作品（声の出演とスタッフ）。候補を集める前に除く。読めなかった人は画面で知らせる
+      const avoid = new Set<number>()
+      const unread: string[] = []
+      const people = activePeople(dislikes)
+      if (people.length > 0) {
+        setPhase({ kind: 'loading', step: t('苦手な人物の参加作品を確かめています', 'Checking works by people you avoid') })
+        for (const person of people) {
+          try {
+            const works = await fetchPersonWorks(person.id)
+            for (const w of [...works.cast, ...works.staff]) avoid.add(w.id)
+          } catch {
+            unread.push(person.name)
+          }
+          if (!alive()) return
+        }
+      }
+      const dislikeTest = makeDislikeTest(dislikes)
+      const poolSize = dislikeTest ? POOL_SIZE_DISLIKED : POOL_SIZE
+
       const recorded = library.map(malIdOf).filter((n): n is number => n !== null)
       const exclude = new Set([...recorded, ...activePassIds(passes, new Date()), ...answered.current])
+      const collected = collectPool(similarSeeds, similar, exclude)
+      let dropped = collected.slice(0, poolSize).filter((e) => avoid.has(e.malId)).length
       // 似た作品から集めた候補に、好きな作品のシリーズ作を足す（taste.ts の addSeries。上位に来やすくする）
-      const pool = addSeries(collectPool(similarSeeds, similar, exclude).slice(0, POOL_SIZE), seeds, seedMedia, exclude)
+      const pool = addSeries(
+        collected.filter((e) => !avoid.has(e.malId)).slice(0, poolSize),
+        seeds,
+        seedMedia,
+        new Set([...exclude, ...avoid]),
+      )
 
       setPhase({ kind: 'loading', step: t('候補を整理しています', 'Sorting the candidates') })
       const details = await fetchMedia(pool.map((p) => p.malId))
       if (!alive()) return
-      const ranked = rankCandidates(pool, details, profile, seenMalIds(library), filter).slice(0, MAX_CARDS)
+      // 苦手な項目・制作会社に当たる作品を除く。数えるのは、成人向け・未放送（もともと出さない）以外
+      const allowed = dislikeTest
+        ? pool.filter((e) => {
+            const m = details.get(e.malId)
+            if (!m || !dislikeTest(m)) return true
+            if (!m.isAdult && m.status !== 'NOT_YET_RELEASED') dropped++
+            return false
+          })
+        : pool
+      const ranked = rankCandidates(allowed, details, profile, seenMalIds(library), filter).slice(0, MAX_CARDS)
+      setDislikeNote(dropped > 0 || unread.length > 0 ? { dropped, unread } : null)
+      const loose = isDefaultFilter(filter) && !dislikeTest && avoid.size === 0
       if (ranked.length === 0) {
         setPhase({
           kind: 'empty',
-          toRate: isDefaultFilter(filter),
-          message: isDefaultFilter(filter)
+          toRate: loose,
+          message: loose
             ? t('今の記録からは候補が見つかりませんでした。評価した作品が増えると候補が広がります。', 'No suggestions could be found from your records yet. The more anime you rate, the more suggestions you’ll get.')
-            : t('条件に合う候補が見つかりませんでした。形式や放送年の条件をゆるめてみてください。', 'No suggestions match your filters. Try loosening the format or air year.'),
+            : t('条件に合う候補が見つかりませんでした。形式や放送年の条件か、苦手な項目をゆるめてみてください。', 'No suggestions match your filters. Try loosening the format, air year, or what you avoid.'),
         })
         return
       }
@@ -179,6 +231,19 @@ export function useMatching(annictToken: string, github: GithubConnection | null
   // 始まる前の同期はまとめる（詳しくは useCoalescedTask）
   const syncRun = useMemo(() => (github ? async () => void (await syncPasses(github)) : null), [github])
   const syncLater = useCoalescedTask(enqueue, t('興味なし・保留の記録をGitHubに保存', 'Save Not interested / Later records to GitHub'), syncRun)
+  const syncDislikesRun = useMemo(() => (github ? async () => void (await syncDislikes(github)) : null), [github])
+  const syncDislikesLater = useCoalescedTask(enqueue, t('苦手な項目をGitHubに保存', 'Save disliked topics to GitHub'), syncDislikesRun)
+
+  // 苦手な項目を選ぶ・外す（name は制作会社・人物の画面に出す名前）。次に提案するときに効く
+  const setDislikeItem = useCallback(
+    (key: string, active: boolean, name?: string) => {
+      const next = setDislike(key, active, { name })
+      dislikesRef.current = next
+      setDislikesState(next)
+      syncDislikesLater()
+    },
+    [syncDislikesLater],
+  )
 
   const answer = useCallback(
     (a: MatchAnswer) => {
@@ -280,6 +345,9 @@ export function useMatching(annictToken: string, github: GithubConnection | null
     canUndo: undoCount > 0,
     run,
     filter,
+    dislikes,
+    setDislikeItem,
+    dislikeNote,
     setFilter,
     resolveCard,
     answer,

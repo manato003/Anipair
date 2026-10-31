@@ -7,11 +7,13 @@ import { Empty } from '../../components/Empty'
 import { HeadActions } from '../../components/ControlCenter'
 import { FilterIcon } from '../../components/Icons'
 import { SaveStatus } from '../../components/SaveStatus'
-import type { BrowseWork } from '../../lib/annict'
+import { Autocomplete } from '../../components/Autocomplete'
+import { searchWorkTitles, type BrowseWork, type WorkHit } from '../../lib/annict'
 import { t } from '../../lib/i18n'
 import { workTitle } from '../../lib/names'
 import { RATING_LABEL } from '../../lib/reviewOps'
-import { seasonLabel } from '../../lib/season'
+import { seasonLabel, seasonOfWork } from '../../lib/season'
+import { studioName } from '../../lib/studios'
 import { SortRow } from '../../components/SortRow'
 import { CourNav } from '../../components/CourNav'
 import { useWriteQueue } from '../../lib/useWriteQueue'
@@ -25,7 +27,7 @@ import { BrowseFilterSheet } from './BrowseFilterSheet'
 import { EMPTY_BROWSE_FILTER, MINE_CHOICES, NO_PERIOD, applyBrowseFilter, browseFilterCount, periodActive, periodLabel, type BrowseFilter, type BrowsePeriod } from './browseFilter'
 import { SORTS } from './browseSort'
 import { STATUS_LABEL, workMeta } from './detail'
-import { cappedNote, useBrowse } from './useBrowse'
+import { cappedNote, isLatinQuery, useBrowse } from './useBrowse'
 import { MAX_FIND_STUDIOS, narrowOf } from './conditionSearch'
 import { WorkDetail } from './WorkDetail'
 import { Loading, Spinner } from '../../components/Loading'
@@ -40,6 +42,14 @@ export function Browse({ token, active = true }: { token: string; active?: boole
   // 制作会社の名前 → Shikimori の ID（読み込んだ作品の情報から覚えていく。条件検索で使う）
   const [studioIds, setStudioIds] = useState<ReadonlyMap<string, number>>(new Map())
   const b = useBrowse(token, active, narrowOf(filter.genres, filter.studios, studioIds))
+  // 検索欄の候補。同じ語は引き直さない（打ち直し・消して戻したとき）
+  const hints = useRef(new Map<string, Promise<WorkHit[]>>())
+  const searchHints = (q: string) => {
+    const hit = hints.current.get(q) ?? searchWorkTitles(token, q)
+    hints.current.set(q, hit)
+    hit.catch(() => hints.current.delete(q))
+    return hit
+  }
   const wide = useWide()
   // いま見ているものと並べ替えの帯（スマホで流して見えなくなったら、細い1行で出す）
   const barRef = useRef<HTMLDivElement>(null)
@@ -53,15 +63,18 @@ export function Browse({ token, active = true }: { token: string; active?: boole
   if (newStudios.length > 0) setStudioIds(new Map([...studioIds, ...newStudios.map((s): [string, number] => [s.name, s.id])]))
   const filterCount = browseFilterCount(filter, b.period)
   const hasPeriod = periodActive(b.period)
+  // 期間を選ばずにジャンル・制作会社で絞っていて、全期間から探している（期間の欄は出さず、チップを外すと元のクールに戻る）
+  const allPeriod = b.allPeriod && !b.searching
   // 地の色を、見ているクールの季節に（タイトルで探しているときと、期間で見ているときは、いまの季節）
-  useViewingSeason(b.searching || hasPeriod ? null : b.season.name, active)
+  useViewingSeason(b.searching || hasPeriod || allPeriod ? null : b.season.name, active)
   // 評価の画面で「見てない」にした作品。この画面を開くたびに端末の控えを読み直す（評価の画面で押した分を映す）
   const unseen = useMemo(() => (active ? activeUnseenIds(loadLocalUnseen()) : new Set<number>()), [active])
   const works = useMemo(() => (b.works ? applyBrowseFilter(b.works, filter, media.info, unseen) : null), [b.works, filter, media.info, unseen])
   // 上に貼りつく1行に出す、いま見ているもの
-  const pinnedWhat = b.searching ? t(`「${b.query.trim()}」`, `“${b.query.trim()}”`) : hasPeriod ? periodLabel(b.period) : seasonLabel(b.season)
+  const allPeriodLabel = t('全期間', 'All periods')
+  const pinnedWhat = b.searching ? t(`「${b.query.trim()}」`, `“${b.query.trim()}”`) : hasPeriod ? periodLabel(b.period) : allPeriod ? allPeriodLabel : seasonLabel(b.season)
   // いま読み込んでいる一覧の名前（期間かクール）
-  const listName = hasPeriod ? periodLabel(b.period) : seasonLabel(b.season)
+  const listName = hasPeriod ? periodLabel(b.period) : allPeriod ? allPeriodLabel : seasonLabel(b.season)
   const clearAll = () => {
     setFilter(EMPTY_BROWSE_FILTER)
     b.setPeriod(NO_PERIOD)
@@ -70,13 +83,21 @@ export function Browse({ token, active = true }: { token: string; active?: boole
   // 検索と絞り込み。スマホは帯の上に1行、PC は帯の中（クールと並べ替えと同じ行）
   const tools = (
     <div className="records__tools">
-      <input
-        className="search"
-        type="search"
+      {/* 打ちながら題名の候補を出し、選ぶと欄をその題名で埋める。英字の語は Annict の検索に当たらないので候補を出さない（一覧は Shikimori で日本語の題名を引いて探す） */}
+      <Autocomplete<WorkHit>
+        className="autocomplete--search"
+        inputClassName="search"
+        label={t('タイトルで探す', 'Search by title')}
         placeholder={t('タイトルで探す', 'Search by title')}
         value={b.query}
-        onChange={(e) => b.setQuery(e.target.value)}
-        aria-label={t('タイトルで探す', 'Search by title')}
+        onValueChange={b.setQuery}
+        accept={(q) => !isLatinQuery(q)}
+        search={searchHints}
+        item={(w) => {
+          const season = seasonOfWork(w)
+          return { key: String(w.annictId), label: workTitle(w), sub: season ? seasonLabel(season) : undefined }
+        }}
+        onPick={(w) => b.setQuery(w.title)}
       />
       <button type="button" className="btn records__filterbtn" aria-pressed={filterCount > 0} onClick={() => setFilterOpen(true)}>
         <FilterIcon />
@@ -100,8 +121,11 @@ export function Browse({ token, active = true }: { token: string; active?: boole
       {/* いま見ているもの（クールか期間）と並べ替えの帯。PC は上に貼りつき、下へ流すあいだは引っ込んで、上へ流すと戻る。
           貼りつきは親の箱の中でしか効かないので、操作の欄の外（一覧全体の直下）に置く。PC は検索の欄も帯に入れて1つの帯にする */}
       <div className={tucked ? 'browse__bar browse__bar--tucked' : 'browse__bar'} ref={barRef}>
-        {/* PC の検索の欄は、クールを出しているときは近道と1つのまとまりに（CourNav の lead）、それ以外は帯の左に */}
-        {wide && (b.searching || hasPeriod) && tools}
+        {/* PC の検索の欄は、いつも CourNav の lead に置く（クールを出しているときは近道と1つのまとまりに、それ以外は欄だけ）。
+            探し始めたときに欄の置き場所が変わると、欄が作り直されて打っている途中で入力の位置と候補が消える */}
+        {(wide || (!b.searching && !hasPeriod && !allPeriod)) && (
+          <CourNav value={b.season} onChange={(s) => s && b.setSeason(s)} lead={wide ? tools : undefined} leadOnly={b.searching || hasPeriod || allPeriod} />
+        )}
         {/* 期間で絞っているときは、クールの代わりに期間を出す（クール選びに戻れる） */}
         {!b.searching && hasPeriod && (
           <div className="browse__period">
@@ -115,10 +139,10 @@ export function Browse({ token, active = true }: { token: string; active?: boole
             </button>
           </div>
         )}
-        {!b.searching && !hasPeriod && (
-          <>
-            <CourNav value={b.season} onChange={(s) => s && b.setSeason(s)} lead={wide ? tools : undefined} />
-          </>
+        {allPeriod && (
+          <div className="browse__period">
+            <span>{t('全期間の作品', 'Anime from all periods')}</span>
+          </div>
         )}
         <SortRow options={SORTS.filter((o) => o.modes.includes(b.mode)).map((o) => ({ key: o.id, label: o.label, note: o.note }))} value={b.sort} dir={b.dir} onChoose={b.setSort} />
       </div>
@@ -261,7 +285,7 @@ export function Browse({ token, active = true }: { token: string; active?: boole
           infoError={media.error}
           resultCount={works?.length ?? 0}
           active={active}
-          studioMax={hasPeriod && !b.searching ? MAX_FIND_STUDIOS : undefined}
+          studioMax={!b.searching ? MAX_FIND_STUDIOS : undefined}
           onChange={setFilter}
           onPeriodChange={b.setPeriod}
           onClose={() => setFilterOpen(false)}
@@ -300,7 +324,7 @@ function BrowseActiveFilters(props: {
   const mineNames = MINE_CHOICES.filter((x) => f.mine.includes(x.id)).map((x) => x.label).join(sep)
   const mediaNames = MEDIA_KINDS.filter((x) => f.media.includes(x.id)).map((x) => x.label).join(sep)
   const genreNames = f.genres.map(genreName).join(sep)
-  const studioNames = f.studios.join(sep)
+  const studioNames = f.studios.map(studioName).join(sep)
   if (periodActive(props.period))
     items.push({ label: t(`期間: ${periodLabel(props.period)}`, `Period: ${periodLabel(props.period)}`), clear: () => props.onPeriodChange(NO_PERIOD) })
   if (f.mine.length > 0)

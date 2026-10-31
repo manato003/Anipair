@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fetchCovers, quickCovers } from '../../lib/covers'
 import { browseWorks, fetchLibrary, type BrowseOrder, type BrowseWork, type RatingState } from '../../lib/annict'
 import { getMyReviews } from '../../lib/myReviews'
@@ -122,14 +122,12 @@ async function collectAll(load: Loader, isCancelled: () => boolean): Promise<{ w
 }
 
 // active: 画面が表示されているか（隠れているだけで残っているタブは、評価のバッジを読み直さない）。
-// narrow: 絞り込みのジャンル・制作会社（Shikimori の ID）。期間を選んでいるときだけ、期間の全作品からこの条件で探す（conditionSearch.ts）
+// narrow: 絞り込みのジャンル・制作会社（Shikimori の ID）。期間を選んでいれば期間の、選んでいなければ全期間の作品からこの条件で探す（conditionSearch.ts）
 export function useBrowse(token: string, active = true, narrow: Narrow | null = null) {
   const [season, setSeasonState] = useState<Season>(() => seasonOf(new Date()))
   const [query, setQuery] = useState('')
   // 絞り込みの期間（始めと終わりのクール）。あれば上のクールの代わりに、その期間の作品を読む
   const [period, setPeriodState] = useState<BrowsePeriod>(NO_PERIOD)
-  // 作品を読み直すかどうかは、期間の中身で比べる（同じ期間を選び直しても読み直さない）
-  const periodKey = JSON.stringify(period)
   // 実際に検索している語。入力のたびには検索せず、打ち終わってから変える
   const [searched, setSearched] = useState('')
   const searchedRef = useRef('')
@@ -162,14 +160,18 @@ export function useBrowse(token: string, active = true, narrow: Narrow | null = 
   const [sortNote, setSortNote] = useState<string | null>(null)
   // 評価順・おすすめ順で、上限まで集めて打ち切った
   const [capped, setCapped] = useState(false)
-  const mode: BrowseMode = searched ? 'search' : periodActive(period) ? 'period' : 'cour'
-  const effectiveSort = sortFor(sort, mode)
-  const order: BrowseOrder = effectiveSort === 'newest' ? 'SEASON' : 'WATCHERS_COUNT'
   // 条件検索の条件。チップを押しているあいだは前の条件のまま（画面は読み込んだ作品の中で絞って見せる）、押し終わってから切り替える。
-  // 条件を外したとき（期間をやめた・チップを全部外した）はすぐ戻す
-  const wantNarrow = mode === 'period' && narrow ? JSON.stringify(narrow) : ''
+  // 条件を外したとき（期間をやめた・チップを全部外した）はすぐ戻す。題名の検索中は使わない
+  const wantNarrow = !searched && narrow ? JSON.stringify(narrow) : ''
   const [narrowedState, setNarrowed] = useState('')
   const narrowed = wantNarrow === '' ? '' : narrowedState
+  // 期間を選ばずにジャンル・制作会社で探すときは、全期間（最古のクールから）の作品から探す
+  const allPeriod = narrowed !== '' && !periodActive(period)
+  const usedPeriod = useMemo<BrowsePeriod>(() => (allPeriod ? { from: OLDEST_SEASON, to: null } : period), [allPeriod, period])
+  const periodKey = JSON.stringify(usedPeriod)
+  const mode: BrowseMode = searched ? 'search' : periodActive(usedPeriod) ? 'period' : 'cour'
+  const effectiveSort = sortFor(sort, mode)
+  const order: BrowseOrder = effectiveSort === 'newest' ? 'SEASON' : 'WATCHERS_COUNT'
   useEffect(() => {
     if (wantNarrow === '' || wantNarrow === narrowedState) return
     const timer = setTimeout(() => {
@@ -335,7 +337,7 @@ export function useBrowse(token: string, active = true, narrow: Narrow | null = 
     return () => {
       cancelled = true
     }
-  }, [token, searched, season, periodKey, reloadTick, effectiveSort, order, dir, addCovers, narrowed])
+  }, [token, searched, season, periodKey, reloadTick, effectiveSort, order, dir, addCovers, narrowed, setProgress])
 
   // 隠れていたタブが再び表示されたときは、好みの控えを捨てる（そのあいだに評価が増えているかもしれない。次におすすめ順にしたときに読み直す）。
   // 一覧の記録の状態も、ほかの画面で変えたかもしれないので、自分のライブラリに合わせ直す（2026-10-06 の点検: 戻るまで古いままだった）。
@@ -389,12 +391,12 @@ export function useBrowse(token: string, active = true, narrow: Narrow | null = 
   // 中身が同じなら何もしない（読み直しも起きないので、一覧を空にすると戻らない）
   const setPeriod = useCallback(
     (p: BrowsePeriod) => {
-      if (JSON.stringify(p) === periodKey) return
+      if (JSON.stringify(p) === JSON.stringify(period)) return
       setWorks(null)
       setError(null)
       setPeriodState(p)
     },
-    [periodKey],
+    [period],
   )
 
   // 実際の並べ方が変わらないなら、一覧を空にしない（読み直しも起きないので、空にすると戻らない。
@@ -433,8 +435,8 @@ export function useBrowse(token: string, active = true, narrow: Narrow | null = 
     setMoreError(null)
     try {
       const page = narrowed
-        ? await findLoader(token, JSON.parse(narrowed) as Narrow, period, effectiveSort === 'newest' ? 'aired_on' : 'popularity')(cursor.endCursor)
-        : await fetchPage(token, await filterOf(searched, season, period), { after: cursor.endCursor, order, direction: dir === 'asc' ? 'ASC' : 'DESC' })
+        ? await findLoader(token, JSON.parse(narrowed) as Narrow, usedPeriod, effectiveSort === 'newest' ? 'aired_on' : 'popularity')(cursor.endCursor)
+        : await fetchPage(token, await filterOf(searched, season, usedPeriod), { after: cursor.endCursor, order, direction: dir === 'asc' ? 'ASC' : 'DESC' })
       if (gen !== listGen.current) return
       setWorks((cur) => [...(cur ?? []), ...page.works.filter((w) => !cur?.some((c) => c.id === w.id))])
       setCursor({ endCursor: page.endCursor, hasNext: page.hasNext })
@@ -444,7 +446,7 @@ export function useBrowse(token: string, active = true, narrow: Narrow | null = 
     } finally {
       if (gen === listGen.current) setLoadingMore(false)
     }
-  }, [token, searched, season, period, order, dir, cursor, loadingMore, addCovers, narrowed, effectiveSort])
+  }, [token, searched, season, usedPeriod, order, dir, cursor, loadingMore, addCovers, narrowed, effectiveSort])
 
   // 詳細画面で状態や評価を変えたら、一覧の表示も合わせる
   const patchWork = useCallback((annictId: number, patch: { state?: BrowseWork['viewerStatusState']; rating?: RatingState | null }) => {
@@ -473,6 +475,8 @@ export function useBrowse(token: string, active = true, narrow: Narrow | null = 
     searching: searched !== '',
     period,
     setPeriod,
+    // 期間を選ばずに条件検索していて、全期間から探している
+    allPeriod,
     mode,
     capped,
     // 上限の作品数（「人気の上位◯作品」の注意に出す）

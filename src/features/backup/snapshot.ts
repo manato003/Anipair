@@ -4,6 +4,7 @@ import { serializePasses, type Passes } from '../match/passes'
 import { serializeUnseen, type Unseen } from '../rate/unseen'
 import { serializeWannaNotes, type WannaNotes } from '../records/wannaNotes'
 import { serializeTierStore, type TierStore } from '../tier/tierList'
+import { serializeDislikes, type Dislikes } from '../match/dislikes'
 
 // バックアップの中身（GitHub の backup.json と、ファイルへの書き出しで共通）。画面にも通信にも触れない純粋な関数だけを置く。
 // 復元はまだ作らないが、あとで作れるように、状態と日時・評価5項目と本文・パス・見てないを全部入れる
@@ -41,6 +42,8 @@ export interface Snapshot {
   wannaNotes?: ReturnType<typeof serializeWannaNotes>
   // Tier表（2026-10-25 から。表が1つも無ければ入れない）
   tiers?: ReturnType<typeof serializeTierStore>
+  // マッチングの苦手な項目（2026-10-29 から。何も選んでいなければ入れない）
+  dislikes?: ReturnType<typeof serializeDislikes>
 }
 
 export interface SnapshotInput {
@@ -50,6 +53,7 @@ export interface SnapshotInput {
   unseen: Unseen
   wannaNotes: WannaNotes
   tiers?: TierStore
+  dislikes?: Dislikes
   now: Date
 }
 
@@ -95,6 +99,7 @@ export function buildSnapshot(input: SnapshotInput): Snapshot {
     unseen: serializeUnseen(input.unseen),
     wannaNotes: serializeWannaNotes(input.wannaNotes),
     ...(input.tiers && input.tiers.tables.length > 0 ? { tiers: serializeTierStore(input.tiers) } : {}),
+    ...(input.dislikes && input.dislikes.size > 0 ? { dislikes: serializeDislikes(input.dislikes) } : {}),
   }
 }
 

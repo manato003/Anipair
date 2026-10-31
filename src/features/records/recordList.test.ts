@@ -8,6 +8,7 @@ import {
   countBuckets,
   filterChoices,
   filterRows,
+  titleHints,
   formatDate,
   mediaKindOf,
   optionState,
@@ -200,6 +201,15 @@ describe('filterRows', () => {
   it('matches titles regardless of full-width and half-width forms', () => {
     expect(filterRows(rows, 'wanna', 'season2').map((r) => r.entry.annictId)).toEqual([6])
     expect(filterRows(rows, 'watched', 'season2')).toEqual([])
+  })
+})
+
+describe('titleHints', () => {
+  it('suggests from every section, titles starting with the words first, up to the limit', () => {
+    const list = [row(1, 'WATCHED', null, null, '続・ぼっち'), row(2, 'WANNA_WATCH', null, null, 'ぼっち・ざ・ろっく！'), row(3, 'WATCHING', null, null, '別の作品')]
+    expect(titleHints(list, 'ぼっち').map((r) => r.entry.annictId)).toEqual([2, 1])
+    expect(titleHints(list, 'ぼっち', 1).map((r) => r.entry.annictId)).toEqual([2])
+    expect(titleHints(list, 'ない')).toEqual([])
   })
 })
 

@@ -2,6 +2,7 @@ import { beforeEach } from 'vitest'
 import * as storage from '../lib/storage'
 import { resetLangForTests } from '../lib/i18n'
 import { resetEnglishTitlesForTests } from '../lib/englishTitles'
+import { resetKeymapForTests } from '../lib/keymap'
 
 // テストのファイルを読み込む前にも日本語にしておく（読み込んだときに言語を見る所があっても、日本語で始まるように）
 resetLangForTests()
@@ -15,4 +16,6 @@ beforeEach(() => {
   resetLangForTests()
   // 覚えた公式の英題も、テストごとに空にする
   resetEnglishTitlesForTests()
+  // キーの割り当てとキー操作を使うかも、テストごとに端末の保存から読み直す
+  resetKeymapForTests()
 })

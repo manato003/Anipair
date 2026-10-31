@@ -1,5 +1,6 @@
 import { genreName } from '../features/match/taste'
 import { t } from '../lib/i18n'
+import { studioName } from '../lib/studios'
 import type { Media } from '../lib/shikimori'
 
 // 広い画面だけ、カードの題名の下に出す作品の手がかり（放送時期・形式・制作会社・ジャンル）。
@@ -8,7 +9,7 @@ import type { Media } from '../lib/shikimori'
 const MAX_TAGS = 6
 
 export function WorkFacts(props: { media: Media | null; head: (string | null | undefined)[]; note?: string | null }) {
-  const studios = props.media?.studios.slice(0, 2) ?? []
+  const studios = props.media?.studios.slice(0, 2).map(studioName) ?? []
   const line = [...props.head, studios.length > 0 ? `${t('制作', 'Studio:')} ${studios.join(t('・', ', '))}` : null].filter((x): x is string => !!x)
   // 「受賞作」は作品の中身の手がかりにならないので出さない（好みの特徴からも外している）
   const tags = [...(props.media?.genres ?? []), ...(props.media?.themes ?? [])].filter((g) => g !== 'Award Winning').slice(0, MAX_TAGS)

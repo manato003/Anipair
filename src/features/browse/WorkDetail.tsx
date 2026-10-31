@@ -245,7 +245,7 @@ export function WorkDetail(
   const ready = useFontsReady(settled, rootRef)
   // 「作品について」「感想と関連作品」の塊に出すものがあるか（無ければ塊ごと出さない。MyAnimeList の ID があれば似た作品の棚が、
   // Annict の詳細が読めればみんなの感想（無ければ「まだ感想がありません」）が出る）
-  const hasAbout = genres.length > 0 || dataRows.length > 0 || !!wiki
+  const hasAbout = genres.length > 0 || dataRows.length > 0 || wiki !== undefined
   const hasMore = (detail?.series?.length ?? 0) > 0 || (shiki?.related?.length ?? 0) > 0 || !!mal || detail !== null
   // 待つのをやめて出したあとも、まだ届いていない部分。届くまで、何を読んでいるかを添えて読み込み中を出し続ける
   // （出ている分だけで全部だと思わせない）。あらすじは Annict の詳細が届いてから Wikipedia を読む
@@ -486,7 +486,7 @@ export function WorkDetail(
                   </section>
                 )}
 
-                {wiki && <WikiSynopsisSection wiki={wiki} />}
+                {wiki !== undefined && <WikiSynopsisSection wiki={wiki} />}
               </section>
             )}
 

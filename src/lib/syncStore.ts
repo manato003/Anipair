@@ -13,6 +13,8 @@ export interface SyncSpec<T> {
   saveLocal: (value: T) => void
   // コミットメッセージ
   message: (value: T) => string
+  // GitHub にまだファイルが無く、合わせた結果が空なら書かない（使っていない機能のファイルを、連携した人全員のリポジトリに作らない）
+  empty?: (value: T) => boolean
 }
 
 export async function syncJson<T>(conn: GithubConnection, spec: SyncSpec<T>): Promise<T> {
@@ -22,6 +24,7 @@ export async function syncJson<T>(conn: GithubConnection, spec: SyncSpec<T>): Pr
     const merged = spec.merge(remoteValue, spec.loadLocal())
     spec.saveLocal(merged)
     if (remote.sha && spec.same(merged, remoteValue)) return merged
+    if (!remote.sha && spec.empty?.(merged)) return merged
     try {
       await writeJson(conn, spec.path, spec.serialize(merged), remote.sha, spec.message(merged))
       return merged

@@ -62,7 +62,7 @@ describe('scoreWanna', () => {
   it('gives the first explanation as the reason, or null when there is none', () => {
     const scores = scoreWanna([10, 14], details, pool, profile)
     expect(scores.get(10)!.reason).toBe('『好きな作品』が好きな人のおすすめ')
-    expect(scores.get(14)!.reason).toBe('好きなジャンル: 音楽')
+    expect(scores.get(14)!.reason).toBe('あなたの好みに合う: 音楽')
     const none = scoreWanna([11], new Map([[11, media(11)]]), [], new Map())
     expect(none.get(11)!.reason).toBeNull()
   })

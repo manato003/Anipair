@@ -3,6 +3,7 @@ import { Sheet } from '../../components/Sheet'
 import { seasonLabel } from '../../lib/season'
 import { t } from '../../lib/i18n'
 import { RATING_LABEL } from '../../lib/reviewOps'
+import { studioChips } from '../../lib/studios'
 import { genreName } from '../match/taste'
 import { RATINGS } from '../rate/queue'
 import { EMPTY_FILTER, MEDIA_KINDS, filterChoices, toggleIn, type MediaInfo, type RatingFilter, type RecordFilter, type RecordRow } from './recordList'
@@ -12,8 +13,6 @@ import { EMPTY_FILTER, MEDIA_KINDS, filterChoices, toggleIn, type MediaInfo, typ
 const ratingChoices = (): readonly { id: RatingFilter; label: string }[] => [...[...RATINGS].reverse().map((r) => ({ id: r.rating, label: RATING_LABEL[r.rating] })), { id: 'NONE', label: t('評価なし', 'Not rated') }]
 
 // 制作会社は多いので、最初は上位だけを出す
-const STUDIOS_FIRST = 18
-
 export function RecordFilterSheet(props: {
   rows: readonly RecordRow[]
   filter: RecordFilter
@@ -27,6 +26,8 @@ export function RecordFilterSheet(props: {
 }) {
   const { filter: f, onChange } = props
   const choices = filterChoices(props.rows, props.info)
+  // 名の知れた40社を日本語名のチップで先に出し、ほかの会社は畳む
+  const studios = studioChips(choices.studios)
   const loading = !props.info && !props.infoError
 
   return (
@@ -59,10 +60,10 @@ export function RecordFilterSheet(props: {
       {props.info && (
         <ChipSection
           title={t('制作会社', 'Studio')}
-          items={choices.studios.map((st) => ({ id: st.name, label: st.name, count: st.count }))}
+          items={studios.items}
           selected={f.studios}
           onToggle={(id) => onChange({ ...f, studios: toggleIn(f.studios, id) })}
-          first={STUDIOS_FIRST}
+          first={studios.first}
           moreLabel={(rest) => t(`ほかの制作会社も見る（${rest}社）`, `Show ${rest} more ${rest === 1 ? 'studio' : 'studios'}`)}
         />
       )}

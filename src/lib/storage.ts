@@ -22,7 +22,11 @@ const KEYS = {
   githubRepo: 'animax.githubRepo',
   passes: 'animax.passes',
   keymap: 'animax.keymap',
+  // キー操作を使うか（端末ごと。lib/keymap.ts）
+  keysOn: 'animax.keys.on',
   matchFilter: 'animax.match.filter',
+  // マッチングで除く苦手な項目と、名指しの制作会社・人物（GitHub の dislikes.json と同期する。形を確かめるのは features/match/dislikes.ts）
+  matchDislikes: 'animax.match.dislikes.v1',
   backup: 'animax.backup',
   // 自分の感想の控え（差分で読むための印つき）。今のトークンの持ち主のもので、トークンが変わったら消す
   reviews: 'animax.reviews.v1',
@@ -235,6 +239,7 @@ const PERSONAL_KEYS: readonly string[] = [
   KEYS.githubRepo,
   KEYS.passes,
   KEYS.matchFilter,
+  KEYS.matchDislikes,
   KEYS.backup,
   KEYS.titles,
   KEYS.feats,
@@ -507,6 +512,15 @@ export function savePassesRaw(value: unknown): void {
   write(KEYS.passes, JSON.stringify(value))
 }
 
+// 苦手な項目の検証は features/match/dislikes.ts の parseDislikes が行う
+export function loadDislikesRaw(): unknown {
+  return readJson(KEYS.matchDislikes)
+}
+
+export function saveDislikesRaw(value: unknown): void {
+  write(KEYS.matchDislikes, JSON.stringify(value))
+}
+
 // マッチングの絞り込み条件の検証は features/match/matchFilter.ts の parseMatchFilter が行う
 export function loadMatchFilterRaw(): unknown {
   return readJson(KEYS.matchFilter)
@@ -756,6 +770,14 @@ export function saveKeymapRaw(value: unknown): void {
   write(KEYS.keymap, JSON.stringify(value))
 }
 
+export function loadKeysOnRaw(): unknown {
+  return readJson(KEYS.keysOn)
+}
+
+export function saveKeysOn(on: boolean): void {
+  write(KEYS.keysOn, JSON.stringify(on))
+}
+
 // だれのものでもない、作り直せる控えの表（lib/persistedMap.ts。形を確かめるのも向こう）
 export type CacheName = 'titleEn' | 'peopleEn' | 'wikiSynopses' | 'workLinks' | 'annictMiss'
 
@@ -877,24 +899,47 @@ export function saveSimilar(entries: Map<number, SimilarEntry>): void {
   write(KEYS.similar, JSON.stringify(Object.fromEntries(entries)))
 }
 
-// 「Annict でログイン」の state（なりすましの確認用）。ログイン画面へ行って戻ってくるまでの間だけ、そのタブの sessionStorage に置く
-const OAUTH_STATE_KEY = 'animax.annictOauthState'
+// 「Annict でログイン」の state（なりすましの確認用）。ログイン画面へ行って戻ってくるまでの間だけ置く。
+// タブごとの sessionStorage でなく localStorage に置くのは、メールのリンクなどで別のタブから戻ってきても照合できるようにするため。
+// 別々のタブで始めたログインが互いを消さないよう数件まで持ち、時間の過ぎたものは捨てる
+const OAUTH_STATE_KEY = 'animax.annictOauthStates'
+const OAUTH_STATE_TTL_MS = 30 * 60 * 1000
+const OAUTH_STATE_MAX = 5
 
-export function loadOauthState(): string | null {
+type PendingOauthState = { state: string; at: number }
+
+function readOauthStates(now: number): PendingOauthState[] {
   try {
-    return sessionStorage.getItem(OAUTH_STATE_KEY)
+    const raw: unknown = JSON.parse(localStorage.getItem(OAUTH_STATE_KEY) ?? '[]')
+    if (!Array.isArray(raw)) return []
+    return raw.filter(
+      (e): e is PendingOauthState =>
+        !!e && typeof e.state === 'string' && typeof e.at === 'number' && now >= e.at && now - e.at < OAUTH_STATE_TTL_MS,
+    )
   } catch {
-    return null
+    return []
   }
 }
 
-export function saveOauthState(state: string | null): void {
+function writeOauthStates(list: PendingOauthState[]): void {
   try {
-    if (state === null) sessionStorage.removeItem(OAUTH_STATE_KEY)
-    else sessionStorage.setItem(OAUTH_STATE_KEY, state)
+    if (list.length === 0) localStorage.removeItem(OAUTH_STATE_KEY)
+    else localStorage.setItem(OAUTH_STATE_KEY, JSON.stringify(list))
   } catch {
     // 保存できない環境では、ログインの照合ができず、戻ってきたときに断られる
   }
+}
+
+export function rememberOauthState(state: string, now = Date.now()): void {
+  writeOauthStates([...readOauthStates(now), { state, at: now }].slice(-OAUTH_STATE_MAX))
+}
+
+// 戻ってきた state が控えにあれば取り除いて true を返す（同じ戻りを2度使わせない）
+export function takeOauthState(state: string, now = Date.now()): boolean {
+  const list = readOauthStates(now)
+  const rest = list.filter((e) => e.state !== state)
+  writeOauthStates(rest)
+  return rest.length < list.length
 }
 
 // この端末の保存を全部消す（画面が壊れたときの「消して再読み込み」）。消したあとは読み込み直すので、以降は何も書かない。

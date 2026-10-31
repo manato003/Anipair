@@ -95,6 +95,47 @@
   --deep: 60%;
 }
 
+/* 夜（テーマの色の「夜」。lib/theme.ts が data-night を付け、明るさはいつも暗い）: 紹介ページ（landing.css）の「夜から深夜へ」の色を、アプリの地にする。
+   地は紹介ページの棚から下の紫から深夜の色へ。文字は青みのある薄い白、主なボタンは差し色の淡い金色。
+   季節の暗い地の指定（:root[data-scheme='dark'][data-season=…]）と同じ詳細度で、後に書いて上書きする */
+:root[data-scheme='dark'][data-night] {
+  --s-top: #493d6f;
+  --s-bot: #1c182f;
+  --fg: #eef0fa;
+  --sub: #bcc2de;
+  --brand-gradient: #f3c98b;
+}
+
+/* 星の柄（夜の地と紹介ページ）。大きさの違う2枚を重ねて、繰り返しの目を見えにくくする。faint は星を減らして半分の明るさにしたもの。
+   文字の横や入力欄の中で点に見えないよう、全体を暗めにしてある。
+   三日月は紹介ページの最上段の月（Landing.tsx の Crescent）を絵にしたもの。夜の地では、広い画面の上の帯の右に置く（app.css）。
+   スマホは見出しの右の部品が画面ごとに違い（戻る・提案し直す）、どこに置いてもどれかの画面で部品に重なったので、
+   見出しの右のボタン（?・クイック設定）の左が空いている画面（評価・ブラウズ・設定の一覧）にだけ置く */
+:root {
+  --stars-a: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='360' height='280'%3E%3Cg fill='%23eef0fa' opacity='.6'%3E%3Ccircle cx='23' cy='41' r='.8' opacity='.7'/%3E%3Ccircle cx='97' cy='188' r='.6' opacity='.5'/%3E%3Ccircle cx='151' cy='63' r='1' opacity='.85'/%3E%3Ccircle cx='212' cy='232' r='.7' opacity='.55'/%3E%3Ccircle cx='268' cy='121' r='.9' opacity='.75'/%3E%3Ccircle cx='331' cy='27' r='.6' opacity='.45'/%3E%3Ccircle cx='59' cy='257' r='.7' opacity='.6'/%3E%3Ccircle cx='305' cy='214' r='.6' opacity='.4'/%3E%3Ccircle cx='186' cy='141' r='.5' opacity='.35'/%3E%3C/g%3E%3C/svg%3E");
+  --stars-a-faint: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='360' height='280'%3E%3Cg fill='%23eef0fa' opacity='.3'%3E%3Ccircle cx='23' cy='41' r='.8' opacity='.7'/%3E%3Ccircle cx='151' cy='63' r='1' opacity='.85'/%3E%3Ccircle cx='268' cy='121' r='.9' opacity='.75'/%3E%3Ccircle cx='59' cy='257' r='.7' opacity='.6'/%3E%3C/g%3E%3C/svg%3E");
+  --stars-b: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='520' height='400'%3E%3Cg fill='%23eef0fa' opacity='.6'%3E%3Ccircle cx='41' cy='112' r='.7' opacity='.6'/%3E%3Ccircle cx='128' cy='329' r='.9' opacity='.8'/%3E%3Ccircle cx='247' cy='44' r='.6' opacity='.5'/%3E%3Ccircle cx='309' cy='271' r='.8' opacity='.7'/%3E%3Ccircle cx='418' cy='168' r='.6' opacity='.45'/%3E%3Ccircle cx='476' cy='361' r='1' opacity='.85'/%3E%3Ccircle cx='365' cy='92' r='.5' opacity='.4'/%3E%3Ccircle cx='182' cy='207' r='.6' opacity='.5'/%3E%3C/g%3E%3C/svg%3E");
+  --stars-b-faint: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='520' height='400'%3E%3Cg fill='%23eef0fa' opacity='.3'%3E%3Ccircle cx='41' cy='112' r='.7' opacity='.6'/%3E%3Ccircle cx='128' cy='329' r='.9' opacity='.8'/%3E%3Ccircle cx='309' cy='271' r='.8' opacity='.7'/%3E%3Ccircle cx='476' cy='361' r='1' opacity='.85'/%3E%3C/g%3E%3C/svg%3E");
+  --moon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cdefs%3E%3Cmask id='m'%3E%3Crect width='48' height='48' fill='%23fff'/%3E%3Ccircle cx='19' cy='20' r='18'/%3E%3C/mask%3E%3CradialGradient id='g' cx='.82' cy='.82' r='.75'%3E%3Cstop offset='0' stop-color='%23f6e8ce' stop-opacity='.62'/%3E%3Cstop offset='1' stop-color='%23f6e8ce' stop-opacity='.18'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='24' cy='24' r='18' fill='%23eef0fa' fill-opacity='.045'/%3E%3Ccircle cx='24' cy='24' r='18' fill='url(%23g)' mask='url(%23m)'/%3E%3C/svg%3E");
+}
+
+/* 夜の地に星を敷く。部品の多い画面なので、ボタンや入力欄の中で点に見えないよう、淡い方の柄だけにする。
+   紹介ページを出しているあいだは、紹介ページの地（landing.css）に任せる */
+:root[data-night]:not([data-landing]) body::before {
+  background:
+    var(--stars-a-faint),
+    var(--stars-b-faint),
+    linear-gradient(180deg, var(--bg-top), var(--bg-bot));
+}
+
+/* スマホの三日月。ページを流すと一緒に流れて消える（紹介ページの月と同じ。固定の層に置くと、流した中身の上に月が残る）。
+   body の地は固定の層（body::before）より手前に描かれる。画面の名前は App.tsx の data-screen */
+@media (max-width: 959px) {
+  :root[data-night]:not([data-landing]) body:has(.app[data-screen='rate'], .app[data-screen='browse'], .app[data-screen='settings'] .folders) {
+    background: var(--moon) no-repeat right 105px top calc(env(safe-area-inset-top) + 18px) / 30px 30px;
+  }
+}
+
 *,
 *::before,
 *::after {
@@ -306,6 +347,11 @@ kbd {
   .hint {
     display: none;
   }
+}
+
+/* 設定でキー操作を入れていなければ、ボタンにキーを出さない（App.tsx の app--keys） */
+.app:not(.app--keys) .hint {
+  display: none;
 }
 
 .season {
@@ -549,6 +595,91 @@ kbd {
   border-radius: var(--radius-s);
   background: var(--control);
   font-size: 0.85rem;
+}
+
+/* 入力しながら候補を出す検索欄（components/Autocomplete.tsx）。候補は重ねずに欄の下に並べる（シートの中でも切れないように） */
+.autocomplete {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.autocomplete input {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--control);
+  font-size: 0.85rem;
+}
+
+.autocomplete__list {
+  margin: 0;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--float);
+  list-style: none;
+}
+
+.autocomplete__option {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  padding: 8px 10px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.autocomplete__option[aria-selected='true'],
+.autocomplete__option:hover {
+  background: var(--control);
+}
+
+.autocomplete__option[aria-disabled='true'] {
+  background: none;
+  cursor: default;
+  opacity: 0.55;
+}
+
+.autocomplete__sub {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+/* 記録・ブラウズの題名の検索。候補は一覧の上に重ねる（欄の下に並べると一覧が押し下がる） */
+.autocomplete--search {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-top: 0;
+}
+
+.autocomplete--search input {
+  padding: 0 16px;
+}
+
+.autocomplete--search .autocomplete__list {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  z-index: 6;
+  max-height: min(360px, 60vh);
+  overflow-y: auto;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+}
+
+.autocomplete__status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  color: var(--muted);
+  font-size: 0.8rem;
 }
 
 .toggle {

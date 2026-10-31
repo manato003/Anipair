@@ -108,7 +108,7 @@ describe('useBrowse おすすめ順', () => {
       ['c1', 50],
     ])
     expect(r.reasons.get(3)).toContain('好きな作品')
-    expect(r.reasons.get(1)).toContain('好きなジャンル')
+    expect(r.reasons.get(1)).toContain('あなたの好みに合う')
     expect(r.reasons.has(2)).toBe(false)
     expect(r.sortNote).toBeNull()
     expect(loadTaste).toHaveBeenCalledWith('t', expect.any(Function))

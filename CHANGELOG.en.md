@@ -2,6 +2,47 @@
 
 Changes to Anipair, newest first. Your records and the data saved on your device carry over from version to version.
 
+## v0.27.0 — 2026-10-31
+
+A new theme color, Night, uses the same night sky as the introduction page.
+
+- Added Night to Theme color in the Display settings. It uses the introduction page’s sky darkening into late night, with gold accents and faint stars. A crescent moon appears in the top bar on PC, and on the Rate, Browse, and Settings screens on phones
+- Night is always dark regardless of the Brightness setting, and the mascot’s sprout keeps its seasonal color
+
+## v0.26.0 — 2026-10-31
+
+The first screen before you log in is now an introduction page that shows what Anipair does and lets you try it right away.
+
+- Before you log in, the first screen is now an introduction page. After a shelf of anime posters and a note on how Anipair works with Annict, you can try the rating card, Suggestions with reasons, and the Tier list without logging in
+- Answers you give while trying it out are not sent to Annict or kept on your device, and they don’t carry over when you log in
+- The introduction page is colored like a sky darkening from evening into late night
+
+## v0.25.0 — 2026-10-31
+
+Answering with keys is now something you turn on in Settings, and “Log in with Annict” no longer fails when you come back in another tab. Browse filters and the Golden era and shares in Trends have also been reworked.
+
+- Answering with keys now works only after you turn on “Answer with keys” under “Keybindings (PC)” in Settings. When it is on, the keys are shown next to the buttons. Devices where you changed the keys before start with it on
+- Fixed “Log in with Annict” failing its login check when you came back in another tab, for example from a link in an email
+- In Browse, filtering by genre or studio without picking a period now searches every period, not only the anime on screen
+- The Golden era in Trends now covers only the years you have ratings in, and shows a single year as “2007”. Format shares now add up to 100%
+- When no synopsis can be found on Wikipedia, Anipair now says so
+- The Match screen’s heading is now “Match”, the same as its tab
+- The Terms and Privacy Policy buttons now have English names on the English screen, along with other small display fixes
+
+## v0.24.0 — 2026-10-29
+
+In Match, you can now pick genres, studios, and people you’d rather avoid and leave them out of your suggestions. Search boxes suggest titles as you type, and studios show their Japanese names on the Japanese screen.
+
+- “What you avoid” has been added to Match’s “Suggestion filters”. Pick from 13 topics such as ecchi, harem, and isekai, or short and long anime, and matching anime are left out of your suggestions. Each topic shows roughly how many well-rated anime would be left out with it
+- Genres and themes not among these topics can be searched for and added one by one
+- Studios to avoid can be picked from chips for 40 well-known studios or by searching. Voice actors and staff can also be searched for, and anime they worked on are left out
+- What you avoid is saved on this device and in your connected GitHub, and is included in backups
+- The search boxes in Browse and Records now suggest anime titles as you type
+- Studio filters in Browse and Records list 40 well-known studios first and fold the rest away. On the Japanese screen, studios are shown by their Japanese names in Trends and on anime cards too
+- Match’s reasons now fit genres and themes on one line, “Matches your taste: …”. Anime from studios you watch often get “A studio you watch often” (this line rarely appeared before)
+- The FAQ has been reworked. It explains in more detail how suggestions are chosen, and adds how to get different suggestions and how to open Anipair like an app. The FAQ in Settings now shows the explanation after each short answer too
+- Fixed the Browse search box on PC losing focus as soon as you started typing
+
 ## v0.23.0 — 2026-10-28
 
 Browse filters can now search every anime in a period. Anipair makes better use of large PC screens, and you can search by English or romanized titles and post a review for an episode on its own.

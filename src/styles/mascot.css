@@ -139,12 +139,6 @@
   width: min(100%, 200px);
 }
 
-/* ログイン前の画面: ロゴとキャッチコピーのあいだ */
-.welcome__art {
-  width: min(100%, 300px);
-  margin: 24px auto 0;
-}
-
 /* 空・うまくいかなかった・やりきった・これから見つける（components/Empty.tsx） */
 .empty__art {
   width: min(100%, 220px);

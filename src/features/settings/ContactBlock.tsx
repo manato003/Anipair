@@ -33,10 +33,19 @@ export function ContactBlock() {
         {open && <FeedbackSheet onClose={() => setOpen(false)} />}
       </Section>
       <Section id="settings-faq" title={t('よくある質問', 'FAQ')}>
-        {FAQ.map(([q, a]) => (
+        {/* 「?」のヘルプと同じく、短い答えのあとに説明も出す（短い答えだけでは、仕組みを聞く質問に答えきれない） */}
+        {FAQ.map(([q, short, detail]) => (
           <details key={q} className="help__more">
             <summary>{q}</summary>
-            <p className="help__answer">{a}</p>
+            <p className="help__answer">
+              <strong>{short}</strong>
+              {detail && (
+                <>
+                  <br />
+                  {detail}
+                </>
+              )}
+            </p>
           </details>
         ))}
       </Section>

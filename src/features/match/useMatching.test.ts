@@ -57,7 +57,14 @@ vi.mock('../../lib/annict', async (orig) => ({
 }))
 // 共有の感想の控えの代わり（作った感想を覚え、取り消しで消す）
 const reviewCache = new Map<number, { id: string; body: string; createdAt: string; ratingOverallState: string | null }>()
+// 苦手な人物の参加作品（Shikimori の人物の ID → 作品）。無い人は読めなかったことにする
+const personWorks = new Map<number, number[]>()
 vi.mock('../../lib/shikimori', () => ({
+  fetchPersonWorks: vi.fn(async (id: number) => {
+    const works = personWorks.get(id)
+    if (!works) throw new Error('offline')
+    return { cast: works.map((w) => ({ id: w, characters: [] })), staff: [] }
+  }),
   fetchMedia: vi.fn(async (ids: number[]) => new Map(ids.filter((i) => catalog.has(i)).map((i) => [i, catalog.get(i)!]))),
   isSimilarCached: () => true,
   fetchSimilarMany: vi.fn(async (ids: number[]) => new Map(ids.map((i) => [i, similarTable.get(i) ?? []]))),
@@ -85,6 +92,11 @@ vi.mock('./passStore', async (orig) => ({
   }),
 }))
 
+vi.mock('./dislikeStore', async (orig) => {
+  const real = await orig<typeof import('./dislikeStore')>()
+  return { ...real, syncDislikes: vi.fn(async () => real.loadLocalDislikes()) }
+})
+
 const { useMatching } = await import('./useMatching')
 const { syncPasses } = await import('./passStore')
 const { resolveAnnictWork } = await import('./resolve')
@@ -103,6 +115,7 @@ beforeEach(() => {
   ]
   ratings = new Map([[1, 'GREAT']])
   resolvable = new Set([10, 11])
+  personWorks.clear()
 })
 
 const GH = { token: 'gh', repo: 'me/anipair-data' }
@@ -353,7 +366,70 @@ describe('useMatching', () => {
       await act(() => hook.result.current.run())
       await waitFor(() => expect(hook.result.current.phase.kind).toBe('empty'))
       const phase = hook.result.current.phase
-      expect(phase.kind === 'empty' && phase.message).toContain('条件をゆるめて')
+      expect(phase.kind === 'empty' && phase.message).toContain('ゆるめてみてください')
+    })
+  })
+
+  describe('dislikes', () => {
+    it('leaves out candidates in a disliked topic and says how many were left out', async () => {
+      const before = catalog.get(11)!
+      catalog.set(11, media(11, { genres: ['Ecchi'] }))
+      try {
+        const hook = renderHook(() => useMatching('annict', null))
+        act(() => hook.result.current.setDislikeItem('topic:ecchi', true))
+        await act(() => hook.result.current.run())
+        await waitFor(() => expect(hook.result.current.phase.kind).toBe('ready'))
+        expect(hook.result.current.cards.map((c) => c.media.idMal)).toEqual([10])
+        expect(hook.result.current.dislikeNote).toEqual({ dropped: 1, unread: [] })
+        // 外すと、次の提案から戻る
+        act(() => hook.result.current.setDislikeItem('topic:ecchi', false))
+        await act(() => hook.result.current.run())
+        await waitFor(() => expect(hook.result.current.phase.kind).toBe('ready'))
+        expect(hook.result.current.cards.map((c) => c.media.idMal).sort()).toEqual([10, 11])
+        expect(hook.result.current.dislikeNote).toBeNull()
+      } finally {
+        catalog.set(11, before)
+      }
+    })
+
+    it('leaves out works by a disliked person before collecting candidates', async () => {
+      personWorks.set(500, [10])
+      const hook = renderHook(() => useMatching('annict', null))
+      act(() => hook.result.current.setDislikeItem('person:500', true, '声優A'))
+      await act(() => hook.result.current.run())
+      await waitFor(() => expect(hook.result.current.phase.kind).toBe('ready'))
+      expect(hook.result.current.cards.map((c) => c.media.idMal)).toEqual([11])
+      expect(hook.result.current.dislikeNote).toEqual({ dropped: 1, unread: [] })
+    })
+
+    it('names the people whose works could not be loaded', async () => {
+      const hook = renderHook(() => useMatching('annict', null))
+      act(() => hook.result.current.setDislikeItem('person:501', true, '声優B'))
+      await act(() => hook.result.current.run())
+      await waitFor(() => expect(hook.result.current.phase.kind).toBe('ready'))
+      expect(hook.result.current.dislikeNote).toEqual({ dropped: 0, unread: ['声優B'] })
+    })
+
+    it('asks to loosen what is avoided, not to rate more, when dislikes leave nothing', async () => {
+      const hook = renderHook(() => useMatching('annict', null))
+      act(() => hook.result.current.setDislikeItem('topic:daily', true))
+      act(() => hook.result.current.setDislikeItem('studio:n:music', true))
+      // 候補はどれもジャンル Music だけなので、日常では外れない。制作会社でも外れない。
+      // すべてを外すため、人物の参加作品に候補を入れる
+      personWorks.set(502, [10, 11])
+      act(() => hook.result.current.setDislikeItem('person:502', true, '声優C'))
+      await act(() => hook.result.current.run())
+      await waitFor(() => expect(hook.result.current.phase.kind).toBe('empty'))
+      const phase = hook.result.current.phase
+      expect(phase.kind === 'empty' && phase.toRate).toBe(false)
+      expect(phase.kind === 'empty' && phase.message).toContain('苦手な項目')
+    })
+
+    it('saves picks on this device so they come back next time', async () => {
+      const hook = renderHook(() => useMatching('annict', null))
+      act(() => hook.result.current.setDislikeItem('studio:569', true, 'MAPPA'))
+      const again = renderHook(() => useMatching('annict', null))
+      expect(again.result.current.dislikes.get('studio:569')).toMatchObject({ active: true, name: 'MAPPA' })
     })
   })
 })

@@ -10,6 +10,7 @@ import type { RatingState } from '../../lib/annict'
 import { AXIS_LABEL, RATING_LABEL } from '../../lib/reviewOps'
 import type { Media } from '../../lib/shikimori'
 import { t } from '../../lib/i18n'
+import { studioName } from '../../lib/studios'
 import { genreName } from '../match/taste'
 import { Balance, Columns, Diverging, RankBars, Radar, Ring, Stack } from './Charts'
 import { MEDIA_KINDS, SEASON_KEYS, type RecordRow } from './recordList'
@@ -23,6 +24,7 @@ import {
   formatShare,
   genreAxes,
   goldenPeriod,
+  yearSpanText,
   harshness,
   mainstream,
   monthlyPace,
@@ -227,7 +229,7 @@ export function TrendsView(props: { rows: readonly RecordRow[]; data: TrendsData
           <h3 className="trend__title">{t('放送年', 'Air year')}</h3>
           {golden && (
             <p className="trend__headline">
-              {t(`黄金期は ${golden.from}〜${golden.to}年`, `Golden era: ${golden.from}–${golden.to}`)}
+              {t(`黄金期は ${yearSpanText(golden)}`, `Golden era: ${yearSpanText(golden)}`)}
               <span className="trend__fig">{t(`（平均 ${golden.average.toFixed(1)}・${golden.n}作品）`, ` (avg ${golden.average.toFixed(1)}, ${golden.n} anime)`)}</span>
             </p>
           )}
@@ -295,7 +297,7 @@ export function TrendsView(props: { rows: readonly RecordRow[]; data: TrendsData
         <h3 className="trend__title">{t('よく見る監督', 'Most-watched directors')}</h3>
         <PeopleList items={people.directors} />
         <h3 className="trend__title">{t('よく見る制作会社', 'Most-watched studios')}</h3>
-        <PeopleList items={media ? people.studios : null} />
+        <PeopleList items={media ? people.studios.map((s) => ({ ...s, name: studioName(s.name) })) : null} />
       </section>
 
       {/* 声優との相性（よく見る声優は本数の順なので、出演の多い人が上に来やすい。こちらは評価の差で並べる） */}

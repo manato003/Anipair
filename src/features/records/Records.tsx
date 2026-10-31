@@ -1,4 +1,5 @@
 import { lazy, Suspense, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Autocomplete } from '../../components/Autocomplete'
 import { BackIcon, CalendarIcon, ChartIcon, CheckIcon, FilterIcon, PauseIcon, PlayIcon, TierIcon, TrophyIcon } from '../../components/Icons'
 import { Bookmark } from '../../components/Bookmark'
 import { loadTitlesState } from '../achievements/achievementStore'
@@ -19,6 +20,7 @@ import { useSwipeIntercept } from '../../lib/useSwipeNav'
 import { useWide } from '../../lib/useWide'
 import { useTuckOnScroll } from '../../lib/useTuckOnScroll'
 import { seasonLabel, type Season } from '../../lib/season'
+import { studioName } from '../../lib/studios'
 import { CourNav } from '../../components/CourNav'
 import { PinnedLine } from '../../components/PinnedLine'
 import { formatMinutes } from '../../lib/watchFacts'
@@ -35,12 +37,14 @@ import {
   STATE_OPTIONS,
   activeFilterCount,
   applyFilter,
+  bucketOf,
   countBuckets,
   filterRows,
   formatDate,
   optionState,
   sortOptions,
   sortRows,
+  titleHints,
   type Bucket,
   type MediaInfo,
   type RecordFilter,
@@ -320,19 +324,32 @@ export function Records({ token, github = null, active }: { token: string; githu
   }, active)
 
   const countOf = (b: Bucket) => counts[b]
-  const dot = achievementsUnseen && <span className="viewswitch__dot" aria-label={t('まだ見ていません', 'Not viewed yet')} />
+  const dot = achievementsUnseen && <span className="viewswitch__dot" aria-hidden />
   const courName = filter.cour ? seasonLabel(filter.cour) : t('すべてのクール', 'All seasons')
 
   // 検索と絞り込み。スマホは帯の上に1行、PC は帯の中（クールと並べ替えと同じ行）
   const tools = (
     <div className="records__tools">
-      <input
-        className="search"
-        type="search"
+      {/* 打ちながら、ほかの項目（見た・見たいなど）の作品も候補に出す。選ぶとその項目へ移り、欄をその題名で埋める */}
+      <Autocomplete<RecordRow>
+        className="autocomplete--search"
+        inputClassName="search"
+        label={t('タイトルで絞り込む', 'Filter by title')}
         placeholder={t('タイトルで絞り込む', 'Filter by title')}
         value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        aria-label={t('タイトルで絞り込む', 'Filter by title')}
+        onValueChange={setQuery}
+        wait={0}
+        search={(q) => titleHints(filtered, q)}
+        item={(row) => ({
+          key: String(row.entry.annictId),
+          label: workTitle(row.entry),
+          sub: BUCKETS.find((x) => x.id === bucketOf(row.entry.state))?.label,
+        })}
+        onPick={(row) => {
+          const to = bucketOf(row.entry.state)
+          if (to !== bucket) select(to)
+          setQuery(row.entry.title)
+        }}
       />
       <button type="button" className="btn records__filterbtn" aria-pressed={filterCount > 0} onClick={() => setFilterOpen(true)}>
         <FilterIcon />
@@ -678,7 +695,7 @@ function ActiveFilters({ filter: f, onChange }: { filter: RecordFilter; onChange
       clear: () => onChange({ ...f, media: [] }),
     })
   if (f.genres.length > 0) items.push({ label: `${t('ジャンル', 'Genre')}: ${joinList(f.genres.map(genreName))}`, clear: () => onChange({ ...f, genres: [] }) })
-  if (f.studios.length > 0) items.push({ label: `${t('制作会社', 'Studio')}: ${joinList(f.studios)}`, clear: () => onChange({ ...f, studios: [] }) })
+  if (f.studios.length > 0) items.push({ label: `${t('制作会社', 'Studio')}: ${joinList(f.studios.map(studioName))}`, clear: () => onChange({ ...f, studios: [] }) })
   return (
     <div className="activefilters">
       {items.map((it) => (

@@ -1,8 +1,29 @@
 import { useEffect, useState } from 'react'
-import { Section } from './Section'
-import { DEFAULT_KEYMAP, KEY_ACTIONS, RESERVED_KEYS, assignKey, clash, getKeymap, hadReservedKeys, keyLabel, normalizeKey, setKeymap, useKeymap, type KeyAction } from '../../lib/keymap'
+import { Section, SettingRow } from './Section'
+import { Choices } from '../../components/QuickSettings'
+import {
+  DEFAULT_KEYMAP,
+  KEY_ACTIONS,
+  RESERVED_KEYS,
+  assignKey,
+  clash,
+  getKeymap,
+  hadReservedKeys,
+  keyLabel,
+  normalizeKey,
+  setKeymap,
+  setKeysOn,
+  useKeymap,
+  useKeysOn,
+  type KeyAction,
+} from '../../lib/keymap'
 import { t } from '../../lib/i18n'
 import { loadKeymapRaw } from '../../lib/storage'
+
+const KEYS_ON = [
+  { value: true, get label() { return t('する', 'On') } },
+  { value: false, get label() { return t('しない', 'Off') } },
+] as const
 
 // タッチの端末（指で触る画面）では、キーボードの設定は使わないので畳んでおく
 function isTouchDevice(): boolean {
@@ -11,6 +32,7 @@ function isTouchDevice(): boolean {
 
 export function Keybinds() {
   const keymap = useKeymap()
+  const keysOn = useKeysOn()
   // キーを押してもらうのを待っている操作
   const [waiting, setWaiting] = useState<KeyAction | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -53,7 +75,19 @@ export function Keybinds() {
   const isDefault = KEY_ACTIONS.every(({ action }) => keymap[action] === DEFAULT_KEYMAP[action])
 
   return (
-    <Section id="settings-keys" title={t('キーバインド（PC）', 'Keybindings (PC)')} summary={t('評価とマッチングで使うキーを変えられます。', 'Change the keys used in Rate and Match.')}>
+    <Section id="settings-keys" title={t('キーバインド（PC）', 'Keybindings (PC)')} summary={t('評価とマッチングで、キーで答えられるようにします。', 'Answer with keys in Rate and Match.')}>
+      <SettingRow label={t('キーで答える', 'Answer with keys')} hint={t('するとボタンの横にキーが出ます', 'Shows the keys next to the buttons')}>
+        <Choices
+          label={t('キーで答える', 'Answer with keys')}
+          choices={KEYS_ON}
+          value={keysOn}
+          onChoose={(v) => {
+            setKeysOn(v)
+            setWaiting(null)
+          }}
+        />
+      </SettingRow>
+      {keysOn && (
       <details className="settings__fold" open={!isTouchDevice()}>
         <summary>{t('キーの割り当て', 'Key assignments')}</summary>
       <p className="settings__lead">
@@ -106,6 +140,7 @@ export function Keybinds() {
         {message && <p className="settings__note">{message}</p>}
       </div>
       </details>
+      )}
     </Section>
   )
 }

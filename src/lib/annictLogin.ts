@@ -1,4 +1,4 @@
-import { loadOauthState, saveOauthState } from './storage'
+import { rememberOauthState, takeOauthState } from './storage'
 import { t } from './i18n'
 
 // 「Annict でログイン」（OAuth の認可コードフロー）。
@@ -35,10 +35,10 @@ export function newState(): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
 }
 
-// ログイン画面へ移る。戻ってきたときに照合できるよう、state をこのタブに控えておく
+// ログイン画面へ移る。戻ってきたときに照合できるよう、state をこの端末に控えておく
 export function startLogin(p: { clientId: string; origin: string; assign: (url: string) => void; state?: string }): void {
   const state = p.state ?? newState()
-  saveOauthState(state)
+  rememberOauthState(state)
   p.assign(buildAuthorizeUrl({ clientId: p.clientId, redirectUri: redirectUriFor(p.origin), state }))
 }
 
@@ -77,13 +77,11 @@ function failure(key: string): LoginResult {
 }
 
 // Annict から戻ってきたアドレスを処理する。state を照合し、code を関数に渡してトークンを受け取る。
-// 控えておいた state は、成功しても失敗しても1回で捨てる（同じ戻りを2度使わせない）。トークンの保存は呼んだ側が行う
+// 照合に使った state は、成功しても失敗しても1回で捨てる（同じ戻りを2度使わせない）。トークンの保存は呼んだ側が行う
 export async function completeLogin(p: { search: string; origin: string; fetchFn?: (url: string, init?: RequestInit) => Promise<Response> }): Promise<LoginResult> {
   const q = new URLSearchParams(p.search)
-  const expected = loadOauthState()
-  saveOauthState(null)
   const state = q.get('state')
-  if (!expected || !state || state !== expected) return failure('state')
+  if (!state || !takeOauthState(state)) return failure('state')
   if (q.has('error')) return failure(q.get('error') === 'access_denied' ? 'denied' : 'unknown')
   const code = q.get('code')
   if (!code) return failure('unknown')

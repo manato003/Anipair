@@ -24,7 +24,7 @@ import { t } from '../lib/i18n'
 // 「タップで閉じます」のような文字の案内は、その文字を押すものと誤解されるので出さない。初めての1回だけ、つまみの下に地の文字で閉じ方を添える
 
 // シートの中でタップしても閉じない、押せるもの
-const INTERACTIVE = 'a, button, input, select, textarea, label, summary, [role="button"], [contenteditable="true"]'
+const INTERACTIVE = 'a, button, input, select, textarea, label, summary, [role="button"], [role="option"], [contenteditable="true"]'
 
 // 払いで閉じる距離（下へ・右へ）と、短く速く払ったときの距離。端から始めた払いは受けない
 const DOWN_PX = 90

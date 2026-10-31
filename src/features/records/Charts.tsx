@@ -1,5 +1,5 @@
 import { t } from '../../lib/i18n'
-import { countText } from './trends'
+import { countText, percents } from './trends'
 
 // 傾向のシートの図。SVG と HTML だけで描く（図のライブラリは使わない）。
 // 決まりごと（dataviz の指針）: 棒は細く（24px まで）上端だけ丸める・線は2px・点は半径4で背景色の輪・塗りは1割の濃さ・
@@ -167,7 +167,7 @@ export function Diverging(props: { items: readonly { key: string; name: string; 
 
 // 構成比の積み上げ横棒（4区分まで）。区分のあいだは2pxの隙間、凡例に名前と数
 export function Stack(props: { parts: readonly { label: string; value: number }[]; title: string }) {
-  const total = props.parts.reduce((a, p) => a + p.value, 0) || 1
+  const pct = percents(props.parts.map((p) => p.value))
   return (
     <div className="stack">
       <div className="stack__bar" role="img" aria-label={props.title}>
@@ -183,7 +183,7 @@ export function Stack(props: { parts: readonly { label: string; value: number }[
             <span className="stack__swatch" style={{ background: CATEGORY_COLORS[i] }} aria-hidden />
             {p.label}
             <span className="stack__value">
-              {t(`${countText(p.value)}（${Math.round((p.value / total) * 100)}%）`, `${countText(p.value)} (${Math.round((p.value / total) * 100)}%)`)}
+              {t(`${countText(p.value)}（${pct[i]}%）`, `${countText(p.value)} (${pct[i]}%)`)}
             </span>
           </li>
         ))}

@@ -6,6 +6,7 @@ import { Phrase } from '../../components/Phrase'
 import { Sheet } from '../../components/Sheet'
 import { getLang, t } from '../../lib/i18n'
 import { shikiTitle } from '../../lib/names'
+import { studioName } from '../../lib/studios'
 import { shikimoriUrl, type Media } from '../../lib/shikimori'
 import { episodeFacts } from '../../lib/watchFacts'
 import { fetchWikiSynopsis, type WikiSynopsis } from '../../lib/wikipedia'
@@ -85,7 +86,7 @@ export function SharedWorkCard(props: { media: Media; onClose: () => void }) {
 
         <div className="detail__body">
           <div className="detail__late">
-            {(genres.length > 0 || m.studios.length > 0 || wiki) && (
+            {(genres.length > 0 || m.studios.length > 0 || wiki !== undefined) && (
               <section className="group">
                 <h3 className="group__title">
                   <InfoIcon />
@@ -108,12 +109,12 @@ export function SharedWorkCard(props: { media: Media; onClose: () => void }) {
                     <dl className="credits">
                       <div className="credits__row">
                         <dt>{t('制作会社', 'Studio')}</dt>
-                        <dd>{m.studios.join(t('・', ', '))}</dd>
+                        <dd>{m.studios.map(studioName).join(t('・', ', '))}</dd>
                       </div>
                     </dl>
                   </section>
                 )}
-                {wiki && <WikiSynopsisSection wiki={wiki} />}
+                {wiki !== undefined && <WikiSynopsisSection wiki={wiki} />}
               </section>
             )}
 

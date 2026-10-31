@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { HeadActions } from '../../components/ControlCenter'
 import { BackIcon, BoxIcon, CommentIcon, InfoIcon, KeyIcon, NewsIcon, PaletteIcon, UserIcon } from '../../components/Icons'
 import { annictClientId } from '../../lib/annictLogin'
+import { Landing } from '../landing/Landing'
 import type { GithubConnection } from '../../lib/github'
 import { rememberScroll, restoreScroll } from '../../lib/pageScroll'
 import { isLoggedOut } from '../../lib/storage'
@@ -20,7 +21,6 @@ import { GithubBlock } from './GithubBlock'
 import { Keybinds } from './Keybinds'
 import { NewsBlock } from './NewsBlock'
 import { useHistoryUnseen } from './historySeen'
-import { Welcome } from './Welcome'
 import { reducedMotion } from '../../lib/theme'
 
 // 設定のまとまり。スマホは一覧を挟み（押すと開く）、PC は右端の縦の列で切り替える（記録と同じ形）。
@@ -117,18 +117,16 @@ export function Settings(props: {
   request?: SettingsRequest | null
   active?: boolean
 }) {
-  // ログインする前は、最初の画面として説明とログインだけを出す（GitHub やキーバインドは、使い始めてからでよい）
+  // ログインする前は、紹介ページ（説明・触れるデモ・ログイン）を出す（GitHub やキーバインドは、使い始めてからでよい）
   if (!props.annictToken) {
     return (
-      <section className="settings settings--welcome">
-        <Welcome
-          clientId={props.clientId === undefined ? annictClientId() : props.clientId}
-          busy={props.loginBusy ?? false}
-          error={props.loginError ?? null}
-          loggedOut={isLoggedOut()}
-          onAnnictTokenChange={props.onAnnictTokenChange}
-        />
-      </section>
+      <Landing
+        clientId={props.clientId === undefined ? annictClientId() : props.clientId}
+        busy={props.loginBusy ?? false}
+        error={props.loginError ?? null}
+        loggedOut={isLoggedOut()}
+        onAnnictTokenChange={props.onAnnictTokenChange}
+      />
     )
   }
   return <SignedInSettings {...props} annictToken={props.annictToken} />
@@ -207,7 +205,7 @@ function SignedInSettings(props: {
             <button key={g.id} type="button" className="rrail__item" aria-current={group === g.id ? 'true' : undefined} onClick={() => select(g.id)}>
               {g.icon}
               <span>{g.label}</span>
-              {g.id === 'news' && historyUnseen && <span className="viewswitch__dot" aria-label={t('新しい版があります', 'New version available')} />}
+              {g.id === 'news' && historyUnseen && <span className="viewswitch__dot" aria-hidden />}
             </button>
           ))}
         </nav>

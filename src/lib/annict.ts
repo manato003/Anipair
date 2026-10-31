@@ -1316,6 +1316,64 @@ export async function searchWorksByTitle(token: string, title: string): Promise<
   return data.searchWorks.nodes
 }
 
+export interface WorkHit {
+  annictId: number
+  title: string
+  titleEn: string | null
+  seasonYear: number | null
+  seasonName: string | null
+}
+
+// ブラウズの検索欄の候補。題名の一部（読みでも当たる）で、見た人の多い順に8件まで
+export async function searchWorkTitles(token: string, q: string): Promise<WorkHit[]> {
+  const title = q.normalize('NFKC').trim()
+  if (!title) return []
+  const data = await gql<{ searchWorks: { nodes: WorkHit[] } }>(
+    token,
+    `query($titles: [String!]) { searchWorks(titles: $titles, first: 8, orderBy: {field: WATCHERS_COUNT, direction: DESC}) { nodes { annictId title titleEn seasonYear seasonName } } }`,
+    { titles: [title] },
+  )
+  return data.searchWorks.nodes.map((w) => ({ ...w, titleEn: w.titleEn || null }))
+}
+
+export interface PersonHit {
+  annictId: number
+  name: string
+  castsCount: number
+  staffsCount: number
+}
+
+export interface OrganizationHit {
+  annictId: number
+  name: string
+  nameEn: string | null
+  staffsCount: number
+}
+
+// 名前の一部（かなでも当たる）で人物・団体を探す。お気に入りの多い順に8件まで（入力しながら候補を出すのに使う）。
+// 人の名前は空白を入れると当たらない（「花澤 香菜」は0件。2026-10-29）ので、空白は除いて送る。団体は名前に空白がある（Production I.G）ので残す
+export async function searchPeopleByName(token: string, q: string): Promise<PersonHit[]> {
+  const name = q.normalize('NFKC').replace(/\s+/g, '')
+  if (!name) return []
+  const data = await gql<{ searchPeople: { nodes: PersonHit[] } }>(
+    token,
+    `query($names: [String!]) { searchPeople(names: $names, first: 8, orderBy: {field: FAVORITE_PEOPLE_COUNT, direction: DESC}) { nodes { annictId name castsCount staffsCount } } }`,
+    { names: [name] },
+  )
+  return data.searchPeople.nodes
+}
+
+export async function searchOrganizationsByName(token: string, q: string): Promise<OrganizationHit[]> {
+  const name = q.normalize('NFKC').trim()
+  if (!name) return []
+  const data = await gql<{ searchOrganizations: { nodes: OrganizationHit[] } }>(
+    token,
+    `query($names: [String!]) { searchOrganizations(names: $names, first: 8, orderBy: {field: FAVORITE_ORGANIZATIONS_COUNT, direction: DESC}) { nodes { annictId name nameEn staffsCount } } }`,
+    { names: [name] },
+  )
+  return data.searchOrganizations.nodes.map((o) => ({ ...o, nameEn: o.nameEn || null }))
+}
+
 // Annict の作品 ID から、ブラウズの一覧と同じ形で引く（50件ずつ1回の問い合わせ）。並びは問い合わせの順とは限らない。無い ID は入らない
 export async function fetchWorksByAnnictIds(token: string, annictIds: readonly number[]): Promise<BrowseWork[]> {
   const ids = [...new Set(annictIds)]

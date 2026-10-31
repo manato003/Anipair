@@ -247,4 +247,25 @@ describe('useBrowse narrowing a period by genres and studios', () => {
     expect(hook.result.current.narrowed).toBe(false)
     await waitFor(() => expect(hook.result.current.works?.map((x) => x.annictId)).toEqual([1, 2]))
   })
+
+  it('without a period, searches every cour from the oldest one; with the chips removed it goes back to the cour', async () => {
+    findCalls.length = 0
+    let narrow: { genres: number[]; studios: number[] } | null = null
+    const hook = renderHook(() => useBrowse('t', true, narrow))
+    await waitFor(() => expect(hook.result.current.works).not.toBeNull())
+    expect(hook.result.current.allPeriod).toBe(false)
+    narrow = { genres: [], studios: [569] }
+    hook.rerender()
+    await waitFor(() => expect(hook.result.current.narrowed).toBe(true), { timeout: 2000 })
+    await waitFor(() => expect(hook.result.current.works?.map((x) => x.annictId)).toEqual([51]))
+    expect(hook.result.current.allPeriod).toBe(true)
+    expect(hook.result.current.mode).toBe('period')
+    expect(findCalls[0].narrow).toEqual({ genres: [], studios: [569] })
+    expect(findCalls[0].period).toMatchObject({ from: expect.stringMatching(/^\d{4}-winter$/) })
+    narrow = null
+    hook.rerender()
+    expect(hook.result.current.allPeriod).toBe(false)
+    expect(hook.result.current.mode).toBe('cour')
+    await waitFor(() => expect(hook.result.current.works?.map((x) => x.annictId)).toEqual([1, 2]))
+  })
 })

@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import { loadKeymapRaw, saveKeymapRaw } from './storage'
+import { loadKeymapRaw, loadKeysOnRaw, saveKeymapRaw, saveKeysOn } from './storage'
 import { t, tx, type Text } from './i18n'
 
 // PC のキーボード操作の割り当て。評価画面とマッチングで共通
@@ -184,4 +184,33 @@ function subscribe(l: () => void) {
 
 export function useKeymap(): Keymap {
   return useSyncExternalStore(subscribe, getKeymap)
+}
+
+// キー操作を使うか（端末ごと）。既定は使わない: ほとんどの人はクリックで答えるので、ボタンにキーを出さずにすっきりさせる。
+// 保存が無くても、前にキーの割り当てを変えた端末は、キーで使っている人なので使う方から始める
+let keysOn: boolean | null = null
+
+export function parseKeysOn(value: unknown, customized: boolean): boolean {
+  return typeof value === 'boolean' ? value : customized
+}
+
+export function getKeysOn(): boolean {
+  keysOn ??= parseKeysOn(loadKeysOnRaw(), loadKeymapRaw() !== null)
+  return keysOn
+}
+
+export function setKeysOn(on: boolean): void {
+  keysOn = on
+  saveKeysOn(on)
+  for (const l of listeners) l()
+}
+
+export function useKeysOn(): boolean {
+  return useSyncExternalStore(subscribe, getKeysOn)
+}
+
+// テストのあいだで覚えた値を捨てる
+export function resetKeymapForTests(): void {
+  current = null
+  keysOn = null
 }

@@ -144,6 +144,7 @@ export function byYear(rows: readonly RecordRow[]): YearBar[] {
 }
 
 // 黄金期: 続く3年のうち、評価した作品が4本以上あって平均評価がいちばん高いところ。無ければ null
+// 範囲の両端は、その3年のうち評価のある年に縮める（記録の無い年を黄金期に含めない）
 export function goldenPeriod(rows: readonly RecordRow[]): { from: number; to: number; average: number; n: number } | null {
   const points = new Map<number, number[]>()
   for (const r of watched(rows)) {
@@ -154,12 +155,31 @@ export function goldenPeriod(rows: readonly RecordRow[]): { from: number; to: nu
   }
   let best: { from: number; to: number; average: number; n: number } | null = null
   for (const y of points.keys()) {
-    const xs = [y, y + 1, y + 2].flatMap((k) => points.get(k) ?? [])
+    const span = [y, y + 1, y + 2].filter((k) => points.has(k))
+    const xs = span.flatMap((k) => points.get(k) ?? [])
     const avg = mean(xs)
     if (avg === null || xs.length < 4) continue
-    if (!best || avg > best.average || (avg === best.average && xs.length > best.n)) best = { from: y, to: y + 2, average: avg, n: xs.length }
+    if (!best || avg > best.average || (avg === best.average && xs.length > best.n)) best = { from: y, to: span[span.length - 1], average: avg, n: xs.length }
   }
   return best
+}
+
+// 黄金期の年の書き方。1年だけなら「2007年」
+export function yearSpanText(p: { from: number; to: number }): string {
+  if (p.from === p.to) return t(`${p.from}年`, `${p.from}`)
+  return t(`${p.from}〜${p.to}年`, `${p.from}–${p.to}`)
+}
+
+// 割合を整数の%にする。合計がちょうど100になるよう、切り捨てた残りを端数の大きい順に1ずつ配る
+export function percents(values: readonly number[]): number[] {
+  const total = values.reduce((a, v) => a + v, 0)
+  if (total === 0) return values.map(() => 0)
+  const exact = values.map((v) => (v / total) * 100)
+  const out = exact.map(Math.floor)
+  const order = exact.map((x, i) => [x - Math.floor(x), i] as const).sort((a, b) => b[0] - a[0])
+  const rest = 100 - out.reduce((a, v) => a + v, 0)
+  for (let k = 0; k < rest; k++) out[order[k][1]]++
+  return out
 }
 
 // 形式の割合（見た作品）

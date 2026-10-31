@@ -276,7 +276,8 @@ describe('WorkDetail', () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch')
     render(<WorkDetail readOnly token="t" work={work} cover={null} onClose={() => undefined} />)
     await waitFor(() => expect(screen.getByText('全12話')).toBeTruthy())
-    expect(screen.queryByText('あらすじ')).toBeNull()
+    // Wikipedia に記事が無ければ、無いことを1行で伝える（何も出さないと、読み込み中か無いのか分からない）
+    expect(await screen.findByText('Wikipediaで見つかりませんでした。')).toBeTruthy()
     expect(screen.queryByText('配信')).toBeNull()
     expect(fetchSpy.mock.calls.some(([url]) => String(url).startsWith('https://annict.com/'))).toBe(false)
     fetchSpy.mockRestore()

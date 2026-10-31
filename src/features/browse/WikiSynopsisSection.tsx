@@ -3,10 +3,17 @@ import { t } from '../../lib/i18n'
 import type { WikiSynopsis } from '../../lib/wikipedia'
 
 // あらすじ: Wikipedia の冒頭の段落（ネタバレを避ける）。続きは押したときだけ、その場で広げる。出典とライセンス（CC BY-SA 4.0）を添える。
-// 作品の詳細と、共有の Tier表の作品カードで使う
-export function WikiSynopsisSection(props: { wiki: WikiSynopsis }) {
+// 作品の詳細と、共有の Tier表の作品カードで使う。null（記事が無い・読めなかった）のときは、無いことを1行で伝える
+export function WikiSynopsisSection(props: { wiki: WikiSynopsis | null }) {
   const { wiki } = props
   const [open, setOpen] = useState(false)
+  if (!wiki)
+    return (
+      <section className="detail__section">
+        <h3 className="detail__label">{t('あらすじ', 'Synopsis')}</h3>
+        <p className="detail__text">{t('Wikipediaで見つかりませんでした。', 'Not found on Wikipedia.')}</p>
+      </section>
+    )
   return (
     <section className="detail__section">
       <h3 className="detail__label">{wiki.lang === 'en' ? 'Synopsis' : t('あらすじ', 'Synopsis (from Japanese Wikipedia)')}</h3>

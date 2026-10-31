@@ -1,0 +1,892 @@
+/* ── ログインする前の紹介ページ（features/landing/Landing.tsx） ──
+   色は「夜から深夜へ」: 最上段の文字とボタンの部分だけ夕方のオレンジで、ログインのボタンのすぐ下で #493d6f に戻る。
+   棚から下は節ごとに同じ幅で暗くし、フッターの下の端がいちばん暗い。節の上の端は、前の節の下の端と同じ色にして一続きにする。
+   アプリの地の色（時刻や設定で変わる）は使わず、この中で文字と部品の色を決め直す（中に置いた設定の部品も、この色で描かれる）
+   月と星: 三日月は日没後の薄明に低く出て、すぐ沈む。その短い時間だけ空の主役になる月として、最上段にだけ置く。
+   下の節は月が沈んだあとの夜で、暗くなるほど小さな星をわずかに増やす。光らせず、瞬かせもしない */
+.lp {
+  --lp-text: #eef0fa;
+  --lp-sub: #bcc2de;
+  --lp-accent: #f3c98b;
+  --lp-on-accent: #1a1d33;
+  --lp-line: rgb(238 240 250 / 0.55);
+  --lp-rule: rgb(255 255 255 / 0.12);
+  --lp-panel: rgb(255 255 255 / 0.08);
+  --lp-skel: rgb(255 255 255 / 0.08);
+  --lp-shadow: 0 12px 28px rgb(0 0 12 / 0.45);
+  --lp-shadow-s: 0 6px 16px rgb(0 0 12 / 0.4);
+  --fg: var(--lp-text);
+  --sub: var(--lp-sub);
+  --muted: var(--lp-sub);
+  --line: var(--lp-rule);
+  --line-strong: var(--lp-line);
+  --control: rgb(255 255 255 / 0.06);
+  --ink: var(--lp-on-accent);
+  --ink-raised: rgb(255 255 255 / 0.06);
+  --brand-gradient: var(--lp-accent);
+  width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+  background: #0d0b1a;
+  color: var(--lp-text);
+  line-height: 1.7;
+}
+
+.lp a {
+  color: var(--lp-text);
+}
+
+.lp h2,
+.lp h3,
+.lp p {
+  margin: 0;
+}
+
+/* 紹介ページを出しているあいだ（Landing.tsx が :root に data-landing を付ける）。
+   スマホの上端に貼りつく地の色の帯（base.css の .topedge）は、暗い地の上で明るい線に見えるので出さない。
+   ページの地（上端・引っぱったときに見える所）とブラウザの枠（theme-color）も、アプリの季節の地ではなく、紹介ページの上端と下端の色にする */
+:root[data-landing] {
+  --theme-chrome: #7e4f5a;
+  background: linear-gradient(180deg, #7e4f5a, #0d0b1a) fixed #7e4f5a;
+}
+
+/* スマホでページの上端・下端より先へ引っぱると、動かない地の層（base.css の body::before）が見える。
+   上半分を紹介ページの上端の色、下半分を下端の色にして、どちらの端で引っぱっても地が続いて見えるようにする */
+:root[data-landing] body::before {
+  background: linear-gradient(180deg, #7e4f5a 50%, #0d0b1a 50%);
+}
+
+/* Safari は、端より先へ引っぱったときに空いた所を html の単色で塗る。上端の色のままだと、下端でピンクがはみ出して見えた（実機）。
+   下半分まで流したら（Landing.tsx が data-landing を 'end' にする）、単色を下端の色にする。
+   下端に貼りつく帯を中身の後ろ（z-index: -1）に敷く案は、Safari の当たり判定に掛からず効かなかった */
+:root[data-landing='end'] {
+  background-color: #0d0b1a;
+}
+
+:root[data-landing] .topedge {
+  display: none;
+}
+
+/* ── 部品 ── */
+.lp-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.lp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: var(--lp-accent);
+  color: var(--lp-on-accent);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.lp a.lp-btn {
+  color: var(--lp-on-accent);
+}
+
+.lp-btn--ghost,
+.lp a.lp-btn--ghost {
+  border-color: var(--lp-line);
+  background: transparent;
+  color: var(--lp-text);
+  font-weight: 500;
+}
+
+.lp-btn--small {
+  min-width: 44px;
+  padding: 0 14px;
+  font-size: 0.85rem;
+}
+
+.lp-btn--large {
+  min-height: 52px;
+  padding: 0 24px;
+  border-radius: 12px;
+  font-size: 1rem;
+}
+
+.lp-btn--primary {
+  padding: 0 28px;
+  font-size: 1.05rem;
+}
+
+.lp-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.lp-textbtn {
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--lp-sub);
+  font: inherit;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.lp-note {
+  color: var(--lp-sub);
+  font-size: 0.85rem;
+}
+
+.lp-kicker {
+  color: var(--lp-sub);
+  font-size: 0.8rem;
+}
+
+.lp-error {
+  color: #ffb4a8;
+  font-size: 0.9rem;
+}
+
+.lp-chip {
+  display: inline-block;
+  padding: 2px 10px;
+  border: 1px solid var(--lp-line);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.lp-chip--solid {
+  border-color: transparent;
+  background: var(--lp-accent);
+  color: var(--lp-on-accent);
+}
+
+.lp-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 28px 20px;
+  border-radius: 16px;
+  background: var(--lp-panel);
+  color: var(--lp-sub);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.lp-panel--dashed {
+  border: 1.5px dashed var(--lp-line);
+  background: transparent;
+}
+
+.lp-panel__title {
+  color: var(--lp-text);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+/* 表紙（Shikimori のポスター）。読めないときは題名を出す */
+.lp-poster {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--lp-skel);
+}
+
+.lp-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.lp-poster img,
+.lp-shelf__item {
+  -webkit-user-drag: none;
+}
+
+.lp-poster__alt {
+  padding: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.lp-skel {
+  animation: lp-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes lp-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+:root[data-motion='reduce'] .lp-skel {
+  animation: none;
+}
+
+/* ── 最上段 ── */
+/* 夕方のオレンジから #493d6f へ。終わりに近づくほど変わり方をゆるめ、棚の地（ほとんど変わらない）へ傾きの差なしにつなぐ
+   （同じ3色を直線でつないでいたときは、棚との境目に線がうっすら見えた） */
+.lp-hero__top {
+  position: relative;
+  padding-top: env(safe-area-inset-top);
+  background: linear-gradient(
+    180deg,
+    #7e4f5a 0%,
+    #754c5d 15%,
+    #6c4861 30%,
+    #634564 45%,
+    #5e4366 55%,
+    #584168 65%,
+    #523f6b 75%,
+    #4d3e6d 85%,
+    #4a3d6f 93%,
+    #493d6f 100%
+  );
+}
+
+/* 三日月（Landing.tsx の Crescent）。上の帯と見出しのあいだの右の空に置き、文字とボタンには重ねない。
+   薄明の空に頼りなく光る月なので、くっきり描かない: 弧は半透明で空の色を透かし（screen で重ねる）、縁をわずかにぼかす。
+   欠けた所の地球照は、気づく人だけが気づく程度に */
+.lp-moon {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 70px);
+  right: 22px;
+  width: 30px;
+  height: 30px;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  filter: blur(0.4px) drop-shadow(0 0 8px rgb(244 228 191 / 0.12));
+}
+
+.lp-moon__earthshine {
+  fill: rgb(238 240 250 / 0.045);
+}
+
+.lp-bar,
+.lp-hero__body {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding-right: 16px;
+  padding-left: 16px;
+}
+
+.lp-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 16px;
+}
+
+.lp-bar .logo {
+  flex-grow: 1;
+}
+
+.lp-hero__body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-top: 48px;
+  padding-bottom: 36px;
+}
+
+/* 上の端が明るいぶん、補足の文字を明るくして読みやすさを保つ */
+.lp-hero .lp-note,
+.lp-hero .lp-kicker,
+.lp-lead {
+  color: #d6d8ec;
+}
+
+.lp-hero__title {
+  margin: 0;
+  font-size: 1.9rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+/* 句の途中では折り返さない */
+.lp-hero__title span {
+  display: inline-block;
+}
+
+.lp-lead {
+  max-width: 560px;
+  font-size: 1rem;
+}
+
+.lp-hero__actions {
+  gap: 12px;
+  padding-top: 4px;
+}
+
+/* 棚: 左右とも本文の列にそろえ、列の中で横に流す。地は棚の上の端から始め、上の部分の終わりの色からそのまま続ける */
+.lp-shelves {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 0 max(16px, calc((100% - 1148px) / 2)) 48px;
+  background: linear-gradient(180deg, #493d6f 0%, #423764 100%);
+}
+
+.lp-shelf {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.lp-shelf__title {
+  font-size: 1.05rem;
+}
+
+.lp-shelf__row {
+  display: flex;
+  gap: 12px;
+  padding: 2px 2px 6px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.lp-shelf__item {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 6px;
+  width: 120px;
+  text-decoration: none;
+}
+
+.lp-shelf__item .lp-poster {
+  box-shadow: var(--lp-shadow-s);
+}
+
+.lp-shelf__name {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* ── 段 ── */
+.lp-sec {
+  scroll-margin-top: 8px;
+}
+
+.lp-annict {
+  background: var(--stars-a-faint), linear-gradient(180deg, #423764 0%, #3a315a 100%);
+}
+
+#lp-try {
+  background: var(--stars-a-faint), linear-gradient(180deg, #3a315a 0%, #332a4f 100%);
+}
+
+#lp-match {
+  background: var(--stars-a), linear-gradient(180deg, #332a4f 0%, #2b2445 100%);
+}
+
+#lp-tier {
+  background: var(--stars-a), linear-gradient(180deg, #2b2445 0%, #241e3a 100%);
+}
+
+.lp-more {
+  background: var(--stars-a), linear-gradient(180deg, #241e3a 0%, #1c182f 100%);
+}
+
+.lp-start {
+  background: var(--stars-a), var(--stars-b-faint), linear-gradient(180deg, #1c182f 0%, #151125 100%);
+}
+
+.lp-foot {
+  background: var(--stars-a), var(--stars-b), linear-gradient(180deg, #151125 0%, #0d0b1a 100%);
+}
+
+.lp-annict__inner,
+.lp-chapter__inner,
+.lp-more__inner,
+.lp-foot__inner {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 56px 16px;
+}
+
+.lp-annict__inner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px 56px;
+}
+
+.lp-annict__title {
+  flex: 1 1 260px;
+  font-size: 1.6rem;
+  line-height: 1.4;
+}
+
+.lp-annict__body {
+  display: flex;
+  flex: 2 1 420px;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.lp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding-left: 1.2em;
+  color: var(--lp-sub);
+  font-size: 0.9rem;
+}
+
+/* 説明（左）とデモ（右）。狭い画面では縦に並ぶ */
+.lp-chapter__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 32px 56px;
+  padding-top: 64px;
+  padding-bottom: 64px;
+}
+
+.lp-chapter__text {
+  display: flex;
+  flex: 1 1 300px;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.lp-chapter__no {
+  color: var(--lp-accent);
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: pre;
+}
+
+.lp-chapter__title {
+  font-size: 1.6rem;
+  line-height: 1.4;
+}
+
+.lp-chapter__lead {
+  color: var(--lp-sub);
+  font-size: 0.95rem;
+}
+
+.lp-chapter__demo {
+  flex: 1 1 360px;
+  max-width: 460px;
+  min-width: 0;
+}
+
+/* 評価のカード */
+.lp-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lp-card__last,
+.lp-card__next {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  min-width: 0;
+  font-size: 0.85rem;
+}
+
+.lp-card__last b,
+.lp-card__next b {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lp-card__next {
+  opacity: 0.55;
+}
+
+.lp-poster--mini {
+  flex: none;
+  width: 32px;
+  border-radius: 4px;
+}
+
+.lp-poster--card,
+.lp-poster--match {
+  align-self: center;
+  width: min(240px, 70%);
+  border-radius: 10px;
+  box-shadow: var(--lp-shadow);
+}
+
+.lp-poster--match {
+  width: min(220px, 64%);
+}
+
+.lp-card__title {
+  margin-top: 4px;
+  font-size: 1.25rem;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.lp-card__sub {
+  color: var(--lp-sub);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+/* 答えのボタン（覚えてない・4段階 / 見たい・見てない） */
+.lp-rate {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  padding-top: 4px;
+}
+
+.lp-rate--status {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding-top: 0;
+}
+
+.lp-rate--two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.lp-rate__btn {
+  min-height: 52px;
+  padding: 0 2px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--lp-accent);
+  color: var(--lp-on-accent);
+  font: inherit;
+  /* 5つ並ぶ評価のボタン。390px の幅でも「とても良い」を1行に収める */
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.3;
+  cursor: pointer;
+}
+
+.lp-rate--two .lp-rate__btn {
+  font-size: 0.9rem;
+}
+
+.lp-rate__btn--none {
+  border: 1px dashed var(--lp-line);
+  background: transparent;
+  color: var(--lp-text);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.lp-rate__btn--line {
+  border: 1.5px solid var(--lp-line);
+  background: transparent;
+  color: var(--lp-text);
+  font-size: 0.9rem;
+}
+
+.lp-rate__btn--wide {
+  grid-column: span 2;
+}
+
+/* 提案の理由 */
+.lp-reason {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--lp-panel);
+}
+
+.lp-reason__text {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.lp-reason .lp-row {
+  gap: 6px;
+}
+
+/* Tier表 */
+.lp-tier {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgb(0 0 20 / 0.25);
+}
+
+.lp-tier__row {
+  display: flex;
+  gap: 8px;
+  min-height: 76px;
+}
+
+.lp-tier__name {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  border-radius: 8px;
+  color: #1c1b1f;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.lp-tier__items {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 4px;
+  border-radius: 8px;
+  background: rgb(255 255 255 / 0.06);
+}
+
+.lp-tier__item {
+  width: 46px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+}
+
+.lp-tier__item .lp-poster {
+  border-radius: 4px;
+}
+
+.lp-tier .lp-note {
+  margin: 6px 4px 0;
+  color: var(--lp-text);
+}
+
+/* ほかにも（傾向とブラウズ） */
+.lp-more__inner {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.lp-more__title {
+  font-size: 1.45rem;
+}
+
+.lp-more__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.lp-box {
+  display: flex;
+  flex: 1 1 320px;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 20px;
+  border-radius: 14px;
+  background: var(--lp-panel);
+}
+
+.lp-box h3 {
+  font-size: 1.1rem;
+}
+
+.lp-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8rem;
+}
+
+.lp-bars li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lp-bars__label {
+  flex: none;
+  width: 72px;
+}
+
+.lp-bars__track {
+  flex: 1 1 auto;
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.12);
+}
+
+.lp-bars__fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--lp-accent);
+  transition: width 0.3s ease;
+}
+
+.lp-bars__count {
+  flex: none;
+  width: 24px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-browse {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lp-browse__field {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid rgb(238 240 250 / 0.4);
+  border-radius: 10px;
+  background: rgb(255 255 255 / 0.06);
+}
+
+.lp-browse .lp-row {
+  gap: 6px;
+}
+
+/* 最後のログイン */
+.lp-start__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 80px 16px;
+  text-align: center;
+}
+
+.lp-start__title {
+  font-size: 1.6rem;
+  line-height: 1.45;
+}
+
+.lp-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--lp-sub);
+  font-size: 0.8rem;
+}
+
+.lp-start .lp-dev {
+  width: 100%;
+  text-align: left;
+}
+
+/* フッター: このアプリについて・開発者向け・規約 */
+.lp-foot__inner {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 32px;
+  padding-bottom: calc(48px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--lp-rule);
+  color: var(--lp-sub);
+  font-size: 0.85rem;
+}
+
+.lp-fold > summary,
+.lp-foot .lp-dev > summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--lp-text);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.lp-foot .lp-dev {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.lp-fold[open] > summary {
+  margin-bottom: 8px;
+}
+
+@media (min-width: 960px) {
+  .lp-hero__body {
+    padding-top: 64px;
+  }
+
+  /* 広い画面では見出しの右の空が空くので、少し下げて大きくする */
+  .lp-moon {
+    top: calc(env(safe-area-inset-top) + 112px);
+    right: max(40px, calc((100% - 1148px) / 2 + 64px));
+    width: 46px;
+    height: 46px;
+  }
+
+  .lp-hero__title {
+    font-size: 2.75rem;
+    line-height: 1.35;
+  }
+
+  .lp-shelf__item {
+    width: 136px;
+  }
+
+  .lp-chapter__title {
+    font-size: 2rem;
+  }
+
+  .lp-annict__title {
+    font-size: 1.75rem;
+  }
+
+  .lp-start__title {
+    font-size: 1.9rem;
+  }
+
+  .lp-chapter__inner {
+    padding-top: 72px;
+    padding-bottom: 72px;
+  }
+}

@@ -32,6 +32,7 @@ import {
 } from './lib/storage'
 import { hasPendingWrites } from './lib/useWriteQueue'
 import { useArrowNav } from './lib/useArrowNav'
+import { useKeysOn } from './lib/keymap'
 import { useSwipeNav, type SwipeDir } from './lib/useSwipeNav'
 import { TitleToastView } from './features/achievements/TitleToastView'
 import { TipToast } from './components/TipToast'
@@ -365,9 +366,12 @@ export default function App() {
   }
   useSwipeNav(mainRef, step, token !== null && !switching)
   useArrowNav(step, token !== null && !switching)
+  // 設定でキー操作を入れたときだけ、評価とマッチングのボタンにキーを出す（base.css の .hint）
+  const keysOn = useKeysOn()
 
   return (
-    <div className="app" data-page={page}>
+    // data-screen は表示中の画面の名前（夜の地の三日月を、置ける画面にだけ出す。base.css）
+    <div className={keysOn ? 'app app--keys' : 'app'} data-page={page} data-screen={shown ?? 'settings'}>
       {/* アクセス解析: 開いた画面だけを数える（lib/analytics.ts） */}
       {analyticsEnabled(window.location.hostname) && (
         <Analytics route={screenPath(tab, token !== null)} path={screenPath(tab, token !== null)} beforeSend={withoutQuery} />

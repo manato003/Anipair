@@ -69,7 +69,7 @@ function tours(topic: HelpTopic): readonly TourStep[] {
             'Tap “Seen it” to rate it. If you tapped the wrong button, “Undo” on the far left returns to the previous anime. The buttons at both ends are in the same place as on the Rate screen.',
           ),
         },
-        { target: '.rate__links', title: t('条件を変える', 'Change filters'), body: t('「条件」で形式と放送年を絞り直し、「提案し直す」で新しい候補にできます。', 'Use “Filters” to narrow by format and air year again, then “Refresh” to get new suggestions.') },
+        { target: '.rate__links', title: t('条件を変える', 'Change filters'), body: t('「条件」で形式と放送年を絞り直したり、苦手な項目を選んだりして、「提案し直す」で新しい候補にできます。', 'Use “Filters” to narrow by format and air year or pick what to avoid, then “Refresh” to get new suggestions.') },
       ]
     case 'records':
       return [
@@ -252,6 +252,13 @@ export function topics(): readonly { id: HelpTopic; title: string; items: readon
           t(
             '形式（TV・劇場版など）と放送年で絞れます。好きな作品を評価するほど、提案が好みに寄っていきます。',
             'Narrow by format (TV, movie, and so on) and air year. The more anime you rate, the closer the suggestions get to your taste.',
+          ),
+        ],
+        [
+          t('苦手な項目', 'What you avoid'),
+          t(
+            '「条件」で、苦手なジャンル（お色気・恋愛など）や長さ、制作会社、声優・スタッフを選ぶと、当たる作品を候補から外します。並んでいないジャンル（魔法少女・吸血鬼など）は、名前で探して足せます。項目の％は、評判の高い作品が一緒に外れる割合です。',
+            'In “Filters”, pick genres (ecchi, romance, and so on), lengths, studios, or cast and staff you’d rather avoid, and matching anime are left out of suggestions. Genres not listed (Mahou Shoujo, Vampire, and so on) can be found by name and added. The % next to a genre shows how many highly rated anime would be left out with it.',
           ),
         ],
       ],
@@ -447,8 +454,8 @@ export function common(): readonly Item[] {
     [
       t('キーボード', 'Keyboard'),
       t(
-        'PCではキーボードだけでも答えられます。キーはボタンの横に出ていて、設定で変えられます。← → で画面を切り替えられます。',
-        'On a computer you can answer with the keyboard alone. The keys are shown next to the buttons and can be changed in Settings. Press ← → to switch screens.',
+        'PCでは、設定の「キーバインド」で「キーで答える」をオンにすると、キーボードだけでも答えられます。キーはボタンの横に出て、設定で変えられます。← → で画面を切り替えられます。',
+        'On a computer, turn on “Answer with keys” under Keybindings in Settings to answer with the keyboard alone. The keys then appear next to the buttons and can be changed in Settings. Press ← → to switch screens.',
       ),
     ],
   ]

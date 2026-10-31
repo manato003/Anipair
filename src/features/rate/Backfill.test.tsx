@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { previousSeason, seasonOf, type Season } from '../../lib/season'
+import { setKeysOn } from '../../lib/keymap'
 
 const answer = vi.fn()
 const watchAnswer = vi.fn()
@@ -82,7 +83,11 @@ const { Backfill } = await import('./Backfill')
 
 // 使い方の案内は「見た」ことにしておく（案内のテストだけ、消してから始める）
 const seen = () => localStorage.setItem('animax.onboarding.v1', JSON.stringify({ v: 1, at: '2026-10-03T00:00:00.000Z' }))
-beforeEach(seen)
+// キー操作は既定で切ってあるので、キーで答えるテストのために入れておく（切ったときのテストだけ、消してから始める）
+beforeEach(() => {
+  seen()
+  localStorage.setItem('animax.keys.on', 'true')
+})
 
 afterEach(() => {
   cleanup()
@@ -104,6 +109,18 @@ afterEach(() => {
 })
 
 const press = (key: string) => act(() => void fireEvent.keyDown(window, { key }))
+
+describe('Backfill keys', () => {
+  it('ignores the answer keys until they are turned on in Settings', () => {
+    localStorage.removeItem('animax.keys.on')
+    render(<Backfill token="t" github={null} active />)
+    press('3')
+    expect(answer).not.toHaveBeenCalled()
+    act(() => setKeysOn(true))
+    press('3')
+    expect(answer).toHaveBeenCalledTimes(1)
+  })
+})
 
 describe('Backfill detail sheet', () => {
   it('opens read-only from the cover, and while it is open only the detail key works', async () => {
@@ -255,7 +272,7 @@ describe('Backfill first-run guide', () => {
   })
 
   it('keeps every answer shortcut, and the detail key, off while the guide is open', async () => {
-    localStorage.clear()
+    localStorage.removeItem('animax.onboarding.v1')
     render(<Backfill token="t" github={null} active />)
     await screen.findByRole('dialog', { name: 'Anipairの使い方' }, { timeout: 5000 })
     press('3')

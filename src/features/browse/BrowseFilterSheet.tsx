@@ -4,6 +4,7 @@ import { Sheet } from '../../components/Sheet'
 import type { BrowseWork } from '../../lib/annict'
 import { t } from '../../lib/i18n'
 import { nextSeason, seasonOf, yearsDescending } from '../../lib/season'
+import { studioChips } from '../../lib/studios'
 import { genreName } from '../match/taste'
 import { OLDEST_SEASON } from '../rate/queue'
 import { MEDIA_KINDS, toggleIn, type MediaInfo } from '../records/recordList'
@@ -12,8 +13,6 @@ import { EMPTY_BROWSE_FILTER, MINE_CHOICES, NO_PERIOD, browseFilterChoices, peri
 // ブラウズの絞り込み（記録の絞り込みと同じ見た目）。
 // 期間（始めと終わりのクール）は、上のクールの代わりにその期間の作品を Annict から読み直す。ほかの項目は、読み込んだ作品の中で絞る。
 // ただし期間を選んでジャンル・制作会社をかけたときは、期間の全作品から探す（conditionSearch.ts）
-const STUDIOS_FIRST = 18
-
 export function BrowseFilterSheet(props: {
   // 読み直している間は null
   works: readonly BrowseWork[] | null
@@ -41,6 +40,8 @@ export function BrowseFilterSheet(props: {
   const works = stale ? last.works : (props.works ?? [])
   const info = stale ? last.info : props.info
   const choices = browseFilterChoices(works, info, props.unseen, f)
+  // 名の知れた40社を日本語名のチップで先に出し、ほかの会社は畳む
+  const studios = studioChips(choices.studios)
   const loading = !info && !props.infoError
   const years = yearsDescending(OLDEST_SEASON, nextSeason(seasonOf(new Date())))
   // 期間のときは、読み込んだ件数を出さない（ジャンル・制作会社は読み込んだ分ではなく、期間の全作品から探すため）
@@ -88,10 +89,10 @@ export function BrowseFilterSheet(props: {
         {info && (
           <ChipSection
             title={t('制作会社', 'Studio')}
-            items={choices.studios.map((st) => ({ id: st.name, label: st.name, count: st.count }))}
+            items={studios.items}
             selected={f.studios}
             onToggle={(id) => onChange({ ...f, studios: toggleIn(f.studios, id) })}
-            first={STUDIOS_FIRST}
+            first={studios.first}
             max={props.studioMax}
             maxNote={props.studioMax ? t(`制作会社は${props.studioMax}社まで選べます`, `You can pick up to ${props.studioMax} studios`) : undefined}
             moreLabel={(rest) => t(`ほかの制作会社も見る（${rest}社）`, `Show ${rest} more ${rest === 1 ? 'studio' : 'studios'}`)}

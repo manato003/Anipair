@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { annictClientId, buildAuthorizeUrl, completeLogin, hasCallback, newState, redirectUriFor, startLogin, withoutCallback } from './annictLogin'
-import { loadOauthState, saveOauthState } from './storage'
+import { rememberOauthState, takeOauthState } from './storage'
 
 beforeEach(() => {
   sessionStorage.clear()
@@ -44,19 +44,21 @@ describe('newState', () => {
 })
 
 describe('startLogin', () => {
-  it('keeps the state in this tab and goes to the authorize URL with the same state', () => {
+  it('keeps the state and goes to the authorize URL with the same state', () => {
     const assign = vi.fn()
     startLogin({ clientId: 'cid', origin: 'https://app.example', assign })
-    const saved = loadOauthState()
-    expect(saved).toMatch(/^[0-9a-f]{32}$/)
     const url = new URL(assign.mock.calls[0][0])
-    expect(url.searchParams.get('state')).toBe(saved)
+    const state = url.searchParams.get('state') ?? ''
+    expect(state).toMatch(/^[0-9a-f]{32}$/)
     expect(url.searchParams.get('redirect_uri')).toBe('https://app.example/')
+    expect(takeOauthState(state)).toBe(true)
   })
 
-  it('keeps the state in sessionStorage only, not in localStorage', () => {
-    startLogin({ clientId: 'cid', origin: 'https://app.example', assign: vi.fn() })
-    expect(localStorage.length).toBe(0)
+  it('keeps the state where another tab of this browser can check it (not only in this tab)', () => {
+    startLogin({ clientId: 'cid', origin: 'https://app.example', assign: vi.fn(), state: 'st1' })
+    // 別のタブには sessionStorage が引き継がれない
+    sessionStorage.clear()
+    expect(takeOauthState('st1')).toBe(true)
   })
 })
 
@@ -86,7 +88,7 @@ describe('completeLogin', () => {
   const ok = () => vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async () => new Response(JSON.stringify({ access_token: 'TOKEN' }), { status: 200 }))
 
   it('checks the state, sends the code and the redirect URI to the function, and returns the token', async () => {
-    saveOauthState('st1')
+    rememberOauthState('st1')
     const fetchFn = ok()
     const result = await completeLogin({ search: '?code=abc&state=st1', origin: ORIGIN, fetchFn })
     expect(result).toEqual({ kind: 'token', token: 'TOKEN' })
@@ -97,9 +99,8 @@ describe('completeLogin', () => {
   })
 
   it('uses up the saved state, so the same return cannot be used twice', async () => {
-    saveOauthState('st1')
+    rememberOauthState('st1')
     await completeLogin({ search: '?code=abc&state=st1', origin: ORIGIN, fetchFn: ok() })
-    expect(loadOauthState()).toBeNull()
     const fetchFn = ok()
     const again = await completeLogin({ search: '?code=abc&state=st1', origin: ORIGIN, fetchFn })
     expect(again.kind).toBe('error')
@@ -107,16 +108,44 @@ describe('completeLogin', () => {
   })
 
   it('refuses a different state without calling the function', async () => {
-    saveOauthState('st1')
+    rememberOauthState('st1')
     const fetchFn = ok()
     const result = await completeLogin({ search: '?code=abc&state=other', origin: ORIGIN, fetchFn })
     expect(result).toEqual({ kind: 'error', message: expect.stringContaining('ログインの確認に失敗しました') })
     expect(fetchFn).not.toHaveBeenCalled()
-    // 失敗しても、控えた state は捨てる
-    expect(loadOauthState()).toBeNull()
   })
 
-  it('refuses a return when this tab has no saved state (a link made by someone else)', async () => {
+  it('accepts either of two logins started in different tabs, each only once', async () => {
+    rememberOauthState('st1')
+    rememberOauthState('st2')
+    expect((await completeLogin({ search: '?code=abc&state=st1', origin: ORIGIN, fetchFn: ok() })).kind).toBe('token')
+    expect((await completeLogin({ search: '?code=abc&state=st2', origin: ORIGIN, fetchFn: ok() })).kind).toBe('token')
+    expect((await completeLogin({ search: '?code=abc&state=st1', origin: ORIGIN, fetchFn: ok() })).kind).toBe('error')
+  })
+
+  it('refuses a state kept longer than 30 minutes ago', async () => {
+    rememberOauthState('st1', Date.now() - 31 * 60 * 1000)
+    const fetchFn = ok()
+    const result = await completeLogin({ search: '?code=abc&state=st1', origin: ORIGIN, fetchFn })
+    expect(result).toEqual({ kind: 'error', message: expect.stringContaining('ログインの確認に失敗しました') })
+    expect(fetchFn).not.toHaveBeenCalled()
+  })
+
+  it('keeps only the latest five states', () => {
+    for (let i = 1; i <= 6; i++) rememberOauthState(`st${i}`)
+    expect(takeOauthState('st1')).toBe(false)
+    expect(takeOauthState('st2')).toBe(true)
+    expect(takeOauthState('st6')).toBe(true)
+  })
+
+  it('ignores a broken saved value', () => {
+    localStorage.setItem('animax.annictOauthStates', '{not json')
+    expect(takeOauthState('st1')).toBe(false)
+    rememberOauthState('st1')
+    expect(takeOauthState('st1')).toBe(true)
+  })
+
+  it('refuses a return when this browser has no saved state (a link made by someone else)', async () => {
     const fetchFn = ok()
     const result = await completeLogin({ search: '?code=abc&state=anything', origin: ORIGIN, fetchFn })
     expect(result.kind).toBe('error')
@@ -124,7 +153,7 @@ describe('completeLogin', () => {
   })
 
   it('says it was cancelled on access_denied', async () => {
-    saveOauthState('st1')
+    rememberOauthState('st1')
     const fetchFn = ok()
     const result = await completeLogin({ search: '?error=access_denied&error_description=The+user+denied&state=st1', origin: ORIGIN, fetchFn })
     expect(result).toEqual({ kind: 'error', message: expect.stringContaining('キャンセル') })
@@ -132,7 +161,7 @@ describe('completeLogin', () => {
   })
 
   it('shows a generic error for another error from Annict', async () => {
-    saveOauthState('st1')
+    rememberOauthState('st1')
     const result = await completeLogin({ search: '?error=server_error&state=st1', origin: ORIGIN, fetchFn: ok() })
     expect(result).toEqual({ kind: 'error', message: expect.stringContaining('ログインに失敗しました') })
   })
@@ -143,28 +172,28 @@ describe('completeLogin', () => {
     ['an unknown error code', 502, { error: 'upstream_error' }, 'ログインに失敗しました'],
     ['a body without a token', 200, {}, 'ログインに失敗しました'],
   ])('shows a message for %s from the function', async (_name, status, body, text) => {
-    saveOauthState('st1')
+    rememberOauthState('st1')
     const fetchFn = vi.fn(async () => new Response(JSON.stringify(body), { status }))
     const result = await completeLogin({ search: '?code=abc&state=st1', origin: ORIGIN, fetchFn })
     expect(result).toEqual({ kind: 'error', message: expect.stringContaining(text) })
   })
 
   it('says the hand-off is not running when the function answers with something that is not JSON (404)', async () => {
-    saveOauthState('st1')
+    rememberOauthState('st1')
     const fetchFn = vi.fn(async () => new Response('<html>Not Found</html>', { status: 404 }))
     const result = await completeLogin({ search: '?code=abc&state=st1', origin: ORIGIN, fetchFn })
     expect(result).toEqual({ kind: 'error', message: expect.stringContaining('動いていません') })
   })
 
   it('says it could not connect when the request itself fails', async () => {
-    saveOauthState('st1')
+    rememberOauthState('st1')
     const fetchFn = vi.fn(async () => Promise.reject(new TypeError('Failed to fetch')))
     const result = await completeLogin({ search: '?code=abc&state=st1', origin: ORIGIN, fetchFn })
     expect(result).toEqual({ kind: 'error', message: expect.stringContaining('接続できませんでした') })
   })
 
   it('does not return the token on a failure status even if the body has one', async () => {
-    saveOauthState('st1')
+    rememberOauthState('st1')
     const fetchFn = vi.fn(async () => new Response(JSON.stringify({ access_token: 'T', error: 'x' }), { status: 500 }))
     const result = await completeLogin({ search: '?code=abc&state=st1', origin: ORIGIN, fetchFn })
     expect(result.kind).toBe('error')

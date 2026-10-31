@@ -1,12 +1,15 @@
 // @vitest-environment jsdom
 import { act, renderHook } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { DEFAULT_KEYMAP, assignKey, setKeymap } from './keymap'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { DEFAULT_KEYMAP, assignKey, setKeymap, setKeysOn } from './keymap'
 import { useShortcuts } from './useShortcuts'
 
 function press(key: string, init: KeyboardEventInit = {}, target: EventTarget = window) {
   target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, ...init }))
 }
+
+// キー操作は既定で切ってあるので、入れてから確かめる
+beforeEach(() => setKeysOn(true))
 
 afterEach(() => {
   act(() => setKeymap({ ...DEFAULT_KEYMAP }))

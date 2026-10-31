@@ -258,11 +258,27 @@ export function filterChoices(
   return { years, genres: ranked(genres), studios: ranked(studios) }
 }
 
-export function filterRows(rows: RecordRow[], bucket: Bucket, query: string): RecordRow[] {
+// 題名は日本語でも英語（titleEn）でも探せる（画面の言語に関わらず）
+function titleHit(query: string): (r: RecordRow) => boolean {
   const q = query.trim().normalize('NFKC').toLowerCase()
-  // 題名は日本語でも英語（titleEn）でも探せる（画面の言語に関わらず）
   const hit = (s: string | null | undefined) => !!s && s.normalize('NFKC').toLowerCase().includes(q)
-  return rows.filter((r) => bucketOf(r.entry.state) === bucket && (!q || hit(r.entry.title) || hit(r.entry.titleEn)))
+  return (r) => !q || hit(r.entry.title) || hit(r.entry.titleEn)
+}
+
+export function filterRows(rows: RecordRow[], bucket: Bucket, query: string): RecordRow[] {
+  const hit = titleHit(query)
+  return rows.filter((r) => bucketOf(r.entry.state) === bucket && hit(r))
+}
+
+// 検索欄の候補。見てる・見た・見たいなど、どの項目の作品からも出す（選ぶとその項目へ移る）。題名の頭から当たるものを先に
+export function titleHints(rows: readonly RecordRow[], query: string, max = 8): RecordRow[] {
+  const hit = titleHit(query)
+  const q = query.trim().normalize('NFKC').toLowerCase()
+  const head = (r: RecordRow) => (r.entry.title.normalize('NFKC').toLowerCase().startsWith(q) ? 0 : 1)
+  return rows
+    .filter(hit)
+    .sort((a, b) => head(a) - head(b))
+    .slice(0, max)
 }
 
 // 状態を選ぶ選択肢。「視聴中断」は1つだけ（STOP_WATCHING で保存する）

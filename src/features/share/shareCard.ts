@@ -4,7 +4,7 @@ export { RARITY_LABEL }
 import { genreName } from '../match/taste'
 import { AXIS_LABEL } from '../../lib/reviewOps'
 import { t } from '../../lib/i18n'
-import { joinList, monthName, type Affinity, type AxisWeight, type GenreAxis, type Summary, type YearReview } from '../records/trends'
+import { joinList, monthName, type Affinity, type AxisWeight, type GenreAxis, type Summary, type YearReview, yearSpanText } from '../records/trends'
 
 // 共有の画像（傾向のまとめ・称号）の中身。端末の中で canvas に描く（drawShareCard.ts）。サーバーには送らない。
 // 作品の表紙は入れない（権利は各権利者にあり、外に出す画像には使わない）。ここは中身を決めるだけの純粋な関数
@@ -54,7 +54,7 @@ export function trendsShare(i: TrendsShareInput): ShareCard {
     facts.push({ label: t('評価のくせ', 'Rating tendency'), value: t(`${i.harsh.label}（${sign}${diff}点）`, `${i.harsh.label} (${sign}${diff} pts)`) })
   }
   if (liked.length > 0) facts.push({ label: t('高く評価するジャンル', 'Top-rated genres'), value: joinList(liked.slice(0, 3).map((g) => genreName(g.name))) })
-  if (i.golden) facts.push({ label: t('黄金期', 'Golden era'), value: t(`${i.golden.from}〜${i.golden.to}年`, `${i.golden.from}–${i.golden.to}`) })
+  if (i.golden) facts.push({ label: t('黄金期', 'Golden era'), value: yearSpanText(i.golden) })
   if (i.major) facts.push({ label: t('タイプ', 'Type'), value: i.major.label })
   if (i.affinity && i.affinity.liked.length > 0) facts.push({ label: t('隠れ推しの声優', 'Voice actors I secretly love'), value: i.affinity.liked.slice(0, 3).map((a) => a.name).join(' / ') })
   if (i.topAxis) facts.push({ label: t('重視する観点', 'What I value most'), value: AXIS_LABEL[i.topAxis.key] })

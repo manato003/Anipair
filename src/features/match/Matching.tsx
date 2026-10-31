@@ -16,6 +16,8 @@ import { useShortcuts } from '../../lib/useShortcuts'
 import { RATINGS } from '../rate/queue'
 import { MatchDetail } from './MatchDetail'
 import { MatchFilterControls } from './MatchFilterControls'
+import { DislikeControls } from './DislikeControls'
+import { activeKeys } from './dislikes'
 import { sameFilter, type MatchFilter } from './matchFilter'
 import { ENOUGH_LIKED } from './tasteLoader'
 import { displayTitleOf, useMatching, type MatchAnswer, type MatchCard } from './useMatching'
@@ -78,8 +80,13 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
   }
 
   // 絞り込みのシート（開いたときの条件。変えたら「提案し直す」を主のボタンにする）。開いているあいだは、下のカードにキーが効かないようにする
-  const [filterAt, setFilterAt] = useState<MatchFilter | null>(null)
+  const [filterAt, setFilterAt] = useState<{ filter: MatchFilter; dislikes: string } | null>(null)
   const filterOpen = filterAt !== null
+  const dislikeKeys = activeKeys(m.dislikes).sort().join(' ')
+  const openFilter = () => setFilterAt({ filter: m.filter, dislikes: dislikeKeys })
+  const filterChanged = filterAt !== null && (!sameFilter(filterAt.filter, m.filter) || filterAt.dislikes !== dislikeKeys)
+  const dislikeCount = activeKeys(m.dislikes).length
+  const unreadNames = m.dislikeNote?.unread.join(t('・', ', ')) ?? ''
   // 右上の「?」の使い方を開いているあいだは、答えのキーを止める
   const [helpOpen, setHelpOpen] = useState(false)
 
@@ -109,7 +116,7 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
       <section className="rate rate--flow">
 
         <header className="rate__head">
-          <h1 className="season">{t('おすすめ', 'Suggestions')}</h1>
+          <h1 className="season">{t('マッチング', 'Match')}</h1>
           <div className="rate__meta">
             {showDeck && !m.done && (
               <span className="count">
@@ -119,7 +126,7 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
             )}
             {showDeck && (
               <span className="rate__links">
-                <button type="button" className="link" onClick={() => setFilterAt(m.filter)}>
+                <button type="button" className="link" onClick={openFilter}>
                   {t('条件', 'Filters')}
                 </button>
                 <button type="button" className="link" onClick={run}>
@@ -134,6 +141,17 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
         <div className="notes">
           <SaveStatus pending={m.pending} failed={m.failed} onRetry={m.retryFailed} onDismiss={m.dismissFailed} />
           {m.syncNote && <p className="note">{m.syncNote}</p>}
+          {showDeck && m.dislikeNote && m.dislikeNote.dropped > 0 && (
+            <p className="note">{t(`苦手な項目に当たる${m.dislikeNote.dropped}作品を、候補から外しました。`, `Left out ${m.dislikeNote.dropped} anime that match what you avoid.`)}</p>
+          )}
+          {m.dislikeNote && m.dislikeNote.unread.length > 0 && (
+            <p className="note">
+              {t(
+                `${unreadNames}さんの参加作品を読み込めなかったため、外せていない作品があるかもしれません。「提案し直す」でもう一度確かめます。`,
+                `Couldn’t load works by ${unreadNames}, so some of them may still appear. Press “Refresh” to check again.`,
+              )}
+            </p>
+          )}
           {showDeck && m.basis && m.basis.pending > 0 && (
             <p className="note">
               {t(
@@ -175,6 +193,11 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
               )}
             >
               <MatchFilterControls filter={m.filter} onChange={m.setFilter} />
+              <button type="button" className="link" onClick={openFilter}>
+                {dislikeCount > 0
+                  ? t(`苦手な項目（${dislikeCount}件を選んでいます）`, `What you avoid (${dislikeCount} picked)`)
+                  : t('苦手な項目を選んで除く', 'Pick what to avoid')}
+              </button>
               <button type="button" className="btn btn--primary" onClick={run}>
                 {t('提案してもらう', 'Get suggestions')}
               </button>
@@ -322,15 +345,21 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
         <Sheet label={t('候補の条件', 'Suggestion filters')} active={props.active} onClose={() => setFilterAt(null)}>
           <section className="detail__section">
             <MatchFilterControls filter={m.filter} onChange={m.setFilter} />
+          </section>
+          <section className="detail__section">
+            <h2 className="detail__label">{t('苦手な項目', 'What you avoid')}</h2>
+            <DislikeControls token={props.annictToken} dislikes={m.dislikes} onSet={m.setDislikeItem} />
+          </section>
+          <section className="detail__section">
             <button
               type="button"
-              className={filterAt && !sameFilter(filterAt, m.filter) ? 'btn btn--primary' : 'btn'}
+              className={filterChanged || m.phase.kind === 'idle' ? 'btn btn--primary' : 'btn'}
               onClick={() => {
                 setFilterAt(null)
                 void run()
               }}
             >
-              {t('この条件で提案し直す', 'Refresh with these filters')}
+              {m.phase.kind === 'idle' ? t('この条件で提案してもらう', 'Get suggestions with these filters') : t('この条件で提案し直す', 'Refresh with these filters')}
             </button>
           </section>
         </Sheet>

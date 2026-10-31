@@ -210,7 +210,7 @@ describe('contentScore', () => {
 })
 
 describe('explain', () => {
-  it('names the two most liked seeds, liked genres in Japanese, and a liked studio', () => {
+  it('names the two most liked seeds, the three most liked genres and themes in Japanese, and a liked studio', () => {
     const m = media(1, { genres: ['Horror', 'Slice of Life', 'Music', 'Drama'], themes: ['Iyashikei', 'Gore', 'Isekai', 'Mystery Box'], studios: ['Kyoto Animation', 'Other'] })
     const profile = new Map([
       ['g:Music', 0.4],
@@ -231,11 +231,19 @@ describe('explain', () => {
     ]
     expect(explain(m, { malId: 1, recScore: 1, from }, profile, false)).toEqual([
       '『最高』『好き』が好きな人のおすすめ',
-      '好きなジャンル: 日常・音楽',
-      // テーマは上位2つ。日本語の名前が無いものは英語のまま
-      '好きなテーマ: 癒し系・Mystery Box',
-      '好きな制作会社: Kyoto Animation',
+      // ジャンルとテーマを合わせた上位3つ。日本語の名前が無いものは英語のまま
+      'あなたの好みに合う: 日常・癒し系・Mystery Box',
+      'あなたがよく見る制作会社: 京都アニメーション',
     ])
+  })
+
+  it('names a studio among the five most liked, however small its share', () => {
+    const profile = new Map(['A', 'B', 'C', 'D', 'E', 'F'].map((s, i): [string, number] => [`s:${s}`, 0.06 - i * 0.01]))
+    profile.set('s:Disliked', -0.2)
+    const reason = (studio: string) => explain(media(1, { studios: [studio] }), { malId: 1, recScore: 1, from: [] }, profile, false)
+    expect(reason('E')).toEqual(['あなたがよく見る制作会社: E'])
+    expect(reason('F')).toEqual([])
+    expect(reason('Disliked')).toEqual([])
   })
 
   it('leaves out the genre and theme lines when none is liked', () => {

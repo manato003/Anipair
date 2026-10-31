@@ -7,9 +7,9 @@ import { LegalLinks } from './LegalLinks'
 import { Section } from './Section'
 import { t } from '../../lib/i18n'
 
-// 設定の先頭（ログイン前の最初の画面では末尾）。何のアプリで、何が外に出て、何が出ないか。要点だけ出して、通信先・画像の細かい説明は畳む
-// showTagline: ログイン前の最初の画面では、すぐ上にキャッチコピーがあるので出さない。
-// welcome: ログイン前の最初の画面。「このアプリについて」を開いた中に置くので、見出しを付けない（Welcome.tsx）
+// 設定の先頭（ログイン前の紹介ページではフッター）。何のアプリで、何が外に出て、何が出ないか。要点だけ出して、通信先・画像の細かい説明は畳む
+// showTagline: ログイン前の紹介ページでは、最上段にキャッチコピーがあるので出さない。
+// welcome: ログイン前の紹介ページ。「このアプリについて」を開いた中に置くので、見出しを付けない（features/landing/Landing.tsx）
 export function AboutBlock({ showTagline = true, welcome = false }: { showTagline?: boolean; welcome?: boolean }) {
   // 初めての人に出す使い方のシートを、ここからいつでも見直せる
   const [guideOpen, setGuideOpen] = useState(false)
@@ -46,8 +46,8 @@ export function AboutBlock({ showTagline = true, welcome = false }: { showTaglin
         </li>
         <li>
           {t(
-            'どの画面がどれくらい開かれたかだけを、Vercel Web Analyticsで数えています（Cookieなし）。',
-            'Only which screens are opened, and how often, is counted with Vercel Web Analytics (no cookies).',
+            'どの画面がどれくらい開かれたかを、Vercel Web Analyticsで数えています（Cookieなし。送る項目は下の「データの行き先と権利について」にあります）。',
+            'Which screens are opened, and how often, is counted with Vercel Web Analytics (no cookies; what is sent is listed under “Where your data goes, and rights” below).',
           )}
         </li>
       </ul>
