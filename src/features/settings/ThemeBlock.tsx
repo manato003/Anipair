@@ -1,6 +1,6 @@
 import { Choices, MotionNote } from '../../components/QuickSettings'
 import { LangChoices } from '../../components/LangToggle'
-import { BRIGHTNESS, COLORS, MOTION, useThemePrefs } from '../../lib/displayPrefs'
+import { BRIGHTNESS, MOTION, useThemePrefs } from '../../lib/displayPrefs'
 import { t } from '../../lib/i18n'
 import { Section, SettingRow } from './Section'
 
@@ -23,10 +23,7 @@ export function ThemeBlock() {
       <SettingRow label="言語 / Language"> {/* i18n-ok */}
         <LangChoices />
       </SettingRow>
-      <SettingRow label={t('テーマの色', 'Theme color')} hint={t('自動は見ているクールの季節の色', 'Auto uses the color of the season you’re viewing')}>
-        <Choices label={t('テーマの色', 'Theme color')} choices={COLORS} value={prefs.color} onChoose={(v) => choose('color', v)} />
-      </SettingRow>
-      <SettingRow label={t('明るさ', 'Brightness')} hint={prefs.color === 'night' ? t('夜の色は、いつも暗い地です', 'Night is always dark') : undefined}>
+      <SettingRow label={t('明るさ', 'Brightness')} hint={t('自動は端末の明暗に合わせて', 'Auto follows your device')}>
         <Choices label={t('明るさ', 'Brightness')} choices={BRIGHTNESS} value={prefs.brightness} onChoose={(v) => choose('brightness', v)} />
       </SettingRow>
       <SettingRow label={t('時刻で色を変える', 'Shift color by time of day')} hint={t('深夜ほど少し暗く', 'A little darker late at night')}>

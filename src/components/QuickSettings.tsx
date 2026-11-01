@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { BRIGHTNESS, BUTTON_LABELS, COLORS, EFFECTS, MOTION, useThemePrefs } from '../lib/displayPrefs'
+import { BRIGHTNESS, BUTTON_LABELS, EFFECTS, MOTION, useThemePrefs } from '../lib/displayPrefs'
 import { applyButtonLabels, applyEffectLevel, loadButtonLabels, loadEffectLevel, saveButtonLabels, saveEffectLevel, type ButtonLabels, type EffectLevel } from '../lib/storage'
 import { t } from '../lib/i18n'
 import { LangChoices } from './LangToggle'
@@ -40,8 +40,6 @@ export function QuickSettings() {
       {/* 見出しは両方の言語で（読めない言語になっていても見つけられるように） */}
       <p className="quick__label">言語 / Language</p> {/* i18n-ok */}
       <LangChoices />
-      <p className="quick__label">{t('テーマの色', 'Theme color')}</p>
-      <Choices label={t('テーマの色', 'Theme color')} choices={COLORS} value={prefs.color} onChoose={(v) => choose('color', v)} />
       <p className="quick__label">{t('明るさ', 'Brightness')}</p>
       <Choices label={t('明るさ', 'Brightness')} choices={BRIGHTNESS} value={prefs.brightness} onChoose={(v) => choose('brightness', v)} />
       <p className="quick__label">{t('画面の動き', 'Motion')}</p>

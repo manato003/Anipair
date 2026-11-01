@@ -119,6 +119,35 @@ const ART: Record<ArtKind, () => ReactNode> = {
       ))}
     </>
   ),
+  search: () => (
+    <>
+      {[14, 38, 62].map((x) =>
+        [12, 48].map((y) => <rect key={`${x}-${y}`} x={x} y={y} width="18" height="28" rx="2" />),
+      )}
+      <circle cx="112" cy="40" r="21" />
+      <rect x="104" y="29" width="16" height="22" rx="2" fill="currentColor" fillOpacity=".3" />
+      <path d="M127 55l18 18" strokeWidth="4" />
+    </>
+  ),
+  moon: () => (
+    <>
+      <path d="M90 17A30 30 0 1 0 90 73A32 32 0 0 1 90 17z" fill="currentColor" fillOpacity=".3" />
+      {[
+        [120, 22, 1],
+        [138, 50, 0.75],
+        [24, 24, 0.75],
+      ].map(([x, y, s]) => (
+        <path key={x} d={`M${x} ${y - 8 * s}l${2 * s} ${6 * s} ${6 * s} ${2 * s}-${6 * s} ${2 * s}-${2 * s} ${6 * s}-${2 * s}-${6 * s}-${6 * s}-${2 * s} ${6 * s}-${2 * s}z`} />
+      ))}
+      {[
+        [114, 70],
+        [36, 66],
+        [146, 16],
+      ].map(([x, y]) => (
+        <circle key={x} cx={x} cy={y} r="1.5" fill="currentColor" />
+      ))}
+    </>
+  ),
 }
 
 export function HistoryArt({ kind }: { kind: ArtKind }) {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { fetchViewer } from '../../lib/annict'
+import { loadAnnictLoginMethod } from '../../lib/storage'
 import { AnnictHealth } from './AnnictHealth'
 import { t } from '../../lib/i18n'
 import { Section, StatusChip } from './Section'
@@ -19,6 +20,9 @@ export function AccountBlock(props: { token: string; onChange: (token: string | 
     }
   }, [props.token])
 
+  // トークンはログインのたびにページを読み込み直して変わるので、方法も開いたときに1回読めばよい
+  const [method] = useState(loadAnnictLoginMethod)
+
   return (
     <Section
       id="settings-account"
@@ -26,6 +30,14 @@ export function AccountBlock(props: { token: string; onChange: (token: string | 
       status={<StatusChip>{viewer ? t(`${viewer.name}（@${viewer.username}）で連携中`, `Connected as ${viewer.name} (@${viewer.username})`) : t('Annictと連携中', 'Connected to Annict')}</StatusChip>}
     >
       {/* Anipair は Annict とつながって動く。遅い・出ないときに、原因が通信のどこにあるかを見分けられるように */}
+      {/* 個人用アクセストークンと「Annictでログイン」のどちらで入っているか。この仕組みの前からのログインは控えが無いので出さない */}
+      {method && (
+        <p className="settings__hint">
+          {method === 'oauth'
+            ? t('「Annictでログイン」からログインしています。', 'Logged in with “Log in with Annict”.')
+            : t('個人用アクセストークンでログインしています。', 'Logged in with a personal access token.')}
+        </p>
+      )}
       <AnnictHealth token={props.token} />
       <div className="settings__actions">
         <button

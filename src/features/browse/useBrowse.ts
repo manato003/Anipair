@@ -27,12 +27,19 @@ export function noLikesNote(): string {
   return t('好みの手がかりがまだありません。評価画面で、好きな作品を評価すると使えます。', 'No taste data yet. Rate anime you like on the Rate screen and this will start working.')
 }
 
-// 上限まで集めたときの注意（期間が広いと、クールより作品が多い）
-export function cappedNote(limit = MAX_FOR_SCORE): string {
-  return t(
-    `作品が多いので、人気の上位${limit}作品を並べています。期間をしぼると、ほかの作品も並びます。`,
-    `There are a lot of anime, so this shows the top ${limit} by popularity. Narrow the period to see others.`,
-  )
+// 上限まで集めたときの注意（期間が広いと、クールより作品が多い。期間を選ばずにジャンルで探すと全期間になる）。
+// 放送日の新しい順は新しい方から読むが、ほかの並べ方は人気の上位を集めてから手元で並べ直すので、何を並べ直したかも書く
+export function cappedNote(limit = MAX_FOR_SCORE, sort: BrowseSort = 'popular', dir: 'asc' | 'desc' = 'desc'): string {
+  const rest = t('期間をしぼると、ほかの作品も並びます。', 'Narrow the period to see others.')
+  if (sort === 'newest' && dir === 'desc') return t(`作品が多いので、放送日の新しい${limit}作品を並べています。`, `There are a lot of anime, so this shows the ${limit} most recent. `) + rest
+  if (sort === 'popular' && dir === 'desc') return t(`作品が多いので、人気の上位${limit}作品を並べています。`, `There are a lot of anime, so this shows the top ${limit} by popularity. `) + rest
+  const how = {
+    popular: t('人気の低い順', 'least popular first'),
+    newest: t('放送日の古い順', 'oldest first'),
+    score: dir === 'desc' ? t('評価の高い順', 'highest rated first') : t('評価の低い順', 'lowest rated first'),
+    taste: dir === 'desc' ? t('おすすめ順', 'most suggested first') : t('おすすめ順の逆', 'least suggested first'),
+  }[sort]
+  return t(`作品が多いので、人気の上位${limit}作品を${how}に並べています。`, `There are a lot of anime, so this shows the top ${limit} by popularity, ${how}. `) + rest
 }
 
 // Annict に頼む条件。keep は、届いた作品のうち一覧に残すもの（無ければ全部）
@@ -440,6 +447,8 @@ export function useBrowse(token: string, active = true, narrow: Narrow | null = 
       if (gen !== listGen.current) return
       setWorks((cur) => [...(cur ?? []), ...page.works.filter((w) => !cur?.some((c) => c.id === w.id))])
       setCursor({ endCursor: page.endCursor, hasNext: page.hasNext })
+      // 条件検索は中継の上限のページで止まる。黙って「もっと見る」を消さず、上限の注意を出す
+      if ('capped' in page && page.capped) setCapped(true)
       await addCovers(page.works)
     } catch (e) {
       if (gen === listGen.current) setMoreError(messageOf(e))

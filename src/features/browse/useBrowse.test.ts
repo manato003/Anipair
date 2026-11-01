@@ -52,7 +52,7 @@ vi.mock('./conditionSearch', async (orig) => ({
   }),
 }))
 
-const { useBrowse } = await import('./useBrowse')
+const { cappedNote, useBrowse } = await import('./useBrowse')
 
 beforeEach(() => {
   calls.length = 0
@@ -267,5 +267,30 @@ describe('useBrowse narrowing a period by genres and studios', () => {
     expect(hook.result.current.allPeriod).toBe(false)
     expect(hook.result.current.mode).toBe('cour')
     await waitFor(() => expect(hook.result.current.works?.map((x) => x.annictId)).toEqual([1, 2]))
+  })
+
+  it('reaching the last page the relay serves by 「もっと見る」 shows the cap note instead of just stopping', async () => {
+    const { findPage } = await import('./conditionSearch')
+    let narrow: { genres: number[]; studios: number[] } | null = null
+    const hook = renderHook(() => useBrowse('t', true, narrow))
+    await waitFor(() => expect(hook.result.current.works).not.toBeNull())
+    narrow = { genres: [10], studios: [] }
+    hook.rerender()
+    await waitFor(() => expect(hook.result.current.works?.map((x) => x.annictId)).toEqual([51]), { timeout: 2000 })
+    expect(hook.result.current.capped).toBe(false)
+    vi.mocked(findPage).mockResolvedValueOnce({ works: [w(60, 10)], endCursor: null, hasNext: false, capped: true })
+    await act(() => hook.result.current.loadMore())
+    expect(hook.result.current.hasMore).toBe(false)
+    expect(hook.result.current.capped).toBe(true)
+  })
+})
+
+describe('cappedNote', () => {
+  it('says what was gathered, and how it is ordered when the list was sorted again on this device', () => {
+    expect(cappedNote(200)).toBe('作品が多いので、人気の上位200作品を並べています。期間をしぼると、ほかの作品も並びます。')
+    expect(cappedNote(200, 'newest', 'desc')).toBe('作品が多いので、放送日の新しい200作品を並べています。期間をしぼると、ほかの作品も並びます。')
+    expect(cappedNote(200, 'score', 'desc')).toBe('作品が多いので、人気の上位200作品を評価の高い順に並べています。期間をしぼると、ほかの作品も並びます。')
+    expect(cappedNote(200, 'newest', 'asc')).toBe('作品が多いので、人気の上位200作品を放送日の古い順に並べています。期間をしぼると、ほかの作品も並びます。')
+    expect(cappedNote(200, 'popular', 'asc')).toBe('作品が多いので、人気の上位200作品を人気の低い順に並べています。期間をしぼると、ほかの作品も並びます。')
   })
 })

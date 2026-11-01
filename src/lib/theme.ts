@@ -1,37 +1,36 @@
 import { useEffect } from 'react'
+import { dawnMoon, moonPhase, nightMoon } from './moon'
 import { seasonOf, type SeasonName } from './season'
 
 // 画面の色の設定（設定の「表示」）。端末ごと。
-// - color: 地の色。auto は、いま見ているクールの季節（評価の画面が知らせる。知らせが無ければ今日の季節）。
-//   night は紹介ページの「夜から深夜へ」の色。いつも暗い地で、明るさの「明るい」は効かない
-// - brightness: auto は端末の明暗に従う。darker は季節の色を黒に大きく寄せる（暗い部屋・有機 EL 向け）
+// 地の色は2つ。暗いは紹介ページの「夜から深夜へ」の色（夜）、明るいはその対になる明け方の色（有明）。
+// 季節ごとの地の色はやめた（夜の色と対応しないため）。季節の印（data-season）は、マスコットの芽と差し色にだけ使う
+// - brightness: auto は端末の明暗に従う。darker は夜の色を黒に大きく寄せる（暗い部屋・有機 EL 向け）
 // - tod: 時刻で地を少し暗くする（深夜がいちばん暗い）
 // - hand: 片手操作。left にすると、よく押すボタンを左に寄せる（スマホだけ。styles の [data-hand='left']）
 // - motion: 画面の動き。auto は端末の「動きを減らす」に従う。on は端末の設定にかかわらず動かす、reduce は止める。
 //   端末の設定は、本人が選んだのではなく初めから入っていることがあり、人によって見え方が変わっていた。
 //   アプリの中で選べるようにし、端末の設定で止まっているときは、設定の「表示」でそう知らせる
-export type ThemeColor = 'auto' | 'night' | SeasonName
 export type Brightness = 'auto' | 'light' | 'dark' | 'darker'
 export type Hand = 'right' | 'left'
 export type Motion = 'auto' | 'on' | 'reduce'
 export interface ThemePrefs {
-  color: ThemeColor
   brightness: Brightness
   tod: boolean
   hand: Hand
   motion: Motion
 }
 
-export const DEFAULT_THEME: ThemePrefs = { color: 'auto', brightness: 'auto', tod: true, hand: 'right', motion: 'auto' }
+export const DEFAULT_THEME: ThemePrefs = { brightness: 'auto', tod: true, hand: 'right', motion: 'auto' }
 
 const KEY = 'animax.theme.v1'
-const SEASONS: readonly SeasonName[] = ['spring', 'summer', 'autumn', 'winter']
 
 export function parseTheme(value: unknown): ThemePrefs {
   const v = value && typeof value === 'object' ? (value as Record<string, unknown>) : {}
+  const brightness = ['auto', 'light', 'dark', 'darker'].includes(v.brightness as string) ? (v.brightness as Brightness) : DEFAULT_THEME.brightness
   return {
-    color: v.color === 'auto' || v.color === 'night' || SEASONS.includes(v.color as SeasonName) ? (v.color as ThemeColor) : DEFAULT_THEME.color,
-    brightness: ['auto', 'light', 'dark', 'darker'].includes(v.brightness as string) ? (v.brightness as Brightness) : DEFAULT_THEME.brightness,
+    // 前の版でテーマの色に「夜」を選んでいた人は、いつも暗い地だった。続けて暗いままにする
+    brightness: v.color === 'night' && (brightness === 'auto' || brightness === 'light') ? 'dark' : brightness,
     tod: typeof v.tod === 'boolean' ? v.tod : DEFAULT_THEME.tod,
     hand: v.hand === 'left' ? 'left' : 'right',
     motion: v.motion === 'on' || v.motion === 'reduce' ? v.motion : 'auto',
@@ -64,7 +63,7 @@ export function todShade(hour: number): number {
   return 26
 }
 
-// いま見ているクールの季節。テーマの色が「自動」なら、地をその季節の色にする（クールの無い画面では、いまの季節）
+// いま見ているクールの季節。マスコットの芽と差し色をその季節にする（クールの無い画面では、いまの季節）
 let viewing: SeasonName | null = null
 let current: ThemePrefs = DEFAULT_THEME
 
@@ -99,18 +98,33 @@ function systemDark(): boolean {
   return typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches
 }
 
-// <html> に印を付ける（styles/base.css の [data-scheme] [data-season] [data-night] [data-darker] [data-hand] と --tod が受ける）
+// いま暗い地か（明るさが自動なら端末の明暗に従う）
+export function isDark(prefs: ThemePrefs): boolean {
+  return prefs.brightness === 'dark' || prefs.brightness === 'darker' || (prefs.brightness === 'auto' && systemDark())
+}
+
+// 付け直すたびに知らせる（設定の「表示」とクイック設定が、同じ選択を見るため）
+const listeners = new Set<() => void>()
+
+export function subscribeTheme(listener: () => void): () => void {
+  listeners.add(listener)
+  return () => {
+    listeners.delete(listener)
+  }
+}
+
+export function currentTheme(): ThemePrefs {
+  return current
+}
+
+// <html> に印を付ける（styles/base.css の [data-scheme] [data-season] [data-darker] [data-hand] と --tod が受ける）
 export function applyTheme(prefs: ThemePrefs, now: Date = new Date()): void {
   current = prefs
   if (typeof document === 'undefined') return
   const root = document.documentElement
-  const night = prefs.color === 'night'
-  const dark = night || prefs.brightness === 'dark' || prefs.brightness === 'darker' || (prefs.brightness === 'auto' && systemDark())
+  const dark = isDark(prefs)
   root.dataset.scheme = dark ? 'dark' : 'light'
-  // 夜の色でも季節の印は付ける（マスコットの芽と差し色は季節のまま）
-  root.dataset.season = prefs.color === 'auto' || night ? (viewing ?? seasonOf(now).name) : prefs.color
-  if (night) root.dataset.night = ''
-  else delete root.dataset.night
+  root.dataset.season = viewing ?? seasonOf(now).name
   if (prefs.brightness === 'darker') root.dataset.darker = ''
   else delete root.dataset.darker
   if (prefs.hand === 'left') root.dataset.hand = 'left'
@@ -120,14 +134,14 @@ export function applyTheme(prefs: ThemePrefs, now: Date = new Date()): void {
   // 明るい地では、時刻の暗さを弱める（文字のコントラストを保つ）
   const shade = prefs.tod ? todShade(now.getHours()) * (dark ? 1 : 0.4) : 0
   root.style.setProperty('--tod', `${shade}%`)
-  // ブラウザの枠（スマホの上の帯）の色も合わせる。地の色は 1.2秒かけて移るので、移り終わったころにもう一度合わせる
-  const chrome = () => document.querySelector('meta[name="theme-color"]')?.setAttribute('content', chromeColor() ?? (dark ? '#2a1a10' : '#f4e5d2'))
-  chrome()
-  window.clearTimeout(chromeTimer)
-  chromeTimer = window.setTimeout(chrome, 1300)
+  // 右上の月を、今日の月齢の形に
+  const phase = moonPhase(now)
+  root.style.setProperty('--moon', nightMoon(phase))
+  root.style.setProperty('--moon-dawn', dawnMoon(phase))
+  // ブラウザの枠（スマホの上の帯）の色も合わせる
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', chromeColor() ?? (dark ? '#493d6f' : '#e8e3f3'))
+  for (const listener of listeners) listener()
 }
-
-let chromeTimer = 0
 
 // 上の帯の色（--theme-chrome）を #rrggbb にする。変数のままでは「color-mix(…)」の式の文字になり、ブラウザの枠には渡せない。
 // 計算した色（oklab など）を 1 画素だけ描いて、sRGB の値を読む。計算できない環境（テストなど）は null

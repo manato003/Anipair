@@ -6,12 +6,6 @@ const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.ur
 // 色の変数と .btn--primary は共通の部品を置く base.css にある（index.css は @import の列だけ）
 const css = read('src/styles/base.css')
 
-function token(name: string): string {
-  const m = css.match(new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6})`))
-  if (!m) throw new Error(`--${name} が見つかりません`)
-  return m[1].toLowerCase()
-}
-
 // WCAG の相対輝度とコントラスト比
 function luminance(hex: string): number {
   const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
@@ -23,41 +17,36 @@ function contrast(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05)
 }
 
-// 季節の色。:root[data-season=…] と :root[data-scheme='dark'][data-season=…] の上と下の2色
-function seasonPair(season: string, dark: boolean): [string, string] {
-  const sel = dark ? `:root\\[data-scheme='dark'\\]\\[data-season='${season}'\\]` : `:root\\[data-season='${season}'\\]`
-  const m = css.match(new RegExp(`${sel}\\s*\\{\\s*--s-top:\\s*(#[0-9a-fA-F]{6});\\s*--s-bot:\\s*(#[0-9a-fA-F]{6});`))
-  if (!m) throw new Error(`${season} の色が見つかりません`)
-  return [m[1].toLowerCase(), m[2].toLowerCase()]
+// 地と文字の色。明るい地（有明）は :root、暗い地（夜）は :root[data-scheme='dark'] の最初の4つの変数
+function scheme(dark: boolean): { top: string; bot: string; fg: string; sub: string; accent: string } {
+  const sel = dark ? ":root\\[data-scheme='dark'\\]" : ':root'
+  const hex = '(#[0-9a-fA-F]{6})'
+  const m = css.match(new RegExp(`${sel}\\s*\\{\\s*--s-top:\\s*${hex};\\s*--s-bot:\\s*${hex};\\s*--fg:\\s*${hex};\\s*--sub:\\s*${hex};`))
+  if (!m) throw new Error(`${dark ? '夜' : '有明'}の色が見つかりません`)
+  const block = css.slice(m.index!, css.indexOf('}', m.index!))
+  const accent = block.match(new RegExp(`--brand-gradient:\\s*${hex}`))
+  if (!accent) throw new Error('差し色が見つかりません')
+  const [top, bot, fg, sub] = m.slice(1, 5).map((c) => c.toLowerCase())
+  return { top, bot, fg, sub, accent: accent[1].toLowerCase() }
 }
 
-describe('season colours', () => {
-  const seasons = ['spring', 'summer', 'autumn', 'winter']
-
-  it('has a light and a dark pair for every season', () => {
-    for (const s of seasons) {
-      expect(seasonPair(s, false)).toHaveLength(2)
-      expect(seasonPair(s, true)).toHaveLength(2)
+describe('theme colours', () => {
+  it.each([false, true])('keeps the text and the secondary text at 4.5:1 or better on both ends of the background (dark: %s)', (dark) => {
+    const c = scheme(dark)
+    for (const bg of [c.top, c.bot]) {
+      expect(contrast(c.fg, bg)).toBeGreaterThanOrEqual(4.5)
+      expect(contrast(c.sub, bg)).toBeGreaterThanOrEqual(4.5)
     }
   })
 
-  it('keeps the text and the secondary text at 4.5:1 or better on both ends of every background', () => {
-    for (const s of seasons) {
-      for (const bg of seasonPair(s, false)) {
-        expect(contrast('#1c1b1f', bg)).toBeGreaterThanOrEqual(4.5)
-        expect(contrast('#4a4650', bg)).toBeGreaterThanOrEqual(4.5)
-      }
-      for (const bg of seasonPair(s, true)) {
-        expect(contrast('#ffffff', bg)).toBeGreaterThanOrEqual(4.5)
-        expect(contrast('#e0dcd8', bg)).toBeGreaterThanOrEqual(4.5)
-      }
-    }
+  it.each([false, true])('keeps the label of the primary button readable on the accent (dark: %s)', (dark) => {
+    // 主なボタンは差し色の地に、地の下端の色の字（.btn--primary）
+    const c = scheme(dark)
+    expect(contrast(c.accent, c.bot)).toBeGreaterThanOrEqual(4.5)
   })
 
-  it('names the text colours the contrast check uses', () => {
-    expect(token('fg')).toBe('#1c1b1f')
-    expect(token('sub')).toBe('#4a4650')
-    expect(css).toMatch(/:root\[data-scheme='dark'\]\s*\{\s*--fg:\s*#ffffff;\s*--sub:\s*#e0dcd8;/)
+  it('has no season colours for the background any more', () => {
+    expect(css).not.toMatch(/\[data-season='\w+'\]\s*\{\s*--s-top/)
   })
 })
 

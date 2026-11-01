@@ -356,7 +356,7 @@ describe('Settings first screen (no Annict token)', () => {
     show({ annictToken: null, clientId: null })
     fireEvent.change(screen.getByLabelText('Annictの個人用アクセストークン'), { target: { value: ' tok ' } })
     fireEvent.click(screen.getByRole('button', { name: '連携する' }))
-    await waitFor(() => expect(onAnnictTokenChange).toHaveBeenCalledWith('tok'))
+    await waitFor(() => expect(onAnnictTokenChange).toHaveBeenCalledWith('tok', { method: 'token' }))
     // 保存は App が、持ち主の名前を確かめて記録を入れ替えるのと一度にする
     expect(localStorage.getItem('animax.annictToken')).toBeNull()
   })
@@ -456,6 +456,20 @@ describe('Settings layout (sections, status first, folded explanations)', () => 
     show({ section: 'settings-account' })
     expect(await screen.findByText('テスト（@tester）で連携中')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'ログアウト' })).toBeTruthy()
+  })
+
+  it('shows how the user logged in, and nothing for a login from before the method was kept', () => {
+    localStorage.setItem('animax.annictLoginMethod.v1', 'oauth')
+    const { unmount } = show({ section: 'settings-account' })
+    expect(screen.getByText('「Annictでログイン」からログインしています。')).toBeTruthy()
+    unmount()
+    localStorage.setItem('animax.annictLoginMethod.v1', 'token')
+    const again = show({ section: 'settings-account' })
+    expect(screen.getByText('個人用アクセストークンでログインしています。')).toBeTruthy()
+    again.unmount()
+    localStorage.removeItem('animax.annictLoginMethod.v1')
+    show({ section: 'settings-account' })
+    expect(screen.queryByText(/でログインしています。|からログインしています。/)).toBeNull()
   })
 
   it('GitHub connected: shows the repo as the status and hides the setup steps and the form', () => {
@@ -631,7 +645,7 @@ describe('Settings news', () => {
     // 一番上に最新の版、その下に節目を新しい順に。一番古い節目は始まりの版から
     expect(within(sheet).getByRole('heading', { level: 3, name: (name) => name.startsWith(`v${__APP_VERSION__}`) })).toBeTruthy()
     const names = [...sheet.querySelectorAll('.history__name')].map((n) => n.textContent)
-    expect(names[0]).toBe('Tier表')
+    expect(names[0]).toBe('紹介ページと今日の月')
     expect(names[names.length - 1]).toBe('1タップで記録する')
     expect(sheet.querySelectorAll('.history__bar')).toHaveLength(names.length)
     expect(within(block).queryByText('新しい版')).toBeNull()

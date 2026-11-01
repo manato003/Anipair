@@ -354,9 +354,17 @@ img {
     border-top: 0;
   }
 
-  /* テーマの色が夜のとき、三日月（base.css の --moon）を帯の右の空に置く。広い画面では地の月がこの帯に隠れるため */
-  :root[data-night] .tabs {
-    background: var(--moon) no-repeat right 64px center / 30px 30px, var(--tabs-bg);
+  /* 月（base.css の .moon）を帯の右の空に置く */
+  .moon--bar {
+    top: calc(50% - 15px);
+    right: 64px;
+    display: block;
+  }
+
+  /* 月の説明を開いているあいだは、帯ごと評価の見出し（rate.css の .rate__top、6）より手前に出す */
+  .app .tabs:has(.moon--open),
+  .app[data-page] .tabs:has(.moon--open) {
+    z-index: 8;
   }
 
   .app[data-page] .tabs {

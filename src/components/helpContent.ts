@@ -16,7 +16,7 @@ function tours(topic: HelpTopic): readonly TourStep[] {
         {
           target: '.app__screen:not([hidden]) .bell',
           title: t('コントロールセンター', 'Control center'),
-          body: t('保存できなかった記録などの知らせが出ます。テーマの色・明るさ・画面の動きなども、ここでその場で変えられます。', 'Shows notifications, such as records that couldn’t be saved. You can also change the theme color, brightness, and motion right here.'),
+          body: t('保存できなかった記録などの知らせが出ます。明るさ・画面の動きなども、ここでその場で変えられます。', 'Shows notifications, such as records that couldn’t be saved. You can also change brightness and motion right here.'),
         },
         { target: '.app__screen:not([hidden]) .flow__art', title: t('作品', 'Anime'), body: t('表紙を押すと、あらすじや関連作品などの詳細が開きます。', 'Tap the cover to open details such as the synopsis and related anime.') },
         {
@@ -148,8 +148,8 @@ function tours(topic: HelpTopic): readonly TourStep[] {
           target: '#settings-theme',
           title: t('表示', 'Display'),
           body: t(
-            'テーマの色・明るさ・時刻で色を変えるか・片手操作（よく押すボタンを左右どちらに寄せるか）・画面の動きを選べます。',
-            'Choose the theme color, brightness, whether colors change with the time of day, one-handed mode (which side the frequently used buttons sit on), and motion.',
+            '明るさ・時刻で色を変えるか・片手操作（よく押すボタンを左右どちらに寄せるか）・画面の動きを選べます。',
+            'Choose brightness, whether colors change with the time of day, one-handed mode (which side the frequently used buttons sit on), and motion.',
           ),
         },
         {
@@ -408,8 +408,8 @@ export function topics(): readonly { id: HelpTopic; title: string; items: readon
         [
           t('表示', 'Display'),
           t(
-            'テーマの色・明るさ・時刻で色を変えるか・片手操作・画面の動き・見るサービスを選べます。',
-            'Choose the theme color, brightness, whether colors change with the time of day, one-handed mode, motion, and where you watch.',
+            '明るさ・時刻で色を変えるか・片手操作・画面の動き・見るサービスを選べます。',
+            'Choose brightness, whether colors change with the time of day, one-handed mode, motion, and where you watch.',
           ),
         ],
         [
@@ -436,8 +436,8 @@ export function common(): readonly Item[] {
     [
       t('コントロールセンター', 'Control center'),
       t(
-        '各画面の右上のボタンです。保存できなかった記録などの知らせと、テーマの色・明るさ・画面の動きなどのクイック設定があります。',
-        'The button at the top right of every screen. It shows notifications, such as records that couldn’t be saved, and quick settings like theme color, brightness, and motion.',
+        '各画面の右上のボタンです。保存できなかった記録などの知らせと、明るさ・画面の動きなどのクイック設定があります。',
+        'The button at the top right of every screen. It shows notifications, such as records that couldn’t be saved, and quick settings like brightness and motion.',
       ),
     ],
     [

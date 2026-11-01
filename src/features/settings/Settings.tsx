@@ -5,7 +5,7 @@ import { annictClientId } from '../../lib/annictLogin'
 import { Landing } from '../landing/Landing'
 import type { GithubConnection } from '../../lib/github'
 import { rememberScroll, restoreScroll } from '../../lib/pageScroll'
-import { isLoggedOut } from '../../lib/storage'
+import { isLoggedOut, type LoginMethod } from '../../lib/storage'
 import { t } from '../../lib/i18n'
 import { useWide } from '../../lib/useWide'
 import { useSwipeIntercept } from '../../lib/useSwipeNav'
@@ -43,7 +43,7 @@ const GROUPS: readonly { id: GroupId; label: string; sub: string; icon: ReactNod
       return t('表示', 'Display')
     },
     get sub() {
-      return t('言語・テーマの色・明るさ・片手操作・ボタン・演出・見るサービス', 'Language, theme color, brightness, one-handed mode, buttons, effects, where I watch')
+      return t('言語・明るさ・片手操作・ボタン・演出・見るサービス', 'Language, brightness, one-handed mode, buttons, effects, where I watch')
     },
     icon: <PaletteIcon />, sections: ['settings-theme', 'settings-buttons', 'settings-effects', 'settings-broadcast'] },
   {
@@ -106,7 +106,7 @@ export type SettingsRequest = { section: string; n: number }
 export function Settings(props: {
   annictToken: string | null
   github: GithubConnection | null
-  onAnnictTokenChange: (token: string | null, opts?: { forget?: boolean }) => void
+  onAnnictTokenChange: (token: string | null, opts?: { forget?: boolean; method?: LoginMethod }) => void
   onGithubChange: (github: GithubConnection | null) => void
   // 「Annict でログイン」から戻ってきて、受け取っている最中か・失敗したときの文言
   loginBusy?: boolean
@@ -135,7 +135,7 @@ export function Settings(props: {
 function SignedInSettings(props: {
   annictToken: string
   github: GithubConnection | null
-  onAnnictTokenChange: (token: string | null, opts?: { forget?: boolean }) => void
+  onAnnictTokenChange: (token: string | null, opts?: { forget?: boolean; method?: LoginMethod }) => void
   onGithubChange: (github: GithubConnection | null) => void
   request?: SettingsRequest | null
   active?: boolean

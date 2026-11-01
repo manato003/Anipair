@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   ALL_KEYS,
+  loadAnnictLoginMethod,
   saveWriteJournalRaw,
   POSTERS_MAX,
   clearAll,
@@ -226,6 +227,26 @@ describe('the reviews snapshot (animax.reviews.v1)', () => {
   it('reads a broken value as nothing', () => {
     localStorage.setItem('animax.reviews.v1', '{broken')
     expect(loadReviewsRaw()).toBeNull()
+  })
+})
+
+describe('how the Annict token was entered (animax.annictLoginMethod.v1)', () => {
+  beforeEach(() => localStorage.clear())
+
+  it('keeps the method with the token, and drops it on logout or when saved without one', () => {
+    saveAnnictToken('A', 'oauth')
+    expect(loadAnnictLoginMethod()).toBe('oauth')
+    saveAnnictToken('B', 'token')
+    expect(loadAnnictLoginMethod()).toBe('token')
+    saveAnnictToken(null)
+    expect(loadAnnictLoginMethod()).toBeNull()
+    saveAnnictToken('C')
+    expect(loadAnnictLoginMethod()).toBeNull()
+  })
+
+  it('reads an unknown value as nothing', () => {
+    localStorage.setItem('animax.annictLoginMethod.v1', 'password')
+    expect(loadAnnictLoginMethod()).toBeNull()
   })
 })
 

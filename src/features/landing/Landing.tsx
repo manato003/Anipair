@@ -12,6 +12,7 @@ import { applyTheme, loadTheme } from '../../lib/theme'
 import { AboutBlock } from '../settings/AboutBlock'
 import { LegalLinks } from '../settings/LegalLinks'
 import { TokenForm } from '../settings/TokenForm'
+import type { LoginMethod } from '../../lib/storage'
 import { likedOf, pendingOf, pickMatch, ratingCounts, sharedGenres, tierRowsOf, topGenre, usableMedia } from './demo'
 import { DEMO_QUEUE, DEMO_SAMPLE, DEMO_SHELVES, type DemoAnswer } from './demoWorks'
 import { DemoMatch, DemoMore, DemoPoster, DemoRate, DemoTier } from './LandingDemo'
@@ -63,7 +64,7 @@ export function Landing(props: {
   busy: boolean
   error: string | null
   loggedOut?: boolean
-  onAnnictTokenChange: (token: string | null) => void
+  onAnnictTokenChange: (token: string | null, opts?: { method?: LoginMethod }) => void
 }) {
   const en = getLang() === 'en'
   // 出しているあいだ、ページの地・上端の帯・ブラウザの枠の色を紹介ページの色にする（styles/landing.css の :root[data-landing]）。
@@ -164,7 +165,7 @@ export function Landing(props: {
           ' This token can read your Annict records and add records and reviews. Don’t share it with anyone.',
         )}
       </p>
-      <TokenForm label={t('Annictの個人用アクセストークン', 'Annict personal access token')} verify={verifyAnnictToken} save={(token) => props.onAnnictTokenChange(token)} />
+      <TokenForm label={t('Annictの個人用アクセストークン', 'Annict personal access token')} verify={verifyAnnictToken} save={(token) => props.onAnnictTokenChange(token, { method: 'token' })} />
     </details>
   )
 

@@ -6,6 +6,8 @@ import { parseSlug, toSlug, type Season } from './season'
 
 const KEYS = {
   annictToken: 'animax.annictToken',
+  // いまのトークンを、どちらの方法で入れたか（'oauth' は「Annictでログイン」、'token' は個人用アクセストークン）。設定のアカウントの欄に出す
+  annictLoginMethod: 'animax.annictLoginMethod.v1',
   backfillSeason: 'animax.backfill.season',
   // 旧: 「見てない」の作品 ID の配列。いまは unseen に移した（読んで移したら消す）
   skipped: 'animax.backfill.skipped',
@@ -64,7 +66,7 @@ const KEYS = {
   effects: 'animax.effects.v1',
   // 評価とマッチングの答えのボタンの表示（アイコンと名前・アイコンだけ・名前だけ）。端末ごと
   buttonLabels: 'animax.buttonLabels.v1',
-  // 画面の色（テーマの色・明るさ・時刻・片手操作）。端末ごと。読み書きは lib/theme.ts
+  // 画面の色（明るさ・時刻・片手操作）。端末ごと。読み書きは lib/theme.ts
   theme: 'animax.theme.v1',
   // 見るサービス（配信・地上波の地域・BS・CS）。人ごと（GitHub で共有する）。形を確かめるのは lib/broadcast.ts
   broadcast: 'animax.broadcast.v1',
@@ -200,7 +202,15 @@ export function loadAnnictToken(): string | null {
   return t && t.trim() ? t.trim() : null
 }
 
-export function saveAnnictToken(token: string | null): void {
+export type LoginMethod = 'oauth' | 'token'
+
+// この仕組みの前からのログインは、方法を控えていないので null
+export function loadAnnictLoginMethod(): LoginMethod | null {
+  const m = read(KEYS.annictLoginMethod)
+  return m === 'oauth' || m === 'token' ? m : null
+}
+
+export function saveAnnictToken(token: string | null, method: LoginMethod | null = null): void {
   // Annict から読んだ記録の写しは、トークンが変わったら消す（開いたときに Annict から読み直せる）。
   // 送れなかった記録の控え・書きかけ・「まだ見てる」などは人ごとの記録として持ち、switchAccount が入れ替える
   // （同じ人がログインし直しても失わない。2026-10-06 のセキュリティの点検）
@@ -208,6 +218,8 @@ export function saveAnnictToken(token: string | null): void {
   if (loadAnnictToken() !== next) {
     for (const key of ANNICT_COPIES) write(key, null)
   }
+  // 方法はトークンより先に書く（トークンを書いた時点で、このページは「古い」になり、そのあとの write は書かれない）
+  write(KEYS.annictLoginMethod, next ? method : null)
   write(KEYS.annictToken, token)
   // このページでの切り替え（ページは、このあと読み込み直す）
   if (!frozen) pageState().token = rawRead(KEYS.annictToken)

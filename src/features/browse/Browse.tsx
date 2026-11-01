@@ -157,7 +157,7 @@ export function Browse({ token, active = true }: { token: string; active?: boole
       <div className="records__controls records__controls--notes">
         {/* 並べ方は並べ替えのボタンと矢印で分かるので、文で出すのは点数を読めなかったときなどの知らせだけ */}
         {(b.sort === 'score' || (b.sort === 'taste' && b.works)) && b.sortNote && <p className="note records__sortnote">{b.sortNote}</p>}
-        {b.capped && b.works && <p className="note">{cappedNote(b.capLimit)}</p>}
+        {b.capped && b.works && <p className="note">{cappedNote(b.capLimit, b.sort, b.dir)}</p>}
         {/* 期間は、クール一覧ではクールの代わりの行に出ているので、条件の並びには検索のときだけ出す */}
         {filterCount - (hasPeriod && !b.searching ? 1 : 0) > 0 && (
           <BrowseActiveFilters

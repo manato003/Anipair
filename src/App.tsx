@@ -2,6 +2,7 @@ import { Fragment, lazy, Suspense, useEffect, useLayoutEffect, useRef, useState,
 import { AuthExpiredBanner } from './components/AuthExpiredBanner'
 import { TabIcon } from './components/Icons'
 import { Logo } from './components/Logo'
+import { MoonInfo } from './components/MoonInfo'
 import { t } from './lib/i18n'
 import { useAutoBackup } from './features/backup/useAutoBackup'
 import { ScreenBoundary } from './components/ErrorBoundary'
@@ -20,6 +21,7 @@ import {
   forgetAccount,
   freezeStorage,
   hasUnclaimed,
+  loadAnnictLoginMethod,
   loadAnnictToken,
   loadGithubConnection,
   loadOwner,
@@ -29,6 +31,7 @@ import {
   settleUnclaimed,
   StorageFullError,
   switchAccount,
+  type LoginMethod,
 } from './lib/storage'
 import { hasPendingWrites } from './lib/useWriteQueue'
 import { useArrowNav } from './lib/useArrowNav'
@@ -203,7 +206,7 @@ export default function App() {
   // forget: 「ログアウトして、Anipairのデータを削除」（送り切ってから消す。先に消すと、待つあいだに届いた書き込みが残る）
   // 切り替えの最中（起動時の確かめが、進めているログアウトを打ち消さないように）
   const switchingRef = useRef(false)
-  async function onTokenChange(next: string | null, opts: { forget?: boolean } = {}) {
+  async function onTokenChange(next: string | null, opts: { forget?: boolean; method?: LoginMethod } = {}) {
     switchingRef.current = true
     setSwitching(true)
     // ログイン・ログアウト・切り替えのあとは、覚えた画面（ログアウトした設定など）ではなく、いつもの評価の画面から
@@ -219,6 +222,7 @@ export default function App() {
     // ログアウトしたままの端末（v0.11 まではログアウトしても記録と GitHub のつなぎが残っていた）も、持ち主が分からないので隔離する
     // （2026-10-06 のセキュリティの点検: 次にログインした人が、前の人の記録と GitHub のつなぎを丸ごと引き継いでいた）
     const prev = loadAnnictToken()
+    const prevMethod = loadAnnictLoginMethod()
     let unclaimed = false
     if (loadOwner() === null) {
       const prevOwner = prev ? await ownerOf(prev) : null
@@ -229,14 +233,14 @@ export default function App() {
     const viewer = next ? await fetchViewer(next).catch(() => null) : null
     const owner = viewer ? ownerKeyOf(viewer) : null
     try {
-      saveAnnictToken(next)
+      saveAnnictToken(next, opts.method ?? null)
       if (unclaimed) setAsideUnclaimed()
       if (opts.forget) forgetAccount()
       switchAccount(owner, next)
     } catch (e) {
       if (!(e instanceof StorageFullError)) throw e
       // 端末の容量が足りず、前の人の記録を退避できなかった（記録は消さずに残っている）。トークンを前のものに戻し、切り替えをやめる
-      if (loadAnnictToken() !== prev) saveAnnictToken(prev)
+      if (loadAnnictToken() !== prev) saveAnnictToken(prev, prevMethod)
       switchingRef.current = false
       setSwitching(false)
       setSwitchFailed(true)
@@ -323,7 +327,7 @@ export default function App() {
   const authExpired = token !== null && expiredToken === token
 
   // 「Annict でログイン」から戻ってきたとき、ここで受け取る（成功すればトークンが入り、評価の画面に移る）
-  const login = useAnnictLogin(onTokenChange)
+  const login = useAnnictLogin((next) => onTokenChange(next, { method: 'oauth' }))
 
   const showSettings = tab === 'settings' || !token
   // 表示中の画面（設定のときは null）
@@ -484,6 +488,8 @@ export default function App() {
       {token && <TitleToastView />}
       {/* 押した結果が画面に出ない操作の、一度だけの知らせ（lib/tips.ts） */}
       {token && <TipToast />}
+      {/* スマホの右上の月（押すと今日の月の説明。広い画面は上の帯の中に出す） */}
+      <MoonInfo where="ground" />
       {/* ログインする前は、最初の画面（設定のログイン）しか使えないので、分類の帯を出さない */}
       {token && (
         <nav className="tabs" aria-label={t('画面の切り替え', 'Screens')}>
@@ -491,6 +497,7 @@ export default function App() {
           <button type="button" className="tabs__brand" aria-label={t('Anipair（読み込み直す）', 'Anipair (reload)')} title={t('読み込み直す', 'Reload')} onClick={reloadPage}>
             <Logo size="small" />
           </button>
+          <MoonInfo where="bar" />
           {TABS.map((x) => (
             <button
               key={x.id}

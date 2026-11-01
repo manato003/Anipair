@@ -5,12 +5,13 @@ import { getLang, t } from '../../lib/i18n'
 // 設定の「開発記録」。節目は手で書き、版の項目は CHANGELOG から引く。
 // 節目の範囲は「始まりの版から次の節目の手前まで」。新しい版は自動で一番新しい節目に入るので、版を出すたびにここを直さなくてよい
 // （新しい節目を作るときだけ足す）。英語の画面では CHANGELOG.en.md を使い、英語版に無い版は日本語のまま出す
+// 節目は、使い方が変わる機能が入った版で切る。目安は 0.x の版で2〜3つ分。一番新しい節目が3つ分を超えたら、次の版を出すときに切り直す
 
 // 版の中身の1行。段落・小見出し・箇条書き（depth 1 は1段下げた箇条書き）
 export type ChangeBlock = { kind: 'p' | 'h' | 'li'; depth: 0 | 1; text: string }
 export type ChangeEntry = { version: string; date: string; blocks: ChangeBlock[] }
 
-export type HistoryArt = 'rate' | 'data' | 'thumb' | 'medal' | 'episodes' | 'season' | 'mascot' | 'mail' | 'lang' | 'tier'
+export type HistoryArt = 'rate' | 'data' | 'thumb' | 'medal' | 'episodes' | 'season' | 'mascot' | 'mail' | 'lang' | 'tier' | 'search' | 'moon'
 
 type MilestoneSource = { from: string; art: HistoryArt; readonly title: string; readonly summary: string }
 
@@ -143,6 +144,32 @@ const MILESTONES: readonly MilestoneSource[] = [
       return t(
         '見た作品を段に並べる表を作れるようになりました。表紙を引いて置き場所を決め、リンクにして友だちに見せられます。',
         'Make a tier list of the anime you have watched. Drag covers to place them, and share the list with friends as a link.',
+      )
+    },
+  },
+  {
+    from: 'v0.23.0',
+    art: 'search',
+    get title() {
+      return t('探し方と絞り込みを広げる', 'More ways to search and filter')
+    },
+    get summary() {
+      return t(
+        'ブラウズで期間の全作品から絞り込めるようになり、英語やローマ字の題名でも探せます。マッチングでは苦手なジャンルや制作会社を候補から除けます。',
+        'Browse can now filter across every anime in a period, and you can search by English or romaji titles. Match can leave out genres and studios you dislike.',
+      )
+    },
+  },
+  {
+    from: 'v0.26.0',
+    art: 'moon',
+    get title() {
+      return t('紹介ページと今日の月', 'An introduction page and today’s moon')
+    },
+    get summary() {
+      return t(
+        'ログインする前に、できることを見てそのまま試せる紹介ページができました。明るいテーマは淡い星の「有明」になり、右上の月は今日の月齢の形で出ます。',
+        'Before you log in, an introduction page shows what Anipair can do and lets you try it. The light theme became Ariake, with faint stars, and the moon in the top right shows today’s moon phase.',
       )
     },
   },

@@ -68,6 +68,27 @@
   gap: 14px;
 }
 
+/* スマホのマッチング: 「条件」「提案し直す」が右上の丸いボタンに押されて縦に折れるので、2つを見出しの下の行に下ろす */
+@media (max-width: 479px) {
+  .rate__head:has(.rate__links) {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+
+  .rate__head:has(.rate__links) > .rate__meta {
+    display: contents;
+  }
+
+  .rate__head:has(.rate__links) .headactions {
+    order: 1;
+  }
+
+  .rate__head:has(.rate__links) .rate__links {
+    order: 2;
+    flex-basis: 100%;
+  }
+}
+
 .count {
   font-size: 1rem;
   font-weight: 500;

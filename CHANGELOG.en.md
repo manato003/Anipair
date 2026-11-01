@@ -2,6 +2,18 @@
 
 Changes to Anipair, newest first. Your records and the data saved on your device carry over from version to version.
 
+## v0.28.0 — 2026-11-01
+
+The Night theme color and the seasonal background colors are gone, and the light theme is now Ariake (daybreak). The moon in the top right now shows today’s moon phase, and Settings shows how you logged in.
+
+- Removed Theme color from the Display settings. You now choose only Brightness (Auto, Light, Dark, Darker). Devices that used Night in the previous version switch to Dark. Seasonal colors remain only in the mascot’s sprout and the accent color
+- The light theme is now Ariake: a white tinted toward wisteria, with faint stars and a crescent moon
+- The moon in the top right of each screen now takes the shape of today’s moon phase. The lower right glows while it waxes and the lower left while it wanes. Tap it (or hover on a PC) to see the moon’s name and rough moonrise and moonset times. The crescent on the introduction page stays a crescent
+- Annict connection in Settings now shows whether you logged in with “Log in with Annict” or a personal access token. On devices logged in before this version, it appears after you log in again. The privacy policy now also notes that the method is kept on your device
+- When Browse lists only the first part of a large set of anime, the note now says how that part is ordered. It also appears when “Show more” reaches the limit while you search by genre without choosing a period
+- On phones, the “Filters” and “Suggest again” buttons on the Match screen no longer wrap vertically; they now sit on a row below the heading
+- Development history now splits the versions since v0.20.0 into three chapters: Tier lists, More ways to search and filter, and An introduction page and today’s moon
+
 ## v0.27.0 — 2026-10-31
 
 A new theme color, Night, uses the same night sky as the introduction page.
