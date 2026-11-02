@@ -93,8 +93,8 @@ function tours(topic: HelpTopic): readonly TourStep[] {
           target: '.app__screen:not([hidden]) .tierboard',
           title: t('Tier表', 'Tier list'),
           body: t(
-            '表紙を引いて（スマホは長押ししてから）、好きな段と位置へ落とせます。表紙を押すと作品の詳細が開きます。キーボードでは表紙を選んで、下に出る段のボタンで動かせます。段の中の順番は「左へ」「右へ」でも入れ替えられます。段の数と名前は「表の設定」で変えられます。「＋ 新しい表」では、見たい作品・今期のアニメ・ジャンル・制作会社から何の表かを選ぶか、作品名で探して、好きな作品を集めた表を作れます（表は5つまで）。「リンクで共有」で作ったリンクは、ログインしていない人も開いて見られます。ここで並べ替えても、Annictの評価は変わりません。',
-            'Drag a cover (on a phone, press and hold first) and drop it in any tier and position. Tap a cover for details. With a keyboard, select a cover and use the tier buttons below. “Left” and “Right” also reorder within a tier. Change the number and names of tiers in “List settings”. With “+ New list”, choose what the list covers (your Want to watch list, this season, a genre, or a studio) or search by title to make a list of anime you pick (up to 5 lists). A link made with “Share as a link” can be opened by anyone, even without logging in. Reordering here doesn’t change your Annict ratings.',
+            '表紙を引いて（スマホは長押ししてから）、好きな段と位置へ落とせます。表紙を押すと作品の詳細が開きます。キーボードでは表紙を選んで、下に出る段のボタンで動かせます。段の中の順番は「左へ」「右へ」でも入れ替えられます。迷ったら「比べて並べる」で、2つずつ比べて決められます。段の数と名前は「表の設定」で変えられます。「＋ 新しい表」では、見たい作品・今期のアニメ・ジャンル・制作会社から何の表かを選ぶか、作品名で探して、好きな作品を集めた表を作れます（表は5つまで）。「リンクで共有」で作ったリンクは、ログインしていない人も開いて見られます。ここで並べ替えても、Annictの評価は変わりません。',
+            'Drag a cover (on a phone, press and hold first) and drop it in any tier and position. Tap a cover for details. With a keyboard, select a cover and use the tier buttons below. “Left” and “Right” also reorder within a tier. If you can’t decide, “Rank by comparing” lets you compare two at a time. Change the number and names of tiers in “List settings”. With “+ New list”, choose what the list covers (your Want to watch list, this season, a genre, or a studio) or search by title to make a list of anime you pick (up to 5 lists). A link made with “Share as a link” can be opened by anyone, even without logging in. Reordering here doesn’t change your Annict ratings.',
           ),
         },
         {
@@ -352,6 +352,13 @@ export function topics(): readonly { id: HelpTopic; title: string; items: readon
           t(
             'Annictで評価を付けていない作品と、段から外した作品です。評価を付けた作品は、その評価の段に最初から置かれます。表から外すには、表紙を「表に入れない作品」へ引くか、「1枚ずつ振り分ける」で「表に入れない」を押します。外した作品は共有のリンクに出ません。',
             'Anime you haven’t rated on Annict, and anime you took out of a tier. Rated anime start in the tier for their rating. To leave an anime out of the list, drag its cover to “Left out of this list”, or choose “Leave out” in “Place one by one”. Left-out anime don’t appear in the shared link.',
+          ),
+        ],
+        [
+          t('段の中の順番', 'Order inside a tier'),
+          t(
+            '「比べて並べる」で段を選ぶと、その段の作品を2つずつ出して、どちらの方が好みかを聞きます。答えた順に段の前から並びます。左右どちらに出るかは毎回変わります。まず今の並びが合っているかを確かめるので、自分で並べた段の微調整なら少ない回数で済みます。途中でやめても、次は続きから比べられます。',
+            'Choose a tier in “Rank by comparing” and you’ll see its anime two at a time. Pick the one you like more, and they’re lined up from the front of the tier in that order. Which side each anime appears on changes every time. It checks your current order first, so fine-tuning a tier you’ve already arranged takes only a few comparisons. If you stop partway, you can pick up where you left off.',
           ),
         ],
       ],

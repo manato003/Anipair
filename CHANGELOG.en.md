@@ -2,6 +2,15 @@
 
 Changes to Anipair, newest first. Your records and the data saved on your device carry over from version to version.
 
+## v0.29.0 — 2026-11-01
+
+In a tier list, you can now set the order inside a tier by comparing two anime at a time.
+
+- Choose a tier in “Rank by comparing” above the tier list, and you’ll see its anime two at a time with the question “Which do you like more?” They’re lined up from the front of the tier in the order you choose. Looking at a full row of covers makes it easy to be swayed by the layout, so you can now decide by looking at just two
+- Which side each anime appears on changes every time, and “Undo” takes you back to the previous question. If you stop partway with “Save and pause”, the anime you’ve already ranked stay in place, and you can pick up where you left off
+- It checks your current order as it goes, so fine-tuning a tier you’ve already arranged takes only a few comparisons. A tier of 20 anime that’s already in order takes 19
+- You can also rank inside each tier right after finishing “Place one by one”
+
 ## v0.28.0 — 2026-11-01
 
 The Night theme color and the seasonal background colors are gone, and the light theme is now Ariake (daybreak). The moon in the top right now shows today’s moon phase, and Settings shows how you logged in.

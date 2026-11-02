@@ -15,6 +15,7 @@ import { useCoalescedTask } from '../../lib/useCoalescedTask'
 import { useModalFocus } from '../../lib/useModalFocus'
 import type { RecordRow } from '../records/recordList'
 import { TierBoard, TierSort } from './TierBoard'
+import { TierCompare } from './TierCompare'
 import { TierPick } from './TierPick'
 import { TierShareSheet } from './TierShareSheet'
 import {
@@ -123,6 +124,8 @@ export function TierView(props: {
   const [sharing, setSharing] = useState(false)
   // まだ置いていない作品を1枚ずつ振り分けている
   const [sorting, setSorting] = useState(false)
+  // 段の中を2つずつ比べて並べている
+  const [comparing, setComparing] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   // 表が1つならその表をすぐ出す。2つ以上なら、選ぶまでは表を並べて見せる（TierShelf）
   const stored = store.tables.find((x) => x.id === pickedId) ?? (store.tables.length === 1 ? store.tables[0] : null)
@@ -257,6 +260,9 @@ export function TierView(props: {
               {t('＋ 作品を足す', '+ Add anime')}
             </button>
           )}
+          <button type="button" className="btn" onClick={() => setComparing(true)}>
+            {t('比べて並べる', 'Rank by comparing')}
+          </button>
           <button type="button" className="btn" onClick={() => setSharing(true)}>
             {t('リンクで共有', 'Share as a link')}
           </button>
@@ -295,9 +301,23 @@ export function TierView(props: {
         </section>
       )}
 
-      <TierBoard table={table} view={view} active={props.active} onChange={move} onOpen={props.onOpen} />
+      <TierBoard table={table} view={view} active={props.active} onChange={move} onOpen={props.onOpen} onCompare={() => setComparing(true)} />
 
-      {sorting && <TierSort table={table} view={view} active={props.active} onChange={move} onClose={() => setSorting(false)} />}
+      {sorting && (
+        <TierSort
+          table={table}
+          view={view}
+          active={props.active}
+          onChange={move}
+          onClose={() => setSorting(false)}
+          onCompare={() => {
+            setSorting(false)
+            setComparing(true)
+          }}
+        />
+      )}
+
+      {comparing && <TierCompare table={table} view={view} active={props.active} onChange={move} onClose={() => setComparing(false)} />}
 
       {adding && <TierPick token={props.token} rows={props.rows} table={table} preset={preset} active={props.active} onChange={change} onClose={() => setAdding(false)} />}
 
@@ -536,7 +556,7 @@ function TierSetup(props: { rows: readonly RecordRow[]; active: boolean; onCreat
   return (
     <div className="summary tiersetup">
       <div className="tiersetup__preview" inert>
-        <TierBoard table={preview} view={viewOf(preview, props.rows)} active={false} onChange={() => {}} onOpen={() => {}} />
+        <TierBoard table={preview} view={viewOf(preview, props.rows)} active={false} onChange={() => {}} onOpen={() => {}} onCompare={() => {}} />
       </div>
       {step === 'count' ? (
         <TierAsk

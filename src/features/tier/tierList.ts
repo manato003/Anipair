@@ -32,6 +32,8 @@ export interface Tier {
   name: string
   // 並び順の作品（Annict の作品 ID）
   items: number[]
+  // 2つずつ比べて位置を決めた作品（items の中の一部。続きから比べるのに使う）。段から抜けると外れる
+  ranked?: number[]
 }
 
 export interface TierTable {
@@ -241,11 +243,20 @@ export function viewOf(table: TierTable, rows: readonly RecordRow[]): TierView {
 
 const touch = (table: TierTable, tiers: Tier[], now: Date): TierTable => ({ ...table, tiers, updatedAt: now.toISOString() })
 
-const without = (tiers: readonly Tier[], id: number): Tier[] => tiers.map((t) => ({ ...t, items: t.items.filter((x) => x !== id) }))
+const without = (tiers: readonly Tier[], id: number): Tier[] => tiers.map((t) => withRanked({ ...t, items: t.items.filter((x) => x !== id) }, (t.ranked ?? []).filter((x) => x !== id)))
+
+// 比べて決めた作品が無ければ ranked を持たない（古い形の段と同じ形にする）
+export const withRanked = (tier: Tier, ranked: number[]): Tier => {
+  const next = { ...tier }
+  delete next.ranked
+  return ranked.length > 0 ? { ...next, ranked } : next
+}
 
 // 作品を段の before の作品の前（null か見つからなければ段の最後）に入れる。
-// tier が null なら「まだ置いていない」へ戻し、評価があっても自動で置かないよう控える。「表に入れない」にした作品も表に戻す
+// tier が null なら「まだ置いていない」へ戻し、評価があっても自動で置かないよう控える。「表に入れない」にした作品も表に戻す。
+// 同じ段の中で動かしたときは、比べて決めた印を残す（自分で並べ直した位置もその段の中の順番として扱う）
 export function insert(table: TierTable, id: number, tier: number | null, before: number | null, now: Date = new Date()): TierTable {
+  const ranked = tier !== null && (table.tiers[tier]?.ranked ?? []).includes(id)
   const tiers = without(table.tiers, id)
   const held = (table.held ?? []).filter((x) => x !== id)
   const excluded = (table.excluded ?? []).filter((x) => x !== id)
@@ -254,7 +265,7 @@ export function insert(table: TierTable, id: number, tier: number | null, before
     const items = [...tiers[tier].items]
     const at = before === null ? -1 : items.indexOf(before)
     items.splice(at < 0 ? items.length : at, 0, id)
-    tiers[tier] = { ...tiers[tier], items }
+    tiers[tier] = withRanked({ ...tiers[tier], items }, ranked ? [...(tiers[tier].ranked ?? []), id] : (tiers[tier].ranked ?? []))
   }
   return touch(withIds(withIds(table, 'held', held), 'excluded', excluded), tiers, now)
 }
@@ -363,7 +374,8 @@ export function parseTable(v: unknown): TierTable | null {
       seen.add(x)
       items.push(x)
     }
-    return { name: cleanTierName(typeof o.name === 'string' ? o.name : '', i), items }
+    const ranked = (Array.isArray(o.ranked) ? o.ranked : []).filter((x, j, all): x is number => items.includes(x as number) && all.indexOf(x) === j)
+    return withRanked({ name: cleanTierName(typeof o.name === 'string' ? o.name : '', i), items }, ranked)
   })
   const ids = (list: unknown): number[] => {
     const out: number[] = []

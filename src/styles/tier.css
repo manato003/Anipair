@@ -389,6 +389,108 @@ button.tierrow__label {
   gap: 8px;
 }
 
+/* 段の中を2つずつ比べる（TierCompare）。段を選ぶ行と、2枚を横に並べた問い */
+.tiercmp {
+  display: grid;
+  gap: 12px;
+  padding-bottom: 8px;
+}
+
+.tiercmp__tiers {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tiercmp__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tiercmp__tier {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 6px 12px 6px 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: var(--ink-raised);
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tiercmp__tier:hover:not(:disabled) {
+  border-color: var(--line-strong);
+}
+
+.tiercmp__tier:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.tiercmp__label {
+  display: grid;
+  place-items: center;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0 4px;
+  border-radius: var(--radius-s);
+  color: #1c1b1f;
+  font-weight: 700;
+}
+
+.tiercmp__count {
+  font-weight: 500;
+}
+
+.tiercmp__status {
+  margin: 0 0 0 auto;
+}
+
+.tiercmp__question {
+  margin: 0;
+  font-weight: 700;
+  text-align: center;
+}
+
+.tiercmp__pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+  max-width: 440px;
+}
+
+.tiercmp__card {
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: var(--ink-raised);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.tiercmp__card:hover {
+  border-color: var(--line-strong);
+}
+
+.tiercmp__cover {
+  display: block;
+  width: 100%;
+}
+
 /* 選んだ表に作品を足す（TierPick）。探す欄と絞り込みは上、結果は表紙・題名・＋の行 */
 .tierpick__tools {
   display: flex;

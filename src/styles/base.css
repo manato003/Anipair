@@ -1066,6 +1066,8 @@ kbd {
   z-index: 1;
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr) 40px;
+  /* ×を出さないシートでも、帯の高さを変えない */
+  grid-template-rows: 40px;
   align-items: center;
   row-gap: 4px;
   margin: 0 -20px;

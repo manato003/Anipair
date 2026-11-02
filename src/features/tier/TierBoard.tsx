@@ -12,7 +12,14 @@ import { useTierDrag, type TierDrop } from './useTierDrag'
 // キーボード・読み上げでは、表紙を押すと選び、下の帯の段のボタン（か段の名前）で動かす。段の中は「左へ」「右へ」。
 // 表に合わない作品は「表に入れない作品」へ（いちばん下に閉じて置き、開くと戻せる）。
 // 撮ればそのまま投稿できる見た目にする（5段・7段がスマホの1画面に収まる大きさ）。撮影を促す文言は置かない
-export function TierBoard(props: { table: TierTable; view: TierView; active: boolean; onChange: (table: TierTable) => void; onOpen: (row: RecordRow) => void }) {
+export function TierBoard(props: {
+  table: TierTable
+  view: TierView
+  active: boolean
+  onChange: (table: TierTable) => void
+  onOpen: (row: RecordRow) => void
+  onCompare: () => void
+}) {
   const { table, view } = props
   const [selected, setSelected] = useState<number | null>(null)
   const [sorting, setSorting] = useState(false)
@@ -182,7 +189,19 @@ export function TierBoard(props: { table: TierTable; view: TierView; active: boo
         </div>
       )}
 
-      {sorting && <TierSort table={table} view={view} active={props.active} onChange={props.onChange} onClose={() => setSorting(false)} />}
+      {sorting && (
+        <TierSort
+          table={table}
+          view={view}
+          active={props.active}
+          onChange={props.onChange}
+          onClose={() => setSorting(false)}
+          onCompare={() => {
+            setSorting(false)
+            props.onCompare()
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -206,8 +225,16 @@ function TileButton(props: { row: RecordRow; selected: boolean; onClick: (e: Mou
 }
 
 // まだ置いていない作品を1枚ずつ、段のボタンで振り分ける（評価の画面と同じく、表紙と題名だけを出す）。
-// 表に合わない作品は「表に入れない」。押し間違えたら「ひとつ戻る」で、置いた（か「あとで」「表に入れない」にした）作品に戻って選び直せる
-export function TierSort(props: { table: TierTable; view: TierView; active: boolean; onChange: (table: TierTable) => void; onClose: () => void }) {
+// 表に合わない作品は「表に入れない」。押し間違えたら「ひとつ戻る」で、置いた（か「あとで」「表に入れない」にした）作品に戻って選び直せる。
+// すべて置いたら、段の中の順番を2つずつ比べて決める（TierCompare）かを選べる
+export function TierSort(props: {
+  table: TierTable
+  view: TierView
+  active: boolean
+  onChange: (table: TierTable) => void
+  onClose: () => void
+  onCompare?: () => void
+}) {
   // 開いたときの並び。「あとで」は最後に回す
   const [queue, setQueue] = useState(() => props.view.unplaced.map((r) => r.entry.annictId))
   // 置く・「あとで」・「表に入れない」の前の表と並び（新しい順に戻す）
@@ -216,6 +243,8 @@ export function TierSort(props: { table: TierTable; view: TierView; active: bool
   const pending = queue.filter((id) => unplaced.has(id))
   const row = pending.length > 0 ? unplaced.get(pending[0])! : null
   const count = props.view.tiers.length
+  // 2本以上ある段があれば、終わりの画面で比べて並べるかを聞く
+  const compareReady = !!props.onCompare && props.view.tiers.some((tier) => tier.rows.length >= 2)
 
   const remember = () => setHistory((h) => [...h, { table: props.table, queue }])
   const undo = () => {
@@ -282,11 +311,21 @@ export function TierSort(props: { table: TierTable; view: TierView; active: bool
       ) : (
         <div className="tiersort">
           <p className="tiersort__name">{t('すべて置きました', 'All placed')}</p>
+          {compareReady && (
+            <p className="note">
+              {t('同じ段の中の順番も、2つずつ比べて決められます。', 'You can also set the order inside each tier by comparing two at a time.')}
+            </p>
+          )}
           <div className="tiersort__acts">
             {undoButton}
-            <button type="button" className="btn btn--primary" onClick={props.onClose}>
+            <button type="button" className={compareReady ? 'btn' : 'btn btn--primary'} onClick={props.onClose}>
               {t('表に戻る', 'Back to the list')}
             </button>
+            {compareReady && (
+              <button type="button" className="btn btn--primary" onClick={props.onCompare}>
+                {t('段の中の順番を比べて決める', 'Rank inside each tier')}
+              </button>
+            )}
           </div>
         </div>
       )}

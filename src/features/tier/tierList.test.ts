@@ -333,6 +333,25 @@ describe('並べ替え', () => {
   })
 })
 
+describe('比べて決めた印（ranked）', () => {
+  it('別の段へ動かす・外す・「まだ置いていない」へ戻すと印が外れ、同じ段の中で動かすと残る', () => {
+    const base = place(make(), 5, 0)
+    const t: TierTable = { ...base, tiers: base.tiers.map((x, i) => (i === 0 ? { ...x, ranked: [1, 5] } : x)) }
+    expect(insert(t, 5, 0, 1).tiers[0]).toEqual({ name: 'S', items: [5, 1], ranked: [1, 5] })
+    expect(place(t, 5, 1).tiers[0]).toEqual({ name: 'S', items: [1], ranked: [1] })
+    expect(place(t, 5, 1).tiers[1]).not.toHaveProperty('ranked')
+    expect(place(t, 5, null).tiers[0].ranked).toEqual([1])
+    expect(exclude(place(t, 5, null), 1).tiers[0]).not.toHaveProperty('ranked')
+  })
+
+  it('読むときは、その段にある作品の印だけを残す', () => {
+    const good = make()
+    const tiers = [{ name: 'S', items: [1], ranked: [1, 1, 2, 'x'] }, ...good.tiers.slice(1)]
+    expect(parseTable({ ...good, tiers })?.tiers[0]).toEqual({ name: 'S', items: [1], ranked: [1] })
+    expect(parseTable({ ...good, tiers: [{ name: 'S', items: [1], ranked: [2] }, ...good.tiers.slice(1)] })?.tiers[0]).not.toHaveProperty('ranked')
+  })
+})
+
 describe('保存の形', () => {
   it('書き出して読み直すと同じ', () => {
     const store = { tables: [make()], removed: [{ id: 'old', at: now.toISOString() }] }

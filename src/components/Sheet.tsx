@@ -50,7 +50,8 @@ function inHorizontalScroller(target: EventTarget | null, root: HTMLElement): bo
   return false
 }
 
-export function Sheet(props: { label: string; active?: boolean; size?: 'large' | 'page'; onClose: () => void; children: ReactNode }) {
+// closeButton: false なら右上の×を出さない（中身に、閉じる代わりのボタンを置くとき。払う・戻るでは閉じる）
+export function Sheet(props: { label: string; active?: boolean; size?: 'large' | 'page'; closeButton?: boolean; onClose: () => void; children: ReactNode }) {
   const active = props.active ?? true
   const page = props.size === 'page'
   const closeRef = useRef<HTMLButtonElement>(null)
@@ -195,9 +196,11 @@ export function Sheet(props: { label: string; active?: boolean; size?: 'large' |
   const bar = (
     <div className="sheet__bar">
       {touch && <span className="sheet__grab" aria-hidden />}
-      <button ref={closeRef} type="button" className="sheet__close" aria-label={t('閉じる', 'Close')} onClick={close}>
-        <CloseIcon />
-      </button>
+      {props.closeButton !== false && (
+        <button ref={closeRef} type="button" className="sheet__close" aria-label={t('閉じる', 'Close')} onClick={close}>
+          <CloseIcon />
+        </button>
+      )}
       {touch && hint && <p className="sheet__hint">{page
             ? t('下か右へ払っても閉じます', 'Swipe down or right to close')
             : t('下へ払うか、空いている所をタップしても閉じます', 'Swipe down or tap outside to close')}</p>}
