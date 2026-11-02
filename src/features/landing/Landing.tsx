@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useState, type MouseEvent } from 'react'
 import { LangToggle } from '../../components/LangToggle'
 import { Spinner } from '../../components/Loading'
+import { Phrase } from '../../components/Phrase'
 import { Logo } from '../../components/Logo'
 import { fetchViewer } from '../../lib/annict'
 import { startLogin } from '../../lib/annictLogin'
@@ -196,10 +197,12 @@ export function Landing(props: {
               ))}
             </h1>
             <p className="lp-lead">
-              {t(
-                'Annictの視聴記録を、タップだけで付けられるアプリです。見たアニメを評価していくと、好みに合う作品を理由つきで提案します。',
-                'Anipair lets you log your anime on Annict with just a tap. Rate the anime you’ve watched, and it suggests new ones that match your taste, with the reason why.',
-              )}
+              <Phrase
+                text={t(
+                  'Annictの視聴記録を、タップだけで付けられるアプリです。見たアニメを評価していくと、好みに合う作品を理由つきで提案します。',
+                  'Anipair lets you log your anime on Annict with just a tap. Rate the anime you’ve watched, and it suggests new ones that match your taste, with the reason why.',
+                )}
+              />
             </p>
             {/* 英語のとき: 作品名はローマ字の題名で出し、作品のデータの一部は日本語のままであることを、ログインの前に伝える */}
             {en && <p className="lp-note">Anime titles are shown in romanized Japanese. Some details, like episode titles and synopses, stay in Japanese.</p>}

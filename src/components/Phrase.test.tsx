@@ -15,6 +15,18 @@ describe('phraseChunks', () => {
     expect(title).toContain('夢を')
     expect(title.some((c) => c.includes('アクシ') && !c.includes('アクション'))).toBe(false)
   })
+
+  it('does not break right after Latin letters joined to kanji or katakana', () => {
+    expect(phraseChunks('FX戦士くるみちゃん')).toEqual(['FX戦士', 'くるみちゃん'])
+    expect(phraseChunks('TVアニメ')).toEqual(['TVアニメ'])
+    expect(phraseChunks('Tier表は')).toEqual(['Tier表は'])
+    expect(phraseChunks('Re:ゼロ')).toEqual(['Re:ゼロ'])
+    // 英字をつないでいない語のあとのひらがなは、これまでどおり前につなげる
+    expect(phraseChunks('設定で連携すると')).toEqual(['設定で', '連携すると'])
+    // 空白のあとと、カタカナのあとの英字では、これまでどおり折れる
+    expect(phraseChunks('Sonny Boy')).toEqual(['Sonny ', 'Boy'])
+    expect(phraseChunks('機動戦士ガンダムSEED')).toContain('SEED')
+  })
 })
 
 describe('Phrase', () => {

@@ -2,6 +2,13 @@
 
 Changes to Anipair, newest first. Your records and the data saved on your device carry over from version to version.
 
+## v0.29.1 — 2026-11-02
+
+Japanese text is now less likely to break in the middle of a word.
+
+- Lines no longer break right after Latin letters in Japanese text. FX戦士くるみちゃん now breaks between FX戦士 and くるみちゃん, and terms like TVアニメ and Tier表 stay together. Titles with a colon, like Re:ゼロ, no longer break after it either
+- Fixed the description on the introduction page breaking in the middle of a word
+
 ## v0.29.0 — 2026-11-01
 
 In a tier list, you can now set the order inside a tier by comparing two anime at a time.

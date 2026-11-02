@@ -10,6 +10,9 @@ const HAN_END = /\p{Script=Han}$/u
 const HAN_START = /^\p{Script=Han}/u
 const KANA_END = /[\p{Script=Katakana}ー]$/u // i18n-ok: 同上
 const KANA_START = /^[\p{Script=Katakana}ー]/u // i18n-ok: 同上
+const LATIN_END = /[A-Za-zＡ-Ｚａ-ｚ][:：]?$/u // i18n-ok: 同上
+const LATIN_JOINED_END = /[A-Za-zＡ-Ｚａ-ｚ][\p{Script=Han}\p{Script=Katakana}ー]+$/u // i18n-ok: 同上
+const HIRAGANA_WORD = /^\p{Script=Hiragana}{3,}$/u
 
 export function phraseChunks(text: string): string[] {
   if (!segmenter) return [text]
@@ -19,7 +22,11 @@ export function phraseChunks(text: string): string[] {
     const prev = chunks[last] ?? ''
     // 漢字どうし・カタカナどうしは続ける（新｜世紀、ガン｜ダム と折らない。辞書が1語を分けることがある）
     const same = (HAN_END.test(prev) && HAN_START.test(segment)) || (KANA_END.test(prev) && KANA_START.test(segment))
-    const breakable = last >= 0 && BREAK_BEFORE.test(segment) && !NO_BREAK_AFTER.test(prev) && !same
+    // 英字（と、その直後のコロン）のすぐ後ろの漢字・カタカナは同じ語として続ける（FX｜戦士、TV｜アニメ、Re:｜ゼロ と折らない）
+    const joined = LATIN_END.test(prev) && (HAN_START.test(segment) || KANA_START.test(segment))
+    // つないだ語のあとは、3文字以上のひらがなの語の前でも折れるようにする（FX戦士｜くるみちゃん。つなぐと長くなり、語の途中で折れるため）
+    const afterJoined = LATIN_JOINED_END.test(prev) && HIRAGANA_WORD.test(segment)
+    const breakable = last >= 0 && (BREAK_BEFORE.test(segment) || afterJoined) && !NO_BREAK_AFTER.test(prev) && !same && !joined
     if (last < 0 || breakable) chunks.push(segment)
     else chunks[last] += segment
   }
