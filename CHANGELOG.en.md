@@ -2,6 +2,16 @@
 
 Changes to Anipair, newest first. Your records and the data saved on your device carry over from version to version.
 
+## v0.29.2 — 2026-11-10
+
+Fixes for tier list share links and sync, plus limits that stop a single connection from overusing the service.
+
+- Fixed a case where, with a tier list synced across two devices, a share link made on one device could no longer be updated or deleted after the list was changed on the other
+- Tier lists opened from a share link no longer show the cover or title of adult titles; “Hidden” appears in their place instead
+- Switching to another person’s account or logging out now also clears the cached English titles, synopses, links and similar data for anime you opened, so the next person on a shared device can’t see what you looked at
+- Fixed covers sometimes staying missing for a while when only part of the anime data arrived
+- Making share links, the anime data proxy and the “Log in with Annict” exchange now limit how many requests a single connection can send in a short time. To count them, we briefly store a hash of your IP address mixed with the time. Your IP address itself is not stored. The privacy policy has been updated accordingly
+
 ## v0.29.1 — 2026-11-02
 
 Japanese text is now less likely to break in the middle of a word.

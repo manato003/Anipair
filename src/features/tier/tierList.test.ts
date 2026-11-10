@@ -5,7 +5,9 @@ import {
   TIER_MAX,
   TIER_MIN,
   addTier,
+  attachShare,
   candidates,
+  detachShare,
   addWorks,
   createPickedTable,
   createTable,
@@ -30,6 +32,7 @@ import {
   type TierTable,
   type TierWork,
 } from './tierList'
+import { isStale } from './tierShare'
 
 function row(id: number, state: StatusState, rating: RatingState | null, opts: { at?: string; year?: number; season?: string; story?: RatingState } = {}): RecordRow {
   const entry: LibraryEntry = {
@@ -392,5 +395,56 @@ describe('保存の形', () => {
     // 消したあとに別の端末で変えた表は残す
     const revived = { ...c, updatedAt: '2026-10-27T00:00:00Z' }
     expect(mergeTierStores({ tables: [revived], removed: [] }, merged).tables.map((t) => t.id)).toEqual(['t2', 't1'])
+  })
+
+  describe('共有のリンクは、表の中身とは別に合わせる（F3）', () => {
+    const share = { id: 'AbCdEfGh12', key: 'k'.repeat(30), at: now.toISOString() }
+    const one = (t: TierTable) => ({ tables: [t], removed: [] })
+
+    it('端末 A でリンクを作り、同期の前に端末 B が同じ表を変えても、鍵は落ちない', () => {
+      const a = attachShare(make(), share)
+      const b = renameTable(make(), 'B で変えた', later)
+      for (const merged of [mergeTierStores(one(a), one(b)), mergeTierStores(one(b), one(a))]) {
+        expect(merged.tables[0].title).toBe('B で変えた')
+        expect(merged.tables[0].share).toEqual(share)
+        // リンクを作ったあとに表を変えたので、リンクの中身は古い
+        expect(isStale(merged.tables[0])).toBe(true)
+      }
+    })
+
+    it('リンクを外した印が鍵より新しければ外し、古ければ鍵を残す', () => {
+      const shared = attachShare(make(), share)
+      const removed = detachShare(shared, later)
+      expect(removed.share).toBeUndefined()
+      expect(removed.unsharedAt).toBe(later.toISOString())
+      // 外した端末と、外す前の鍵を持つ端末: 外した方が勝つ
+      for (const merged of [mergeTierStores(one(shared), one(removed)), mergeTierStores(one(removed), one(shared))]) {
+        expect(merged.tables[0].share).toBeUndefined()
+        expect(merged.tables[0].unsharedAt).toBe(later.toISOString())
+      }
+      // 外したあとに別の端末で作り直したリンクは残る（中身が古い端末の表を採っても）
+      const again = { ...share, id: 'ZyXwVu9876', at: '2026-10-27T00:00:00.000Z' }
+      const remade = { ...attachShare(make(), again), updatedAt: now.toISOString() }
+      const merged = mergeTierStores(one(removed), one(remade))
+      expect(merged.tables[0].share).toEqual(again)
+      expect(merged.tables[0]).not.toHaveProperty('unsharedAt')
+    })
+
+    it('2つの端末が別々にリンクを作っていたら、新しい方を残す', () => {
+      const older = attachShare(make(), share)
+      const newer = { ...share, id: 'ZyXwVu9876', at: later.toISOString() }
+      expect(mergeTierStores(one(attachShare(make(), newer)), one(older)).tables[0].share).toEqual(newer)
+    })
+
+    it('外した日時は保存の形を通っても残り、鍵より古い印は読むときに捨てる', () => {
+      const removed = detachShare(attachShare(make(), share), later)
+      const back = parseTierStore(JSON.parse(JSON.stringify(serializeTierStore(one(removed))))).tables[0]
+      expect(back.unsharedAt).toBe(later.toISOString())
+      expect(back).not.toHaveProperty('share')
+      const both = parseTable({ ...attachShare(make(), { ...share, at: later.toISOString() }), unsharedAt: now.toISOString() })
+      expect(both?.share?.at).toBe(later.toISOString())
+      expect(both).not.toHaveProperty('unsharedAt')
+      expect(parseTable({ ...make(), unsharedAt: 'oops' })).not.toHaveProperty('unsharedAt')
+    })
   })
 })

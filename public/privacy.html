@@ -20,7 +20,7 @@
       </div>
 
       <h1>プライバシーポリシー</h1>
-      <p class="date">制定日: 2026年10月2日 / 更新日: 2026年11月1日</p>
+      <p class="date">制定日: 2026年10月2日 / 更新日: 2026年11月10日</p>
 
       <p class="lead">
         Anipair（以下「本アプリ」）は、個人が開発・運営する、無料・非商用の非公式アプリです。
@@ -67,7 +67,7 @@
           編集の鍵そのものは、作った人の端末と、GitHubと連携しているときはそのリポジトリにだけ置きます。端末のデータを消すなどして鍵を無くしたときは、問い合わせからリンクをお知らせください。運営者が削除します。
         </p>
         <p>
-          リンクを作る回数に1日の上限を設けるため、接続元のIPアドレスを日付と混ぜて元に戻せない形（ハッシュ）にした値と、その日に作った回数を、2日間だけ保存します。IPアドレスそのものは保存しません。
+          リンクを作る回数に1日の上限を設けるため、接続元のIPアドレスを日付と混ぜたハッシュにした値と、その日に作った回数を保存します。IPアドレスそのものは保存せず、この値と回数は2日で消えます。
         </p>
       </section>
 
@@ -103,7 +103,7 @@
             <strong>作品情報の提供元</strong>（現在は<a href="https://shikimori.io/" rel="noreferrer">Shikimori</a>）:
             ジャンル、似た作品、関連作品、表紙の画像の場所、声優・スタッフ・制作会社の参加作品などの公開データ。本アプリの中継の仕組みを通して取得し、利用者を特定する情報は送りません。
             参加作品を探すときは、作品の詳細に載っている人物の名前（Annictに公開されている名前）を送ります。
-            中継はShikimoriの公開データを控えたり、MyAnimeListとAnnictで同じ作品を指すIDの組（公開されている作品のIDどうし）を覚えたり、Shikimoriへの問い合わせの回数を数えたりするために、Upstash（Redis）を使います。中継がそこに利用者の情報を置くことはありません。
+            中継はShikimoriの公開データを控えたり、MyAnimeListとAnnictで同じ作品を指すIDの組（公開されている作品のIDどうし）を覚えたり、Shikimoriへの問い合わせの回数を数えたりするために、Upstash（Redis）を使います。1つの接続元が全員の問い合わせの枠を使い切らないよう、接続元のIPアドレスを時刻と混ぜたハッシュにした値と、その1分間の回数を、2分間だけ保存します。IPアドレスそのものは保存せず、ほかに中継がそこに利用者の情報を置くことはありません。
             共有のリンクで開かれたTier表の作品の題名と表紙も、この中継を通して取得します。
           </li>
           <li>
@@ -146,6 +146,7 @@
         <h2>4. サーバーの関数とホスティング</h2>
         <p>
           本アプリはVercelで公開しています。サーバーで動く処理は次の4つだけです。問い合わせをIssueにすることと、Tier表の共有のリンク（上の「1」）のほかは、受け取った情報を保存せず、記録にも残しません。
+          ただし、ログインの受け渡しと作品情報の中継は、1つの接続元からの使いすぎを止めるため、接続元のIPアドレスを時刻と混ぜたハッシュにした値と、その1分間の回数を、Upstash（Redis）に2分間だけ保存します。IPアドレスそのものは保存しません。
         </p>
         <ul>
           <li>「Annictでログイン」のとき、Annictから受け取った認可コードをアクセストークンに交換する処理</li>
@@ -180,14 +181,14 @@
 
       <section class="en" lang="en">
         <h1>Privacy Policy (English)</h1>
-        <p class="date">Effective date: October 2, 2026 / Last updated: November 1, 2026</p>
+        <p class="date">Effective date: October 2, 2026 / Last updated: November 10, 2026</p>
         <p>
           Anipair is a free, non-commercial, unofficial app developed and run by an individual. The operator does not collect or store any user information, except what you send through the feedback form, tier lists you choose to share as a link, and anonymous, aggregated usage statistics.
         </p>
         <section class="item">
           <h2>1. Information we collect</h2>
           <p>Anipair has no operator-run database or user registration, and uses no advertising or tracking cookies. To see how much each screen is used, Anipair uses Vercel Web Analytics (Vercel Inc.): it sends the screen you open (such as Rate or Match), the referring site, your country or region, and your device, OS and browser type. It uses no cookies and sends no Annict account, records, tokens or anything you type. According to Vercel, IP addresses are not recorded, the value used to tell visitors apart is discarded after 24 hours, and the data is used only as anonymous aggregates. The operator uses it only to improve the app. When you send feedback (questions, bug reports, requests) from the app, we receive its type and text, the reply address if you give one, and the app version and device/browser type if you choose to include them. It is saved as an issue in the operator's private GitHub repository, read only by the operator, and used only to investigate, improve and reply. It does not include your IP address or any tokens. To have it deleted, send another message through the form.</p>
-          <p>When you make a link with "Share as a link" on a tier list, we receive and store the list's title, tier names and the order of the anime in each tier (as MyAnimeList IDs), when the link was made and last updated, and a one-way hash of the "edit key" used to update or delete it. We do not receive your Annict name, token or ratings. It is stored in Upstash (Redis, Upstash, Inc.), and anyone with the link can see the list without logging in. There is no expiry; it is deleted when you press "Delete the link" or delete the list in the app (it may still show for a minute or two from the delivery cache). The edit key itself is kept only on your device and, if connected, in your GitHub repository. If you lose it, tell us the link through the feedback form and the operator will delete it. To limit how many links can be made per day, we store a one-way hash of your IP address mixed with the date, and that day's count, for two days. Your IP address itself is not stored.</p>
+          <p>When you make a link with "Share as a link" on a tier list, we receive and store the list's title, tier names and the order of the anime in each tier (as MyAnimeList IDs), when the link was made and last updated, and a one-way hash of the "edit key" used to update or delete it. We do not receive your Annict name, token or ratings. It is stored in Upstash (Redis, Upstash, Inc.), and anyone with the link can see the list without logging in. There is no expiry; it is deleted when you press "Delete the link" or delete the list in the app (it may still show for a minute or two from the delivery cache). The edit key itself is kept only on your device and, if connected, in your GitHub repository. If you lose it, tell us the link through the feedback form and the operator will delete it. To limit how many links can be made per day, we store a hash of your IP address mixed with the date, and that day's count. Your IP address itself is not stored, and the hash and count are deleted after two days.</p>
         </section>
         <section class="item">
           <h2>2. Information kept on your device</h2>
@@ -204,7 +205,7 @@
           <h2>3. Services Anipair connects to</h2>
           <ul>
             <li><strong>Annict</strong>: login, reading and writing your watch records and ratings, and anime information, using only Annict's public API. Your records are stored in your own Annict account.</li>
-            <li><strong>Anime data provider</strong> (currently Shikimori): public data such as genres, similar and related anime, cover image locations, and the works of voice actors, staff and studios, fetched through Anipair's proxy without any information that identifies you. To look up the works of a person, Anipair sends that person's public name as listed on Annict. The proxy uses Upstash (Redis) to keep copies of Shikimori's public data, to remember which MyAnimeList and Annict entries are the same anime (only the public anime IDs), and to count requests to Shikimori; the proxy stores no information about you there. Titles and covers on shared tier lists are fetched through this proxy too.</li>
+            <li><strong>Anime data provider</strong> (currently Shikimori): public data such as genres, similar and related anime, cover image locations, and the works of voice actors, staff and studios, fetched through Anipair's proxy without any information that identifies you. To look up the works of a person, Anipair sends that person's public name as listed on Annict. The proxy uses Upstash (Redis) to keep copies of Shikimori's public data, to remember which MyAnimeList and Annict entries are the same anime (only the public anime IDs), and to count requests to Shikimori. So that a single source can’t use up everyone’s share of requests, it also keeps, for two minutes, a hash of your IP address mixed with the time and the number of requests in that minute. The IP address itself is not stored, and the proxy stores no other information about you there. Titles and covers on shared tier lists are fetched through this proxy too.</li>
             <li><strong>Wikipedia</strong> (ja.wikipedia.org, and en.wikipedia.org on the English screen): when you open the details of an anime, or tap an anime on a shared tier list, its synopsis is read from the article through Wikipedia's public API, without any information that identifies you. On the English screen, the English article linked from the Japanese article is used when there is one.</li>
             <li><strong>Wikidata</strong> (www.wikidata.org and query.wikidata.org): on the English screen, the English names of voice actors and staff shown in anime details and trends are looked up by their Japanese names. When you tap an anime on a shared tier list, its Wikipedia article, official website and X account are looked up by its MyAnimeList ID. Both use Wikidata's public API, without any information that identifies you.</li>
             <li><strong>GitHub</strong>, only if you connect it: your pass, skip and "not watched" records, your priority marks and notes on "want to watch" anime, the streaming services you choose, your tier lists (including the edit keys of shared links), and backups are saved to your own repository.</li>
@@ -219,7 +220,7 @@
           <h2>4. Server functions and hosting</h2>
           <p>
             Anipair is hosted on Vercel. Four server functions run: one exchanges the Annict authorization code for an access token, one relays requests
-            for public anime data, one turns feedback you send into an issue in the operator's private GitHub repository, and one makes, updates, deletes and reads tier list links (and sets the page title for a shared list and draws the card image shown when the link is posted, with only the list's title and the colors, names and number of anime of its tiers, without covers). Apart from that feedback and shared tier lists, none of them stores or logs what it receives. Vercel may record technical information such as IP addresses as part of its service,
+            for public anime data, one turns feedback you send into an issue in the operator's private GitHub repository, and one makes, updates, deletes and reads tier list links (and sets the page title for a shared list and draws the card image shown when the link is posted, with only the list's title and the colors, names and number of anime of its tiers, without covers). Apart from that feedback and shared tier lists, none of them stores or logs what it receives, with one exception: to stop a single source from overusing them, the login exchange and the anime data relay keep, for two minutes in Upstash (Redis), a hash of your IP address mixed with the time and the number of requests in that minute. The IP address itself is not stored. Vercel may record technical information such as IP addresses as part of its service,
             under the <a href="https://vercel.com/legal/privacy-policy" rel="noreferrer">Vercel Privacy Policy</a>.
           </p>
         </section>

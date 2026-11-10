@@ -321,6 +321,25 @@ describe('per-person records (switchAccount)', () => {
     expect(passes()).toBe('{"b":1}')
   })
 
+  // 2026-11-10（Fable の点検の F7）
+  it('drops the caches that show which anime were opened when someone else signs in, but keeps them for the same person', () => {
+    const caches = ['animax.titleEn.v1', 'animax.peopleEn.v1', 'animax.wikiSynopses.v1', 'animax.workLinks.v1', 'animax.annictMiss.v1']
+    const fill = () => caches.forEach((k) => localStorage.setItem(k, '{"52991":1}'))
+    switchAccount('alice', 'tok-a')
+    fill()
+    // 同じ人がログインし直した（トークンが新しくなった）だけなら残す
+    switchAccount('alice', 'tok-a2')
+    for (const k of caches) expect(localStorage.getItem(k)).toBe('{"52991":1}')
+    // 別の人に替わったら消し、退避の控えにも入れない
+    switchAccount('bob', 'tok-b')
+    for (const k of caches) expect(localStorage.getItem(k)).toBeNull()
+    expect(localStorage.getItem('animax.accounts.v1') ?? '').not.toContain('52991')
+    // ログアウトでも消す
+    fill()
+    switchAccount(null)
+    for (const k of caches) expect(localStorage.getItem(k)).toBeNull()
+  })
+
   it('logging in again as the same person keeps everything (a new token each time)', () => {
     switchAccount('alice')
     saveAnnictToken('t1')
@@ -489,8 +508,9 @@ describe('round 3 of the security check', () => {
     localStorage.setItem('animax.passes', '{"a":1}')
     localStorage.setItem('animax.githubToken', 'gh')
     localStorage.setItem('animax.accounts.v1', '{"u9":{"animax.passes":"{}"}}')
+    localStorage.setItem('animax.annictOauthStates', JSON.stringify([{ state: 's', at: Date.now() }]))
     clearAll()
-    for (const k of ['animax.annictToken', 'animax.passes', 'animax.githubToken', 'animax.accounts.v1', 'animax.owner.v1']) expect(localStorage.getItem(k)).toBeNull()
+    for (const k of ['animax.annictToken', 'animax.passes', 'animax.githubToken', 'animax.accounts.v1', 'animax.owner.v1', 'animax.annictOauthStates']) expect(localStorage.getItem(k)).toBeNull()
   })
 
   it('keeps both the kept and the new unsent writes when the name becomes known', () => {

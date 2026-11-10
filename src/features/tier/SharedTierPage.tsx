@@ -20,6 +20,7 @@ type State = { status: 'loading' } | { status: 'error'; message: string } | { st
 export function SharedTierPage(props: { id: string }) {
   const [state, setState] = useState<State>({ status: 'loading' })
   const [media, setMedia] = useState<ReadonlyMap<number, Media>>(new Map())
+  const [hidden, setHidden] = useState<ReadonlySet<number>>(new Set())
   const [partial, setPartial] = useState(false)
   const [picked, setPicked] = useState<number | null>(null)
 
@@ -36,7 +37,10 @@ export function SharedTierPage(props: { id: string }) {
         try {
           const found = await fetchMedia(ids.slice(i, i + CHUNK))
           if (cancelled) return
-          setMedia((cur) => new Map([...cur, ...found]))
+          // 成人向けの作品は、題名も表紙も持たない（ほかの画面と同じ。作品の ID は表に残るので、枠だけ出す）
+          const adult = [...found].filter(([, m]) => m.isAdult).map(([id]) => id)
+          if (adult.length > 0) setHidden((cur) => new Set([...cur, ...adult]))
+          setMedia((cur) => new Map([...cur, ...[...found].filter(([, m]) => !m.isAdult)]))
         } catch {
           if (!cancelled) setPartial(true)
           return
@@ -77,6 +81,15 @@ export function SharedTierPage(props: { id: string }) {
                   <ul className="tierrow__items" aria-label={tier.name}>
                     {tier.items.map((id) => {
                       const m = media.get(id)
+                      if (hidden.has(id)) {
+                        return (
+                          <li key={id}>
+                            <span className="tiertile" aria-label={t('表示できない作品', 'Hidden work')}>
+                              <span className="tiertile__text">{t('非表示', 'Hidden')}</span>
+                            </span>
+                          </li>
+                        )
+                      }
                       const name = nameOf(id)
                       const fallback = <span className="tiertile__text">{name ?? ''}</span>
                       return (

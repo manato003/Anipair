@@ -23,13 +23,14 @@
 //                          人気順か放送日順で50件ずつ4ページまで。応答の annict は、その作品の分だけの Annict の作品 ID（下の op=link で覚えたもの）
 //   POST ?op=link          画面が題名で結び付けた、MyAnimeList の ID → Annict の作品 ID を覚える（次の人は題名で探さずに済む）。
 //                          誰でも書けるので、画面は受け取った対応を Annict で引き直して確かめる。作品の控えにある ID だけ受け付ける
-// 利用者に結びつく情報は受け取らず、何もログに出さない。
+// 利用者に結びつく情報は受け取らず、何もログに出さない。接続元ごとの回数だけは、IP を分の番号と混ぜたハッシュで2分だけ数える（下の PER_CLIENT_PER_MINUTE）。
 //
 // 控えと回数（2026-10-12）: Upstash Redis（環境変数 KV_REST_API_URL・KV_REST_API_TOKEN。無ければ今までどおり直接聞く）に、
 // Shikimori の公開データを作品ごとに控え（デプロイしても消えない。CDN の控えはデプロイごとに空になり、まとめて頼んだ並びでしか使い回せない）、
-// Shikimori へ実際に送る回数を全利用者で数える（Shikimori の上限は 5rps / 90rpm で、Vercel の出口から数えられる。こちらは 4/秒・80/分で止める）。
+// Shikimori へ実際に送る回数を全利用者で数える（Shikimori の上限は 5rps / 90rpm で、Vercel の出口から数えられる。こちらは 4/秒・80/分で止める。
+// 2026-11-10 から、その前に接続元ごとに1分30回でも止める）。
 // 上限に達したら Shikimori には送らず 429 と Retry-After を返す（画面は待って送り直す）。Upstash に届かなければ、控えも数えるのも飛ばす（止まらない）。
-// 置くのは Shikimori の公開データと回数と、作品の ID どうしの対応だけ（利用者の情報は置かない）。
+// 置くのは Shikimori の公開データと回数と、作品の ID どうしの対応だけ（利用者の情報は置かない。接続元ごとの回数は IP を分の番号と混ぜたハッシュで数え、2分で消える）。
 // 対応（Annict の作品 ID）は Annict の API利用規約 第7条（ID は紐付けのために保持できる・サーバーに置いてよい）に沿い、
 // 第6条（まとまったデータを取り出させない）のため、条件検索と制作会社の作品の結果の作品の分だけを返す（対応を引くだけの問い合わせは作らない）
 //
@@ -66,8 +67,9 @@ export interface ShikiStore {
   get(keys: readonly string[]): Promise<(string | null)[]>
   // ttl は秒。null は期限なし
   set(entries: readonly { key: string; value: string; ttl: number | null }[]): Promise<void>
-  // Shikimori へ1回送ってよいか。よければ null、上限なら待つ秒数
-  take(now: number): Promise<number | null>
+  // Shikimori へ1回送ってよいか。よければ null、上限なら待つ秒数。
+  // client は接続元を分の番号と混ぜたハッシュ（分からなければ null で、接続元ごとには数えない）
+  take(now: number, client: string | null): Promise<number | null>
 }
 
 const DAY = 86400
@@ -94,6 +96,10 @@ const MAX_LINK_BODY = 4096
 // 全利用者で Shikimori へ送る上限（Shikimori は 5rps / 90rpm。少し下で止める）
 const PER_SECOND = 4
 const PER_MINUTE = 80
+// 1つの接続元が Shikimori へ送らせてよい数（1分。2026-11-10、Fable の点検の F6）。控えに無いものを頼み続ける1つの接続元が、
+// 全員の枠を使い切らないように（Firewall は1つの接続元で1分200回まで通すので、全体の80より大きい）。
+// 控えにあるものは数えないので、ふつうの人はまず届かない。scripts/warm_shiki.py（1分30回）もこの中に収まる
+export const PER_CLIENT_PER_MINUTE = 30
 // 控えの名前の版（控える形を変えたら上げる）
 const KEY = 'shiki:1'
 const STORE_TIMEOUT_MS = 1500
@@ -121,9 +127,18 @@ export function upstashStore(url: string, token: string, fetchFn: FetchLike = fe
     async set(entries) {
       if (entries.length > 0) await pipeline(entries.map((e) => (e.ttl === null ? ['SET', e.key, e.value] : ['SET', e.key, e.value, 'EX', e.ttl])))
     },
-    async take(now) {
+    async take(now, client) {
       const sec = Math.floor(now / 1000)
       const min = Math.floor(sec / 60)
+      // 接続元ごとを先に数える。上限を超えた接続元が送り続けても、全体の数は増えない（api/tier.ts の F1 と同じ順）
+      if (client) {
+        const key = `${KEY}:rate:c:${client}`
+        const [mine] = await pipeline([
+          ['INCR', key],
+          ['EXPIRE', key, 120],
+        ])
+        if (Number(mine) > PER_CLIENT_PER_MINUTE) return 60 - (sec % 60)
+      }
       const [perSec, , perMin] = await pipeline([
         ['INCR', `${KEY}:rate:s:${sec}`],
         ['EXPIRE', `${KEY}:rate:s:${sec}`, 5],
@@ -162,9 +177,33 @@ export function localTake(now: number): number | null {
   return null
 }
 
+// 接続元（Vercel が付ける）。IPv6 は /64 にまとめる（1つの契約で末尾を変え放題なので、まとめないと接続元ごとの上限を素通りされる）。分からなければ空
+export function clientOf(request: Request): string {
+  const ip = (request.headers.get('x-real-ip') ?? request.headers.get('x-forwarded-for')?.split(',')[0] ?? '').trim()
+  if (!ip.includes(':')) return ip
+  // IPv4 を IPv6 の形で書いたもの（::ffff:1.2.3.4）は IPv4 として扱う
+  const v4 = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i.exec(ip)
+  if (v4) return v4[1]
+  const [head, tail] = ip.split('::')
+  const h = head ? head.split(':') : []
+  const t = tail ? tail.split(':') : []
+  const groups = tail === undefined ? h : [...h, ...Array<string>(Math.max(0, 8 - h.length - t.length)).fill('0'), ...t]
+  return `${groups
+    .slice(0, 4)
+    .map((g) => g.toLowerCase().replace(/^0+(?=.)/, ''))
+    .join(':')}::/64`
+}
+
+// 接続元を、分の番号と混ぜたハッシュにする（IP そのものは置かない。分ごとに値が変わるので、置いた値どうしを分をまたいで結び付けられない。
+// IPv4 は数が少なく総当たりで戻せるので、守っているのは「2分で消える」ことの方）
+async function clientHash(ip: string, now: number): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${Math.floor(now / 60000)}:${ip}`))
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
 // 控えに届かないときは、控えなしで続ける（一度失敗したら、その問い合わせの間はもう使わない）。
 // 回数は、Upstash を使う設定なのに届かないときだけ、関数の中で控えめに数える（上の localTake）
-function safeStore(store: ShikiStore | null) {
+function safeStore(store: ShikiStore | null, ip = '') {
   let alive = store !== null
   async function guard<T>(f: (s: ShikiStore) => Promise<T>, fallback: T): Promise<T> {
     if (!alive || !store) return fallback
@@ -180,7 +219,8 @@ function safeStore(store: ShikiStore | null) {
     set: (entries: readonly { key: string; value: string; ttl: number | null }[]) => guard((s) => s.set(entries), undefined),
     take: async (now: number) => {
       if (!store) return null
-      const wait = await guard((s) => s.take(now), undefined)
+      const client = ip ? await clientHash(ip, now) : null
+      const wait = await guard((s) => s.take(now, client), undefined)
       return wait === undefined ? localTake(now) : wait
     },
   }
@@ -444,17 +484,44 @@ async function respondLinked(store: Store, animes: readonly Trimmed[]): Promise<
   return respond(200, { animes, annict }, 'public, s-maxage=3600, stale-while-revalidate=600')
 }
 
+// 本文を上限のバイト数まで読む。超えたら読むのをやめて null（Content-Length が無い・偽りでも、上限より多くは読まない。api/feedback.ts と同じ）
+async function readLimited(request: Request, max: number): Promise<string | null> {
+  if (Number(request.headers.get('content-length') ?? '0') > max) return null
+  if (!request.body) return ''
+  const reader = request.body.getReader()
+  const chunks: Uint8Array[] = []
+  let size = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    size += value.byteLength
+    if (size > max) {
+      await reader.cancel()
+      return null
+    }
+    chunks.push(value)
+  }
+  const all = new Uint8Array(size)
+  let at = 0
+  for (const c of chunks) {
+    all.set(c, at)
+    at += c.byteLength
+  }
+  return new TextDecoder().decode(all)
+}
+
 // 対応を覚える。本文は {"pairs": [[MyAnimeList の ID, Annict の作品 ID], ...]}（50組まで）。
 // 作品の控えに無い ID は受け付けない（任意の ID で控えを埋めさせない。控えに入るのは Shikimori に実在する作品だけ）
-async function handleLink(request: Request, store: Store): Promise<Response> {
-  if (Number(request.headers.get('Content-Length') ?? 0) > MAX_LINK_BODY) return fail(413, 'too_large')
-  let text: string
+async function handleLink(request: Request, store: Store, origin: string): Promise<Response> {
+  // このサイトの画面から送られたものだけ受け付ける（ブラウザは POST に Origin を付ける。api/tier.ts と同じ）。本文を読む前に断る
+  if (request.headers.get('origin') !== origin) return fail(403, 'origin_not_allowed')
+  let text: string | null
   try {
-    text = await request.text()
+    text = await readLimited(request, MAX_LINK_BODY)
   } catch {
     return fail(400, 'bad_request')
   }
-  if (text.length > MAX_LINK_BODY) return fail(413, 'too_large')
+  if (text === null) return fail(413, 'too_large')
   const pairs = (parseJson(text) as { pairs?: unknown } | undefined | null)?.pairs
   const valid = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && n > 0 && n < 1e9
   if (!Array.isArray(pairs) || pairs.length === 0 || pairs.length > MAX_LINKS) return fail(400, 'bad_request')
@@ -465,8 +532,14 @@ async function handleLink(request: Request, store: Store): Promise<Response> {
   return new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store' } })
 }
 
+// GraphQL の応答に errors が付いているか（付いていれば、data は一部だけのことがある）
+const hasErrors = (data: unknown): boolean => {
+  const errors = (data as { errors?: unknown } | null)?.errors
+  return Array.isArray(errors) && errors.length > 0
+}
+
 export async function handleShiki(request: Request, fetchFn: FetchLike = fetch, rawStore: ShikiStore | null = null, now: () => number = Date.now): Promise<Response> {
-  const store = safeStore(rawStore)
+  const store = safeStore(rawStore, clientOf(request))
   // 答えを控えてから返す
   const keep = async (key: string | null, body: unknown, ttl: number): Promise<Response> => {
     if (key) await store.set([{ key, value: JSON.stringify(body), ttl }])
@@ -476,7 +549,7 @@ export async function handleShiki(request: Request, fetchFn: FetchLike = fetch, 
   const q = url.searchParams
   const op = q.get('op')
   // 書き込みは対応を覚える1つだけ（引数は op だけ）
-  if (request.method === 'POST' && op === 'link' && [...q.keys()].length === 1) return handleLink(request, store)
+  if (request.method === 'POST' && op === 'link' && [...q.keys()].length === 1) return handleLink(request, store, url.origin)
   if (request.method !== 'GET') return fail(405, 'method_not_allowed', { Allow: 'GET' })
   // 問い合わせの形を1つに決める。CDN の控えは URL ごとなので、余計な引数や並びの違う ids を付けると控えを素通りして、
   // 毎回 Shikimori に問い合わせさせられる（共有の User-Agent と出口が締め出されると、全員の表紙が出なくなる。2026-10-06 の点検）
@@ -655,13 +728,15 @@ export async function handleShiki(request: Request, fetchFn: FetchLike = fetch, 
       if (singleKey) await store.set([{ key: singleKey, value: JSON.stringify({ animes }), ttl: TTL_LIST }])
       return respondLinked(store, animes)
     }
-    // 作品ごとに控える。頼んだのに返らなかった ID も「無い」として控える（毎回聞き直さない）
+    // 作品ごとに控える。頼んだのに返らなかった ID も「無い」として控える（毎回聞き直さない）。
+    // ただし応答に errors が付いているときは、一部だけ返っている恐れがある。「無い」とは控えず、CDN にも控えさせない
     const found = new Set(animes.map((a) => a.id))
+    const partial = hasErrors(data)
     await store.set([
       ...animeEntries(animes),
-      ...ids.filter((id) => !found.has(id)).map((id) => ({ key: `${KEY}:anime:${id}`, value: 'null', ttl: TTL_MISSING })),
+      ...(partial ? [] : ids.filter((id) => !found.has(id)).map((id) => ({ key: `${KEY}:anime:${id}`, value: 'null', ttl: TTL_MISSING }))),
     ])
-    return respond(200, { animes: [...cachedAnimes, ...animes] }, CACHE_OK)
+    return respond(200, { animes: [...cachedAnimes, ...animes] }, partial ? 'no-store' : CACHE_OK)
   }
   if (op === 'characters') {
     const list = (data as { data?: { characters?: { id?: unknown; japanese?: unknown }[] } } | null)?.data?.characters
@@ -673,11 +748,12 @@ export async function handleShiki(request: Request, fetchFn: FetchLike = fetch, 
       return id && id > 0 && ja && ja.length <= 60 ? [{ id, ja }] : []
     })
     const found = new Set(characters.map((c) => c.id))
+    const partial = hasErrors(data)
     await store.set([
       ...characters.map((c) => ({ key: `${KEY}:char:${c.id}`, value: JSON.stringify(c), ttl: TTL_CHARACTER })),
-      ...ids.filter((id) => !found.has(id)).map((id) => ({ key: `${KEY}:char:${id}`, value: 'null', ttl: TTL_MISSING })),
+      ...(partial ? [] : ids.filter((id) => !found.has(id)).map((id) => ({ key: `${KEY}:char:${id}`, value: 'null', ttl: TTL_MISSING }))),
     ])
-    return respond(200, { characters: [...cachedChars, ...characters] }, CACHE_OK)
+    return respond(200, { characters: [...cachedChars, ...characters] }, partial ? 'no-store' : CACHE_OK)
   }
   if (op === 'cast') {
     // 主役を先に。日本語名は Shikimori の表記のまま返す（「漢 羅半」「響迂 / 趙迂」。Annict は名だけのこともあるので、照合は画面の側で姓と名・別名に分けて行う）。

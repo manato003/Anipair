@@ -454,6 +454,10 @@ function readCardAssets(): Promise<CardAssets | null> {
   return cardAssets
 }
 
+// 画像の URL に入れる版（更新の時刻）。直したら X などが前の画像を使い回さないようにする
+const imageVersion = (table: Stored) => Date.parse(table.updatedAt).toString(36)
+const imageUrl = (origin: string, id: string, table: Stored) => `${origin}/api/tier?image=${id}&v=${imageVersion(table)}`
+
 export interface TierDeps {
   store: TierStore | null
   template?: () => Promise<string | null>
@@ -482,13 +486,12 @@ export async function handleTier(request: Request, deps: TierDeps): Promise<Resp
         }
       }
       // 画像の URL に更新の時刻を入れ、直したら X などが前の画像を使い回さないようにする
-      const image = table ? `${url.origin}/api/tier?image=${pageId}&v=${Date.parse(table.updatedAt).toString(36)}` : undefined
+      const image = table ? imageUrl(url.origin, pageId, table) : undefined
       const html = pageHtml(template, table, `${url.origin}/t/${pageId}`, image)
       return new Response(html, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': table ? CACHE_READ : 'no-store' } })
     }
     const imageId = q.get('image')
     if (imageId !== null) {
-      // v は画像の URL を変えるためだけのもので、中身は見ない
       if (!ID_PATTERN.test(imageId) || [...q.keys()].some((k) => k !== 'image' && k !== 'v')) return fail(400, 'bad_request')
       if (!store) return fail(503, 'not_configured')
       let table: Stored | null
@@ -498,6 +501,11 @@ export async function handleTier(request: Request, deps: TierDeps): Promise<Resp
         return fail(502, 'store_unreachable')
       }
       if (!table) return fail(404, 'not_found')
+      // v は表の更新の時刻と合うものだけ描く。合わない（古い・でたらめ）ときは、描かずに今の URL へ移す。
+      // v を変えるだけで CDN の控えを素通りして、毎回 PNG を描かせることはできない
+      if (q.get('v') !== imageVersion(table)) {
+        return new Response(null, { status: 302, headers: { Location: imageUrl(url.origin, imageId, table), 'Cache-Control': CACHE_READ } })
+      }
       const assets = await (deps.card ?? readCardAssets)()
       if (!assets) return fail(500, 'card_unavailable')
       let png: Uint8Array
@@ -544,8 +552,9 @@ export async function handleTier(request: Request, deps: TierDeps): Promise<Resp
       if ([...q.keys()].length !== 0) return fail(400, 'bad_request')
       const day = at.slice(0, 10)
       // 接続元は、日付と混ぜたハッシュで数える（IP そのものは置かない。数えた記録は2日で消える）
-      if ((await store.count('all', day)) > CREATE_PER_DAY) return fail(429, 'daily_limit')
+      // 接続元の判定を先にする。上限を超えた接続元が送り続けても、全体の数は増えない（全員の枠を使い切らせない）
       if ((await store.count(await sha256(`${day}:${clientIp(request)}`), day)) > CREATE_PER_IP) return fail(429, 'daily_limit')
+      if ((await store.count('all', day)) > CREATE_PER_DAY) return fail(429, 'daily_limit')
       const key = randomKey()
       const value: Stored = { ...table!, hash: await sha256(key), createdAt: at, updatedAt: at }
       // ID が重なったら作り直す（59ビットなので、まず起きない）

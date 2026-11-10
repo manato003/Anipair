@@ -85,6 +85,13 @@ describe('handleTier', () => {
     expect((await create(store, TABLE, '198.51.100.7')).res.status).toBe(201)
   })
 
+  it('does not count requests over the per-address limit toward the daily total', async () => {
+    const store = memoryStore()
+    for (let i = 0; i < CREATE_PER_IP + 5; i++) await create(store)
+    // 全体の数は、通った分（CREATE_PER_IP）だけ。あふれた分は数えない
+    expect(await store.count('all', new Date().toISOString().slice(0, 10))).toBe(CREATE_PER_IP + 1)
+  })
+
   it('rejects malformed tables', async () => {
     const store = memoryStore()
     const bad: unknown[] = [
@@ -152,7 +159,13 @@ describe('handleTier', () => {
       font: await readFile('fonts/ZenMaruGothic-Bold.ttf'),
       logo: `data:image/svg+xml;base64,${(await readFile('public/logo-mark-on-dark.svg')).toString('base64')}`,
     })
-    const res = await handleTier(req('GET', { query: `?image=${body.id}&v=abc`, origin: null }), { store, card })
+    const v = Date.parse(JSON.parse((await store.get(body.id!))!).updatedAt).toString(36)
+    // v が合わないときは、描かずに今の URL へ移す（v を変えて毎回描かせることはできない）
+    const stale = await handleTier(req('GET', { query: `?image=${body.id}&v=abc`, origin: null }), { store, card })
+    expect(stale.status).toBe(302)
+    expect(stale.headers.get('location')).toBe(`${ORIGIN}/api/tier?image=${body.id}&v=${v}`)
+    expect((await handleTier(req('GET', { query: `?image=${body.id}`, origin: null }), { store, card })).status).toBe(302)
+    const res = await handleTier(req('GET', { query: `?image=${body.id}&v=${v}`, origin: null }), { store, card })
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toBe('image/png')
     expect(res.headers.get('cache-control')).toContain('s-maxage=60')

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Sheet } from '../../components/Sheet'
 import { t } from '../../lib/i18n'
-import type { TierTable, TierView } from './tierList'
+import { attachShare, detachShare, type TierTable, type TierView } from './tierList'
 import { createShare, deleteShare, isStale, shareText, shareUrl, sharedPayload, updateShare } from './tierShare'
 
 // Tier表の共有。リンクを作る・中身を新しくする・消す、と投稿文（リンクと #Anipair）を共有する・写す。
@@ -29,13 +29,13 @@ export function TierShareSheet(props: { table: TierTable; view: TierView; active
     }
   }
 
-  // リンクの情報は表と一緒に保存し、表の変えた日時も同じにする（ほかの端末と合わせたときに、リンクの情報も新しい方が残る）
+  // リンクの情報は表と一緒に保存し、表の変えた日時も同じにする。ほかの端末と合わせるときは、リンクだけ別に新しい方を採る（tierList の mergeShare）
   const create = () =>
     run(async () => {
       const now = new Date()
       const r = await createShare(payload, now)
       if (!r.ok) return r.message
-      props.onChange({ ...table, share: r.value, updatedAt: r.value.at })
+      props.onChange(attachShare(table, r.value))
       return null
     })
   const update = () =>
@@ -44,10 +44,10 @@ export function TierShareSheet(props: { table: TierTable; view: TierView; active
       const r = await updateShare(table.share, payload)
       if (!r.ok) {
         // リンクがもう無いなら、表からも外す（作り直せるようにする）
-        if (r.missing) props.onChange({ ...table, share: undefined, updatedAt: new Date().toISOString() })
+        if (r.missing) props.onChange(detachShare(table))
         return r.message
       }
-      props.onChange({ ...table, share: r.value, updatedAt: r.value.at })
+      props.onChange(attachShare(table, r.value))
       return null
     })
   const remove = () =>
@@ -55,7 +55,7 @@ export function TierShareSheet(props: { table: TierTable; view: TierView; active
       if (!table.share) return null
       const r = await deleteShare(table.share)
       if (!r.ok) return r.message
-      props.onChange({ ...table, share: undefined, updatedAt: new Date().toISOString() })
+      props.onChange(detachShare(table))
       setConfirming(false)
       return null
     })

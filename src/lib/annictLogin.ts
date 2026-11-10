@@ -66,6 +66,7 @@ function messages(): Record<string, string> {
     denied: t('Annictでのログインがキャンセルされました。', 'Logging in with Annict was canceled.'),
     state: t('ログインの確認に失敗しました。もう一度「Annictでログイン」を押してください。', 'The login check failed. Please press “Log in with Annict” again.'),
     invalid_grant: t('ログインの有効期限が切れたか、すでに使われています。もう一度「Annictでログイン」を押してください。', 'The login has expired or was already used. Please press “Log in with Annict” again.'),
+    rate_limited: t('ログインの受け渡しが短い間に続いたため、少し止めています。1分ほど待ってから、もう一度「Annictでログイン」を押してください。', 'Too many login attempts came in a short time. Wait about a minute, then press “Log in with Annict” again.'),
     server_not_configured: t('このサイトでは、Annictでのログインがまだ設定されていません。', 'Logging in with Annict isn’t set up on this site yet.'),
     network: t('ログインの受け渡しに接続できませんでした。通信を確認して、もう一度試してください。', 'Could not connect to complete the login. Check your connection and try again.'),
     unavailable: t('ログインの受け渡しが動いていません。個人用アクセストークンを使うか、少し待ってからもう一度試してください。', 'The login handoff isn’t working. Use a personal access token, or wait a moment and try again.'),

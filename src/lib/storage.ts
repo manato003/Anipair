@@ -72,16 +72,17 @@ const KEYS = {
   broadcast: 'animax.broadcast.v1',
   // 見てる作品の放送予定の控え（Annict の programs を、これから先の分だけ。作品の ID → 読んだ時刻と予定）
   programs: 'animax.programs.v1',
-  // だれのものでもない、作り直せる控え（英語の画面の公式の英題・声優とスタッフの英語名、Wikipedia のあらすじ）。読み書きは lib/persistedMap.ts
+  // だれのものでもない、作り直せる控え（英語の画面の公式の英題・声優とスタッフの英語名、Wikipedia のあらすじ）。読み書きは lib/persistedMap.ts。
+  // 開いた作品が分かるので、別の人に替わるときに消す（下の VIEWED_CACHES）
   titleEn: 'animax.titleEn.v1',
   peopleEn: 'animax.peopleEn.v1',
   wikiSynopses: 'animax.wikiSynopses.v1',
   workLinks: 'animax.workLinks.v1',
   // Annict に無かった作品（MyAnimeList の ID → 次に題名で探してよい時刻）。ブラウズの条件検索で、毎回題名で探し直さないため（features/browse/annictLinks.ts）
   annictMiss: 'animax.annictMiss.v1',
-  // 下の「人ごとの記録」がいま誰のものか（Annict のユーザー名）
+  // 下の「人ごとの記録」がいま誰のものか（Annict の数字の ID から作る鍵 `u<ID>`。ownerKeyOf。名前の分からないログインは `?` で始まる印）
   owner: 'animax.owner.v1',
-  // ログアウト・アカウントの切り替えで退避した、人ごとの記録（ユーザー名 → 鍵 → 値）。同じ人がログインし直したら戻す
+  // ログアウト・アカウントの切り替えで退避した、人ごとの記録（持ち主の鍵 → 鍵 → 値）。同じ人がログインし直したら戻す
   accounts: 'animax.accounts.v1',
 } as const
 
@@ -260,6 +261,11 @@ const PERSONAL_KEYS: readonly string[] = [
   KEYS.broadcast,
 ]
 
+// だれのものでもない作り直せる控えのうち、どの作品を開いたかが分かるもの（英題・人の英語名・あらすじ・作品のリンク・Annict に無かった作品）。
+// 作り直せるので退避はせず、別の人に替わるときに消す（2026-11-10、Fable の点検の F7。共有の端末で、前の人が開いた作品を次の人に残さない。
+// 退避すると、そのぶん端末の容量を使い、容量が足りないと切り替えが止まる）
+const VIEWED_CACHES: readonly string[] = [KEYS.titleEn, KEYS.peopleEn, KEYS.wikiSynopses, KEYS.workLinks, KEYS.annictMiss]
+
 // GitHub のトークンは、退避の控えにも残さない（ログアウトで消す。次の人が端末の中を覗いても読めない。もう一度つなぐときに入れ直す）
 const NOT_KEPT: readonly string[] = [KEYS.githubToken]
 
@@ -303,7 +309,7 @@ function tokenMark(token: string): string {
 }
 
 // いまログインしている人に、人ごとの記録を合わせる。
-// - username: Annict のユーザー名。分からなければ null（token があれば、名前の分からないログイン。どちらも無ければログアウト）
+// - username: 持ち主の鍵（ownerKeyOf の `u<Annict の ID>`。引数の名前は昔のまま）。分からなければ null（token があれば、名前の分からないログイン。どちらも無ければログアウト）
 // - ログアウトのあとの持ち主は「ログアウト済み」の印にする（持ち主を覚えていない＝この仕組みの前から、と区別する）
 // - 前の持ち主の分は退避して空にする（名前が分からないのに前の人の記録を見せたり、前の人の GitHub に書いたりしない）
 // - 名前の分からないあいだに付けた記録は、同じトークンで名前が分かったら、その人のものとして残す
@@ -333,6 +339,7 @@ export function switchAccount(username: string | null, token: string | null = nu
     if (Object.keys(mine).length > 0 && !unattributable(owner)) keepAside(accounts, owner, mine)
     // 控えを書けたのを確かめてから消す
     removePersonal()
+    for (const key of VIEWED_CACHES) write(key, null)
   }
   // 持ち主は、記録を消して空きのできたいま書く（次の人の分を戻して容量が埋まっても、持ち主を書き損ねない）
   setOwner(target)
@@ -958,7 +965,8 @@ export function takeOauthState(state: string, now = Date.now()): boolean {
 // 1つずつ write で消すと、最初にトークンを消した時点でこのページが「古い」になり、残りが消えなかった（2026-10-06 のセキュリティの点検）
 export function clearAll(): void {
   if (frozen) return
-  for (const k of ALL_KEYS) {
+  // ログインの state は KEYS の外にある（30分で切れるが、「全部消す」から漏らさない）
+  for (const k of [...ALL_KEYS, OAUTH_STATE_KEY]) {
     try {
       localStorage.removeItem(k)
     } catch {

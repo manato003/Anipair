@@ -55,6 +55,8 @@ export interface TierTable {
   updatedAt: string
   // 共有のリンク（作ったときだけ）。key は編集の鍵で、作った人の端末とその人の GitHub（private）にだけ置く。at はリンクの中身を送った日時
   share?: TierShare
+  // リンクを外した日時（消した・もう無かった）。ほかの端末の控えに残る古い鍵で、リンクが戻らないようにする（下の mergeShare）
+  unsharedAt?: string
 }
 
 export interface TierShare {
@@ -334,6 +336,21 @@ export function renameTable(table: TierTable, title: string, now: Date = new Dat
   return { ...table, title: cleanTitle(title, table.title), updatedAt: now.toISOString() }
 }
 
+// 共有のリンクを付ける（作った・中身を送り直した）。表の変えた日時もリンクと同じにする（リンクの中身が、いまの表になったため）
+export function attachShare(table: TierTable, share: TierShare): TierTable {
+  const out: TierTable = { ...table, share, updatedAt: share.at }
+  delete out.unsharedAt
+  return out
+}
+
+// 共有のリンクを外す（消した・もう無かった）。外した日時を残す
+export function detachShare(table: TierTable, now: Date = new Date()): TierTable {
+  const at = now.toISOString()
+  const out: TierTable = { ...table, unsharedAt: at, updatedAt: at }
+  delete out.share
+  return out
+}
+
 // ── 保存と同期の形 ──
 // 端末の控えと GitHub の tiers.json は同じ形。消した表は印（removed）を残す（消すと、他の端末の控えと合わせたときに復活する）
 
@@ -396,7 +413,8 @@ export function parseTable(v: unknown): TierTable | null {
   const share = parseShare(v.share)
   const picked: TierTable = scope.kind === 'picked' ? { ...table, works: parseWorks(v.works) } : table
   const marked: TierTable = v.manual === true ? { ...picked, manual: true } : picked
-  return share ? { ...marked, share } : marked
+  const withShare: TierTable = share ? { ...marked, share } : marked
+  return isDate(v.unsharedAt) ? mergeShare(withShare, [{ ...withShare, unsharedAt: v.unsharedAt }]) : withShare
 }
 
 const isText = (v: unknown, max: number): v is string => typeof v === 'string' && v.length > 0 && v.length <= max
@@ -451,17 +469,39 @@ export function serializeTierStore(store: TierStore): { version: 1; tables: Tier
   return { version: 1, tables: store.tables, removed: store.removed }
 }
 
-// 2つの控えを合わせる。同じ表は新しく変えた方、消した印は表より新しければ表を消す。作った順（古い順）に並べる
+// 共有のリンクは、表の中身とは別に合わせる（2026-11-10、Fable の点検の F3）。
+// 中身は新しく変えた方を丸ごと採るが、リンクの鍵は作った端末にしか無いことがある（端末 A で作り、同期の前に端末 B が同じ表を変えた）。
+// 中身と一緒に採ると鍵が落ち、リンクは残るのに直すことも消すこともできなくなる。
+// そこで、リンクを送った日時（share.at）と外した日時（unsharedAt）を比べ、新しい方を採る（同じ日時ならリンクを残す。鍵を落とすより、
+// もう無いリンクを持つ方が直しやすい: 送り直すと「見つかりません」で外れる）。
+// 2つの端末が別々にリンクを作っていたら、新しい方を残す（古い方は鍵が無くなり、直せない。運営者が消す手順は docs/project_context.md）
+function mergeShare(table: TierTable, copies: readonly TierTable[]): TierTable {
+  let share: TierShare | undefined
+  let unsharedAt: string | undefined
+  for (const c of copies) {
+    if (c.share && (!share || Date.parse(c.share.at) > Date.parse(share.at))) share = c.share
+    if (c.unsharedAt && (!unsharedAt || Date.parse(c.unsharedAt) > Date.parse(unsharedAt))) unsharedAt = c.unsharedAt
+  }
+  const out: TierTable = { ...table }
+  delete out.share
+  delete out.unsharedAt
+  if (share && (!unsharedAt || Date.parse(share.at) >= Date.parse(unsharedAt))) return { ...out, share }
+  return unsharedAt ? { ...out, unsharedAt } : out
+}
+
+// 2つの控えを合わせる。同じ表は新しく変えた方（共有のリンクだけは上の mergeShare）、消した印は表より新しければ表を消す。作った順（古い順）に並べる
 export function mergeTierStores(a: TierStore, b: TierStore): TierStore {
   const removed = new Map<string, string>()
   for (const r of [...a.removed, ...b.removed]) {
     const cur = removed.get(r.id)
     if (!cur || Date.parse(r.at) > Date.parse(cur)) removed.set(r.id, r.at)
   }
+  const copies = new Map<string, TierTable[]>()
+  for (const t of [...a.tables, ...b.tables]) copies.set(t.id, [...(copies.get(t.id) ?? []), t])
   const tables = new Map<string, TierTable>()
-  for (const t of [...a.tables, ...b.tables]) {
-    const cur = tables.get(t.id)
-    if (!cur || Date.parse(t.updatedAt) > Date.parse(cur.updatedAt)) tables.set(t.id, t)
+  for (const [id, list] of copies) {
+    const newest = list.reduce((cur, t) => (Date.parse(t.updatedAt) > Date.parse(cur.updatedAt) ? t : cur))
+    tables.set(id, mergeShare(newest, list))
   }
   const alive = [...tables.values()].filter((t) => {
     const at = removed.get(t.id)

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { POST, exchangeToken, type TokenEnv } from '../api/annict-token'
+import { EXCHANGES_PER_CLIENT_PER_MINUTE, POST, counterFromEnv, exchangeToken, upstashCounter, type ExchangeCounter, type TokenEnv } from '../api/annict-token'
 
 const ENV: TokenEnv = {
   ANNICT_CLIENT_ID: 'cid',
@@ -179,5 +179,63 @@ describe('exchangeToken refuses a large body', () => {
     const res = await exchangeToken(req(null, { raw: JSON.stringify({ ...GOOD, pad: 'x'.repeat(8 * 1024) }), origin: 'https://app.example' }), ENV, fetchFn)
     expect(res.status).toBe(413)
     expect(fetchFn).not.toHaveBeenCalled()
+  })
+})
+
+// 2026-11-10（Fable の点検の F7）: 接続元ごとの回数
+describe('exchangeToken counts each client', () => {
+  const at = Date.UTC(2026, 10, 10, 12, 0, 15)
+  const from = (ip: string | null, body: unknown = GOOD) => {
+    const r = req(body, { origin: 'https://app.example' })
+    if (ip !== null) r.headers.set('x-real-ip', ip)
+    return r
+  }
+  function fakeCounter(opts: { broken?: boolean } = {}) {
+    const counts = new Map<string, number>()
+    const counter: ExchangeCounter = {
+      async count(key) {
+        if (opts.broken) throw new Error('down')
+        const n = (counts.get(key) ?? 0) + 1
+        counts.set(key, n)
+        return n
+      },
+    }
+    return { counter, counts }
+  }
+
+  it('lets a client exchange up to the limit a minute, then answers 429 without asking Annict', async () => {
+    const { counter, counts } = fakeCounter()
+    const fetchFn = annict(400, { error: 'invalid_grant' })
+    for (let i = 0; i < EXCHANGES_PER_CLIENT_PER_MINUTE; i++) expect((await exchangeToken(from('203.0.113.7'), ENV, fetchFn, counter, () => at)).status).toBe(400)
+    const res = await exchangeToken(from('203.0.113.7'), ENV, fetchFn, counter, () => at)
+    expect(res.status).toBe(429)
+    expect(await bodyOf(res)).toEqual({ error: 'rate_limited' })
+    expect(res.headers.get('retry-after')).toBe('45')
+    expect(fetchFn).toHaveBeenCalledTimes(EXCHANGES_PER_CLIENT_PER_MINUTE)
+    // 別の接続元と、次の分は数え直す
+    expect((await exchangeToken(from('203.0.113.8'), ENV, fetchFn, counter, () => at)).status).toBe(400)
+    expect((await exchangeToken(from('203.0.113.7'), ENV, fetchFn, counter, () => at + 60_000)).status).toBe(400)
+    // 置くのはハッシュだけ（IP そのものは置かない）
+    for (const key of counts.keys()) {
+      expect(key).toMatch(/^[0-9a-f]{64}$/)
+    }
+  })
+
+  it('does not count requests it refuses anyway, and lets the login through when the counter cannot be reached or the address is unknown', async () => {
+    const { counter, counts } = fakeCounter()
+    await exchangeToken(from('203.0.113.7', { code: 'x', redirectUri: 'https://evil.example/' }), ENV, annict(200, {}), counter, () => at)
+    expect(counts.size).toBe(0)
+    expect((await exchangeToken(from('203.0.113.7'), ENV, annict(200, { access_token: 't' }), fakeCounter({ broken: true }).counter, () => at)).status).toBe(200)
+    expect((await exchangeToken(from(null), ENV, annict(200, { access_token: 't' }), counter, () => at)).status).toBe(200)
+    expect(counts.size).toBe(0)
+  })
+
+  it('talks to the Upstash pipeline and expires the count after two minutes', async () => {
+    const fetchFn = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(async () => new Response(JSON.stringify([{ result: 3 }, { result: 1 }]), { status: 200 }))
+    expect(await upstashCounter('https://x.upstash.io/', 'tok', fetchFn).count('abc')).toBe(3)
+    expect(fetchFn.mock.calls[0][0]).toBe('https://x.upstash.io/pipeline')
+    expect(JSON.parse(String(fetchFn.mock.calls[0][1].body))).toEqual([['INCR', 'annict-token:1:c:abc'], ['EXPIRE', 'annict-token:1:c:abc', 120]])
+    expect(counterFromEnv({})).toBeNull()
+    expect(counterFromEnv({ KV_REST_API_URL: 'https://x', KV_REST_API_TOKEN: 't' })).not.toBeNull()
   })
 })

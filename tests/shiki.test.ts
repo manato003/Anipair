@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { GET, handleShiki, localTake, seasonQuery, storeFromEnv, upstashStore, type ShikiStore } from '../api/shiki'
+import { GET, PER_CLIENT_PER_MINUTE, clientOf, handleShiki, localTake, seasonQuery, storeFromEnv, upstashStore, type ShikiStore } from '../api/shiki'
 
 type Fetch = (url: string, init: RequestInit) => Promise<Response>
 
@@ -472,6 +472,7 @@ describe('handleShiki genre (the popular works of a genre)', () => {
 function fakeStore(opts: { wait?: number | null; broken?: boolean } = {}) {
   const data = new Map<string, { value: string; ttl: number | null }>()
   let takes = 0
+  const clients: (string | null)[] = []
   const store: ShikiStore = {
     async get(keys) {
       if (opts.broken) throw new Error('down')
@@ -481,17 +482,81 @@ function fakeStore(opts: { wait?: number | null; broken?: boolean } = {}) {
       if (opts.broken) throw new Error('down')
       for (const e of entries) data.set(e.key, { value: e.value, ttl: e.ttl })
     },
-    async take() {
+    async take(_now, client) {
       if (opts.broken) throw new Error('down')
       takes++
+      clients.push(client)
       return opts.wait ?? null
     },
   }
-  return { store, data, takes: () => takes }
+  return { store, data, takes: () => takes, clients }
 }
+
+// 2026-11-10（F6）: 接続元ごとの回数
+describe('handleShiki counts each client (hashed with the minute)', () => {
+  // 控えにある作品は数えないので、毎回ちがう作品を頼む
+  let id = 100
+  const from = (ip: string | null) => {
+    const r = req(`?op=similar&id=${id++}`)
+    return ip === null ? r : new Request(r.url, { headers: { 'x-real-ip': ip } })
+  }
+  const at = Date.UTC(2026, 10, 10, 12, 0, 10)
+
+  it('passes a hash of the minute and the client, never the address itself', async () => {
+    const s = fakeStore()
+    await handleShiki(from('203.0.113.7'), upstream(200, []), s.store, () => at)
+    await handleShiki(from('203.0.113.7'), upstream(200, []), s.store, () => at + 30_000)
+    await handleShiki(from('203.0.113.8'), upstream(200, []), s.store, () => at)
+    await handleShiki(from('203.0.113.7'), upstream(200, []), s.store, () => at + 60_000)
+    const [a, same, other, next] = s.clients
+    expect(a).toMatch(/^[0-9a-f]{64}$/)
+    expect(a).not.toContain('203')
+    expect(same).toBe(a)
+    expect(other).not.toBe(a)
+    // 分が変われば値も変わる
+    expect(next).not.toBe(a)
+  })
+
+  it('does not count per client when the address is unknown, and answers 429 with the wait when over the limit', async () => {
+    const s = fakeStore()
+    await handleShiki(from(null), upstream(200, []), s.store, () => at)
+    expect(s.clients).toEqual([null])
+    const limited = fakeStore({ wait: 50 })
+    const fetchFn = upstream(200, [])
+    const res = await handleShiki(from('203.0.113.7'), fetchFn, limited.store, () => at)
+    expect(res.status).toBe(429)
+    expect(res.headers.get('retry-after')).toBe('50')
+    expect(fetchFn).not.toHaveBeenCalled()
+  })
+
+  it('groups IPv6 addresses by /64, and reads IPv4 written as IPv6 as IPv4', () => {
+    const of = (ip: string) => clientOf(new Request('https://anipair.local/api/shiki', { headers: { 'x-real-ip': ip } }))
+    expect(of('203.0.113.7')).toBe('203.0.113.7')
+    expect(of('2001:db8:0:12::1')).toBe('2001:db8:0:12::/64')
+    expect(of('2001:0DB8:0000:0012:ffff:1:2:3')).toBe('2001:db8:0:12::/64')
+    expect(of('2001:db8::5')).toBe('2001:db8:0:0::/64')
+    expect(of('::ffff:198.51.100.4')).toBe('198.51.100.4')
+    expect(clientOf(new Request('https://anipair.local/api/shiki', { headers: { 'x-forwarded-for': '198.51.100.9, 10.0.0.1' } }))).toBe('198.51.100.9')
+    expect(clientOf(new Request('https://anipair.local/api/shiki'))).toBe('')
+  })
+})
 
 describe('handleShiki with the shared store (Upstash)', () => {
   const AIRING = { ...RAW, malId: '60000', status: 'ongoing' }
+
+  it('does not remember missing ids as "none" or let the CDN keep the answer when the response carries errors', async () => {
+    const s = fakeStore()
+    const fetchFn = upstream(200, { data: { animes: [RAW] }, errors: [{ message: 'partial failure' }] })
+    const res = await handleShiki(req('?op=animes&ids=777,52991'), fetchFn, s.store)
+    expect(((await json(res)).animes as unknown[]).length).toBe(1)
+    expect(res.headers.get('cache-control')).toBe('no-store')
+    // 返った分は控えるが、返らなかった分は「無い」と控えない
+    expect(s.data.get('shiki:1:anime:52991')).toBeDefined()
+    expect(s.data.has('shiki:1:anime:777')).toBe(false)
+    const chars = await handleShiki(req('?op=characters&ids=1,2'), upstream(200, { data: { characters: [{ id: '1', japanese: '竈門 炭治郎' }] }, errors: [{ message: 'x' }] }), s.store)
+    expect(chars.headers.get('cache-control')).toBe('no-store')
+    expect(s.data.has('shiki:1:char:2')).toBe(false)
+  })
 
   it('keeps each anime by itself (90 days when finished, 1 day while airing, 7 days for unknown ids) and asks Shikimori only for the missing ones', async () => {
     const s = fakeStore()
@@ -579,9 +644,25 @@ describe('upstashStore', () => {
 
   it('counts per second and per minute, and asks to wait past 4 a second or 80 a minute', async () => {
     const at = Date.UTC(2026, 9, 12, 0, 0, 45)
-    expect(await upstashStore('https://x', 't', answer([1, 1, 1, 1])).take(at)).toBeNull()
-    expect(await upstashStore('https://x', 't', answer([5, 1, 30, 1])).take(at)).toBe(1)
-    expect(await upstashStore('https://x', 't', answer([1, 1, 81, 1])).take(at)).toBe(15)
+    expect(await upstashStore('https://x', 't', answer([1, 1, 1, 1])).take(at, null)).toBeNull()
+    expect(await upstashStore('https://x', 't', answer([5, 1, 30, 1])).take(at, null)).toBe(1)
+    expect(await upstashStore('https://x', 't', answer([1, 1, 81, 1])).take(at, null)).toBe(15)
+  })
+
+  // 2026-11-10（F6）
+  it('counts each client first, and does not count an over-limit client toward everyone', async () => {
+    const at = Date.UTC(2026, 9, 12, 0, 0, 45)
+    const over = answer([PER_CLIENT_PER_MINUTE + 1, 1])
+    expect(await upstashStore('https://x', 't', over).take(at, 'abc')).toBe(15)
+    expect(over).toHaveBeenCalledTimes(1)
+    expect(JSON.parse(String(over.mock.calls[0][1].body))).toEqual([['INCR', 'shiki:1:rate:c:abc'], ['EXPIRE', 'shiki:1:rate:c:abc', 120]])
+    // 上限の中なら、続けて全体を数える
+    const fetchFn = vi.fn<Fetch>(async (_url, init) => {
+      const n = (JSON.parse(String(init.body)) as unknown[]).length
+      return new Response(JSON.stringify((n === 2 ? [PER_CLIENT_PER_MINUTE, 1] : [1, 1, 1, 1]).map((result) => ({ result }))), { status: 200 })
+    })
+    expect(await upstashStore('https://x', 't', fetchFn).take(at, 'abc')).toBeNull()
+    expect(fetchFn).toHaveBeenCalledTimes(2)
   })
 
   it('fails (so the handler goes on without it) on an error answer', async () => {
@@ -796,8 +877,21 @@ describe('handleShiki find (works of a period by genres and a studio)', () => {
 })
 
 describe('handleShiki link (remember MyAnimeList id → Annict id)', () => {
-  const post = (body: unknown, query = '?op=link') =>
-    new Request(`https://anipair.example/api/shiki${query}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: typeof body === 'string' ? body : JSON.stringify(body) })
+  const post = (body: unknown, query = '?op=link', origin: string | null = 'https://anipair.example') =>
+    new Request(`https://anipair.example/api/shiki${query}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(origin ? { Origin: origin } : {}) },
+      body: typeof body === 'string' ? body : JSON.stringify(body),
+    })
+
+  it('accepts writes only from this site, and refuses before reading the body', async () => {
+    const s = fakeStore()
+    s.data.set('shiki:1:anime:52991', { value: '{}', ttl: 1 })
+    const body = { pairs: [[52991, 12345]] }
+    expect((await handleShiki(post(body, '?op=link', null), upstream(200, {}), s.store)).status).toBe(403)
+    expect((await handleShiki(post(body, '?op=link', 'https://evil.example'), upstream(200, {}), s.store)).status).toBe(403)
+    expect(s.data.has('shiki:1:annict:52991')).toBe(false)
+  })
 
   it('remembers pairs with no expiry, only for anime the relay has seen', async () => {
     const s = fakeStore()
