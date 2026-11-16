@@ -43,6 +43,8 @@ export function GithubBlock(props: { github: GithubConnection | null; onChange: 
   }
 
   function disconnect() {
+    // Fine-grained トークンは GitHub で見直せないので、押し間違えたら作り直しになる
+    if (!confirm(t('この端末からGitHubのトークンとリポジトリ名を削除して、連携を解除します。トークンは作り直しになることがあります。', 'This removes the GitHub token and repository name from this device and disconnects. You may need to create the token again.'))) return
     saveGithubToken(null)
     saveGithubRepo(null)
     props.onChange(null)
@@ -53,7 +55,7 @@ export function GithubBlock(props: { github: GithubConnection | null; onChange: 
     <Section
       id="settings-github"
       title={t('GitHub連携（任意）', 'GitHub sync (optional)')}
-      summary={t('興味なし・見てないなどを、PCとスマホで共有して毎日バックアップします。', 'Share Not interested, Haven’t seen and similar answers between your PC and phone, and back them up every day.')}
+      summary={t('興味なし・見てないなどをPCとスマホで共有し、アプリを開いたときに1日1回バックアップします。', 'Share Not interested, Haven’t seen and similar answers between your PC and phone, and back them up once a day when you open the app.')}
       status={
         props.github ? (
           <StatusChip>

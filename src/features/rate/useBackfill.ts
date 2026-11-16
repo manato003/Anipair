@@ -1,7 +1,7 @@
 import { idMalOf } from '../../lib/malId'
 import { workTitle } from '../../lib/names'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { fetchSeasonWorks, updateStatus, type AnnictWork, type RatingState } from '../../lib/annict'
+import { fetchSeasonWorks, fetchWorkStatus, updateStatus, type AnnictWork, type RatingState, type StatusState } from '../../lib/annict'
 import { fetchCovers, quickCovers } from '../../lib/covers'
 import { t } from '../../lib/i18n'
 import type { GithubConnection } from '../../lib/github'
@@ -12,6 +12,7 @@ import { nextSeason, previousSeason, seasonOf, toSlug, type Season } from '../..
 import { loadBackfillSeason, loadOnboardingSeen, saveBackfillSeason } from '../../lib/storage'
 import { useCoalescedTask } from '../../lib/useCoalescedTask'
 import { messageOf, useWriteQueue } from '../../lib/useWriteQueue'
+import { workTargets } from '../../lib/writeJournal'
 import { rememberSeasonTop } from '../achievements/achievementStore'
 import { markStillWatching, unmarkStillWatching } from './stillWatching'
 import { activeUnseenIds } from './unseen'
@@ -25,10 +26,20 @@ interface UndoEntry {
   // 評価を付けたときの、付ける前の総合評価（null は評価なし。取り消しで戻す）。送信で読んだときに埋まる。
   // 取り消しの送信は同じ列の後ろに並ぶので、実行時には（評価を送るところまで進んでいれば）埋まっている
   before?: RatingState | null
-  // 答えた時点で手元の控えから見た、付ける前の総合評価（閉じて開き直したあとの取り消しの送り直しに使う。lib/writeJournal.ts）
+  // 答えた時点で手元の控えから見た、付ける前の総合評価（閉じて開き直したあとの取り消しの送り直しに使う。lib/writeJournal.ts）。
+  // 答えが、まだ届いていない書き込みを上書きしていたら、送るときにその行き先の評価に替える
   guess: RatingState | null
+  // 書く前の状態（取り消しで戻す）。未記録だと確かめられていない作品だけ、送信の直前に Annict から読んで埋める。
+  // 読んでいなければ、もともと記録の無い作品なので「未設定」に戻す
+  beforeState?: StatusState
   // 「見てない」の見直しの山で答えた（もともと「見てない」にしていた作品）
   wasUnseen: boolean
+  // 答えの書き込みを Annict に送り始めた（状態を書く直前に true）。送る前に取り消したら、答えの送信を取りやめる
+  sent?: boolean
+  // 送る前に取り消した（答えの送信は何もしない）
+  cancelled?: boolean
+  // 答えの送信を、送る前に取りやめる（lib/useWriteQueue.ts の enqueue の戻り値）
+  withdraw?: () => boolean
 }
 
 // クールの作品のうち、まだ記録が無く「見てない」にしている作品（見直しの山にする）
@@ -98,9 +109,12 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
   useEffect(() => {
     reviewFromRef.current = reviewFrom
   })
+  // このクールを Annict から読んだ時点で、記録が無いと確かめられた作品。読めるまでは null（前回の内容の山には、別の端末で記録済みの作品が混ざりうる）
+  const knownClear = useRef<ReadonlySet<number> | null>(null)
 
   useEffect(() => {
     let cancelled = false
+    knownClear.current = null
     ;(async () => {
       // まず端末にとっておいた前回のこのクールの作品で山を出す（応答に時間がかかる日でもすぐ出す。2026-10-06）。
       // 答える作品が無ければ出さない（空のクールを飛ばすかどうかは、読み直してから決める）
@@ -138,6 +152,7 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
         rememberSeasonTop(toSlug(season), all.map((w) => w.annictId))
         const works = pickQueue(all, activeUnseenIds(unseen))
         if (cancelled) return
+        knownClear.current = new Set(all.filter((w) => (w.viewerStatusState ?? 'NO_STATE') === 'NO_STATE').map((w) => w.annictId))
         // 前回の内容で山を出していたら、いま出している1枚までは残し、まだ出していない分だけ読み直した山にする
         // （画面の作品を急に入れ替えない。空になっても、前のクールへ勝手に飛ばさない）
         if (staleRef.current) {
@@ -260,13 +275,28 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
       const state = a.kind === 'wanna' ? 'WANNA_WATCH' : a.kind === 'watching' ? 'WATCHING' : a.kind === 'stop' ? 'STOP_WATCHING' : 'WATCHED'
       const { id: workId, annictId } = card.work
       const idMal = idMalOf(card.work.malAnimeId)
-      enqueue(
+      // 記録が無いと確かめられていない作品（前回の内容の山の作品）は、書く前の状態を読んで覚える
+      const unsure = !knownClear.current?.has(annictId)
+      entry.withdraw = enqueue(
         t(`「${workTitle(card.work)}」の記録`, `Record “${workTitle(card.work)}”`),
-        async () => {
+        async (unsent) => {
+          // 答えたときに上書きした書き込み（先の取り消しなど）がまだ届いていなければ、書く前の値は、その行き先にする。
+          // Annict から読むと、届かなかった取り消しが消すはずだった前の答えを読み、この答えを取り消したときにそれへ戻してしまう
+          const under = workTargets(unsent)
+          if (under.state !== undefined) entry.beforeState ??= under.state
+          if (under.rating !== undefined) entry.guess = under.rating
+          // 先の書き込みがどれも届いていれば、見立ては送り始めるときの控えで取り直す。答えたときの控えには、
+          // そのとき送信中だった取り消しが消す前の評価が残っていることがある（評価 → 取り消し → すぐもう一度評価）
+          else if (!entry.sent) entry.guess = peekMyReview(token, annictId)?.ratingOverallState ?? null
+          // 送り直しでは読み直さない（1回目の書き込みが届いていたら、自分の書いた状態を読んでしまう）
+          if (unsure) entry.beforeState ??= await fetchWorkStatus(token, workId)
+          // 読んでいるあいだに（または送る前に）取り消されていたら、何も書かない
+          if (entry.cancelled) return
+          entry.sent = true
           await updateStatus(token, workId, state)
           if (a.kind !== 'rate') return
           // 前回の内容の山には、別の端末で評価済みの作品が混ざることがある。送信の時点の実際の感想から付ける（感想がすでにあれば、新しく作らずに付け直す）
-          await rateNow(token, workId, annictId, a.rating, (before) => (entry.before = before))
+          await rateNow(token, workId, annictId, a.rating, (before) => (entry.before = under.rating !== undefined ? under.rating : before))
         },
         [{ kind: 'status', workId, state, idMal }, ...(a.kind === 'rate' ? [{ kind: 'rating' as const, workId, annictId, rating: a.rating, idMal }] : [])],
       )
@@ -292,10 +322,19 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
       syncLater()
     }
     if (entry.answer.kind === 'watching') unmarkStillWatching(entry.card.work.annictId)
-    // 列に並んでいる作品は、もともと何も記録していなかったものだけなので「未設定」に戻せばよい
+    // 列に並んでいる作品は、もともと何も記録していなかったものなので「未設定」に戻す。
+    // 前回の内容の山に混ざっていた、別の端末で記録済みの作品だけは、書く前の状態（beforeState）に戻す
     const { id: workId, annictId } = entry.card.work
     const idMal = idMalOf(entry.card.work.malAnimeId)
     const rated = entry.answer.kind === 'rate'
+    // 答えをまだ送っていないなら、何も書かれていないので、戻すものが無い。答えの送信を取りやめ、控えも取り下げる
+    // （書く前の状態は送るときに読むので、この時点では分からない。「未設定」を控えると、別の端末で記録済みの作品を開き直したあとに外してしまう）。
+    // 答えたときに上書きした、まだ届いていない書き込み（送信中の取り消しなど）は、列の側が頼み直す。
+    // 取りやめられないとき（答えの行き先が、この送信の外で書かれる・書かれた。lib/useWriteQueue.ts の withdraw）は、下の取り消しを頼む
+    if (!entry.sent && entry.withdraw?.()) {
+      entry.cancelled = true
+      return
+    }
     enqueue(
       t(`「${workTitle(entry.card.work)}」の取り消し`, `Undo “${workTitle(entry.card.work)}”`),
       async () => {
@@ -304,9 +343,10 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
           await rateNow(token, workId, annictId, entry.before)
         }
         entry.before = undefined
-        await updateStatus(token, workId, 'NO_STATE')
+        await updateStatus(token, workId, entry.beforeState ?? 'NO_STATE')
       },
-      [{ kind: 'status', workId, state: 'NO_STATE', idMal }, ...(rated ? [{ kind: 'rating' as const, workId, annictId, rating: entry.before ?? entry.guess, idMal }] : [])],
+      // 控えに書く評価: 付ける前の評価を読めていればそれ（null は「評価なし」と読めた、の意味なので、見立てに替えない）。まだ読めていなければ見立て
+      [{ kind: 'status', workId, state: entry.beforeState ?? 'NO_STATE', idMal }, ...(rated ? [{ kind: 'rating' as const, workId, annictId, rating: entry.before !== undefined ? entry.before : entry.guess, idMal }] : [])],
     )
   }, [token, enqueue, syncLater])
 

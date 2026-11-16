@@ -26,6 +26,9 @@ import { t } from '../lib/i18n'
 // シートの中でタップしても閉じない、押せるもの
 const INTERACTIVE = 'a, button, input, select, textarea, label, summary, [role="button"], [role="option"], [contenteditable="true"]'
 
+// 文を書く欄（あるシートは、欄の外のタップでは閉じない）。読むだけの欄（共有リンクなど）は、書きかけが消えないので数えない
+const WRITING = 'textarea:not([readonly]), input:not([readonly]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]):not([type="submit"])'
+
 // 払いで閉じる距離（下へ・右へ）と、短く速く払ったときの距離。端から始めた払いは受けない
 const DOWN_PX = 90
 const RIGHT_PX = 80
@@ -67,6 +70,12 @@ export function Sheet(props: { label: string; active?: boolean; size?: 'large' |
   const sheetRef = useRef<HTMLDivElement>(null)
   const backdropRef = useRef<HTMLDivElement>(null)
   useModalFocus(sheetRef, active)
+  // 書く欄があるシートは、空いている所をタップしても閉じない。初めての案内の文も、それに合わせる
+  const [hasField, setHasField] = useState(false)
+  useEffect(() => {
+    if (!hint || page) return
+    setHasField(!!sheetRef.current?.querySelector(WRITING))
+  }, [hint, page])
 
   // 閉じる。動きのあいだに重ねて閉じる操作が来ても、1回だけ閉じる
   const leaving = useRef(false)
@@ -189,6 +198,17 @@ export function Sheet(props: { label: string; active?: boolean; size?: 'large' |
     const target = e.target as Element
     if (target.closest(INTERACTIVE)) return
     if (window.getSelection?.()?.toString()) return
+    // 文を書く欄があるシートは、欄の外のタップでは閉じない（キーボードをしまうつもりのタップで、書きかけが消えないように）
+    if (sheetRef.current?.querySelector(WRITING)) return
+    close()
+  }
+
+  // 外枠は、押し始めも外枠だったときだけ閉じる（欄の中で始めた文字選びのドラッグを、外で離しても閉じない）
+  const downOnBackdrop = useRef<boolean | null>(null)
+  function onBackdropClick(e: MouseEvent<HTMLElement>) {
+    const started = downOnBackdrop.current
+    downOnBackdrop.current = null
+    if (started === false && e.target === e.currentTarget) return
     close()
   }
 
@@ -203,13 +223,15 @@ export function Sheet(props: { label: string; active?: boolean; size?: 'large' |
       )}
       {touch && hint && <p className="sheet__hint">{page
             ? t('下か右へ払っても閉じます', 'Swipe down or right to close')
-            : t('下へ払うか、空いている所をタップしても閉じます', 'Swipe down or tap outside to close')}</p>}
+            : hasField
+              ? t('下へ払うと閉じます', 'Swipe down to close')
+              : t('下へ払うか、空いている所をタップしても閉じます', 'Swipe down or tap outside to close')}</p>}
     </div>
   )
   const cls = page ? 'sheet sheet--page' : props.size === 'large' ? 'sheet sheet--large' : 'sheet'
   return createPortal(
     // data-no-swipe: シートの中で横に払っても、後ろの画面の分類を替えない
-    <div ref={backdropRef} className={page ? 'sheet-backdrop sheet-backdrop--page' : 'sheet-backdrop'} onClick={close} data-no-swipe>
+    <div ref={backdropRef} className={page ? 'sheet-backdrop sheet-backdrop--page' : 'sheet-backdrop'} onPointerDown={(e) => { downOnBackdrop.current = e.target === e.currentTarget }} onClick={onBackdropClick} data-no-swipe>
       <div ref={sheetRef} className={cls} role="dialog" aria-modal="true" aria-label={props.label} onClick={(e) => onSheetClick(e)}>
         {page ? (
           // 1枚は、閉じるボタンも中身と同じ読みやすい幅の列に置く（広い画面で、ボタンが画面の端に離れない）

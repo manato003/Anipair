@@ -94,4 +94,18 @@ describe('ReviewEditor', () => {
     fireEvent.click(screen.getByRole('button', { name: '下書きを捨てる' }))
     await waitFor(() => expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe('Annictで書き直した本文'))
   })
+
+  it('keeps what was typed after pressing save while the send is still waiting', async () => {
+    const waiting: (() => Promise<void>)[] = []
+    render(<ReviewEditor token="t" workId="W5" annictId={5} title="作品5" overall="GOOD" enqueue={(_l, task) => void waiting.push(task)} />)
+    fireEvent.click(screen.getByRole('button', { name: /^詳細な評価と感想/ }))
+    const box = (await screen.findByRole('textbox')) as HTMLTextAreaElement
+    fireEvent.change(box, { target: { value: '送る分' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    // 送信が始まる前に書き足す
+    fireEvent.change(box, { target: { value: '送る分と書き足し' } })
+    await waiting[0]()
+    expect(saved).toHaveLength(1)
+    expect(localStorage.getItem('animax.reviewDrafts.v1')).toContain('送る分と書き足し')
+  })
 })

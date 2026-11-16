@@ -52,7 +52,7 @@ const GROUPS: readonly { id: GroupId; label: string; sub: string; icon: ReactNod
       return t('バックアップ', 'Backup')
     },
     get sub() {
-      return t('ファイルに書き出す・毎日のバックアップ', 'Export to file, daily backup')
+      return t('ファイルに書き出す・自動のバックアップ', 'Export to file, automatic backup')
     },
     icon: <BoxIcon />, sections: ['settings-backup'] },
   {
@@ -253,7 +253,7 @@ function SignedInSettings(props: {
               </>
             )}
             {current.id === 'backup' && <BackupBlock annictToken={props.annictToken} github={props.github} />}
-            {current.id === 'keys' && <Keybinds />}
+            {current.id === 'keys' && <Keybinds active={props.active !== false} />}
             {current.id === 'contact' && <ContactBlock />}
             {current.id === 'news' && <NewsBlock />}
             {current.id === 'about' && <AboutBlock />}

@@ -40,6 +40,8 @@ export function syncUnseen(conn: GithubConnection): Promise<Unseen> {
     serialize: serializeUnseen,
     loadLocal: loadLocalUnseen,
     saveLocal,
+    // 中身が空で GitHub にファイルも無いなら、画面を開いただけではコミットしない
+    empty: (merged) => merged.size === 0,
     message: (merged) => t(`見てないの記録を更新（${merged.size}件）`, `Update “Haven’t seen” records (${merged.size})`),
   })
 }

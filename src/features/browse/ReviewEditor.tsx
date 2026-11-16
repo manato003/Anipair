@@ -80,7 +80,9 @@ export function ReviewEditor(props: { token: string; workId: string; annictId: n
         const cached = (await getMyReviews(token)).get(annictId) ?? null
         const after = await saveReview(token, props.workId, cached, content)
         await rememberReview(token, annictId, after)
-        clearDraft(annictId)
+        // 保存を押したあとに書き足した分の下書きは残す（送った内容と同じときだけ消す）
+        const draft = loadDraft(annictId)
+        if (draft === null || same(draft, sent)) clearDraft(annictId)
       },
       [{ kind: 'review', workId: props.workId, annictId, content, idMal: props.idMal }],
     )

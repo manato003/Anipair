@@ -58,6 +58,12 @@ interface UndoEntry {
   ref: WorkRef | null
   // 評価を送るところまで進んだら true（取り消しで評価を外す）
   rated: boolean
+  // 答えの書き込みを Annict に送り始めた（状態を書く直前に true）。送る前に取り消したら、答えの送信を取りやめる
+  sent?: boolean
+  // 送る前に取り消した（答えの送信は何もしない）
+  cancelled?: boolean
+  // 答えの送信を、送る前に取りやめる（lib/useWriteQueue.ts の enqueue の戻り値）
+  withdraw?: () => boolean
 }
 
 // 検索・Annict の作品探し用（日本語の題名を先に使う。ここは変えない）
@@ -125,7 +131,9 @@ export function useMatching(annictToken: string, github: GithubConnection | null
         try {
           passes = await syncPasses(github)
           // 苦手な項目も、ほかの端末で選んだ分を合わせてから使う
-          const merged = await syncDislikes(github)
+          await syncDislikes(github)
+          // 同期の最中に選んだ項目を巻き戻さないよう、戻り値でなく端末の控えを読み直す
+          const merged = loadLocalDislikes()
           dislikesRef.current = merged
           setDislikesState(merged)
           setSyncNote(null)
@@ -268,13 +276,16 @@ export function useMatching(annictToken: string, github: GithubConnection | null
             ? t(`「${shownTitle}」を見てるに追加`, `Add “${shownTitle}” to Watching`)
             : t(`「${shownTitle}」の記録`, `Record “${shownTitle}”`)
       const state = a.kind === 'wanna' ? 'WANNA_WATCH' : a.kind === 'watching' ? 'WATCHING' : a.kind === 'stop' ? 'STOP_WATCHING' : 'WATCHED'
-      enqueue(
+      entry.withdraw = enqueue(
         label,
         async () => {
           entry.ref ??= await resolveCard(card)
+          // 作品を探しているあいだに（または送る前に）取り消されていたら、何も書かない（見つからなくても、失敗にしない）
+          if (entry.cancelled) return
           if (!entry.ref) {
             throw new WriteError(t(`「${shownTitle}」をAnnictで見つけられませんでした。`, `Couldn’t find “${shownTitle}” on Annict.`), annictMissingLinks(title))
           }
+          entry.sent = true
           await updateStatus(annictToken, entry.ref.id, state)
           if (a.kind === 'rate') {
             entry.rated = true
@@ -298,9 +309,18 @@ export function useMatching(annictToken: string, github: GithubConnection | null
       syncLater()
       return
     }
-    // 候補は記録の無い作品だけなので「未設定」に戻せばよい。Annict で特定できていなければ何も書いていない
+    // 候補は記録の無い作品なので「未設定」に戻す。提案を作ったあとに別の端末で記録していた作品だけは、
+    // Annict で探した時点の状態に戻す。Annict で特定できていなければ何も書いていない
     const { media } = entry.card
     answered.current.delete(media.idMal)
+    // 答えをまだ送っていないなら、何も書かれていないので、戻すものが無い。答えの送信を取りやめ、控えも取り下げる
+    // （戻す先の状態は作品を探したときに分かるので、この時点では分からない。「未設定」を控えると、別の端末で記録済みの作品を開き直したあとに外してしまう）。
+    // 答えたときに上書きした、まだ届いていない書き込み（送信中の取り消しなど）は、列の側が頼み直す。
+    // 取りやめられないとき（答えの行き先が、この送信の外で書かれる・書かれた。lib/useWriteQueue.ts の withdraw）は、下の取り消しを頼む
+    if (!entry.sent && entry.withdraw?.()) {
+      entry.cancelled = true
+      return
+    }
     enqueue(
       t(`「${displayTitleOf(media)}」の取り消し`, `Undo “${displayTitleOf(media)}”`),
       async () => {
@@ -310,9 +330,9 @@ export function useMatching(annictToken: string, github: GithubConnection | null
           await rateNow(annictToken, ref.id, ref.annictId, null)
         }
         entry.rated = false
-        await updateStatus(annictToken, ref.id, 'NO_STATE')
+        await updateStatus(annictToken, ref.id, ref.viewerStatusState ?? 'NO_STATE')
       },
-      [{ kind: 'match', idMal: media.idMal, title: media.title, state: 'NO_STATE', ...(entry.answer.kind === 'rate' ? { rating: null } : {}) }],
+      [{ kind: 'match', idMal: media.idMal, title: media.title, state: entry.ref?.viewerStatusState ?? 'NO_STATE', ...(entry.answer.kind === 'rate' ? { rating: null } : {}) }],
     )
   }, [annictToken, enqueue, syncLater])
 

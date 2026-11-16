@@ -179,6 +179,15 @@ describe('mainstream', () => {
 })
 
 describe('topPeople', () => {
+  it('counts a person who has two roles in one work as one work', () => {
+    const rows = [row(1, 'WATCHED', null)]
+    const dup = { annictId: 10, name: '声優A' }
+    const credits = new Map<string, WorkCredits>([['W1', { casts: [dup, dup], directors: [{ annictId: 20, name: '監督A' }, { annictId: 20, name: '監督A' }] }]])
+    const p = topPeople(rows, credits, new Map())
+    expect(p.casts).toEqual([])
+    expect(p.directors).toEqual([])
+  })
+
   it('ranks voice actors, directors and studios that appear in two or more watched works', () => {
     const rows = [row(1, 'WATCHED', 'GREAT'), row(2, 'WATCHED', 'GOOD'), row(3, 'WATCHED', null), row(4, 'WANNA_WATCH', null)]
     const credits = new Map<string, WorkCredits>([

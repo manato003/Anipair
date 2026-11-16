@@ -714,6 +714,20 @@ export function applyEffectLevel(level: EffectLevel): void {
   if (typeof document === 'undefined') return
   if (level === 'full') delete document.documentElement.dataset.effects
   else document.documentElement.dataset.effects = level
+  notifyDisplayPrefs()
+}
+
+// 「ボタンの表示」「演出」が変わったときの知らせ。コントロールセンターと設定の「表示」は別々に選択を持つので、
+// 片方で変えたらもう片方の押されている印も読み直す（明るさと動きの subscribeTheme と同じ役目）
+const displayListeners = new Set<() => void>()
+export function subscribeDisplayPrefs(listener: () => void): () => void {
+  displayListeners.add(listener)
+  return () => {
+    displayListeners.delete(listener)
+  }
+}
+function notifyDisplayPrefs(): void {
+  for (const listener of displayListeners) listener()
 }
 
 export function readStoredBroadcast(): unknown {
@@ -779,6 +793,7 @@ export function applyButtonLabels(value: ButtonLabels): void {
   if (typeof document === 'undefined') return
   if (value === 'both') delete document.documentElement.dataset.buttons
   else document.documentElement.dataset.buttons = value
+  notifyDisplayPrefs()
 }
 
 export function loadKeymapRaw(): unknown {

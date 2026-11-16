@@ -46,8 +46,8 @@ const ITEMS: readonly FaqItem[] = [
     question: { ja: '提案の顔ぶれを変えるには？', en: 'How do I get different suggestions?' },
     short: { ja: 'カードに答えると、次の候補が繰り上がります。', en: 'Answer the cards, and the next suggestions move up.' },
     detail: {
-      ja: '提案は点数の順で、乱数は使っていません。記録が同じなら、同じ並びになります。見た・見たい・興味なし・保留などで答えた作品は候補から外れます（興味なしは3ヶ月、保留は1週間たつとまた候補に戻ります）。評価を足したり変えたりすると好みが変わり、「候補の条件」で形式・放送年・苦手な項目を変えると、並びも変わります。',
-      en: 'Suggestions are ordered by score, with no randomness, so the same records give the same order. Anime you answer with Watched, Want to watch, Not interested, Later, and so on drop out of the suggestions (Not interested comes back after 3 months, and Later after a week). Adding or changing ratings changes your taste, and changing the format, air year, or what you avoid in “Suggestion filters” changes the order too.',
+      ja: '提案は点数の順で、乱数は使っていません。記録が同じなら、同じ並びになります。見た・見たい・興味なし・保留などで答えた作品は候補から外れます（興味なしは3ヶ月、保留は1週間たつとまた候補に戻ります）。評価を足したり変えたりすると好みが変わり、「条件」で形式・放送年・苦手な項目を変えると、並びも変わります。',
+      en: 'Suggestions are ordered by score, with no randomness, so the same records give the same order. Anime you answer with Watched, Want to watch, Not interested, Later, and so on drop out of the suggestions (Not interested comes back after 3 months, and Later after a week). Adding or changing ratings changes your taste, and changing the format, air year, or what you avoid in “Filters” changes the order too.',
     },
   },
   {

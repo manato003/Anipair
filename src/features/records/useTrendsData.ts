@@ -11,27 +11,55 @@ export type TrendsData = ReturnType<typeof useTrendsData>
 export function useTrendsData(token: string, rows: readonly RecordRow[] | null, enabled: boolean) {
   const [media, setMedia] = useState<ReadonlyMap<number, Media> | null>(null)
   const [credits, setCredits] = useState<ReadonlyMap<string, WorkCredits> | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  // 失敗は取得元ごとに持つ（片方が読めれば、その分の失敗の文は消える。もう片方の失敗は残る）
+  const [mediaError, setMediaError] = useState<string | null>(null)
+  const [creditsError, setCreditsError] = useState<string | null>(null)
+  const [attempt, setAttempt] = useState(0)
   const watchedRows = useMemo(() => (rows ?? []).filter((r) => r.entry.state === 'WATCHED'), [rows])
   useEffect(() => {
     if (!enabled || !rows) return
     let cancelled = false
     const malIds = rows.map((r) => Number(r.entry.malAnimeId)).filter((n) => Number.isInteger(n) && n > 0)
+    // 失敗したら、まだ何も読めていないときだけ空で終わらせる（読み込み中の印を出したままにせず、読めた分で出す。
+    // 一度読めていたデータは残す。「もう一度」か記録の変更で読み直す）
     fetchMedia(malIds, { background: true }).then(
-      (m) => !cancelled && setMedia(m),
-      (e) => !cancelled && setError(messageOf(e)),
+      (m) => {
+        if (cancelled) return
+        setMedia(m)
+        setMediaError(null)
+      },
+      (e) => {
+        if (cancelled) return
+        setMedia((prev) => prev ?? new Map())
+        setMediaError(messageOf(e))
+      },
     )
     fetchCredits(
       token,
       watchedRows.map((r) => r.entry.workId),
       { background: true },
     ).then(
-      (c) => !cancelled && setCredits(c),
-      (e) => !cancelled && setError(messageOf(e)),
+      (c) => {
+        if (cancelled) return
+        setCredits(c)
+        setCreditsError(null)
+      },
+      (e) => {
+        if (cancelled) return
+        setCredits((prev) => prev ?? new Map())
+        setCreditsError(messageOf(e))
+      },
     )
     return () => {
       cancelled = true
     }
-  }, [token, rows, watchedRows, enabled])
-  return { media, credits, error }
+  }, [token, rows, watchedRows, enabled, attempt])
+  // 「もう一度」: 失敗して空で置いた方は読み込み中に戻す（押しても画面が変わらず、また同じ文のままになるのを防ぐ）
+  const retry = () => {
+    if (mediaError && media?.size === 0) setMedia(null)
+    if (creditsError && credits?.size === 0) setCredits(null)
+    setAttempt((n) => n + 1)
+  }
+  // mediaFailed: 世間の点数・ジャンルが読めていない（空は「読めた」ではなく「読めなかった」）
+  return { media, credits, error: mediaError ?? creditsError, mediaFailed: mediaError !== null, creditsFailed: creditsError !== null, retry }
 }

@@ -34,6 +34,8 @@ export function syncPasses(conn: GithubConnection): Promise<Passes> {
     serialize: serializePasses,
     loadLocal: loadLocalPasses,
     saveLocal,
+    // 中身が空で GitHub にファイルも無いなら、画面を開いただけではコミットしない
+    empty: (merged) => merged.size === 0,
     message: (merged) => t(`興味なし・保留の記録を更新（${merged.size}件）`, `Update Not interested / Later records (${merged.size})`),
   })
 }

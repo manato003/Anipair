@@ -53,6 +53,7 @@ vi.mock('../../lib/covers', async (orig) => ({
 
 const { coverOrder, useRecords } = await import('./useRecords')
 const { fetchLibrary, scanMyReviews } = await import('../../lib/annict')
+const { fetchCovers } = await import('../../lib/covers')
 const { rememberReview, resetMyReviewsMemory } = await import('../../lib/myReviews')
 
 const initialLibrary = [...library]
@@ -182,6 +183,31 @@ describe('useRecords', () => {
       await settle(hook)
     })
 
+    // 2026-11-10 のレビュー G3: 読み直しの最中に始まって終わった書き込みを、書く前の中身で巻き戻していた
+    it('drops a background refresh that read before a write which started and finished meanwhile', async () => {
+      const hook = await setup()
+      hook.rerender({ active: false })
+      let release!: () => void
+      const gate = new Promise<void>((r) => (release = r))
+      // 書く前のライブラリを読んだまま、返すのを止めておく
+      const before = [...library]
+      vi.mocked(fetchLibrary).mockImplementationOnce(async () => {
+        await gate
+        return before
+      })
+      hook.rerender({ active: true })
+      await waitFor(() => expect(fetchLibrary).toHaveBeenCalledTimes(2))
+      act(() => hook.result.current.setState(rowOf(hook, 2), 'WATCHING'))
+      await settle(hook)
+      expect(calls).toEqual(['status W2 WATCHING'])
+      const coversBefore = vi.mocked(fetchCovers).mock.calls.length
+      release()
+      // 読み直しが表紙まで進んで、置き換えるかを決めるところまで待つ
+      await waitFor(() => expect(vi.mocked(fetchCovers).mock.calls.length).toBe(coversBefore + 1))
+      await act(async () => undefined)
+      expect(rowOf(hook, 2).entry.state).toBe('WATCHING')
+    })
+
     it('keeps the current rows if the background refresh fails', async () => {
       const hook = await setup()
       hook.rerender({ active: false })
@@ -246,6 +272,28 @@ describe('useRecords: the list from the last visit', () => {
     release()
     await waitFor(() => expect(hook.result.current.staleAt).toBeNull())
     expect(hook.result.current.rows?.map((r) => r.entry.annictId)).toEqual([1, 2])
+  })
+
+  // 2026-11-10 のレビュー G3: 前回の内容を見せているあいだに書き込みが始まって終わると、終わりの送信待ちだけを見て、書く前の中身を出していた
+  it('reads again when a write started and finished while Annict was being read', async () => {
+    localStorage.setItem('animax.library.v1', JSON.stringify(stored))
+    let release!: () => void
+    const gate = new Promise<void>((r) => (release = r))
+    const before = [...library]
+    vi.mocked(fetchLibrary).mockImplementationOnce(async () => {
+      await gate
+      return before
+    })
+    const hook = renderHook(() => useRecords('t', true))
+    act(() => hook.result.current.setState(hook.result.current.rows![0], 'WATCHING'))
+    await waitFor(() => expect(hook.result.current.pending).toBe(0))
+    // Annict では書き込みが済んでいる
+    library = [...initialLibrary, { ...stored.entries[0], state: 'WATCHING' } as LibraryEntry]
+    release()
+    await waitFor(() => expect(hook.result.current.staleAt).toBeNull())
+    // 書く前に読んだ分は捨てて、書き込みのあとにもう一度読んだ中身を出す
+    expect(fetchLibrary).toHaveBeenCalledTimes(2)
+    expect(hook.result.current.rows?.map((r) => [r.entry.annictId, r.entry.state])).toEqual([[1, 'WATCHED'], [2, 'WANNA_WATCH'], [9, 'WATCHING']])
   })
 
   it('keeps the stored list and tells when Annict cannot be read', async () => {

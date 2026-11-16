@@ -170,8 +170,8 @@ function ShikimoriRelated({ shiki, onOpen }: { shiki: Media | null; onOpen: (tar
   const items = related
     .flatMap((r) => {
       const m = media.map.get(r.malId)
-      // PV・CM・MV は関連作品として見る意味が薄いので出さない
-      return m && !NOISE_FORMATS.has(m.format ?? '') ? [{ ...r, media: m }] : []
+      // PV・CM・MV は関連作品として見る意味が薄いので出さない。成人向けも出さない（ID で引くと返ってくるため、ここで除く）
+      return m && !m.isAdult && !NOISE_FORMATS.has(m.format ?? '') ? [{ ...r, media: m }] : []
     })
     .sort((a, b) => rank(a.kind) - rank(b.kind) || (a.media.seasonYear ?? 9999) - (b.media.seasonYear ?? 9999))
   if (items.length === 0) return null

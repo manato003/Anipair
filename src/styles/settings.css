@@ -165,14 +165,6 @@
   margin-bottom: 8px;
 }
 
-.settings__legal {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 16px;
-  margin-top: 16px;
-  font-size: 0.8rem;
-}
-
 .settings__lead a {
   overflow-wrap: anywhere;
 }
@@ -343,17 +335,6 @@
 .settings__card .toggle button[aria-pressed='true'] {
   background: var(--line-strong);
   font-weight: 700;
-}
-
-/* 表示の欄の小見出し（テーマの色・明るさ・時刻・片手操作） */
-.settings__sub {
-  margin-top: 16px;
-  font-size: 0.85rem;
-  font-weight: 700;
-}
-
-.settings__sub:first-of-type {
-  margin-top: 0;
 }
 
 /* ── 設定のまとまり（アカウント・表示・バックアップ・キー・このアプリ）──

@@ -142,7 +142,9 @@ export function CreditWorks(
   }, [target])
 
   // 自分の記録の印（アプリが最後に読んだライブラリ。MyAnimeList の ID ごと）
-  const mine = useMemo(() => marksByMal(peekLibrary()), [])
+  // 重ねて開いた詳細で状態を変えて戻ったときに映るよう、開閉のたびに作り直す（変えた分は marksByMal が重ねる）
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const mine = useMemo(() => marksByMal(peekLibrary()), [open])
 
   const list = useMemo(() => (found.kind === 'found' ? orderWorks(found.works, order) : []), [found, order])
   const visible = more ? list : list.slice(0, FIRST)

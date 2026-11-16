@@ -55,4 +55,15 @@ describe('useAchievements', () => {
     expect(hook.result.current.stats?.watchedCount).toBe(9)
     expect(unlocked(hook.result.current.titles, 'watched-10')).toBe(true)
   })
+
+  // 2026-11-12 の通しレビュー N1: 誤って覚えた年代の称号の作り直しは、印を混ぜる前の判定を使う（混ぜたあとだと何も外れない）
+  it('drops a wrongly remembered decade title once the season list has been read to the end', async () => {
+    localStorage.setItem('animax.titles.v1', JSON.stringify({ earned: ['decade-2020', 'watched-10'] }))
+    const hook = renderHook(() => useAchievements('t', watched(10), true))
+    await waitFor(() => expect(JSON.parse(localStorage.getItem('animax.titles.v1') ?? '{}').decadeChecked).toBe(true))
+    const saved = JSON.parse(localStorage.getItem('animax.titles.v1') ?? '{}')
+    expect(saved.earned).not.toContain('decade-2020')
+    expect(saved.earned).toContain('watched-10')
+    await waitFor(() => expect(unlocked(hook.result.current.titles, 'decade-2020')).toBeFalsy())
+  })
 })

@@ -32,6 +32,8 @@ export function syncWannaNotes(conn: GithubConnection): Promise<WannaNotes> {
     serialize: serializeWannaNotes,
     loadLocal: loadLocalWannaNotes,
     saveLocal,
+    // 中身が空で GitHub にファイルも無いなら、画面を開いただけではコミットしない
+    empty: (merged) => merged.size === 0,
     message: (merged) => t(`見たいの印とメモを更新（${merged.size}件）`, `Update want-to-watch stars and notes (${merged.size})`),
   })
 }

@@ -72,6 +72,8 @@ export interface TitlesState {
   // 一度でも手に入れた称号。条件から外れても（クールの人気作の顔ぶれが変わって踏破でなくなった・新しいクールが始まったなど）取り上げない。
   // 称号は答えを数えるもので、他人の視聴者数の変動で消えるのは筋が違う
   earned?: string[]
+  // 年代の称号の「手に入れた印」を、クールの一覧を最後まで読んだ結果で一度だけ作り直したか（v0.29.2 まで、一部のクールだけの割合で解放して覚えてしまう不具合があった）
+  decadeChecked?: boolean
 }
 
 export function parseTitlesState(value: unknown): TitlesState {
@@ -84,6 +86,7 @@ export function parseTitlesState(value: unknown): TitlesState {
     seen: Array.isArray(v.seen) ? v.seen.filter((s): s is string => typeof s === 'string') : [],
     awakened: v.awakened === true,
     ...(Array.isArray(v.earned) ? { earned: v.earned.filter((s): s is string => typeof s === 'string') } : {}),
+    ...(v.decadeChecked === true ? { decadeChecked: true } : {}),
   }
 }
 
@@ -101,6 +104,23 @@ export function rememberEarned(ids: readonly string[]): void {
   const earned = new Set(state.earned ?? [])
   if (ids.every((id) => earned.has(id))) return
   saveTitlesState({ ...state, earned: [...new Set([...earned, ...ids])] })
+}
+
+// 一度だけ、手に入れた印の中の年代の称号（decade-*）を、いま解放されているものに作り直す。
+// クールの一覧を最後まで読めたあとの判定を渡すこと。作り直したら印を付け、以後は通常どおり手放さない。
+// 作り直した場合は true（本当に8割に達していた人の称号も一度外れて、すぐ付け直る）
+export function fixDecadeEarned(unlockedIds: readonly string[]): boolean {
+  const state = loadTitlesState()
+  if (state.decadeChecked) return false
+  // 手に入れた印がまだ無い端末は、間違って覚えたものも無い（印を付けると、知らせの判定が変わるので作らない）
+  if (!state.earned) {
+    saveTitlesState({ ...state, decadeChecked: true })
+    return false
+  }
+  const kept = state.earned.filter((id) => !id.startsWith('decade-'))
+  const decades = unlockedIds.filter((id) => id.startsWith('decade-'))
+  saveTitlesState({ ...state, earned: [...new Set([...kept, ...decades])], decadeChecked: true })
+  return true
 }
 
 // ── Anipair の中での出来事 ──

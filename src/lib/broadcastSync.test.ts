@@ -30,6 +30,11 @@ describe('syncBroadcastPrefs', () => {
     expect(written).toEqual([])
   })
 
+  it('does not create broadcast.json when nothing is chosen', async () => {
+    await syncBroadcastPrefs(conn)
+    expect(written).toEqual([])
+  })
+
   it('writes this device’s newer choice', async () => {
     remote = { version: 1, services: ['danime'], region: null, satellites: [], at: '2026-10-01T00:00:00.000Z' }
     setBroadcastPrefs({ services: ['abema'], region: null, satellites: ['bs'] }, new Date('2026-10-10T00:00:00Z'))

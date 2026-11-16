@@ -110,6 +110,30 @@ export function narrowIntent(intent: WriteIntent, dropped: ReadonlySet<Field>): 
   }
 }
 
+// 行き先が書く、作品の状態と総合評価の値（書かない項目は入らない。同じ項目が重なれば、あとの行き先の値）。
+// 作品は見分けないので、1つの作品の行き先だけを渡す
+export function workTargets(intents: readonly WriteIntent[]): { state?: StatusState; rating?: RatingState | null } {
+  const targets: { state?: StatusState; rating?: RatingState | null } = {}
+  for (const intent of intents) {
+    switch (intent.kind) {
+      case 'status':
+        targets.state = intent.state
+        break
+      case 'rating':
+        targets.rating = intent.rating
+        break
+      case 'review':
+        if (!intent.keepOverall) targets.rating = intent.content.axes.ratingOverallState
+        break
+      case 'match':
+        if (!intent.keepState) targets.state = intent.state
+        if (intent.rating !== undefined) targets.rating = intent.rating
+        break
+    }
+  }
+  return targets
+}
+
 // 端末の控えは、壊れていたり古い版のものだったりしうる。送る前に、種類ごとに項目の型と値を確かめる（足りない・おかしいものは捨てる）
 const STATUSES: readonly unknown[] = ['WANNA_WATCH', 'WATCHING', 'WATCHED', 'ON_HOLD', 'STOP_WATCHING', 'NO_STATE']
 const RATINGS: readonly unknown[] = ['BAD', 'AVERAGE', 'GOOD', 'GREAT']
@@ -191,11 +215,8 @@ function save(entries: JournalEntry[]): void {
 
 let lastSeq = 0
 
-// 書き込みを頼んだ。行き先を控えに書き、成功したときに消すための札を返す。
-// 前からある控えのうち、今回と同じ項目は「もう書かない」にする（すべての項目がそうなった控えは消す）
-export function journalPut(label: string, intents: readonly WriteIntent[], now = Date.now()): JournalTicket {
-  if (intents.length === 0) return []
-  const entries = load()
+// 前からある控えのうち、intents と同じ項目を「もう書かない」にする（すべての項目がそうなった控えは消す）
+function supersede(entries: readonly JournalEntry[], intents: readonly WriteIntent[]): JournalEntry[] {
   const fresh = new Set(intents.flatMap((i) => fieldsOf(i).flatMap((f) => f.aliases)))
   const kept: JournalEntry[] = []
   for (const e of entries) {
@@ -204,6 +225,15 @@ export function journalPut(label: string, intents: readonly WriteIntent[], now =
     if (narrowIntent(e.intent, dropped) === null) continue
     kept.push(dropped.size > 0 ? { ...e, dropped: [...dropped] } : e)
   }
+  return kept
+}
+
+// 書き込みを頼んだ。行き先を控えに書き、成功したときに消すための札を返す。
+// 前からある控えのうち、今回と同じ項目は「もう書かない」にする（すべての項目がそうなった控えは消す）
+export function journalPut(label: string, intents: readonly WriteIntent[], now = Date.now()): JournalTicket {
+  if (intents.length === 0) return []
+  const entries = load()
+  const kept = supersede(entries, intents)
   lastSeq = Math.max(lastSeq, ...entries.map((e) => e.seq)) + 1
   const seq = lastSeq
   const added = intents.map((intent): JournalEntry => ({ key: keyOf(intent), label, intent, at: now, seq, session: SESSION }))
@@ -225,7 +255,7 @@ export function ticketDropped(ticket: JournalTicket): (readonly Field[] | null)[
   })
 }
 
-// 送り終えた（または利用者が送らないことにした）。あとから同じ項目を頼んでいれば、そちらは残す
+// 送り終えた（または利用者が送らないことにした・送る前に取りやめた）。あとから同じ項目を頼んでいれば、そちらは残す
 export function journalDone(ticket: JournalTicket): void {
   if (ticket.length === 0) return
   const entries = load()

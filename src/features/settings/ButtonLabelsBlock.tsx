@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { applyButtonLabels, loadButtonLabels, saveButtonLabels, type ButtonLabels } from '../../lib/storage'
+import { useEffect, useState } from 'react'
+import { applyButtonLabels, loadButtonLabels, saveButtonLabels, subscribeDisplayPrefs, type ButtonLabels } from '../../lib/storage'
 import { Choices } from '../../components/QuickSettings'
 import { BUTTON_LABELS } from '../../lib/displayPrefs'
 import { t } from '../../lib/i18n'
@@ -10,6 +10,8 @@ import { Section, SettingRow } from './Section'
 // 慣れた人は名前を消してすっきりさせ、アイコンが合わない人は名前だけにできる
 export function ButtonLabelsBlock() {
   const [value, setValue] = useState<ButtonLabels>(loadButtonLabels)
+  // コントロールセンターで変えたときも、押されている印を追いかける
+  useEffect(() => subscribeDisplayPrefs(() => setValue(loadButtonLabels())), [])
   const choose = (next: ButtonLabels) => {
     setValue(next)
     saveButtonLabels(next)

@@ -54,7 +54,13 @@ const averageText = (avg: number | null) => (avg === null ? null : t(`平均 ${a
 // actions: 見出しの右の置き場（「画像で共有」をそこに出す）
 export function TrendsView(props: { rows: readonly RecordRow[]; data: TrendsData; active: boolean; actions: HTMLElement | null }) {
   const { rows } = props
-  const { media, credits, error } = props.data
+  const { media, credits, error, mediaFailed, creditsFailed, retry } = props.data
+  // 取得元の読み込みが失敗して空で置かれているあいだは、「足りない」の文を出さず、共有も押せない（読めなかっただけで、作品が足りないわけではない）
+  const mediaLoaded = !!media && !mediaFailed
+  // 取得元ごとの失敗（読めたデータが残っているときは、失敗の文にしない。空のまま置かれているときだけ）
+  const mediaEmptyFailed = mediaFailed && media?.size === 0
+  const creditsEmptyFailed = creditsFailed && credits?.size === 0
+  const affinityFailed = !!mediaEmptyFailed || !!creditsEmptyFailed
   const empty = useMemo(() => new Map<number, Media>(), [])
   const m = media ?? empty
   // 集計は、記録・世間の点数・スタッフが変わったときだけやり直す（英語名が届いた・共有を開いたなどの描き直しでは数え直さない。2026-10-21）
@@ -106,12 +112,19 @@ export function TrendsView(props: { rows: readonly RecordRow[]; data: TrendsData
     <div className="summary">
       {props.actions &&
         createPortal(
-          <button type="button" className="btn rhead__edit" onClick={openShare} disabled={!media}>
+          <button type="button" className="btn rhead__edit" onClick={openShare} disabled={!mediaLoaded}>
             {t('画像で共有', 'Share as image')}
           </button>,
           props.actions,
         )}
-      {error && <p className="note">{t(`一部の情報を読めませんでした（${error}）。読めた分で出しています。`, `Some information couldn’t be loaded (${error}). Showing what was loaded.`)}</p>}
+      {error && (
+        <p className="note">
+          {t(`一部の情報を読めませんでした（${error}）。読めた分で出しています。`, `Some information couldn’t be loaded (${error}). Showing what was loaded.`)}{' '}
+          <button type="button" className="btn" onClick={retry}>
+            {t('もう一度', 'Retry')}
+          </button>
+        </p>
+      )}
 
       {/* まとめ: 大きな数と完走率のリング */}
       <section className="trend">
@@ -176,7 +189,7 @@ export function TrendsView(props: { rows: readonly RecordRow[]; data: TrendsData
             <p className="trend__note">{t('世間はShikimoriの点数です。', 'Public scores are from Shikimori.')}</p>
           </div>
         ) : (
-          media && <p className="trend__note">{t('世間と比べるには、評価した作品があと少し要ります。', 'Rate a few more anime to compare with the public.')}</p>
+          mediaLoaded && <p className="trend__note">{t('世間と比べるには、評価した作品があと少し要ります。', 'Rate a few more anime to compare with the public.')}</p>
         )}
       </section>
 
@@ -192,6 +205,8 @@ export function TrendsView(props: { rows: readonly RecordRow[]; data: TrendsData
               axes={axes.map((a) => ({ label: genreName(a.name), sub: `${countText(a.count)}${a.average !== null ? t(`・${a.average.toFixed(1)}`, ` · ${a.average.toFixed(1)}`) : ''}`, value: a.average === null ? null : Math.max(0, Math.min(1, (a.average - 2) / 2)) }))}
             />
           </>
+        ) : mediaEmptyFailed ? (
+          <FailedNote />
         ) : (
           <p className="trend__note">{t('見た作品が増えると出ます。', 'This appears once you’ve watched more anime.')}</p>
         )}
@@ -293,17 +308,17 @@ export function TrendsView(props: { rows: readonly RecordRow[]; data: TrendsData
       {/* よく見る声優・監督・制作会社 */}
       <section className="trend">
         <h3 className="trend__title">{t('よく見る声優', 'Most-watched voice actors')}</h3>
-        <PeopleList items={people.casts} />
+        <PeopleList items={people.casts} failed={creditsEmptyFailed} />
         <h3 className="trend__title">{t('よく見る監督', 'Most-watched directors')}</h3>
-        <PeopleList items={people.directors} />
+        <PeopleList items={people.directors} failed={creditsEmptyFailed} />
         <h3 className="trend__title">{t('よく見る制作会社', 'Most-watched studios')}</h3>
-        <PeopleList items={media ? people.studios.map((s) => ({ ...s, name: studioName(s.name) })) : null} />
+        <PeopleList items={media ? people.studios.map((s) => ({ ...s, name: studioName(s.name) })) : null} failed={mediaEmptyFailed} />
       </section>
 
       {/* 声優との相性（よく見る声優は本数の順なので、出演の多い人が上に来やすい。こちらは評価の差で並べる） */}
       <section className="trend">
         <h3 className="trend__title">{t('声優との相性', 'Voice actor match')}</h3>
-        <AffinityCard affinity={affinity} />
+        <AffinityCard affinity={affinity} failed={affinityFailed} />
       </section>
 
       {/* 記録のペース */}
@@ -328,7 +343,8 @@ const exampleText = (e: NonNullable<Affinity['example']>) =>
   t(`、例:${e.title}（あなた ${RATING_LABEL[e.rating]}・世間 ${e.world.toFixed(1)}）`, `; e.g. ${e.title} (you: ${RATING_LABEL[e.rating]}, public: ${e.world.toFixed(1)})`)
 
 // 声優との相性のカードの中身。読み込み中（undefined）・作品が足りない（null）・目立つ人がいない、を分けて書く
-function AffinityCard({ affinity }: { affinity: { liked: Affinity[]; unliked: Affinity[]; n: number } | null | undefined }) {
+function AffinityCard({ affinity, failed }: { affinity: { liked: Affinity[]; unliked: Affinity[]; n: number } | null | undefined; failed: boolean }) {
+  if (failed) return <FailedNote />
   if (affinity === undefined)
     return (
       <Loading label={t('読み込み中（初回は少し時間がかかります）', 'Loading (the first time takes a little while)')} />
@@ -385,11 +401,16 @@ function ContrastList({ items }: { items: readonly { row: RecordRow; rating: Rat
   )
 }
 
-function PeopleList({ items }: { items: readonly Ranked[] | null }) {
+function FailedNote() {
+  return <p className="trend__note">{t('読み込めなかったため、まだ出せません。上の「もう一度」で読み直せます。', 'Couldn’t be loaded yet. Use “Retry” above to load it again.')}</p>
+}
+
+function PeopleList({ items, failed }: { items: readonly Ranked[] | null; failed?: boolean }) {
   if (!items)
     return (
       <Loading label={t('読み込み中（初回は少し時間がかかります）', 'Loading (the first time takes a little while)')} />
     )
+  if (items.length === 0 && failed) return <FailedNote />
   if (items.length === 0) return <p className="trend__note">{t('2本以上見た人（会社）がまだいません。', 'No one (or studio) yet has 2 or more of your watched anime.')}</p>
   return <RankBars items={items.map((i) => ({ key: i.key, name: i.name, count: i.count, note: averageText(i.average) }))} />
 }

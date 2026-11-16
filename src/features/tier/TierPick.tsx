@@ -137,6 +137,8 @@ export function TierPick(props: {
 
   const load = async (k: string, after: string | null, prev: BrowseWork[]) => {
     const my = ++gen.current
+    // 前の失敗の文は読み始めるときに消す（残すと、読み直せても文が出たままで、読み直しのあいだの「読み込み中」も出ない）
+    setError(null)
     const [title, seasons, by, direction] = JSON.parse(k) as [string, string[], PickOrder['by'], PickOrder['dir']]
     try {
       const page = await browseWorks(
@@ -172,6 +174,7 @@ export function TierPick(props: {
   const studioGen = useRef(0)
   const loadStudio = async (s: PickStudio) => {
     const my = ++studioGen.current
+    setStudioError(null)
     try {
       const parts = await Promise.all(s.ids.map((id) => fetchStudioLinked(id)))
       if (my !== studioGen.current) return

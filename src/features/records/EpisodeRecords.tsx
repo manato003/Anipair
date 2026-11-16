@@ -348,6 +348,14 @@ const WINDOW = 12
 function EpisodeList(props: { episodes: readonly Episode[]; selected: Episode | null; onSelect: (episode: Episode) => void }) {
   const { episodes } = props
   const [range, setRange] = useState(() => episodeWindow(episodes, WINDOW, 3))
+  // 評価を続けて付けて、選んでいる話が並びの外へ出たら、押して広げたときと同じだけ広げて見せる（広げたあとは条件が外れるので2回目は何もしない）
+  const at = props.selected ? episodes.findIndex((e) => e.id === props.selected!.id) : -1
+  if (at >= 0 && (at < range.start || at >= range.end)) {
+    setRange({
+      start: at < range.start ? Math.max(0, Math.min(range.start - WINDOW, at)) : range.start,
+      end: at >= range.end ? Math.min(episodes.length, Math.max(range.end + WINDOW, at + 1)) : range.end,
+    })
+  }
   return (
     <div className="eplist__wrap">
       {range.start > 0 && (

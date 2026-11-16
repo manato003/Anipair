@@ -110,20 +110,20 @@ export function BackupBlock(props: { annictToken: string; github: GithubConnecti
         <summary>{t('書き出す中身', 'What’s included')}</summary>
         <p className="settings__lead">
           {t(
-            '視聴状況とその日時、評価（5項目と本文）、興味なし・保留・見てない、見たいの優先とメモ、Tier表を含みます。話ごとの記録は含みません（Annictに残ります）。',
-            'Includes watch status and dates, ratings (the 5 categories and your review text), Not interested / Later / Haven’t seen, the priority and note for Want to watch, and your tier lists. Per-episode records aren’t included (they stay on Annict).',
+            '視聴状況とその日時、評価（5項目と本文）、興味なし・保留・見てない、見たいの優先とメモ、マッチングの苦手な項目、Tier表を含みます。話ごとの記録は含みません（Annictに残ります）。',
+            'Includes watch status and dates, ratings (the 5 categories and your review text), Not interested / Later / Haven’t seen, the priority and note for Want to watch, the Matching dislikes, and your tier lists. Per-episode records aren’t included (they stay on Annict).',
           )}
         </p>
       </details>
       {!props.github ? (
-        <p className="settings__hint">{t('GitHubと連携すると、毎日自動でバックアップします。', 'Connect GitHub to back up automatically every day.')}</p>
+        <p className="settings__hint">{t('GitHubと連携すると、アプリを開いたときに1日1回、自動でバックアップします。', 'Connect GitHub to back up automatically once a day when you open the app.')}</p>
       ) : (
         <>
           <p className="settings__links">
-            <a href={`https://github.com/${props.github.repo}/blob/main/backup.json`} target="_blank" rel="noreferrer">
+            <a href={`https://github.com/${props.github.repo}/blob/HEAD/backup.json`} target="_blank" rel="noreferrer">
               {t('GitHubで見る', 'View on GitHub')}
             </a>
-            <a href={`https://github.com/${props.github.repo}/commits/main/backup.json`} target="_blank" rel="noreferrer">
+            <a href={`https://github.com/${props.github.repo}/commits/HEAD/backup.json`} target="_blank" rel="noreferrer">
               {t('変更履歴', 'Change history')}
             </a>
           </p>

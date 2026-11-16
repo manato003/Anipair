@@ -71,7 +71,7 @@ describe('Settings backup block', () => {
     show({ section: 'settings-backup', github: null })
     expect(screen.getByRole('heading', { level: 3, name: 'バックアップ' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'ファイルに書き出す' })).toBeTruthy()
-    expect(screen.getByText('GitHubと連携すると、毎日自動でバックアップします。')).toBeTruthy()
+    expect(screen.getByText('GitHubと連携すると、アプリを開いたときに1日1回、自動でバックアップします。')).toBeTruthy()
     expect(screen.queryByRole('button', { name: '今すぐバックアップ' })).toBeNull()
     expect(screen.queryByText('GitHubで見る')).toBeNull()
     expect(screen.queryByText('変更履歴')).toBeNull()
@@ -110,8 +110,8 @@ describe('Settings backup block', () => {
 
   it('links to the file and its history in the configured repo', () => {
     show({ section: 'settings-backup', github: { token: 'g', repo: 'someone/their-data' } })
-    expect((screen.getByRole('link', { name: 'GitHubで見る' }) as HTMLAnchorElement).href).toBe('https://github.com/someone/their-data/blob/main/backup.json')
-    expect((screen.getByRole('link', { name: '変更履歴' }) as HTMLAnchorElement).href).toBe('https://github.com/someone/their-data/commits/main/backup.json')
+    expect((screen.getByRole('link', { name: 'GitHubで見る' }) as HTMLAnchorElement).href).toBe('https://github.com/someone/their-data/blob/HEAD/backup.json')
+    expect((screen.getByRole('link', { name: '変更履歴' }) as HTMLAnchorElement).href).toBe('https://github.com/someone/their-data/commits/HEAD/backup.json')
   })
 
   it('backs up with the Annict token and the connection, showing the progress and the result', async () => {
@@ -162,7 +162,7 @@ describe('Settings GitHub block', () => {
   it('says what connecting adds, and that everything else works without it', () => {
     show({ section: 'settings-github', github: null })
     expect(screen.getByRole('heading', { name: 'GitHub連携（任意）' })).toBeTruthy()
-    expect(screen.getByText('興味なし・見てないなどを、PCとスマホで共有して毎日バックアップします。')).toBeTruthy()
+    expect(screen.getByText('興味なし・見てないなどをPCとスマホで共有し、アプリを開いたときに1日1回バックアップします。')).toBeTruthy()
     // 手順と入力欄は、押すまで出ない
     expect(screen.queryByLabelText('GitHubのリポジトリ名')).toBeNull()
     expect(screen.queryByText('連携の手順（3ステップ）')).toBeNull()
@@ -243,7 +243,14 @@ describe('Settings GitHub block', () => {
     localStorage.setItem('animax.githubToken', 'g')
     localStorage.setItem('animax.githubRepo', 'me/anipair-data')
     show({ section: 'settings-github' })
+    // 確認で「キャンセル」なら、何も消さない
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
     fireEvent.click(screen.getByRole('button', { name: '連携を解除' }))
+    expect(onGithubChange).not.toHaveBeenCalled()
+    expect(localStorage.getItem('animax.githubToken')).toBe('g')
+    confirmSpy.mockReturnValue(true)
+    fireEvent.click(screen.getByRole('button', { name: '連携を解除' }))
+    confirmSpy.mockRestore()
     expect(onGithubChange).toHaveBeenCalledWith(null)
     expect(localStorage.getItem('animax.githubToken')).toBeNull()
     expect(localStorage.getItem('animax.githubRepo')).toBeNull()

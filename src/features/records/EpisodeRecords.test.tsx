@@ -174,6 +174,17 @@ describe('EpisodeRecorder', () => {
     view.unmount()
   })
 
+  it('rating on past the end of the episode list widens the list so the chosen episode stays in it', () => {
+    const many = Array.from({ length: 30 }, (_, i) => ep(i + 1))
+    recorder(data(many))
+    const listed = () => [...document.querySelectorAll('.eplist__label')].map((x) => x.textContent)
+    expect(listed()).not.toContain('#13')
+    for (let i = 0; i < 12; i++) fireEvent.click(within(ratings()).getByRole('button', { name: '良い' }))
+    expect(current()).toBe('#13')
+    expect(listed()).toContain('#13')
+    expect(document.querySelector('.eplist__item[aria-current="true"] .eplist__label')?.textContent).toBe('#13')
+  })
+
   it('undo goes back to the episode it recorded', () => {
     const { h } = recorder(data([ep(1), ep(2)]), { undoable: ['E1'] })
     fireEvent.click(within(ratings()).getByRole('button', { name: '普通' }))

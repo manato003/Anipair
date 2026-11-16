@@ -66,7 +66,7 @@ import type { GithubConnection } from '../../lib/github'
 import { useCoalescedTask } from '../../lib/useCoalescedTask'
 import { noteOf, priorityFirst } from './wannaNotes'
 import { loadLocalWannaNotes, setWannaNote, syncWannaNotes } from './wannaNoteStore'
-import { broadcastLabel, formatTime, hasChoice, nextBroadcast, useBroadcastPrefs, weekSchedule, type WeekItem } from '../../lib/broadcast'
+import { broadcastLabel, formatTime, hasChoice, jstNote, nextBroadcast, useBroadcastPrefs, weekSchedule, type WeekItem } from '../../lib/broadcast'
 import { useClock } from '../../lib/useClock'
 import { Choices } from '../../components/QuickSettings'
 import { BroadcastSheet } from '../../components/BroadcastSheet'
@@ -115,7 +115,11 @@ export function Records({ token, github = null, active }: { token: string; githu
   // 見たいの「優先して見る」とメモ（端末の控え。GitHub と連携していれば、開いたときと変えたあとに同期する）
   const [notes, setNotes] = useState(() => loadLocalWannaNotes())
   const [noteFor, setNoteFor] = useState<RecordRow | null>(null)
-  const syncNotes = useMemo(() => (github ? async () => setNotes(await syncWannaNotes(github)) : null), [github])
+  const syncNotes = useMemo(() => (github ? async () => {
+            // 同期の最中に付けた印・メモを巻き戻さないよう、戻り値でなく端末の控えを読み直す
+            await syncWannaNotes(github)
+            setNotes(loadLocalWannaNotes())
+          } : null), [github])
   const syncNotesLater = useCoalescedTask(r.enqueue, t('見たいの印とメモをGitHubに保存', 'Saving want-to-watch stars and notes to GitHub'), syncNotes)
   const syncedWith = useRef<GithubConnection | null>(null)
   useEffect(() => {
@@ -178,7 +182,11 @@ export function Records({ token, github = null, active }: { token: string; githu
   // 絞り込んだあとの記録（状態ごとの件数も、これで数える）
   const filtered = useMemo(() => applyFilter(r.rows ?? [], filter, media.info), [r.rows, filter, media.info])
   const counts = useMemo(() => countBuckets(filtered), [filtered])
-  const fallback: Item = !r.rows || counts.watching > 0 ? 'watching' : 'watched'
+  // 選ぶまでの項目は、記録を読み終えたときの（絞り込む前の）件数で1回だけ決める。絞り込みや編集で、項目が勝手に替わらないように
+  const [autoItem, setAutoItem] = useState<Item | null>(null)
+  if (r.rows && autoItem === null) setAutoItem(countBuckets(r.rows).watching > 0 ? 'watching' : 'watched')
+  else if (!r.rows && autoItem !== null) setAutoItem(null)
+  const fallback: Item = autoItem ?? 'watching'
   // PC には「まとめ」の一覧が無い（縦の列に3つとも並ぶ）ので、傾向を出す
   const item: Item = picked === 'summary' && wide ? 'trends' : (picked ?? fallback)
   const bucket: Bucket | null = isSummary(item) ? null : item
@@ -348,7 +356,8 @@ export function Records({ token, github = null, active }: { token: string; githu
         onPick={(row) => {
           const to = bucketOf(row.entry.state)
           if (to !== bucket) select(to)
-          setQuery(row.entry.title)
+          // 候補に出した題名（画面の言語の題名）で埋める
+          setQuery(workTitle(row.entry))
         }}
       />
       <button type="button" className="btn records__filterbtn" aria-pressed={filterCount > 0} onClick={() => setFilterOpen(true)}>
@@ -775,7 +784,10 @@ function WeekSchedule(props: { days: { day: string; items: WeekItem<RecordRow>[]
     <div className="week">
       {props.days.map((d) => (
         <section key={d.day} className="week__day">
-          <h3 className="week__date">{d.day}</h3>
+          <h3 className="week__date">
+            {d.day}
+            {jstNote()}
+          </h3>
           <ul className="week__items">
             {d.items.map((it) => (
               <li key={`${it.work.entry.workId}-${it.at.getTime()}`} className="week__row">

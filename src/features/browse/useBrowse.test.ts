@@ -283,6 +283,45 @@ describe('useBrowse narrowing a period by genres and studios', () => {
     expect(hook.result.current.hasMore).toBe(false)
     expect(hook.result.current.capped).toBe(true)
   })
+
+  it('after the chips are removed, choosing other chips does not search by the removed ones while they settle', async () => {
+    findCalls.length = 0
+    let narrow: { genres: number[]; studios: number[] } | null = null
+    const hook = renderHook(() => useBrowse('t', true, narrow))
+    await waitFor(() => expect(hook.result.current.works).not.toBeNull())
+    narrow = { genres: [10], studios: [] }
+    hook.rerender()
+    await waitFor(() => expect(hook.result.current.works?.map((x) => x.annictId)).toEqual([51]), { timeout: 2000 })
+    narrow = null
+    hook.rerender()
+    await waitFor(() => expect(hook.result.current.works?.map((x) => x.annictId)).toEqual([1, 2]))
+    findCalls.length = 0
+    narrow = { genres: [20], studios: [] }
+    hook.rerender()
+    // 待っているあいだは条件検索にしない（前のジャンル 10 で探さない）
+    expect(hook.result.current.narrowed).toBe(false)
+    await waitFor(() => expect(hook.result.current.narrowed).toBe(true), { timeout: 2000 })
+    await waitFor(() => expect(findCalls.length).toBeGreaterThan(0))
+    expect(findCalls.map((c) => c.narrow)).toEqual([{ genres: [20], studios: [] }])
+  })
+
+  it('chips changed while searching by title are used as soon as the search is cleared', async () => {
+    findCalls.length = 0
+    let narrow: { genres: number[]; studios: number[] } | null = { genres: [10], studios: [] }
+    const hook = renderHook(() => useBrowse('t', true, narrow))
+    await waitFor(() => expect(hook.result.current.narrowed).toBe(true), { timeout: 2000 })
+    act(() => hook.result.current.setQuery('あ'))
+    await waitFor(() => expect(hook.result.current.searching).toBe(true), { timeout: 2000 })
+    narrow = { genres: [20], studios: [] }
+    hook.rerender()
+    findCalls.length = 0
+    act(() => hook.result.current.setQuery(''))
+    await waitFor(() => expect(hook.result.current.searching).toBe(false), { timeout: 2000 })
+    // 検索を消した直後から今のチップ（20）で探す。前のチップ（10）では探さない
+    expect(hook.result.current.narrowed).toBe(true)
+    await waitFor(() => expect(findCalls.length).toBeGreaterThan(0))
+    expect(findCalls.map((c) => c.narrow)).toEqual([{ genres: [20], studios: [] }])
+  })
 })
 
 describe('cappedNote', () => {

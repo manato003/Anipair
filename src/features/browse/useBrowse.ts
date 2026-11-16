@@ -6,7 +6,7 @@ import { t } from '../../lib/i18n'
 import { compareSeasons, nextSeason, seasonOf, seasonOfWork, toSlug, type Season } from '../../lib/season'
 import { fetchMedia, searchTitles, type Media } from '../../lib/shikimori'
 import type { Cover } from '../../lib/storage'
-import { hasPendingWrites, messageOf } from '../../lib/useWriteQueue'
+import { hasPendingWrites, messageOf, noWritesSince, writeMark } from '../../lib/useWriteQueue'
 import { malIdOf } from '../../lib/malId'
 import { forgetTaste, loadTaste } from '../match/tasteLoader'
 import { OLDEST_SEASON } from '../rate/queue'
@@ -169,8 +169,12 @@ export function useBrowse(token: string, active = true, narrow: Narrow | null = 
   const [capped, setCapped] = useState(false)
   // 条件検索の条件。チップを押しているあいだは前の条件のまま（画面は読み込んだ作品の中で絞って見せる）、押し終わってから切り替える。
   // 条件を外したとき（期間をやめた・チップを全部外した）はすぐ戻す。題名の検索中は使わない
-  const wantNarrow = !searched && narrow ? JSON.stringify(narrow) : ''
+  const chosenNarrow = narrow ? JSON.stringify(narrow) : ''
+  const wantNarrow = searched ? '' : chosenNarrow
   const [narrowedState, setNarrowed] = useState('')
+  // 条件を外したら前の条件も忘れる。題名の検索中は、チップの変更にすぐ合わせる（検索中は使わず、読み込んだ一覧も無いので待つ意味が無い）。
+  // 残すと、次に別の条件を選んだ直後・検索を消した直後の待ち時間に、前の条件で探して今の条件で絞って出す。中身で比べるので2回目は何もしない
+  if ((searched || chosenNarrow === '') && narrowedState !== chosenNarrow) setNarrowed(chosenNarrow)
   const narrowed = wantNarrow === '' ? '' : narrowedState
   // 期間を選ばずにジャンル・制作会社で探すときは、全期間（最古のクールから）の作品から探す
   const allPeriod = narrowed !== '' && !periodActive(period)
@@ -360,9 +364,11 @@ export function useBrowse(token: string, active = true, narrow: Narrow | null = 
     forgetTaste()
     if (hasPendingWrites()) return
     let cancelled = false
+    const mark = writeMark()
     fetchLibrary(token)
       .then((library) => {
-        if (cancelled || hasPendingWrites()) return
+        // 読んでいるあいだに始まって終わった書き込みも見る（書く前のライブラリで、先に映した状態を巻き戻さない）
+        if (cancelled || !noWritesSince(mark)) return
         const states = new Map(library.map((e) => [e.annictId, e.state]))
         setWorks((cur) => cur?.map((w) => ({ ...w, viewerStatusState: states.get(w.annictId) ?? null })) ?? cur)
       })

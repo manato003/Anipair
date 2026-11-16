@@ -187,6 +187,17 @@ describe('WorkDetail', () => {
     expect(onChange).toHaveBeenCalledWith({ state: null })
   })
 
+  // 参加作品・似た作品の一覧の印は、最後に読んだライブラリ（書き込みを映さない）から作るので、変えた状態を別に控えて重ねる
+  it('notes a changed state for the marks on the credit and similar-work lists', async () => {
+    const { marksByMal } = await import('./detail')
+    const q = queue()
+    render(<WorkDetail token="t" work={{ ...work, malAnimeId: '52991' }} cover={null} enqueue={q.enqueue} onChange={() => undefined} onClose={() => undefined} />)
+    fireEvent.click(screen.getByRole('button', { name: '見たい' }))
+    await q.done()
+    expect(calls).toEqual(['status W1 WANNA_WATCH'])
+    expect(marksByMal(library as never).get(52991)).toBe('見たい')
+  })
+
   // 2026-10-06 の点検: 参加作品・Shikimori の関連作品から開くと、見た作品が「まだ記録していません」と出ていた
   it('takes my status from the loaded detail when the sheet was opened from a work that did not know it', async () => {
     const q = queue()

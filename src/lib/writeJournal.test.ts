@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { saveAnnictToken, switchAccount } from './storage'
-import { journalDone, journalPut, keyOf, leftoverEntries, narrowIntent, pendingIntent, ticketDropped, type JournalEntry, type WriteIntent } from './writeJournal'
+import { journalDone, journalPut, keyOf, leftoverEntries, narrowIntent, pendingIntent, ticketDropped, workTargets, type JournalEntry, type WriteIntent } from './writeJournal'
 
 const KEY = 'animax.writeJournal.v1'
 const status = (workId: string, state: 'WATCHED' | 'NO_STATE' = 'WATCHED'): WriteIntent => ({ kind: 'status', workId, state })
@@ -166,5 +166,26 @@ describe('writeJournal', () => {
     expect(keyOf({ kind: 'review', workId: 'W1', annictId: 1, content: { axes: { ratingOverallState: null, ratingStoryState: null, ratingAnimationState: null, ratingMusicState: null, ratingCharacterState: null }, body: '' } })).toBe('review:W1')
     expect(keyOf({ kind: 'episode', episodeId: 'E1', recorded: true, rating: null, since: 0 })).toBe('episode:E1')
     expect(keyOf({ kind: 'match', idMal: 5, title: { native: 'x', romaji: null, english: null }, state: 'WANNA_WATCH' })).toBe('match:5')
+  })
+
+  it('reads the status and overall rating that wishes write, leaving out the items they do not write', () => {
+    const title = { native: 'x', romaji: null, english: null }
+    const axes = { ratingOverallState: 'GOOD' as const, ratingStoryState: null, ratingAnimationState: null, ratingMusicState: null, ratingCharacterState: null }
+    expect(workTargets([])).toEqual({})
+    expect(workTargets([{ kind: 'status', workId: 'W1', state: 'NO_STATE' }])).toEqual({ state: 'NO_STATE' })
+    // 評価を外す行き先（null）は、評価を書かない（項目が無い）のとは別
+    expect(workTargets([{ kind: 'rating', workId: 'W1', annictId: 1, rating: null }])).toEqual({ rating: null })
+    expect(workTargets([{ kind: 'review', workId: 'W1', annictId: 1, content: { axes, body: '' } }])).toEqual({ rating: 'GOOD' })
+    expect(workTargets([{ kind: 'review', workId: 'W1', annictId: 1, content: { axes, body: '' }, keepOverall: true }])).toEqual({})
+    expect(workTargets([{ kind: 'match', idMal: 5, title, state: 'WATCHED', rating: 'GREAT' }])).toEqual({ state: 'WATCHED', rating: 'GREAT' })
+    expect(workTargets([{ kind: 'match', idMal: 5, title, state: 'WATCHED', rating: null, keepState: true }])).toEqual({ rating: null })
+    expect(workTargets([{ kind: 'episode', episodeId: 'E1', recorded: true, rating: 'GOOD', since: 0 }])).toEqual({})
+    // 同じ項目が重なれば、あとの行き先の値
+    expect(
+      workTargets([
+        { kind: 'status', workId: 'W1', state: 'WATCHED' },
+        { kind: 'status', workId: 'W1', state: 'NO_STATE' },
+      ]),
+    ).toEqual({ state: 'NO_STATE' })
   })
 })

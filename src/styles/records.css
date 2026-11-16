@@ -73,19 +73,10 @@
   margin-top: 18px;
 }
 
-/* 段のすぐ下に添える説明 */
-.filtersheet__lead {
-  margin-top: 8px;
-}
-
 /* ほかの段と線で分けるまとまり（ブラウズの期間） */
 .filtersheet__block {
   padding-bottom: 18px;
   border-bottom: 1px solid var(--line);
-}
-
-.filtersheet__block + .filtersheet__lead {
-  margin-top: 14px;
 }
 
 /* シートを分けた部分の見出し（ブラウズ: 読み込む期間／読み込んだN作品から）。段の名前（.detail__label）より一段上 */

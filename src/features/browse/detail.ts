@@ -129,6 +129,14 @@ export const FORMAT_LABEL: Record<string, string> = {
   MUSIC: 'MV',
 }
 
+// 作品の詳細で変えたばかりの状態（MyAnimeList の ID ごと。null は記録から外した）。印の元のライブラリ（peekLibrary）は最後に読んだ中身で、
+// 書き込みを映さないので、印を作るときに重ねる。base は控えたときのライブラリ（配列そのもの）。
+// ライブラリが読み直されて別の配列になったら使わない（読み直した中身のほうが新しい）
+const changedMarks = new Map<number, { state: StatusState | null; base: unknown }>()
+export function noteMark(malId: number | null, state: StatusState | null, base: unknown): void {
+  if (malId) changedMarks.set(malId, { state, base })
+}
+
 // 自分の記録の印（見た・見たいなど）を、MyAnimeList の ID ごとに引けるようにする（参加作品・似た作品の一覧に添える）
 export function marksByMal(entries: readonly Pick<LibraryEntry, 'malAnimeId' | 'state'>[] | null): Map<number, string> {
   const out = new Map<number, string>()
@@ -136,6 +144,15 @@ export function marksByMal(entries: readonly Pick<LibraryEntry, 'malAnimeId' | '
     const mal = malIdOf(e)
     const label = STATUS_LABEL[e.state]
     if (mal && label) out.set(mal, label)
+  }
+  for (const [mal, changed] of changedMarks) {
+    if (changed.base !== entries) {
+      changedMarks.delete(mal)
+      continue
+    }
+    const label = changed.state ? STATUS_LABEL[changed.state] : undefined
+    if (label) out.set(mal, label)
+    else out.delete(mal)
   }
   return out
 }

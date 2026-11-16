@@ -270,6 +270,16 @@ export async function updateStatus(token: string, workId: string, state: StatusS
   detailCache.clear()
 }
 
+// 作品の自分の状態を1件、Annict から読む（端末にとっておいた内容から答えるとき、書く前の状態を確かめて取り消しで戻すため）
+export async function fetchWorkStatus(token: string, workId: string): Promise<StatusState> {
+  const data = await gql<{ nodes: ({ viewerStatusState?: StatusState | null } | null)[] }>(
+    token,
+    `query($ids: [ID!]!) { nodes(ids: $ids) { ... on Work { viewerStatusState } } }`,
+    { ids: [workId] },
+  )
+  return data.nodes[0]?.viewerStatusState ?? 'NO_STATE'
+}
+
 // テスト用: 短い時間の控えを捨てる
 export function forgetShortCaches(): void {
   seasonCache.clear()
@@ -1304,13 +1314,15 @@ export interface WorkRef {
   annictId: number
   title: string
   malAnimeId: string | null
+  // 探した時点の自分の状態（マッチングの取り消しで、書く前の状態に戻す）
+  viewerStatusState?: StatusState | null
 }
 
 // 100件まで。短い題名は当たる作品が多く、30件では目当ての作品が入らなかった（「日常」は35件中31番目。2026-10-07）
 export async function searchWorksByTitle(token: string, title: string): Promise<WorkRef[]> {
   const data = await gql<{ searchWorks: { nodes: WorkRef[] } }>(
     token,
-    `query($titles: [String!]) { searchWorks(titles: $titles, first: 100) { nodes { id annictId title malAnimeId } } }`,
+    `query($titles: [String!]) { searchWorks(titles: $titles, first: 100) { nodes { id annictId title malAnimeId viewerStatusState } } }`,
     { titles: [title] },
   )
   return data.searchWorks.nodes

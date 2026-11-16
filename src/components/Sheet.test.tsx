@@ -175,6 +175,35 @@ describe('Sheet on touch devices', () => {
     localStorage.clear()
   })
 
+  // 2026-11-12 の通しレビュー N3: 読むだけの欄（共有リンクなど）では、空いた所のタップで閉じる。書く欄があるシートだけ閉じず、案内の文も合わせる
+  it('a read-only field does not block the tap-to-close, a writable one does (and the first-time hint says so)', () => {
+    asTouch(true)
+    localStorage.clear()
+    const onClose = vi.fn()
+    const { unmount } = render(
+      <Sheet label="共有" onClose={onClose}>
+        <p>共有の説明</p>
+        <input readOnly defaultValue="https://example.com/" />
+      </Sheet>,
+    )
+    expect(screen.getByText('下へ払うか、空いている所をタップしても閉じます')).toBeTruthy()
+    fireEvent.click(screen.getByText('共有の説明'))
+    expect(onClose).toHaveBeenCalledTimes(1)
+    unmount()
+    localStorage.clear()
+    const onClose2 = vi.fn()
+    render(
+      <Sheet label="設定" onClose={onClose2}>
+        <p>設定の説明</p>
+        <input defaultValue="題名" />
+      </Sheet>,
+    )
+    expect(screen.getByText('下へ払うと閉じます')).toBeTruthy()
+    fireEvent.click(screen.getByText('設定の説明'))
+    expect(onClose2).not.toHaveBeenCalled()
+    localStorage.clear()
+  })
+
   it('closes when pulled down from the top, and springs back on a short pull', () => {
     asTouch(true)
     const onClose = vi.fn()
@@ -256,5 +285,39 @@ describe('Sheet on touch devices', () => {
     fireEvent.touchMove(sheet, { touches: [{ clientX: 330, clientY: 305 }] })
     fireEvent.touchEnd(sheet)
     expect(onClose).not.toHaveBeenCalled()
+  })
+})
+
+describe('Sheet outside-click rules', () => {
+  const withField = (onClose: () => void) => (
+    <Sheet label="書く" onClose={onClose}>
+      <p>説明</p>
+      <textarea aria-label="本文" />
+    </Sheet>
+  )
+
+  it('does not close when a press started inside the sheet ends on the backdrop', () => {
+    const onClose = vi.fn()
+    render(withField(onClose))
+    const dialog = screen.getByRole('dialog')
+    const backdrop = dialog.parentElement as HTMLElement
+    fireEvent.pointerDown(screen.getByLabelText('本文'))
+    fireEvent.click(backdrop)
+    expect(onClose).not.toHaveBeenCalled()
+    // 外枠で押し始めて外枠で離したときは閉じる
+    fireEvent.pointerDown(backdrop)
+    fireEvent.click(backdrop)
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('a tap on plain text does not close a sheet that has a writing field', () => {
+    const matchMedia = vi.fn().mockReturnValue({ matches: true, addEventListener: () => {}, removeEventListener: () => {} })
+    vi.stubGlobal('matchMedia', matchMedia)
+    window.matchMedia = matchMedia as unknown as typeof window.matchMedia
+    const onClose = vi.fn()
+    render(withField(onClose))
+    fireEvent.click(screen.getByText('説明'))
+    expect(onClose).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
   })
 })

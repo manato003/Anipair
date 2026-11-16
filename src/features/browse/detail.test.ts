@@ -1,6 +1,27 @@
 import { describe, expect, it } from 'vitest'
 import { nextSeason, previousSeason, type Season } from '../../lib/season'
-import { mainStaff, seriesFacts, studioFor, withCopyrightMark, safeHttpUrl, workMeta, xUrl } from './detail'
+import { mainStaff, marksByMal, noteMark, seriesFacts, studioFor, withCopyrightMark, safeHttpUrl, workMeta, xUrl } from './detail'
+
+describe('marksByMal', () => {
+  // 印の元のライブラリは最後に読んだ中身で、書き込みを映さない。作品の詳細で変えた分を重ねる
+  it('lays the states just changed in a work sheet over the library last read, until the library is read again', () => {
+    const library = [
+      { malAnimeId: '1', state: 'WANNA_WATCH' as const },
+      { malAnimeId: '2', state: 'WATCHED' as const },
+    ]
+    expect([...marksByMal(library)]).toEqual([[1, '見たい'], [2, '見た']])
+    // 見たい → 見た、記録から外す、ライブラリに無い作品を記録する
+    noteMark(1, 'WATCHED', library)
+    noteMark(2, null, library)
+    noteMark(3, 'WATCHING', library)
+    noteMark(null, 'WATCHED', library)
+    expect([...marksByMal(library)]).toEqual([[1, '見た'], [3, '見てる']])
+    // 読み直したライブラリ（別の配列）には重ねない（読み直した中身のほうが新しい）。前のライブラリに戻っても、もう重ねない
+    const reread = [{ malAnimeId: '1', state: 'WATCHED' as const }]
+    expect([...marksByMal(reread)]).toEqual([[1, '見た']])
+    expect([...marksByMal(library)]).toEqual([[1, '見たい'], [2, '見た']])
+  })
+})
 
 describe('mainStaff', () => {
   it('drops "その他", groups repeated roles in order and dedupes names', () => {

@@ -6,7 +6,7 @@ describe('analytics', () => {
     expect(analyticsEnabled('anipair.com')).toBe(true)
     expect(analyticsEnabled('anipair.vercel.app')).toBe(true)
     expect(analyticsEnabled('anipair.com.example')).toBe(false)
-    expect(analyticsEnabled('animax-git-preview-manatemis-5508s-projects.vercel.app')).toBe(true)
+    expect(analyticsEnabled('anipair-git-preview-example.vercel.app')).toBe(true)
     expect(analyticsEnabled('localhost')).toBe(false)
     expect(analyticsEnabled('127.0.0.1')).toBe(false)
   })

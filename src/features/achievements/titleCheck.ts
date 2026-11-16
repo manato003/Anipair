@@ -3,7 +3,8 @@ import { fetchViewerStats, type ViewerStats } from '../../lib/annict'
 import type { RecordRow } from '../records/recordList'
 import { activeUnseenIds } from '../rate/unseen'
 import { loadLocalUnseen } from '../rate/unseenStore'
-import { loadFeats, loadSeasonTops, loadTitlesState, type SeasonTop } from './achievementStore'
+import { useLang } from '../../lib/i18n'
+import { allSeasonSlugs, loadFeats, loadSeasonTops, loadTitlesState, saveTitlesState, type SeasonTop } from './achievementStore'
 import { announceEarned } from './titleToast'
 import { coverageOf, evaluateTitles, type Coverage, type Title } from './titles'
 
@@ -34,17 +35,26 @@ export function liveStatsOf(stats: ViewerStats | null, rows: readonly RecordRow[
   return stats && rows ? { ...stats, ...stateCounts(rows) } : stats
 }
 
-export function titlesFor(rows: readonly RecordRow[], stats: ViewerStats | null, coverage: Map<string, Coverage>): Title[] {
+// いまの条件だけで見た判定（手に入れた印は混ぜない）
+export function evaluatedTitlesFor(rows: readonly RecordRow[], stats: ViewerStats | null, coverage: Map<string, Coverage>): Title[] {
   const watchedYears = rows.filter((r) => r.entry.state === 'WATCHED' && r.entry.seasonYear).map((r) => r.entry.seasonYear as number)
-  const evaluated = evaluateTitles({ stats, watchedYears, coverage, feats: loadFeats(), now: new Date() })
-  // 一度手に入れた称号は、条件から外れても手放さない
+  return evaluateTitles({ stats, watchedYears, coverage, feats: loadFeats(), now: new Date() })
+}
+
+// 一度手に入れた称号は、条件から外れても手放さない
+export function withEarned(evaluated: readonly Title[]): Title[] {
   const earned = new Set(loadTitlesState().earned ?? [])
   return evaluated.map((t) => (!t.unlocked && earned.has(t.id) ? { ...t, unlocked: true, progress: null } : t))
+}
+
+export function titlesFor(rows: readonly RecordRow[], stats: ViewerStats | null, coverage: Map<string, Coverage>): Title[] {
+  return withEarned(evaluatedTitlesFor(rows, stats, coverage))
 }
 
 // 記録が変わるたびに（記録の画面で読み込んだ・変えた）、裏で称号を計算し、新しく手に入れた称号を右上に知らせる。
 // クールの人気作の一覧は、実績の画面が端末に控えたものを使う（ここでは読みに行かない）
 export function useTitleWatch(token: string, rows: readonly RecordRow[] | null): void {
+  const lang = useLang()
   useEffect(() => {
     if (!rows || !loadTitlesState().awakened) return
     let cancelled = false
@@ -52,13 +62,34 @@ export function useTitleWatch(token: string, rows: readonly RecordRow[] | null):
       .catch(() => null)
       .then((stats) => {
         if (cancelled) return
-        const titles = titlesFor(rows, liveStatsOf(stats, rows), coverageFor(rows, loadSeasonTops()))
-        announceEarned(titles.filter((t) => t.unlocked))
+        const tops = loadSeasonTops()
+        const titles = titlesFor(rows, liveStatsOf(stats, rows), coverageFor(rows, tops))
+        // 端末の控えに全クールがそろっていないあいだは、年代の称号を知らせも覚えもしない
+        // （一部しか無い控えで判定すると、あとで外れる称号を誤って知らせる）
+        const complete = allSeasonSlugs(new Date()).every((slug) => tops.has(slug))
+        const visible = titles.filter((t) => t.unlocked && (complete || !t.id.startsWith('decade-')))
+        announceEarned(visible)
+        syncEquipped(visible, stats !== null && complete)
       })
     return () => {
       cancelled = true
     }
-  }, [token, rows])
+  }, [token, rows, lang])
+}
+
+// 掲げている称号の控え（名前・レア度。傾向と1年のふり返りの共有の画像が使う）を、いまの言語と判定にそろえる。
+// 言語を替えたあと実績を開かなくても名前が合うように、ここでも直す。条件を満たさなくなった称号は掲げていない扱いにする
+// （実績の画面と同じ。判定が確かなとき［Annict の数値を読めて、年代の控えがそろっているとき］だけ外す）
+function syncEquipped(unlocked: readonly Title[], reliable: boolean): void {
+  const current = loadTitlesState()
+  if (!current.equipped) return
+  const now = unlocked.find((t) => t.id === current.equipped)
+  if (now) {
+    if (current.equippedName === now.name && current.equippedRarity === now.rarity) return
+    saveTitlesState({ ...current, equippedName: now.name, equippedRarity: now.rarity })
+  } else if (reliable) {
+    saveTitlesState({ ...current, equipped: null, equippedName: null, equippedRarity: null })
+  }
 }
 
 function stateCounts(rows: readonly RecordRow[]): Pick<ViewerStats, 'watchedCount' | 'watchingCount' | 'wannaWatchCount' | 'onHoldCount' | 'stopWatchingCount'> {

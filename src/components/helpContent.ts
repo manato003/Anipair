@@ -156,16 +156,16 @@ function tours(topic: HelpTopic): readonly TourStep[] {
           target: '#settings-account',
           title: t('Annict連携', 'Annict connection'),
           body: t(
-            'ログインとログアウトです。記録はすべてあなたのAnnictに保存されます。Annictへの接続の状態（緑はふつう、黄は時間がかかっている、赤は応答を受け取れていない）もここで見られます。',
-            'Log in and log out here. All your records are saved to your Annict account. You can also check the connection to Annict (green is normal, yellow is slow, red means no response).',
+            'ログインとログアウトです。見た・評価・感想などの記録は、あなたのAnnictに保存されます。Annictへの接続の状態（緑はふつう、黄は時間がかかっている、赤は応答を受け取れていない）もここで見られます。',
+            'Log in and log out here. Watched, ratings, reviews, and the like are saved to your Annict account. You can also check the connection to Annict (green is normal, yellow is slow, red means no response).',
           ),
         },
         {
           target: '#settings-github',
           title: t('GitHub連携（任意）', 'GitHub sync (optional)'),
           body: t(
-            '連携すると、興味なし・保留・見てない・見たいの印とメモ・見るサービス・Tier表をPCとスマホで共有でき、毎日自動でバックアップされます。',
-            'Once connected, your Not interested, Later, and Haven’t seen marks, Want to watch notes, Where I watch choices, and tier lists are shared between your computer and phone, and backed up automatically every day.',
+            '連携すると、興味なし・保留・見てない・見たいの印とメモ・見るサービス・Tier表をPCとスマホで共有でき、アプリを開いたときに1日1回、自動でバックアップされます。',
+            'Once connected, your Not interested, Later, and Haven’t seen marks, Want to watch notes, Where I watch choices, and tier lists are shared between your computer and phone, and backed up automatically once a day when you open the app.',
           ),
         },
         { target: '#settings-backup', title: t('バックアップ', 'Backup'), body: t('連携しなくても、作品ごとの記録をファイルに書き出せます。', 'Even without connecting, you can export your records per anime to a file.') },
@@ -306,14 +306,14 @@ export function topics(): readonly { id: HelpTopic; title: string; items: readon
         [
           t('並べ替え', 'Sort'),
           t(
-            '好きな順（あなたの評価の高い順。見たの一覧だけ）・人気順・記録順（見た以外の一覧）・放送日順。押している並べ替えをもう一度押すと、向きが逆になります。評価や放送時期の無い作品は最後に並びます。',
-            '“Favorites first” (your highest ratings first; Watched list only), “Popular”, “Date recorded” (all lists except Watched), or “Air date”. Tap the current sort again to reverse the order. Anime with no rating or air date come last.',
+            '好きな順（あなたの評価の高い順。見たの一覧だけ）・おすすめ順（好みの点数の高い順。見たいの一覧だけ）・人気順・記録順（見た以外の一覧）・放送日順。押している並べ替えをもう一度押すと、向きが逆になります。評価や放送時期の無い作品は最後に並びます。',
+            '“Favorites first” (your highest ratings first; Watched list only), “Suggested” (highest taste score first; Want to watch list only), “Popular”, “Date recorded” (all lists except Watched), or “Air date”. Tap the current sort again to reverse the order. Anime with no rating or air date come last.',
           ),
         ],
         [t('編集', 'Edit'), t('一覧のまま、状態や評価を変えられます。', 'Change status or ratings without leaving the list.')],
         [
           t('まとめ', 'Summary'),
-          t('傾向・年間ふり返り・実績です。スマホでは上の「まとめ」から、PCでは左の列から開きます。', 'Trends, Year in review, and Achievements. On a phone, open them from “Summary” at the top; on a computer, from the left column.'),
+          t('傾向・年間ふり返り・実績・Tier表です。スマホでは上の「まとめ」から、PCでは左の列から開きます。', 'Trends, Year in review, Achievements, and Tier list. On a phone, open them from “Summary” at the top; on a computer, from the left column.'),
         ],
         [
           t('傾向', 'Trends'),
@@ -404,12 +404,12 @@ export function topics(): readonly { id: HelpTopic; title: string; items: readon
       id: 'settings',
       title: t('設定', 'Settings'),
       items: [
-        [t('Annict連携', 'Annict connection'), t('ログインとログアウトです。記録はすべてあなたのAnnictに保存されます。', 'Log in and log out here. All your records are saved to your Annict account.')],
+        [t('Annict連携', 'Annict connection'), t('ログインとログアウトです。見た・評価・感想などの記録は、あなたのAnnictに保存されます。', 'Log in and log out here. Watched, ratings, reviews, and the like are saved to your Annict account.')],
         [
           t('GitHub連携（任意）', 'GitHub sync (optional)'),
           t(
-            '興味なし・保留・見てない・見たいの印とメモ・見るサービス・Tier表をPCとスマホで共有でき、毎日自動でバックアップされます。Anipairは記録を置く運営サーバーを持たないので、あなた自身のGitHubのリポジトリに保存します。連携しなくても、記録をファイルに書き出せます。',
-            'Your Not interested, Later, and Haven’t seen marks, Want to watch notes, Where I watch choices, and tier lists are shared between your computer and phone, and backed up automatically every day. Anipair has no server of its own to hold them, so they’re saved in your own GitHub repository. Even without connecting, you can export your records to a file.',
+            '興味なし・保留・見てない・見たいの印とメモ・見るサービス・Tier表をPCとスマホで共有でき、アプリを開いたときに1日1回、自動でバックアップされます。Anipairは記録を置く運営サーバーを持たないので、あなた自身のGitHubのリポジトリに保存します。連携しなくても、記録をファイルに書き出せます。',
+            'Your Not interested, Later, and Haven’t seen marks, Want to watch notes, Where I watch choices, and tier lists are shared between your computer and phone, and backed up automatically once a day when you open the app. Anipair has no server of its own to hold them, so they’re saved in your own GitHub repository. Even without connecting, you can export your records to a file.',
           ),
         ],
         [
@@ -450,8 +450,8 @@ export function common(): readonly Item[] {
     [
       t('閉じる', 'Closing'),
       t(
-        '右上の ✕ で閉じます（スマホで片手操作を左手にしていれば左上）。スマホでは下へ払っても閉じます。作品の詳細は右へ払っても、下から出る小さな画面は空いている所をタップしても閉じます。PCではEscでも閉じます。',
-        'Close with the ✕ at the top right (top left if you set one-handed mode to the left on a phone). On a phone you can also swipe down. Anime details also close with a swipe to the right, and small sheets that slide up from the bottom close when you tap an empty area. On a computer, press Esc.',
+        '右上の ✕ で閉じます（スマホで片手操作を左手にしていれば左上）。スマホでは下へ払っても閉じます。作品の詳細は右へ払っても、下から出る小さな画面は空いている所をタップしても閉じます（文を書く欄がある画面は、書きかけを守るため閉じません）。PCではEscでも閉じます。',
+        'Close with the ✕ at the top right (top left if you set one-handed mode to the left on a phone). On a phone you can also swipe down. Anime details also close with a swipe to the right, and small sheets that slide up from the bottom close when you tap an empty area (sheets with a text field don’t, to protect what you’ve typed). On a computer, press Esc.',
       ),
     ],
     [

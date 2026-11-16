@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest'
-import { allSeasonSlugs, isLateNight, isStale, loadFeats, loadSeasonTops, parseSeasonTops, parseTitlesState, recordFeat, recordTimeFeats, rememberSeasonTop } from './achievementStore'
+import { allSeasonSlugs, fixDecadeEarned, isLateNight, isStale, loadFeats, loadSeasonTops, loadTitlesState, saveTitlesState, parseSeasonTops, parseTitlesState, recordFeat, recordTimeFeats, rememberSeasonTop } from './achievementStore'
 
 afterEach(() => localStorage.clear())
 
@@ -62,5 +62,24 @@ describe('titles state and feats', () => {
     expect(isLateNight(new Date('2026-10-04T02:00:00'))).toBe(true)
     expect(isLateNight(new Date('2026-10-04T03:59:00'))).toBe(true)
     expect(isLateNight(new Date('2026-10-04T04:00:00'))).toBe(false)
+  })
+})
+
+describe('fixDecadeEarned', () => {
+  it('rebuilds only the decade titles once, keeping the others', () => {
+    saveTitlesState({ equipped: null, seen: [], awakened: true, earned: ['decade-2020', 'decade-2010', 'season-first'] })
+    expect(fixDecadeEarned(['decade-2010', 'season-first'])).toBe(true)
+    expect([...(loadTitlesState().earned ?? [])].sort()).toEqual(['decade-2010', 'season-first'])
+    // 2回目は何もしない（通常どおり手放さない）
+    saveTitlesState({ ...loadTitlesState(), earned: ['decade-2020'] })
+    expect(fixDecadeEarned([])).toBe(false)
+    expect(loadTitlesState().earned).toEqual(['decade-2020'])
+  })
+
+  it('does not create an earned list on a device that has none', () => {
+    saveTitlesState({ equipped: null, seen: [], awakened: true })
+    expect(fixDecadeEarned(['decade-2020'])).toBe(false)
+    expect(loadTitlesState().earned).toBeUndefined()
+    expect(loadTitlesState().decadeChecked).toBe(true)
   })
 })

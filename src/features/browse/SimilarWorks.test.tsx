@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Media } from '../../lib/shikimori'
 import { SimilarWorks } from './SimilarWorks'
+import { noteMark } from './detail'
 
 const { fetchMedia, fetchSimilar, peekLibrary } = vi.hoisted(() => ({ fetchMedia: vi.fn(), fetchSimilar: vi.fn(), peekLibrary: vi.fn() }))
 vi.mock('../../lib/shikimori', () => ({ fetchMedia, fetchSimilar }))
@@ -56,6 +57,22 @@ describe('SimilarWorks', () => {
 
     fireEvent.click(items[1])
     expect(onOpen).toHaveBeenCalledWith({ kind: 'shiki', media: expect.objectContaining({ idMal: 2 }) })
+  })
+
+  // 2026-11-16 のレビュー Q2: 重ねて開いた詳細で状態を変えても、印の元のライブラリは書く前のままなので、閉じても印が変わらなかった
+  it('shows the state changed in the sheet opened on top, once that sheet closes', async () => {
+    fetchSimilar.mockResolvedValue([2])
+    fetchMedia.mockResolvedValue(mediaMap(media(2)))
+    const library = [{ malAnimeId: '2', state: 'WANNA_WATCH' }]
+    peekLibrary.mockReturnValue(library)
+    const view = render(<SimilarWorks malId={1} opened={null} onOpen={vi.fn()} />)
+    await screen.findByText('題名2')
+    expect(document.querySelector('.similar__mine')?.textContent).toBe('見たい')
+    // 重ねた詳細を開いて「見た」にし、閉じる
+    view.rerender(<SimilarWorks malId={1} opened={{}} onOpen={vi.fn()} />)
+    noteMark(2, 'WATCHED', library)
+    view.rerender(<SimilarWorks malId={1} opened={null} onOpen={vi.fn()} />)
+    expect(document.querySelector('.similar__mine')?.textContent).toBe('見た')
   })
 
   it('shows nothing without a MyAnimeList ID, and nothing when there are no similar works or the lookup fails', async () => {

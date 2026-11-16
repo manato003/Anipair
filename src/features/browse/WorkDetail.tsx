@@ -24,7 +24,7 @@ import { STATE_OPTIONS, formatDateTime, optionState } from '../records/recordLis
 import { EpisodeRecorder } from '../records/EpisodeRecords'
 import { useEpisodes, type EpisodesController } from '../records/useEpisodes'
 import { CreditWorks, type CreditTarget } from './CreditWorks'
-import { STATUS_LABEL, mainStaff, seriesFacts, studioFor, withCopyrightMark, safeHttpUrl, workMeta, xUrl } from './detail'
+import { STATUS_LABEL, mainStaff, noteMark, seriesFacts, studioFor, withCopyrightMark, safeHttpUrl, workMeta, xUrl } from './detail'
 import { RelatedDetail, type RelatedTarget } from './RelatedDetail'
 import { RelatedWorks } from './RelatedWorks'
 import { SimilarWorks } from './SimilarWorks'
@@ -165,6 +165,8 @@ export function WorkDetail(
     setState(value === 'NO_STATE' ? null : value)
     setStateAt(value === 'NO_STATE' ? null : new Date().toISOString())
     props.onChange({ state: value === 'NO_STATE' ? null : value })
+    // 参加作品・似た作品の一覧の印にも映す（印の元のライブラリは、読み直すまで書く前のまま）
+    noteMark(malIdOf(work), value === 'NO_STATE' ? null : value, peekLibrary())
     props.enqueue(t(`「${shownTitle}」の状態`, `Status for “${shownTitle}”`), () => updateStatus(token, work.id, value), [{ kind: 'status', workId: work.id, state: value, idMal: idMalOf(work.malAnimeId) }])
   }
 
@@ -181,13 +183,15 @@ export function WorkDetail(
     const becomesWatched = value !== null && state !== 'WATCHED'
     touched.current = true
     setRating(value)
-    setReviewAt(value ? { at: new Date().toISOString(), withText: false } : null)
+    // 本文のある感想は評価を変えても残るので、「感想を付けた」の文のままにする
+    setReviewAt((prev) => (value ? { at: new Date().toISOString(), withText: prev?.withText ?? false } : null))
     if (becomesWatched) {
       stateTouched.current = true
       setState('WATCHED')
       setStateAt(new Date().toISOString())
     }
     props.onChange({ rating: value, ...(becomesWatched ? { state: 'WATCHED' as const } : {}) })
+    if (becomesWatched) noteMark(malIdOf(work), 'WATCHED', peekLibrary())
     props.enqueue(
       t(`「${shownTitle}」の評価`, `Rating for “${shownTitle}”`),
       async () => {
@@ -622,7 +626,7 @@ export function WorkDetail(
                 />
 
                 {/* 似た作品: Shikimori の似た作品を表紙の棚で（棚が画面に近づいてから読む） */}
-                <SimilarWorks malId={mal} onOpen={setRelated} />
+                <SimilarWorks malId={mal} opened={related} onOpen={setRelated} />
               </section>
             )}
           </div>

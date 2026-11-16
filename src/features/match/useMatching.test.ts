@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LibraryEntry, RatingState } from '../../lib/annict'
 import type { GithubConnection } from '../../lib/github'
 import type { Media } from '../../lib/shikimori'
+import { loadWriteJournalRaw, saveAnnictToken } from '../../lib/storage'
 
 const calls: string[] = []
 // 共有の感想の控えへの出し入れ（送信の順番とは別に見る）
@@ -11,6 +12,8 @@ const remembered: string[] = []
 let library: LibraryEntry[] = []
 let ratings = new Map<number, RatingState>()
 let resolvable = new Set<number>()
+// 提案を作ったあとに、別の端末で記録していた候補（MyAnimeList の ID → Annict で探した時点の状態）
+const recordedElsewhere = new Map<number, 'WATCHING' | 'WATCHED'>()
 // 立てると、同期がこの Promise の解決まで止まる（同期の最中の変更を試すため）
 let syncGate: Promise<void> | null = null
 
@@ -80,7 +83,7 @@ vi.mock('../../lib/myReviews', () => ({
 }))
 vi.mock('./resolve', () => ({
   resolveAnnictWork: vi.fn(async (_t: string, m: Media) =>
-    resolvable.has(m.idMal) ? { id: `A${m.idMal}`, annictId: m.idMal, title: '', malAnimeId: String(m.idMal) } : null,
+    resolvable.has(m.idMal) ? { id: `A${m.idMal}`, annictId: m.idMal, title: '', malAnimeId: String(m.idMal), viewerStatusState: recordedElsewhere.get(m.idMal) ?? 'NO_STATE' } : null,
   ),
 }))
 vi.mock('./passStore', async (orig) => ({
@@ -100,12 +103,14 @@ vi.mock('./dislikeStore', async (orig) => {
 const { useMatching } = await import('./useMatching')
 const { syncPasses } = await import('./passStore')
 const { resolveAnnictWork } = await import('./resolve')
+const { updateStatus } = await import('../../lib/annict')
 const { fetchMedia: fetchMediaByMal } = await import('../../lib/shikimori')
 
 beforeEach(() => {
   calls.length = 0
   remembered.length = 0
   reviewCache.clear()
+  recordedElsewhere.clear()
   syncGate = null
   vi.mocked(resolveAnnictWork).mockClear()
   localStorage.clear()
@@ -151,15 +156,83 @@ describe('useMatching', () => {
     const hook = await ready()
     act(() => hook.result.current.answer({ kind: 'wanna' }))
     expect(hook.result.current.current?.media.idMal).toBe(11)
+    await settle(hook) // 答えを送り終えてから取り消す（送る前の取り消しは、答えの送信ごと取りやめる）
     act(() => hook.result.current.undo())
     await settle(hook)
     expect(calls).toEqual(['status A10 WANNA_WATCH', 'status A10 NO_STATE'])
+  })
+
+  // 2026-11-12 の通しレビュー N4: 送る前に取り消したら、何も書かない・控えにも残さない
+  it('undoing before the answer was sent cancels it: nothing is written and nothing is left in the journal', async () => {
+    const hook = await ready()
+    act(() => hook.result.current.answer({ kind: 'wanna' }))
+    act(() => hook.result.current.undo())
+    await settle(hook)
+    expect(calls).toEqual([])
+    expect(loadWriteJournalRaw()).toBeNull()
+  })
+
+  // 2026-11-13 のレビュー O1: もう一度答えたとき、送信中の取り消しは「頼み直された」扱いになる。その答えを送る前に取り消すと、
+  // 先の取り消しが失敗しても一覧にも控えにも残らず、Annict に最初の答えが残っていた。取りやめるときに、先の取り消しを頼み直す
+  it('undoing an unsent answer asks again for the undo it had replaced, so the first answer does not stay on Annict when that undo fails', async () => {
+    saveAnnictToken('annict')
+    const hook = await ready()
+    act(() => hook.result.current.answer({ kind: 'wanna' }))
+    await settle(hook)
+    // 取り消しの書き込みが、送信中のまま止まって、あとで失敗する
+    let fail: (() => void) | undefined
+    vi.mocked(updateStatus).mockImplementationOnce(() => new Promise<never>((_, reject) => (fail = () => reject(new Error('HTTP 502')))))
+    act(() => hook.result.current.undo())
+    await waitFor(() => expect(fail).toBeDefined())
+    act(() => hook.result.current.answer({ kind: 'wanna' }))
+    act(() => hook.result.current.undo())
+    expect(hook.result.current.current?.media.idMal).toBe(10)
+    await act(async () => fail!())
+    await settle(hook)
+    // もう一度の答えは何も書かない。先の取り消しの行き先（未設定）は、頼み直した分が書く
+    expect(calls).toEqual(['status A10 WANNA_WATCH', 'status A10 NO_STATE'])
+    expect(hook.result.current.failed).toEqual([])
+    expect(loadWriteJournalRaw()).toBeNull()
+  })
+
+  // 2026-11-13 のレビュー O2: 取り消した答えの失敗は、一覧に出さない・残さない
+  it('an answer undone before it was sent is not listed as failed when the work cannot be found on Annict', async () => {
+    resolvable = new Set()
+    const hook = await ready()
+    act(() => hook.result.current.answer({ kind: 'wanna' }))
+    act(() => hook.result.current.undo())
+    await settle(hook)
+    expect(hook.result.current.failed).toEqual([])
+  })
+
+  it('undoing an answer that failed before it was sent takes its failure off the list', async () => {
+    resolvable = new Set()
+    const hook = await ready()
+    act(() => hook.result.current.answer({ kind: 'wanna' }))
+    await settle(hook)
+    expect(hook.result.current.failed).toHaveLength(1)
+    act(() => hook.result.current.undo())
+    await settle(hook)
+    expect(hook.result.current.failed).toEqual([])
+    expect(calls).toEqual([])
+    expect(loadWriteJournalRaw()).toBeNull()
+  })
+
+  it('undo puts back the status a candidate already had, when it was recorded on another device after the suggestions were made', async () => {
+    recordedElsewhere.set(10, 'WATCHING')
+    const hook = await ready()
+    act(() => hook.result.current.answer({ kind: 'wanna' }))
+    await settle(hook) // 答えを送り終えてから取り消す（送る前の取り消しは、答えの送信ごと取りやめる）
+    act(() => hook.result.current.undo())
+    await settle(hook)
+    expect(calls).toEqual(['status A10 WANNA_WATCH', 'status A10 WATCHING'])
   })
 
   it('"watching" sets WATCHING on the Annict work; undo clears it', async () => {
     const hook = await ready()
     act(() => hook.result.current.answer({ kind: 'watching' }))
     expect(hook.result.current.current?.media.idMal).toBe(11)
+    await settle(hook) // 答えを送り終えてから取り消す（送る前の取り消しは、答えの送信ごと取りやめる）
     act(() => hook.result.current.undo())
     await settle(hook)
     expect(calls).toEqual(['status A10 WATCHING', 'status A10 NO_STATE'])
@@ -169,6 +242,7 @@ describe('useMatching', () => {
     const hook = await ready()
     act(() => hook.result.current.answer({ kind: 'stop' }))
     expect(hook.result.current.current?.media.idMal).toBe(11)
+    await settle(hook) // 答えを送り終えてから取り消す（送る前の取り消しは、答えの送信ごと取りやめる）
     act(() => hook.result.current.undo())
     await settle(hook)
     expect(calls).toEqual(['status A10 STOP_WATCHING', 'status A10 NO_STATE'])
@@ -179,6 +253,7 @@ describe('useMatching', () => {
     act(() => hook.result.current.answer({ kind: 'rate', rating: 'GOOD' }))
     act(() => hook.result.current.answer({ kind: 'watched' }))
     expect(hook.result.current.done).toBe(true)
+    await settle(hook) // 答えを送り終えてから取り消す（送る前の取り消しは、答えの送信ごと取りやめる）
     act(() => hook.result.current.undo())
     act(() => hook.result.current.undo())
     await settle(hook)

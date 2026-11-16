@@ -116,6 +116,10 @@ function tierDevProxy(): Plugin {
 }
 
 // https://vite.dev/config/
+// テストの時間帯は日本に固定する（jstNote() などが端末の時間帯を読むので、CI（UTC）でも手元と同じ結果にする。
+// 日本の外の表示は jstNote('America/New_York') のように引数で渡して試す）
+if (process.env.VITEST) process.env.TZ = 'Asia/Tokyo'
+
 export default defineConfig({
   plugins: [react(), shikiDevProxy(), feedbackDevProxy(), tierDevProxy()],
   define: {

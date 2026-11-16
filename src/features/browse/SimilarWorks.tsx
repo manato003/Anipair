@@ -19,12 +19,14 @@ const NOISE_FORMATS = new Set(['PV', 'CM', 'MUSIC'])
 
 type Shelf = { kind: 'idle' } | { kind: 'done'; works: Media[] } | { kind: 'error' }
 
-export function SimilarWorks(props: { malId: number | null; onOpen: (target: RelatedTarget) => void }) {
-  const { malId } = props
+// opened: 重ねて開いている詳細（開閉のたびに印を作り直し、そこで変えた状態を映す）
+export function SimilarWorks(props: { malId: number | null; opened?: unknown; onOpen: (target: RelatedTarget) => void }) {
+  const { malId, opened } = props
   // 棚の位置が画面の下 300px 以内に来たら読み込む
   const [ref, near] = useNearScreen<HTMLDivElement>()
   const [shelf, setShelf] = useState<{ malId: number; shelf: Shelf } | null>(null)
-  const mine = useMemo(() => marksByMal(peekLibrary()), [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const mine = useMemo(() => marksByMal(peekLibrary()), [opened])
 
   useEffect(() => {
     if (!near || !malId) return
@@ -34,7 +36,7 @@ export function SimilarWorks(props: { malId: number | null; onOpen: (target: Rel
       .then(
         (list) => {
           if (cancelled) return
-          const works = list.filter((m) => m.idMal !== malId && !NOISE_FORMATS.has(m.format ?? '')).slice(0, LIMIT)
+          const works = list.filter((m) => m.idMal !== malId && !m.isAdult && !NOISE_FORMATS.has(m.format ?? '')).slice(0, LIMIT)
           setShelf({ malId, shelf: { kind: 'done', works } })
         },
         () => !cancelled && setShelf({ malId, shelf: { kind: 'error' } }),

@@ -59,6 +59,8 @@ export function Autocomplete<T>(props: {
     if (props.onValueChange) props.onValueChange(value)
     else setOwn(value)
     setOpen(true)
+    // 語が替わったら、前の語の候補で選んでいた行は忘れる（答えが来る前に Enter で、前の語の候補が選ばれないように）
+    setAt(-1)
     stopTimer()
     const query = value.trim()
     const mine = ++seq.current

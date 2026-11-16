@@ -49,6 +49,8 @@ export function syncTiers(conn: GithubConnection): Promise<TierStore> {
     serialize: serializeTierStore,
     loadLocal: loadLocalTiers,
     saveLocal,
+    // 表も、消した表の印も無く、GitHub にファイルも無いなら、画面を開いただけではコミットしない
+    empty: (merged) => merged.tables.length === 0 && merged.removed.length === 0,
     message: (merged) => t(`Tier表を更新（${merged.tables.length}つ）`, `Update tier lists (${merged.tables.length})`),
   })
 }

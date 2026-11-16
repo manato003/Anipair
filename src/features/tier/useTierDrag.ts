@@ -36,6 +36,8 @@ interface Pending {
 interface Active {
   id: number
   tile: HTMLElement
+  // 掴んだ指（マウス）。ほかの指・手のひらの動きと離す操作は見ない
+  pointerId: number
   ghost: HTMLElement
   marker: HTMLElement
   dx: number
@@ -135,7 +137,7 @@ export function useTierDrag(onDrop: (id: number, drop: TierDrop) => void) {
       document.body.classList.add('is-tierdragging')
       tile.classList.add('is-dragging')
       if (pending.touch) navigator.vibrate?.(10)
-      active = { id, tile, ghost, marker, ...grip(pending, r), x0: pending.x0, y0: pending.y0, x: pending.x0, y: pending.y0, drop: null, zone: null, frame: 0 }
+      active = { id, tile, pointerId: pending.pointerId, ghost, marker, ...grip(pending, r), x0: pending.x0, y0: pending.y0, x: pending.x0, y: pending.y0, drop: null, zone: null, frame: 0 }
       pending = null
       update()
       active.frame = requestAnimationFrame(scrollLoop)
@@ -166,21 +168,28 @@ export function useTierDrag(onDrop: (id: number, drop: TierDrop) => void) {
       if (commit && done.drop) onDropRef.current(done.id, done.drop)
     }
 
+    // 掴んでいる（掴みかけている）指の操作か
+    const mine = (e: PointerEvent) => e.pointerId === (active?.pointerId ?? pending?.pointerId)
     function onMove(e: PointerEvent) {
+      if (!mine(e)) return
       if (active) {
         active.x = e.clientX
         active.y = e.clientY
         update()
         return
       }
-      if (!pending || e.pointerId !== pending.pointerId) return
+      if (!pending) return
       const moved = Math.hypot(e.clientX - pending.x0, e.clientY - pending.y0)
       if (pending.touch) {
         if (moved > TOUCH_SLOP) end(false)
       } else if (moved > MOUSE_SLOP) begin()
     }
-    const onUp = () => end(true)
-    const onCancel = () => end(false)
+    const onUp = (e: PointerEvent) => {
+      if (mine(e)) end(true)
+    }
+    const onCancel = (e: PointerEvent) => {
+      if (mine(e)) end(false)
+    }
 
     const onDown = (e: PointerEvent) => {
       if (e.button !== 0 || pending || active) return

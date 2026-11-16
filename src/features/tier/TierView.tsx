@@ -137,7 +137,23 @@ export function TierView(props: {
 
   // GitHub との同期（開いたとき・変えて少し経ったとき・離れたとき）
   const { github, active } = props
-  const sync = useMemo(() => (github ? async () => setStore(await syncTiers(github)) : null), [github])
+  // 同期が1回済んだ（か失敗した）つなぎ先。済むまでは、評価から自動で置いた結果（settle）を画面に出すだけで保存しない
+  const [syncedOnce, setSyncedOnce] = useState<GithubConnection | null>(null)
+  // 同期のあいだに動かした変更は端末の控えに入るので、戻り値ではなく控えを読み直す（戻り値は待つ前の内容で、画面を巻き戻す）
+  const sync = useMemo(
+    () =>
+      github
+        ? async () => {
+            try {
+              await syncTiers(github)
+              setStore(loadLocalTiers())
+            } finally {
+              setSyncedOnce(github)
+            }
+          }
+        : null,
+    [github],
+  )
   const syncLater = useCoalescedTask(props.enqueue, t('Tier表をGitHubに保存', 'Saving tier lists to GitHub'), sync)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const flush = useRef<(() => void) | null>(null)
@@ -176,9 +192,12 @@ export function TierView(props: {
   useEffect(() => {
     changeRef.current = change
   })
+  // 自動で置いた結果を保存する。GitHub につないでいるときは、開いたときの同期が済むまで待つ。
+  // settle は日時を今にするので、先に保存すると、古い控えの並びが「新しい方」として GitHub の並び（ほかの端末の変更）に勝ってしまう
+  const settledReady = !github || syncedOnce === github
   useEffect(() => {
-    if (table && table !== stored) changeRef.current(table)
-  }, [table, stored])
+    if (settledReady && table && table !== stored) changeRef.current(table)
+  }, [table, stored, settledReady])
 
   const newButton = store.tables.length < TABLE_MAX && (
     <button type="button" className="btn" onClick={() => setAsking(true)}>
@@ -608,9 +627,16 @@ function TierSettings(props: {
     setRemoving(false)
     setError(message)
   }
+  // 題名と段の名前は欄から出たときに保存する。打ったまま Esc・「戻る」で閉じると欄から出ないまま消えるので、閉じる前に出す（そこで保存される）
+  const rootRef = useRef<HTMLDivElement>(null)
+  const close = () => {
+    const focused = document.activeElement
+    if (focused instanceof HTMLElement && rootRef.current?.contains(focused)) focused.blur()
+    props.onClose()
+  }
   return (
-    <Sheet label={t('表の設定', 'List settings')} active={props.active} onClose={props.onClose}>
-      <div className="tiersettings">
+    <Sheet label={t('表の設定', 'List settings')} active={props.active} onClose={close}>
+      <div ref={rootRef} className="tiersettings">
         <label className="tiersettings__field">
           <span>{t('題名', 'Title')}</span>
           <input

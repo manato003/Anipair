@@ -55,7 +55,9 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
   const [answeredLog, setAnsweredLog] = useState<FlowPrev[]>([])
   const answer = (a: MatchAnswer) => {
     const card = m.current
-    if (card) setAnsweredLog((log) => [...log, { key: String(card.media.idMal), title: displayTitleOf(card.media), cover: card.media.cover, mark: matchMark(a) }])
+    // 候補が無いとき（待機・読み込み中・最後まで見たあと）はキーで呼ばれても何もしない（案内も使い切らない）
+    if (!card) return
+    setAnsweredLog((log) => [...log, { key: String(card.media.idMal), title: displayTitleOf(card.media), cover: card.media.cover, mark: matchMark(a) }])
     m.answer(a)
     // 押した先が画面に出ないもの（Annict の見たいリスト・この端末だけ）は、初めて押したときに一度だけ知らせる
     if (a.kind === 'wanna') tellOnce('wannaToAnnict', t('「見たい」にした作品は、Annictの見たいリストに入ります。', 'Anime you mark Want to watch go to your Annict Want to watch list.'))

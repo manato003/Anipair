@@ -10,7 +10,7 @@ import { delay } from '../../lib/retry'
 import { blankReview } from '../../lib/reviewOps'
 import { rateNow } from '../../lib/rateNow'
 import type { Cover } from '../../lib/storage'
-import { hasPendingWrites, messageOf, useWriteQueue } from '../../lib/useWriteQueue'
+import { hasPendingWrites, messageOf, noWritesSince, useWriteQueue, writeMark } from '../../lib/useWriteQueue'
 import type { RecordRow } from './recordList'
 
 // ライブラリと自分の感想を読む。感想はブラウズの詳細と共有の控え（myReviews.ts）に差分だけ読み直して入れる
@@ -78,12 +78,15 @@ export function useRecords(token: string, active = true) {
     fullNext.current = false
     ;(async () => {
       try {
+        let mark = writeMark()
         let fetched = await fetchRecords(token, full)
         if (cancelled) return
-        // 前回の内容を見せているあいだに書き込んでいたら、書き込みが済んでから読み直す（画面の先行表示を、書く前の中身で上書きしない）
-        if (hasPendingWrites()) {
+        // 読んでいるあいだに書き込んだ（送信待ちが残っている・始まって終わった）なら、書き込みが済んでから読み直す
+        // （画面の先行表示を、書く前の中身で上書きしない）。読み直すあいだにまた書き込めば、もう一度
+        while (!noWritesSince(mark)) {
           await untilWritesDone(() => cancelled)
           if (cancelled) return
+          mark = writeMark()
           fetched = await fetchRecords(token)
           if (cancelled) return
         }
@@ -124,10 +127,13 @@ export function useRecords(token: string, active = true) {
     let cancelled = false
     ;(async () => {
       try {
+        const mark = writeMark()
         const fetched = await fetchRecords(token)
         // 表紙は端末に控えがあるので、置き換えの時点で表紙が消えないように先に取る
         const covers = await fetchCovers(fetched.library)
-        if (cancelled || hasPendingWrites()) return
+        // 読んでいるあいだに書き込んでいたら（始まって終わった分も）、読んだ中身は書く前のものかもしれないので捨てる。
+        // 画面は書き込みを先に映しているので、そのまま見せる（次に表示したときにまた読み直す）
+        if (cancelled || !noWritesSince(mark)) return
         setRows(toRows(fetched, covers))
       } catch {
         // 裏の読み直しなので、失敗しても今の一覧をそのまま見せる（次に表示したときにまた試す）

@@ -30,7 +30,8 @@ function isTouchDevice(): boolean {
   return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches
 }
 
-export function Keybinds() {
+// active: 設定の画面が見えているか。隠れた（別の画面へ移った）ら、キーの待ちをやめる（次に押したキーが割り当てられないように）
+export function Keybinds({ active = true }: { active?: boolean }) {
   const keymap = useKeymap()
   const keysOn = useKeysOn()
   // キーを押してもらうのを待っている操作
@@ -42,8 +43,10 @@ export function Keybinds() {
     if (moved) setKeymap(getKeymap())
   }, [moved])
 
+  if (!active && waiting) setWaiting(null)
+
   useEffect(() => {
-    if (!waiting) return
+    if (!waiting || !active) return
     const onKey = (e: KeyboardEvent) => {
       e.preventDefault()
       e.stopPropagation()
@@ -70,7 +73,7 @@ export function Keybinds() {
     // 他の画面のショートカットより先に受け取る
     window.addEventListener('keydown', onKey, { capture: true })
     return () => window.removeEventListener('keydown', onKey, { capture: true })
-  }, [waiting, keymap])
+  }, [waiting, keymap, active])
 
   const isDefault = KEY_ACTIONS.every(({ action }) => keymap[action] === DEFAULT_KEYMAP[action])
 

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { applyEffectLevel, loadEffectLevel, saveEffectLevel, type EffectLevel } from '../../lib/storage'
+import { useEffect, useState } from 'react'
+import { applyEffectLevel, loadEffectLevel, saveEffectLevel, subscribeDisplayPrefs, type EffectLevel } from '../../lib/storage'
 import { Choices } from '../../components/QuickSettings'
 import { EFFECTS } from '../../lib/displayPrefs'
 import { t } from '../../lib/i18n'
@@ -9,6 +9,8 @@ import { Section, SettingRow } from './Section'
 // 演出の強さ（10件ごとの表示・クールの踏破・称号の覚醒）。何百枚も答える人ほど、繰り返しの演出に飽きるので選べるようにする
 export function EffectsBlock() {
   const [level, setLevel] = useState<EffectLevel>(loadEffectLevel)
+  // コントロールセンターで変えたときも、押されている印を追いかける
+  useEffect(() => subscribeDisplayPrefs(() => setLevel(loadEffectLevel())), [])
   const choose = (next: EffectLevel) => {
     setLevel(next)
     saveEffectLevel(next)

@@ -903,10 +903,6 @@ body.is-tierdragging * {
   background: color-mix(in srgb, var(--paper) 10%, transparent);
 }
 
-.tierpool__note {
-  margin: 0 0 8px;
-}
-
 /* 「一覧へ」で流したとき、上の見出しの帯に隠れないように */
 .tierpool {
   scroll-margin-top: 88px;

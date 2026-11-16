@@ -146,6 +146,7 @@ export function syncBroadcastPrefs(conn: GithubConnection): Promise<BroadcastPre
     parse: parseBroadcastPrefs,
     merge: later,
     same: sameChoice,
+    empty: (p) => !hasChoice(p),
     serialize: (p) => ({ version: 1, ...p }),
     loadLocal: snapshot,
     saveLocal: (p) => {
@@ -353,9 +354,14 @@ export function formatDay(at: Date, now: Date): string {
   return t(`${md}(${weekdayShort(a.getUTCDay())})`, `${md} (${weekdayShort(a.getUTCDay())})`)
 }
 
-// 「今日 23:30」「明日 0:00」「10/18(日) 0:00」
+// 端末の時間帯が日本でないときだけ、時刻のあとに添える（時刻は日本時間で出すため）
+export function jstNote(zone: string = Intl.DateTimeFormat().resolvedOptions().timeZone): string {
+  return zone === 'Asia/Tokyo' || zone === 'Japan' ? '' : t(' 日本時間', ' JST')
+}
+
+// 「今日 23:30」「明日 0:00」「10/18(日) 0:00」（日本の外の端末では「日本時間」を添える）
 export function formatBroadcast(at: Date, now: Date): string {
-  return `${formatDay(at, now)} ${formatTime(at)}`
+  return `${formatDay(at, now)} ${formatTime(at)}${jstNote()}`
 }
 
 // ── 今週の放送予定（見てるの作品の、これから7日の放送を日ごとに） ──

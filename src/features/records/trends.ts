@@ -283,12 +283,14 @@ export function topPeople(
     max,
   )
   if (!credits) return { casts: null, directors: null, studios }
+  // 1つの作品で2役（監督と総監督など）をしている人は、その作品を1本と数える
+  const uniq = <P extends { annictId: number }>(people: readonly P[]): P[] => [...new Map(people.map((p) => [p.annictId, p])).values()]
   const casts = rank(
-    w.flatMap((r) => (credits.get(r.entry.workId)?.casts ?? []).map((p) => ({ key: String(p.annictId), name: personName(p), ja: p.name, rating: ratingOf(r) }))),
+    w.flatMap((r) => uniq(credits.get(r.entry.workId)?.casts ?? []).map((p) => ({ key: String(p.annictId), name: personName(p), ja: p.name, rating: ratingOf(r) }))),
     max,
   )
   const directors = rank(
-    w.flatMap((r) => (credits.get(r.entry.workId)?.directors ?? []).map((p) => ({ key: String(p.annictId), name: personName(p), ja: p.name, rating: ratingOf(r) }))),
+    w.flatMap((r) => uniq(credits.get(r.entry.workId)?.directors ?? []).map((p) => ({ key: String(p.annictId), name: personName(p), ja: p.name, rating: ratingOf(r) }))),
     max,
   )
   return { casts, directors, studios }

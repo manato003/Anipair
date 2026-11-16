@@ -135,10 +135,6 @@
   margin: 0 auto;
 }
 
-.scene-art--small {
-  width: min(100%, 200px);
-}
-
 /* 空・うまくいかなかった・やりきった・これから見つける（components/Empty.tsx） */
 .empty__art {
   width: min(100%, 220px);

@@ -2,6 +2,26 @@
 
 Changes to Anipair, newest first. Your records and the data saved on your device carry over from version to version.
 
+## v0.29.4 — 2026-11-16
+
+Fixes a rating being left on Annict after rating and undoing in quick succession, and the marks on the lists in anime details.
+
+- On the Rate screen, rating and undoing several times in quick succession could leave the first rating on Annict even though you had undone it. This is fixed
+- After you change a status in anime details, the “Watched” and “Want to watch” marks on the lists of credits and similar anime now show the change right away
+
+## v0.29.3 — 2026-11-16
+
+Fixes for decade titles, undo, and syncing across devices, plus help text that now matches how the app behaves.
+
+- Fixed decade titles being unlocked by mistake while lists were still loading, and being taken back after unlocking. The name of the title you have equipped now follows the current language, and a title whose condition no longer holds is shown as not equipped
+- Undoing an answer before it is sent now acts as if you never made it, and nothing is sent. If an undo does not reach the server, the answer returns to its value from before you answered. A status you set on another device is no longer lost
+- After a sync the screen no longer rolls back to an earlier state, and a write that finished while data was loading is no longer overwritten by the older data
+- The automatic layout when you open a tier list no longer overwrites a reorder made on another device. Tier list settings are saved even if you close the sheet while typing
+- Sheets with a text field no longer close when you tap an empty area inside the sheet, to protect what you have typed (swipe down or tap the dimmed area outside to close). Unlinking GitHub now asks for confirmation
+- A failed load of your trends no longer shows an empty page
+- Adult titles are excluded from related and similar anime in anime details. On devices outside Japan, broadcast times now carry a “Japan time” note
+- The help and FAQ text now match the current behavior. Automatic backups are described as “once a day, when you open the app”
+
 ## v0.29.2 — 2026-11-10
 
 Fixes for tier list share links and sync, plus limits that stop a single connection from overusing the service.
