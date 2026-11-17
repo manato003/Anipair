@@ -2,6 +2,12 @@
 
 Changes to Anipair, newest first. Your records and the data saved on your device carry over from version to version.
 
+## v0.29.5 — 2026-11-17
+
+The season picker panel is now easier to close with the keyboard.
+
+- After opening the season picker, pressing Esc closes it even if you have tabbed out of the panel
+
 ## v0.29.4 — 2026-11-16
 
 Fixes a rating being left on Annict after rating and undoing in quick succession, and the marks on the lists in anime details.

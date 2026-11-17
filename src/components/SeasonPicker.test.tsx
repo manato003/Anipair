@@ -80,6 +80,13 @@ describe('SeasonPicker', () => {
     expect(onChange).not.toHaveBeenCalled()
   })
 
+  it('closes on Esc even when focus has left the panel', () => {
+    setup({ year: 2020, name: 'spring' })
+    openPicker()
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
   it('stays open while the year list scrolls, and closes when the page scrolls', () => {
     setup({ year: 2020, name: 'spring' })
     openPicker()

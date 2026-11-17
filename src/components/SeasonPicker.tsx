@@ -91,10 +91,16 @@ export function SeasonPicker({ value, min, max, onChange, onPrevious, onNext }: 
       if (!(e.target instanceof Node && panelRef.current?.contains(e.target))) close(false)
     }
     const onResize = () => close(false)
+    // Tab でパネルの外へ出たあとの Esc（パネルの中の Esc は onPanelKey が止める）
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === 'Escape') close(false)
+    }
+    document.addEventListener('keydown', onKey)
     document.addEventListener('pointerdown', onDown, true)
     window.addEventListener('scroll', onScroll, true)
     window.addEventListener('resize', onResize)
     return () => {
+      document.removeEventListener('keydown', onKey)
       document.removeEventListener('pointerdown', onDown, true)
       window.removeEventListener('scroll', onScroll, true)
       window.removeEventListener('resize', onResize)
