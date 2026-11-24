@@ -80,14 +80,14 @@ function mediaWord(media: string): string {
   }
 }
 
-// 分からない項目は省く（詳細を読む前のシートは、手元にある項目だけで出す）。日本語は「2026年秋 TV 12話」、英語は「Fall 2026 · TV · 12 episodes」
+// 分からない項目は省く（詳細を読む前のシートは、手元にある項目だけで出す）。日本語は「2026年 秋 · TV · 12話」、英語は「Fall 2026 · TV · 12 episodes」
 export function workMeta(w: { seasonYear?: number | null; seasonName?: string | null; media?: string }, episodes?: number): string {
   const season = w.seasonYear
-    ? t(`${w.seasonYear}年${w.seasonName ? seasonWord(w.seasonName) : ''}`, `${w.seasonName ? `${seasonWord(w.seasonName)} ` : ''}${w.seasonYear}`)
+    ? t(`${w.seasonYear}年${w.seasonName ? ` ${seasonWord(w.seasonName)}` : ''}`, `${w.seasonName ? `${seasonWord(w.seasonName)} ` : ''}${w.seasonYear}`)
     : ''
   const media = w.media ? mediaWord(w.media) : ''
   const parts = [season, media, episodes ? t(`${episodes}話`, plural(episodes, 'episode', 'episodes')) : '']
-  return parts.filter(Boolean).join(t(' ', ' · '))
+  return parts.filter(Boolean).join(' · ')
 }
 
 // 画面での状態の名前。「途中で見るのをやめた」はアプリ全体で「視聴中断」の1つだけにする（どちらを押すか迷わせないため）。

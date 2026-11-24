@@ -526,7 +526,8 @@ kbd {
   }
 }
 
-/* 一度だけの知らせは画面の上に。スマホでは答えるボタンやシートの操作が下に集まり、下に出すと作品名やボタンに重なる。シートより手前 */
+/* 一度だけの知らせは画面の上に。スマホでは答えるボタンやシートの操作が下に集まり、下に出すと作品名やボタンに重なる。シートより手前。
+   スマホでは TipToast.tsx が、見出しの行を隠さないよう、その下に置き直す */
 .tip-toast {
   top: calc(10px + env(safe-area-inset-top));
   bottom: auto;
@@ -1413,7 +1414,6 @@ kbd {
   text-align: center;
 }
 
-/* 2回目からの案内。読まなくても邪魔にならないよう、地の色に近い小さな文字だけにする */
 /* 動きを減らす（端末の設定か、設定の「動き」。lib/theme.ts が :root に data-motion を付ける） */
 /* 受け皿: 部品ごとに止め忘れても、動きと移ろいは一瞬で終える（終わった形で止まる。終わりの合図は届く）。
    わざと残すもの（読み込み中の印・称号の知らせ・保存中の札。明るさだけをゆっくり変える）は除く。それぞれの止め方は部品の近くに書く */
@@ -1607,6 +1607,24 @@ input[type='radio'] {
   font-variant-numeric: tabular-nums;
 }
 
+/* 真ん中に大きく出す読み込み中（一覧いっぱい・評価とマッチングの表紙の場所）は、残り時間を次の行に置く。
+   記録の件数（「600 / 1,905」）が増えるたびに折り返しの位置が変わって字が跳ねたり、
+   「もうすぐ／終わります」と途中で折れたりしないように（2026-11-19、Cの案 C1） */
+.flow__loading .loading {
+  justify-content: center;
+  text-align: center;
+  text-wrap: balance;
+}
+
+:is(.loading--block, .flow__loading) .loading__time {
+  display: block;
+  margin-left: 0;
+}
+
+:is(.loading--block, .flow__loading) .loading__sep {
+  display: none;
+}
+
 .loading__slow {
   flex-basis: 100%;
   font-size: 0.75rem;
@@ -1740,7 +1758,7 @@ input[type='radio'] {
 
 .bell__count--urgent {
   background: var(--danger);
-  color: #fff;
+  color: var(--bg-bot);
 }
 
 /* コントロールセンター: 知らせのカードと、設定への近道 */

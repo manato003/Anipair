@@ -393,7 +393,7 @@ describe('Settings about block', () => {
     expect(text).toContain('運営サーバーに、利用者の記録やトークンは置きません。トークンはこの端末のブラウザに保存します')
     expect(text).toContain('サーバーで動くのは、ログインの受け渡し・Shikimoriへの中継・問い合わせの受け付け・Tier表の共有のリンクの4つの処理だけです')
     expect(text).toContain('問い合わせの内容は送ったときだけ開発者に届きます（公開はされません）')
-    expect(text).toContain('通信先はAnnict・Shikimori・Wikipedia・Google Fontsです（英語の画面では、声優・スタッフの英語名を引くためにWikidataも）。Shikimoriの作品データは上に書いたサーバーの処理（Vercel）を通して受け取ります。その処理はShikimoriの公開データを控えたり、MyAnimeListとAnnictで同じ作品を指すIDの組（公開されている作品のIDどうし）を覚えたり、問い合わせの回数を数えたりするために、Upstash（Redis）を使います（利用者の情報は置きません）。GitHubと連携した場合は、GitHubにも送信します')
+    expect(text).toContain('通信先はAnnict・Shikimori・Wikipedia・Google Fontsです（英語の画面では、声優・スタッフの英語名を引くためにWikidataも）。Shikimoriの作品データは上に書いたサーバーの処理（Vercel）を通して受け取ります。その処理はShikimoriの公開データを控えたり、MyAnimeListとAnnictで同じ作品を指すIDの組（公開されている作品のIDどうし）を覚えたり、問い合わせの回数を数えたりするために、Upstash（Redis）を使います（利用者の記録やトークンは置きません。使いすぎを止めるため、接続元のIPアドレスを時刻と混ぜたハッシュにした値と回数を、2分だけ置きます）。GitHubと連携した場合は、GitHubにも送信します')
     expect(text).toContain('問い合わせを送ったときは、その内容だけがこのサイトの関数を通して運営者の非公開のGitHubリポジトリに届きます')
     expect(text).toContain('各作品の公式サイトの画像を表示しています。画像はブラウザが提供元から直接読み込みます。権利は各権利者に帰属します')
     expect(text).toContain('作品データの一部（ジャンル・似た作品・一部の表紙・声優やスタッフの参加作品）はShikimoriから取得しています')
@@ -652,7 +652,7 @@ describe('Settings news', () => {
     // 一番上に最新の版、その下に節目を新しい順に。一番古い節目は始まりの版から
     expect(within(sheet).getByRole('heading', { level: 3, name: (name) => name.startsWith(`v${__APP_VERSION__}`) })).toBeTruthy()
     const names = [...sheet.querySelectorAll('.history__name')].map((n) => n.textContent)
-    expect(names[0]).toBe('紹介ページと今日の月')
+    expect(names[0]).toBe('2つずつ比べて順番を決める')
     expect(names[names.length - 1]).toBe('1タップで記録する')
     expect(sheet.querySelectorAll('.history__bar')).toHaveLength(names.length)
     expect(within(block).queryByText('新しい版')).toBeNull()

@@ -14,6 +14,7 @@ vi.mock('./throttle', () => ({
 }))
 
 const { fetchUpcomingPrograms } = await import('./annict')
+const { getLibraryProgress, subscribeLibraryProgress } = await import('./annict')
 const { AnnictError, fetchLibrary, fetchRecentActivity, fetchWorkReviews, findMyEpisodeRecord, fetchSeasonWorks, fetchViewer, fetchWorkDetail, forgetLibrary, forgetShortCaches, scanMyReviews, updateStatus } = await import('./annict')
 const { onAnnictAuthFailed } = await import('./authEvents')
 const { annictHealthSamples, resetAnnictHealth } = await import('./annictHealth')
@@ -52,6 +53,18 @@ describe('gql: 401', () => {
     expect(err).toBeInstanceOf(AnnictError)
     expect((err as InstanceType<typeof AnnictError>).kind).toBe('auth')
     expect(heard).toEqual(['bad-token'])
+  })
+
+  it('removes the device copy of the Annict records only when the current token fails (Issue #40)', async () => {
+    localStorage.clear()
+    localStorage.setItem('animax.annictToken', 'now')
+    localStorage.setItem('animax.library.v1', '{"v":1}')
+    fetchMock.mockResolvedValue(json({}, 401))
+    await fetchViewer('old', { fresh: true }).catch(() => undefined)
+    expect(localStorage.getItem('animax.library.v1')).toBe('{"v":1}')
+    await fetchViewer('now', { fresh: true }).catch(() => undefined)
+    expect(localStorage.getItem('animax.library.v1')).toBeNull()
+    expect(localStorage.getItem('animax.annictToken')).toBe('now')
   })
 
   it('does not notify for other failures', async () => {
@@ -449,6 +462,47 @@ describe('fetchLibrary: one read for screens that ask together', () => {
     // 使い回さず、読み直す
     await fetchLibrary('t')
     expect(reads).toBe(2)
+    forgetLibrary()
+  })
+
+  // Cの案 C1: 記録の多い人の初回の待ちに「600 / 1,905」を出すための進み
+  it('tells how far the read has gone, using the state counts asked with the first page only, and clears it at the end', async () => {
+    forgetLibrary()
+    const node = (id: number) => ({ status: { state: 'WATCHED', createdAt: null }, note: null, nextEpisode: null, work: { id: `W${id}`, annictId: id, title: `作品${id}`, malAnimeId: null, seasonYear: 2026, seasonName: 'AUTUMN', media: 'TV', watchersCount: 1, image: null } })
+    const counts = { watchedCount: 2, watchingCount: 1, wannaWatchCount: 0, onHoldCount: 0, stopWatchingCount: 0 }
+    const queries: string[] = []
+    const seen: (unknown | null)[] = []
+    const stop = subscribeLibraryProgress(() => seen.push(getLibraryProgress()))
+    fetchMock.mockImplementation(async (_url, init) => {
+      const body = JSON.parse(String(init?.body))
+      queries.push(body.query)
+      const first = body.variables.after === null
+      const conn = { pageInfo: { hasNextPage: first, endCursor: first ? 'c1' : null }, nodes: first ? [node(1), node(2)] : [node(3)] }
+      return json({ data: { viewer: { ...(first ? counts : {}), libraryEntries: conn } } })
+    })
+    const got = await fetchLibrary('progress', { fresh: true })
+    stop()
+    expect(got).toHaveLength(3)
+    expect(queries[0]).toContain('watchedCount')
+    expect(queries[1]).not.toContain('watchedCount')
+    expect(seen).toEqual([{ read: 2, total: 3 }, null])
+    expect(getLibraryProgress()).toBeNull()
+    forgetLibrary()
+  })
+
+  it('does not tell any progress when the counts are missing (fakes) or the read fails', async () => {
+    forgetLibrary()
+    const seen: unknown[] = []
+    const stop = subscribeLibraryProgress(() => seen.push(getLibraryProgress()))
+    fetchMock.mockImplementation(async (_url, init) => {
+      const first = JSON.parse(String(init?.body)).variables.after === null
+      if (!first) return json({}, 502)
+      return json({ data: { viewer: { libraryEntries: { pageInfo: { hasNextPage: true, endCursor: 'c1' }, nodes: [] } } } })
+    })
+    await expect(fetchLibrary('no-counts', { fresh: true })).rejects.toThrow()
+    stop()
+    expect(seen.every((p) => p === null)).toBe(true)
+    expect(getLibraryProgress()).toBeNull()
     forgetLibrary()
   })
 })

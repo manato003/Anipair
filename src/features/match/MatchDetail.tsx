@@ -5,7 +5,7 @@ import { Sheet } from '../../components/Sheet'
 import { annictMissingLinks, type WorkRef } from '../../lib/annict'
 import { t } from '../../lib/i18n'
 import { messageOf } from '../../lib/useWriteQueue'
-import { WorkDetail, type Enqueue, type RelatedChange } from '../browse/WorkDetail'
+import { MatchReasons, WorkDetail, type Enqueue, type RelatedChange } from '../browse/WorkDetail'
 import { displayTitleOf, titleOf, type MatchCard } from './useMatching'
 import { Loading } from '../../components/Loading'
 
@@ -44,6 +44,7 @@ export function MatchDetail(props: {
         token={props.token}
         work={found.ref}
         cover={card.media.cover}
+        reasons={card.reasons}
         active={props.active}
         relatedEnqueue={props.relatedEnqueue}
         onRelatedChange={props.onRelatedChange}
@@ -77,6 +78,11 @@ export function MatchDetail(props: {
           {found.kind === 'error' && <p className="settings__error">{found.message}</p>}
         </div>
       </header>
+      {card.reasons.length > 0 && (
+        <div className="detail__body">
+          <MatchReasons reasons={card.reasons} />
+        </div>
+      )}
     </Sheet>
   )
 }

@@ -23,6 +23,8 @@ import { ENOUGH_LIKED } from './tasteLoader'
 import { displayTitleOf, useMatching, type MatchAnswer, type MatchCard } from './useMatching'
 import { FlowStage, type FlowPrev } from '../../components/FlowStage'
 import { Loading, LoadingMark } from '../../components/Loading'
+import { LibraryLoading } from '../../components/LibraryLoading'
+import { libraryLoadingLabel } from '../../lib/useLibraryProgress'
 import { malIdOf } from '../../lib/malId'
 import { tellOnce } from '../../lib/tips'
 
@@ -207,7 +209,12 @@ export function Matching(props: { annictToken: string; github: GithubConnection 
           ) : m.phase.kind === 'loading' ? (
             <div className="flow__loading" aria-busy>
               <LoadingMark />
-              <Loading className="card__step" label={m.phase.step} mark={false} remaining={m.phase.work} />
+              {/* 記録を読む段では、記録が多い人の初回に件数の進みを出す */}
+              {m.phase.step === libraryLoadingLabel() ? (
+                <LibraryLoading className="card__step" mark={false} />
+              ) : (
+                <Loading className="card__step" label={m.phase.step} mark={false} remaining={m.phase.work} />
+              )}
               {m.phase.note && <p className="card__note">{m.phase.note}</p>}
             </div>
           ) : m.phase.kind === 'error' ? (

@@ -115,6 +115,20 @@ img.cover--contain {
   color: var(--sub);
 }
 
+/* マッチングのおすすめの理由（全文。候補の欄と同じく、2つ目からは薄く） */
+.detail__reasons {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  padding-left: 1.2em;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.detail__reasons li:not(:first-child) {
+  color: var(--muted);
+}
+
 .group > .detail__section {
   margin-top: 16px;
 }

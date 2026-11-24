@@ -102,6 +102,8 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
   const freshNext = useRef(false)
   // このクールの人気作（記録済みも含む）。「見てない」にした作品の見直しに使う
   const [seasonWorks, setSeasonWorks] = useState<AnnictWork[] | null>(null)
+  // このクールで、今回「見た」と答えた作品（踏破の画面の発見に使う。discovery.ts）。取り消したら外し、クールを替えたら空にする
+  const [answeredWatched, setAnsweredWatched] = useState<ReadonlySet<number>>(() => new Set())
   // 「見てない」の見直しの山を、いまの山のどこから足したか（見直していなければ null）。
   // 見直しは、クールを終えた画面で利用者が押したときだけ（勝手に山へ戻さない。押した答えを尊重する）
   const [reviewFrom, setReviewFrom] = useState<number | null>(null)
@@ -236,6 +238,7 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
     undoStack.current = []
     setUndoCount(0)
     setSeasonWorks(null)
+    setAnsweredWatched(new Set())
     setReviewFrom(null)
     setSeason(next)
   }, [])
@@ -274,6 +277,7 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
       if (a.kind === 'watching') markStillWatching(card.work.annictId)
       const state = a.kind === 'wanna' ? 'WANNA_WATCH' : a.kind === 'watching' ? 'WATCHING' : a.kind === 'stop' ? 'STOP_WATCHING' : 'WATCHED'
       const { id: workId, annictId } = card.work
+      if (state === 'WATCHED') setAnsweredWatched((cur) => new Set(cur).add(annictId))
       const idMal = idMalOf(card.work.malAnimeId)
       // 記録が無いと確かめられていない作品（前回の内容の山の作品）は、書く前の状態を読んで覚える
       const unsure = !knownClear.current?.has(annictId)
@@ -309,6 +313,14 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
     if (!entry) return
     setUndoCount(undoStack.current.length)
     setIndex(entry.index)
+    if (entry.answer.kind === 'rate' || entry.answer.kind === 'watched') {
+      const id = entry.card.work.annictId
+      setAnsweredWatched((cur) => {
+        const next = new Set(cur)
+        next.delete(id)
+        return next
+      })
+    }
     if (entry.answer.kind === 'skip') {
       // 見直しの山の作品は、もともと「見てない」だった。戻しても「見てない」のまま
       if (!entry.wasUnseen) {
@@ -369,6 +381,11 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
   const seasonDone = cards !== null && index >= cards.length
   // クールを終えた画面でだけ数える（端末の「見てない」を読む）
   const unseenLeft = seasonDone && seasonWorks ? unseenInSeason(seasonWorks, activeUnseenIds(loadLocalUnseen())) : []
+  // クールを終えたときの、このクールで見た作品（Annict で見た + 今回「見た」と答えた）。踏破の画面の発見に使う
+  const watchedInSeason = useMemo(
+    () => (seasonDone && seasonWorks ? seasonWorks.filter((w) => w.viewerStatusState === 'WATCHED' || answeredWatched.has(w.annictId)) : null),
+    [seasonDone, seasonWorks, answeredWatched],
+  )
 
   // 「見てない」にした作品を、いまの山の後ろに足して見直す（押したときだけ）
   const reviewUnseen = () => {
@@ -397,6 +414,7 @@ export function useBackfill(token: string, github: GithubConnection | null = nul
     reviewing: reviewFrom !== null,
     // クールを終えた画面で出す「見てないにした作品を見直す」の本数
     unseenLeft: unseenLeft.length,
+    watchedInSeason,
     reviewUnseen,
     finished,
     loadError,

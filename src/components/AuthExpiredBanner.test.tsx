@@ -19,7 +19,7 @@ afterEach(() => {
 describe('AuthExpiredBanner', () => {
   it('announces that the login expired', () => {
     render(<AuthExpiredBanner clientId="cid" onOpenSettings={vi.fn()} onDismiss={vi.fn()} />)
-    expect(screen.getByRole('alert').textContent).toContain('Annictのログインが切れました。もう一度ログインしてください。')
+    expect(screen.getByRole('alert').textContent).toContain('Annictのログインが切れました。この端末に控えていたAnnictの記録は削除しました。もう一度ログインしてください。')
   })
 
   it('logs in again with Annict when a client id is available', () => {

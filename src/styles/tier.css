@@ -482,8 +482,10 @@ button.tierrow__label {
   cursor: pointer;
 }
 
-.tiercmp__card:hover {
-  border-color: var(--line-strong);
+@media (hover: hover) {
+  .tiercmp__card:hover {
+    border-color: var(--line-strong);
+  }
 }
 
 .tiercmp__cover {
@@ -736,7 +738,7 @@ button.tierrow__label {
 .btn--danger {
   border-color: transparent;
   background: var(--danger);
-  color: #fff;
+  color: var(--bg-bot);
 }
 
 .tierview__actions {
@@ -1110,6 +1112,10 @@ body.is-tierdragging * {
   opacity: 0.75;
 }
 
+/* 表を作る前の案内（.empty は幅を絞るだけなので、記録の一覧の空と同じく中央に置く） */
+.tiersetup > .empty {
+  margin: 48px auto 0;
+}
 
 /* 段の数を選ぶ前の見本（動かせない） */
 .tiersetup__preview {

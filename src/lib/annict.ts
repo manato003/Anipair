@@ -4,7 +4,7 @@ import { annictImageOf } from './covers'
 import { delay, parseRetryAfter } from './retry'
 import { createThrottle, type ScheduleOptions } from './throttle'
 import { patchStoredStatus, saveStoredLibrary, saveStoredSeasonWorks } from './offlineCache'
-import { loadWorkDetailsRaw, pageIsCurrent, saveWorkDetailsRaw } from './storage'
+import { forgetRevokedAnnict, loadWorkDetailsRaw, pageIsCurrent, saveWorkDetailsRaw } from './storage'
 import { isRecentWork } from './season'
 import { t } from './i18n'
 
@@ -112,7 +112,9 @@ async function gql<T>(token: string, query: string, variables: Record<string, un
       recordAnnictHealth({ at: Date.now(), ms: Date.now() - start, ok: !failed, ...(failed ? { failure: 'server' as const, status: res.status } : {}) })
     }
     if (res.status === 401) {
+      // いまのトークンなら、連携が解除されたとみなして、端末の Annict の記録の写しを消す（API利用規約 第7条。Issue #40）。
       // 画面全体に知らせる（帯を出す）。呼び出し元には、今までどおり例外で返す
+      forgetRevokedAnnict(token)
       emitAnnictAuthFailed(token)
       throw new AnnictError(t('Annictのトークンが使えません。設定で入れ直してください', 'The Annict token isn’t working. Enter it again in Settings.'), 'auth')
     }
@@ -843,14 +845,61 @@ export function fetchLibrary(token: string, opts: { fresh?: boolean } = {}): Pro
   return promise.then((v) => [...v])
 }
 
+// 記録の全件読みの進み。記録の多い人が初めて開くと20回ほど読むので、待つあいだに「600 / 1,905」と出す（2026-11-19、Cの案 C1）。
+// 分母は最初のページと同じ問い合わせで読む、viewer の状態ごとの件数の合計（問い合わせは増やさない）。読み終えたら・失敗したら null
+export interface LibraryProgress {
+  read: number
+  total: number
+}
+let libraryProgress: LibraryProgress | null = null
+// 進みを書ける読み込み（途中で forgetLibrary されて次の読み込みが始まったら、古い方は書かない）
+let progressOwner = 0
+const progressListeners = new Set<() => void>()
+
+function setLibraryProgress(owner: number, value: LibraryProgress | null): void {
+  if (owner !== progressOwner) return
+  libraryProgress = value
+  progressListeners.forEach((f) => f())
+}
+
+export function getLibraryProgress(): LibraryProgress | null {
+  return libraryProgress
+}
+
+export function subscribeLibraryProgress(listener: () => void): () => void {
+  progressListeners.add(listener)
+  return () => {
+    progressListeners.delete(listener)
+  }
+}
+
+const STATE_COUNTS = 'watchedCount watchingCount wannaWatchCount onHoldCount stopWatchingCount'
+type StateCounts = Partial<Record<'watchedCount' | 'watchingCount' | 'wannaWatchCount' | 'onHoldCount' | 'stopWatchingCount', number>>
+
+// 状態ごとの件数の合計。どれかが欠けていれば（偽の Annict など）分からないとする
+function totalOf(counts: StateCounts): number | null {
+  const values = [counts.watchedCount, counts.watchingCount, counts.wannaWatchCount, counts.onHoldCount, counts.stopWatchingCount]
+  return values.every((v) => typeof v === 'number') ? (values as number[]).reduce((a, b) => a + b, 0) : null
+}
+
 // 記録の一覧は、開くたびに全部を読む（状態ごとに分けて一部を控えから出すと、Annict のサイトやほかの端末での変更とずれることがある。
 // 試して戻した: 記録のずれは不可、手で読み直すのも無し）
 async function readLibrary(token: string): Promise<LibraryEntry[]> {
+  const owner = ++progressOwner
+  try {
+    return await readLibraryPages(token, owner)
+  } finally {
+    setLibraryProgress(owner, null)
+  }
+}
+
+async function readLibraryPages(token: string, owner: number): Promise<LibraryEntry[]> {
   const out: LibraryEntry[] = []
   let after: string | null = null
+  let total: number | null = null
   for (;;) {
     const data: {
-      viewer: {
+      viewer: StateCounts & {
         libraryEntries: {
           pageInfo: { hasNextPage: boolean; endCursor: string | null }
           nodes: {
@@ -875,7 +924,8 @@ async function readLibrary(token: string): Promise<LibraryEntry[]> {
       }
     } = await gql(
       token,
-      `query($after: String) { viewer { libraryEntries(first: 100, after: $after) {
+      // 件数は最初のページでだけ読む
+      `query($after: String) { viewer { ${after === null ? STATE_COUNTS : ''} libraryEntries(first: 100, after: $after) {
         pageInfo { hasNextPage endCursor }
         nodes { status { state createdAt } note nextEpisode { number numberText title } work { id annictId title titleEn malAnimeId seasonYear seasonName media watchersCount episodesCount image { recommendedImageUrl facebookOgImageUrl } } }
       } } }`,
@@ -904,6 +954,9 @@ async function readLibrary(token: string): Promise<LibraryEntry[]> {
       })
     }
     if (!conn.pageInfo.hasNextPage) return out
+    if (after === null) total = totalOf(data.viewer)
+    // 件数は読んでいるあいだにも変わりうる（ほかの端末での記録）ので、分母を超えないようにする
+    if (total !== null) setLibraryProgress(owner, { read: Math.min(out.length, total), total })
     after = conn.pageInfo.endCursor
   }
 }

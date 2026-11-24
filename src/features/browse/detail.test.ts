@@ -76,7 +76,7 @@ describe('safeHttpUrl / xUrl', () => {
 })
 
 it('workMeta joins season, media and episodes', () => {
-  expect(workMeta({ seasonYear: 2023, seasonName: 'AUTUMN', media: 'TV' }, 28)).toBe('2023年秋 TV 28話')
+  expect(workMeta({ seasonYear: 2023, seasonName: 'AUTUMN', media: 'TV' }, 28)).toBe('2023年 秋 · TV · 28話')
   expect(workMeta({ seasonYear: null, seasonName: null, media: 'MOVIE' })).toBe('劇場版')
 })
 
@@ -128,14 +128,14 @@ describe('seriesFacts', () => {
   it('tells which entry in the series it is, and the next one', () => {
     expect(seriesFacts(series, 1, now)).toEqual([
       ['シリーズ', 'TVシリーズの1作目（全3作）'],
-      ['次の作品', '『第2期』（2026年冬）'],
+      ['次の作品', '『第2期』（2026年 冬）'],
     ])
   })
 
   it('calls the next one an upcoming sequel when it has not started yet', () => {
     expect(seriesFacts(series, 2, now)).toEqual([
       ['シリーズ', 'TVシリーズの2作目（全3作）'],
-      ['放送予定の続編', '『第3期』2027年秋'],
+      ['放送予定の続編', '『第3期』2027年 秋'],
     ])
     expect(seriesFacts(series, 3, now)).toEqual([['シリーズ', 'TVシリーズの3作目（全3作）']])
   })

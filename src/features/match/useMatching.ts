@@ -15,6 +15,7 @@ import { loadLocalDislikes, setDislike, syncDislikes } from './dislikeStore'
 import { resolveAnnictWork } from './resolve'
 import { isDefaultFilter, parseMatchFilter, type MatchFilter } from './matchFilter'
 import { malIdOf } from '../../lib/malId'
+import { libraryLoadingLabel } from '../../lib/useLibraryProgress'
 import { addSeries, collectPool, rankCandidates, seenMalIds } from './taste'
 import { forgetTaste, loadTaste } from './tasteLoader'
 
@@ -112,7 +113,7 @@ export function useMatching(annictToken: string, github: GithubConnection | null
     const filter = filterRef.current
     // 提案を作るたびに好みを読み直す（評価が増えたあとでも、新しい好みで提案できるように）。読んだ好みは、記録ページの傾向などが使い回す
     forgetTaste()
-    setPhase({ kind: 'loading', step: t('Annictの記録を読み込み中', 'Loading your Annict records') })
+    setPhase({ kind: 'loading', step: libraryLoadingLabel() })
     try {
       const { library, ratings, seeds, seedMedia, similarSeeds, similar, profile, pendingSimilar } = await loadTaste(annictToken, (step, note, work) => {
         if (alive()) setPhase({ kind: 'loading', step, note, work })

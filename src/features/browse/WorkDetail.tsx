@@ -30,7 +30,7 @@ import { RelatedWorks } from './RelatedWorks'
 import { SimilarWorks } from './SimilarWorks'
 import { CommunityReviews } from './CommunityReviews'
 import { Loading } from '../../components/Loading'
-import { CommentIcon, ExternalIcon, InfoIcon, PeopleIcon, UserIcon } from '../../components/Icons'
+import { CheckIcon, CommentIcon, ExternalIcon, InfoIcon, PeopleIcon, UserIcon } from '../../components/Icons'
 import { ReviewEditor } from './ReviewEditor'
 import { useWorkDetailData } from './useWorkDetailData'
 import { VodSearchSection } from './VodSearchSection'
@@ -91,6 +91,8 @@ export function WorkDetail(
     active?: boolean
     // 話ごとの記録（記録ページは自分の控えを渡す。一覧の「次は 第5話」と合わせるため。無ければシートで読む）
     episodes?: EpisodesController
+    // マッチングのおすすめの理由（スマホの候補の欄では行を詰めて切るので、ここで全文を出す）
+    reasons?: readonly string[]
     onClose: () => void
   } & RelatedOptions &
     (Editable | ReadOnly),
@@ -445,6 +447,8 @@ export function WorkDetail(
 
             {error && <p className="settings__error">{error}</p>}
 
+            {props.reasons && props.reasons.length > 0 && <MatchReasons reasons={props.reasons} />}
+
             {hasAbout && (
               <section className="group">
                 <h3 className="group__title">
@@ -647,6 +651,25 @@ export function WorkDetail(
       ))}
     {servicesOpen && <BroadcastSheet onClose={() => setServicesOpen(false)} />}
     </>
+  )
+}
+
+// マッチングのおすすめの理由の塊（詳細のシートと、Annict の作品を探しているあいだの簡素なシートで使う）
+export function MatchReasons({ reasons }: { reasons: readonly string[] }) {
+  return (
+    <section className="group">
+      <h3 className="group__title">
+        <CheckIcon />
+        {t('おすすめの理由', 'Why it’s suggested')}
+      </h3>
+      <ul className="detail__reasons">
+        {reasons.map((r) => (
+          <li key={r}>
+            <Phrase text={r} />
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 

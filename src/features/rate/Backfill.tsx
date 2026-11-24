@@ -25,9 +25,15 @@ import { formatDate } from '../records/recordList'
 import { OLDEST_SEASON, OLDEST_YEAR, RATINGS, type Answer, type Card } from './queue'
 import { useBackfill } from './useBackfill'
 import { useDeckMedia } from './useDeckMedia'
+import { useCourDiscovery } from './useCourDiscovery'
+import { Phrase } from '../../components/Phrase'
+import type { Discovery } from './discovery'
+import { studioName } from '../../lib/studios'
+import { genreName } from '../match/taste'
 import { useWatching } from './useWatching'
 import type { WatchAnswer, WatchCard } from './watching'
-import { Loading, LoadingMark } from '../../components/Loading'
+import { LoadingMark } from '../../components/Loading'
+import { LibraryLoading } from '../../components/LibraryLoading'
 import { nextLabel } from '../records/episodes'
 import { StaleNote } from '../../components/StaleNote'
 import { useViewingSeason } from '../../lib/theme'
@@ -53,6 +59,16 @@ function Sparks({ count }: { count: number }) {
       ))}
     </span>
   )
+}
+
+// 踏破の画面の発見の一言（例: 「このクールで見た作品のうち3本は、MAPPAの作品でした」）
+function discoveryText(d: Discovery): string {
+  if (d.kind === 'studio') {
+    const name = studioName(d.name)
+    return t(`このクールで見た作品のうち${d.count}本は、${name}の作品でした`, `${d.count} of the anime you watched this season were made by ${name}`)
+  }
+  const name = genreName(d.name)
+  return t(`このクールで見た作品のうち${d.count}本は、「${name}」の作品でした`, `${d.count} of the anime you watched this season were ${name}`)
 }
 
 // いま画面に出している1枚
@@ -279,6 +295,8 @@ export function Backfill({ token, github, active }: { token: string; github: Git
   // クールの最後の1枚に答えて、そのクールを答え切った（開いた時点で全部記録済みだったクールでは祝わない）
   // 見直しの山を答え終えたときは、踏破の演出を出し直さない
   const cleared = b.seasonDone && b.index > 0 && !b.reviewing
+  // 踏破の画面に添える発見（このクールで見た作品の制作会社・ジャンル。Cの案 C2）
+  const discovery = useCourDiscovery(cleared ? b.watchedInSeason : null)
   useEffect(() => {
     if (cleared && seasonAnswered.current >= ONE_NIGHT_CASTLE && recordFeat('oneNightCastle')) announceEarned([featTitle('oneNightCastle')])
   }, [cleared])
@@ -290,7 +308,8 @@ export function Backfill({ token, github, active }: { token: string; github: Git
   const loadingCard = (
     <div className="flow__loading">
       <LoadingMark />
-      <Loading className="card__step" label={t('作品を読み込み中', 'Loading anime')} delay={600} mark={false} />
+      {/* 見てるの山は記録の全件を待つ。記録が多い人の初回は、その進みを出す */}
+      <LibraryLoading className="card__step" fallback={t('作品を読み込み中', 'Loading anime')} delay={600} mark={false} />
     </div>
   )
   const placeholder = !watchReady ? (
@@ -316,6 +335,12 @@ export function Backfill({ token, github, active }: { token: string; github: Git
       <p className="clear__season">{seasonLabel(b.season)}</p>
       <p className="clear__title">{t('踏破', 'Cleared')}</p>
       <p className="clear__body">{t(`人気作${progress.total}本すべてに答えました。`, `You’ve answered all ${progress.total} popular anime.`)}</p>
+      {/* 2行になるスマホでは、語の切れ目で折る（「5本／は、」と折れていた） */}
+      {discovery && (
+        <p className="clear__find">
+          <Phrase text={discoveryText(discovery)} />
+        </p>
+      )}
       <button type="button" className="btn btn--primary" onClick={b.goToPrevious}>
         {t(`${seasonLabel(previousSeason(b.season))}へ進む`, `Go to ${seasonLabel(previousSeason(b.season))}`)}
       </button>

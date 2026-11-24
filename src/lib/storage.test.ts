@@ -7,6 +7,7 @@ import {
   POSTERS_MAX,
   clearAll,
   forgetAccount,
+  forgetRevokedAnnict,
   freezeStorage,
   hasUnclaimed,
   loadOwner,
@@ -23,6 +24,7 @@ import {
   saveOnboardingSeen,
   saveAnnictToken,
   saveReviewsRaw,
+  saveCacheRaw,
   loadGithubConnection,
   loadGithubRepo,
   clearLegacyCovers,
@@ -227,6 +229,68 @@ describe('the reviews snapshot (animax.reviews.v1)', () => {
   it('reads a broken value as nothing', () => {
     localStorage.setItem('animax.reviews.v1', '{broken')
     expect(loadReviewsRaw()).toBeNull()
+  })
+})
+
+// Annict の API利用規約 第7条: 連携が解除されたら、その人の利用者情報を消す（Issue #40）
+describe('forgetting the Annict copies when the link is revoked (forgetRevokedAnnict)', () => {
+  beforeEach(() => localStorage.clear())
+
+  const copies = ['animax.reviews.v1', 'animax.library.v1', 'animax.seasonWorks.v1', 'animax.workDetails.v1', 'animax.covers.v2', 'animax.similar.v1', 'animax.programs.v1', 'animax.titleEn.v1', 'animax.wikiSynopses.v1']
+  // Anipair の記録（Annict の写しではない）。消さない
+  const own = ['animax.writeJournal.v1', 'animax.uncertainWrites.v1', 'animax.reviewDrafts.v1', 'animax.episodeDrafts.v1', 'animax.passes', 'animax.backfill.unseen', 'animax.wannaNotes.v1', 'animax.tiers.v1', 'animax.titles.v1', 'animax.feats.v1', 'animax.githubRepo', 'animax.seasonTops.v1']
+  const fill = () => {
+    for (const k of [...copies, ...own]) localStorage.setItem(k, '{"v":1}')
+  }
+
+  it("removes the Annict copies and what they reveal for the current token, and keeps Anipair's own records", () => {
+    saveAnnictToken('A')
+    switchAccount('u1', 'A')
+    fill()
+    expect(forgetRevokedAnnict('A')).toBe(true)
+    for (const k of copies) expect(localStorage.getItem(k)).toBeNull()
+    for (const k of own) expect(localStorage.getItem(k)).toBe('{"v":1}')
+    expect(loadOwner()).toBe('u1')
+  })
+
+  it('ignores a late 401 for an earlier token (after logging in again)', () => {
+    saveAnnictToken('B')
+    fill()
+    expect(forgetRevokedAnnict('A')).toBe(false)
+    expect(forgetRevokedAnnict('')).toBe(false)
+    for (const k of copies) expect(localStorage.getItem(k)).toBe('{"v":1}')
+  })
+
+  it('does nothing on a page that is no longer current (another tab switched the account)', () => {
+    saveAnnictToken('A')
+    pageIsCurrent()
+    fill()
+    localStorage.setItem('animax.annictToken', 'B')
+    expect(forgetRevokedAnnict('B')).toBe(false)
+    expect(localStorage.getItem('animax.library.v1')).toBe('{"v":1}')
+  })
+
+  it('stops the copies from being written back while the revoked token stays, and allows them again after a new login', () => {
+    saveAnnictToken('A')
+    forgetRevokedAnnict('A')
+    saveReviewsRaw({ v: 1 })
+    saveCacheRaw('titleEn', { a: 1 })
+    expect(loadReviewsRaw()).toBeNull()
+    expect(localStorage.getItem('animax.titleEn.v1')).toBeNull()
+    // Anipair の記録は書ける
+    savePassesRaw({ v: 1 })
+    expect(loadPassesRaw()).toEqual({ v: 1 })
+    saveAnnictToken('B')
+    saveReviewsRaw({ v: 2 })
+    expect(loadReviewsRaw()).toEqual({ v: 2 })
+  })
+
+  it('also removes them from what was kept aside for the same person', () => {
+    saveAnnictToken('A')
+    switchAccount('u1', 'A')
+    localStorage.setItem('animax.accounts.v1', JSON.stringify({ u1: { 'animax.covers.v2': '{}', 'animax.passes': '{"v":1}' }, u2: { 'animax.covers.v2': '{}' } }))
+    forgetRevokedAnnict('A')
+    expect(JSON.parse(localStorage.getItem('animax.accounts.v1') ?? '{}')).toEqual({ u1: { 'animax.passes': '{"v":1}' }, u2: { 'animax.covers.v2': '{}' } })
   })
 })
 

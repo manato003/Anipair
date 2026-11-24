@@ -235,7 +235,7 @@ export function TierView(props: {
   if (!table || !view) {
     if (candidates(props.rows, { scope: ALL, includeDropped: false }).length === 0) {
       return (
-        <div className="summary">
+        <div className="summary tiersetup">
           <Empty
             title={t('見た作品がまだありません', 'No watched anime yet')}
             body={t('「見た」か「見てる」にした作品をTier表に並べられます。', 'Anime you mark as Watched or Watching can go on a tier list.')}

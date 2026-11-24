@@ -14,7 +14,7 @@ import { plural, t } from '../../lib/i18n'
 import { navigate } from '../../lib/navigate'
 import { workTitle } from '../../lib/names'
 import type { Media } from '../../lib/shikimori'
-import type { Cover } from '../../lib/storage'
+import { loadYearNoticeDone, saveYearNoticeDone, type Cover } from '../../lib/storage'
 import { rememberScroll, restoreScroll, scrollToTop } from '../../lib/pageScroll'
 import { useSwipeIntercept } from '../../lib/useSwipeNav'
 import { useWide } from '../../lib/useWide'
@@ -58,9 +58,11 @@ import { useMediaInfo } from './useMediaInfo'
 import { useRecords } from './useRecords'
 import { useTaste, useWannaScores } from './useTaste'
 import { useTrendsData } from './useTrendsData'
-import { joinList } from './trends'
+import { joinList, reviewYears } from './trends'
+import { yearNoticeFor } from './yearNotice'
 import { orderByScore } from './wannaRank'
 import { Loading } from '../../components/Loading'
+import { LibraryLoading } from '../../components/LibraryLoading'
 import { episodeLabel, episodesLeft, nextEpisode, nextLabel } from './episodes'
 import type { GithubConnection } from '../../lib/github'
 import { useCoalescedTask } from '../../lib/useCoalescedTask'
@@ -138,6 +140,14 @@ export function Records({ token, github = null, active }: { token: string; githu
   }
   // まだ一度も実績を開いていない（覚醒を見ていない）あいだは、「まとめ」と「実績」に光る点を付けて気づかせる
   const [achievementsUnseen, setAchievementsUnseen] = useState(() => !loadTitlesState().awakened)
+  // 年末（12月）のふり返りの知らせ。閉じるか、ふり返りを開いたら、その年はもう出さない（yearNotice.ts）
+  const [yearNoticeDone, setYearNoticeDone] = useState(() => loadYearNoticeDone())
+  const noticeYear = useMemo(() => (r.rows ? yearNoticeFor(new Date(), reviewYears(r.rows), yearNoticeDone) : null), [r.rows, yearNoticeDone])
+  const closeYearNotice = () => {
+    if (noticeYear === null) return
+    saveYearNoticeDone(noticeYear)
+    setYearNoticeDone(noticeYear)
+  }
 
   // 選んだ項目（選ぶまでは null: 「見てる」があれば見てる、無ければ「見た」。記録ページの用事でいちばん多いのは、今期見ている作品の話ごとの記録なので）
   const [picked, setPicked] = useState<Item | null>(null)
@@ -298,6 +308,7 @@ export function Records({ token, github = null, active }: { token: string; githu
     setEditing(false)
     if (isSummary(next)) setSummarySeen(true)
     if (next === 'achievements') setAchievementsUnseen(false)
+    if (next === 'year') closeYearNotice()
   }
   useLayoutEffect(() => {
     if (!active) return
@@ -443,6 +454,20 @@ export function Records({ token, github = null, active }: { token: string; githu
             />
 
             <div className="records__controls records__controls--notes">
+              {noticeYear !== null && (
+                <p className="records__yearnote">
+                  <CalendarIcon />
+                  <span className="records__yearnote-text">{t(`${noticeYear}年のふり返りができました`, `Your ${noticeYear} in review is ready`)}</span>
+                  <span className="records__yearnote-actions">
+                    <button type="button" className="btn" onClick={() => select('year')}>
+                      {t('見る', 'See it')}
+                    </button>
+                    <button type="button" className="link" onClick={closeYearNotice}>
+                      {t('閉じる', 'Close')}
+                    </button>
+                  </span>
+                </p>
+              )}
               {filterCount > 0 && <ActiveFilters filter={filter} onChange={setFilter} />}
               {tasteLoading && <Loading label={t('好みを分析しています', 'Analyzing your taste')} />}
               {tasteError && (
@@ -470,7 +495,7 @@ export function Records({ token, github = null, active }: { token: string; githu
                   </button>
                 </Empty>
               ) : !r.rows ? (
-                <Loading block label={t('Annictの記録を読み込み中', 'Loading your Annict records')} />
+                <LibraryLoading block />
               ) : visible.length === 0 ? (
                 query || filterCount > 0 || filter.cour ? (
                   <Empty
@@ -624,7 +649,7 @@ export function Records({ token, github = null, active }: { token: string; githu
               </button>
             </Empty>
           ) : (
-            <Loading block label={t('Annictの記録を読み込み中', 'Loading your Annict records')} />
+            <LibraryLoading block />
           )
         ) : (
           <Suspense fallback={<Loading block label={t('読み込み中', 'Loading')} />}>

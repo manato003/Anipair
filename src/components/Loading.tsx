@@ -47,7 +47,7 @@ export function Remaining(props: { done: number; total: number }) {
   const seconds = useRemaining(props)
   return seconds === null ? null : (
     <span className="loading__time" aria-hidden>
-      {t('・', ' · ')}
+      <span className="loading__sep">{t('・', ' · ')}</span>
       {formatRemaining(seconds)}
     </span>
   )
@@ -78,7 +78,7 @@ export function Loading(props: {
         {/* 残り時間は読み上げない（進むたびに読まれてしまう） */}
         {left !== null && (
           <span className="loading__time" aria-hidden>
-            {t('・', ' · ')}
+            <span className="loading__sep">{t('・', ' · ')}</span>
             {formatRemaining(left)}
           </span>
         )}

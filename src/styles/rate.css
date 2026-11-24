@@ -1,8 +1,6 @@
 /* 評価の画面（さかのぼり・見てる）と、マッチングも使う表紙のカード・答えのボタン */
 
 .rate {
-  /* 表紙の周りのにじみの色。表紙から色を取らなくなったので、ブランドの色で固定 */
-  --cover-tint: var(--brand-lavender);
   position: relative;
   display: grid;
   grid-template-rows: auto auto 1fr auto;
@@ -414,6 +412,14 @@
   color: var(--muted);
   font-size: 0.9rem;
   animation: clear-fade 0.4s 0.6s both;
+}
+
+/* 踏破の画面の発見の一言（このクールで見た作品の制作会社・ジャンル。Cの案 C2）。本文の次に、少し遅れて出す */
+.clear__find {
+  max-width: 30em;
+  font-size: 0.9rem;
+  text-wrap: balance;
+  animation: clear-fade 0.4s 0.7s both;
 }
 
 .clear .btn {
@@ -899,6 +905,7 @@
 :root[data-motion='reduce'] .clear__season,
 :root[data-motion='reduce'] .clear__title,
 :root[data-motion='reduce'] .clear__body,
+:root[data-motion='reduce'] .clear__find,
 :root[data-motion='reduce'] .clear .btn {
   animation: none;
 }
@@ -1199,7 +1206,7 @@
     height: 42px;
   }
 
-  /* おすすめの理由: 1つ目は2行まで、ほかは1行ずつ（隠さない。理由は詳細には出ない） */
+  /* おすすめの理由: 1つ目は2行まで、ほかは1行ずつ（切れた分は「詳しく」のシートの「おすすめの理由」で全文を読める） */
   .flow__text .reasons li {
     display: -webkit-box;
     overflow: hidden;

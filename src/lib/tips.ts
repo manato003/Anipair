@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import { loadTipsSeen, saveTipsSeen } from './storage'
 
-// 押した結果が画面に出ない操作（Annict に書き込む・この端末だけに置く）を、初めて押したときに一度だけ画面の下で知らせる。
+// 押した結果が画面に出ない操作（Annict に書き込む・この端末だけに置く）を、初めて押したときに一度だけ画面の上で知らせる。
 // 説明の文を画面に置いたままにしない代わり。出したものは端末に覚え、二度と出さない。
 // 出すのは components/TipToast.tsx
 export type TipId = 'wannaToAnnict' | 'passOnDevice' | 'wannaNote' | 'tierNotRating'

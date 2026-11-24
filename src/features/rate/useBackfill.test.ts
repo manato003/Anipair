@@ -469,6 +469,25 @@ describe('useBackfill', () => {
   })
 })
 
+// Cの案 C2: 踏破の画面の発見の材料
+describe('useBackfill: the anime watched in the season, once it is done', () => {
+  it('gathers the works answered as watched (rated or forgotten), not "not watched" or "want to watch"; undo takes one out', async () => {
+    const hook = await setup()
+    expect(hook.result.current.watchedInSeason).toBeNull()
+    act(() => hook.result.current.answer({ kind: 'rate', rating: 'GOOD' }))
+    act(() => hook.result.current.answer({ kind: 'skip' }))
+    act(() => hook.result.current.answer({ kind: 'watched' }))
+    expect(hook.result.current.seasonDone).toBe(true)
+    expect(hook.result.current.watchedInSeason?.map((w) => w.annictId)).toEqual([1, 3])
+    await settle(hook)
+    act(() => hook.result.current.undo())
+    expect(hook.result.current.watchedInSeason).toBeNull()
+    act(() => hook.result.current.answer({ kind: 'wanna' }))
+    expect(hook.result.current.watchedInSeason?.map((w) => w.annictId)).toEqual([1])
+    await settle(hook)
+  })
+})
+
 describe('useBackfill: looking again at works marked "not watched"', () => {
   const unseenOf = (id: number) => JSON.parse(localStorage.getItem('animax.backfill.unseen')!).unseen[String(id)]
 

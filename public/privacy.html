@@ -20,7 +20,7 @@
       </div>
 
       <h1>プライバシーポリシー</h1>
-      <p class="date">制定日: 2026年10月2日 / 更新日: 2026年11月10日</p>
+      <p class="date">制定日: 2026年10月2日 / 更新日: 2026年11月24日</p>
 
       <p class="lead">
         Anipair（以下「本アプリ」）は、個人が開発・運営する、無料・非商用の非公式アプリです。
@@ -89,6 +89,11 @@
           同じアカウントでログインし直したときのために端末に残します（ほかのアカウントでログインしても、アプリには表示しません）。
           これらも消すには、設定画面の「Annict連携」の「詳しく」にある「ログアウトして、Anipairのデータを削除」を使うか、ブラウザのサイトデータを消してください。
         </p>
+        <p>
+          Annictの設定で本アプリとの連携を解除したり、個人用アクセストークンを削除したりすると、次に本アプリがAnnictと通信したときにトークンが使えないことが分かります。
+          そのとき、この端末に控えていたAnnictの記録の写しと、そこから分かる控え（表紙の画像の場所、似た作品、見ている作品の放送予定など）を削除します。
+          まだAnnictに送り終えていない記録の控え、書きかけの感想、興味なし・「見てない」・称号など本アプリの記録は、もう一度ログインしたときのために残します。
+        </p>
       </section>
 
       <section class="item">
@@ -103,6 +108,7 @@
             <strong>作品情報の提供元</strong>（現在は<a href="https://shikimori.io/" rel="noreferrer">Shikimori</a>）:
             ジャンル、似た作品、関連作品、表紙の画像の場所、声優・スタッフ・制作会社の参加作品などの公開データ。本アプリの中継の仕組みを通して取得し、利用者を特定する情報は送りません。
             参加作品を探すときは、作品の詳細に載っている人物の名前（Annictに公開されている名前）を送ります。
+            ブラウズで、英語やローマ字の語で題名を探したときは、その語を送ります（日本語の題名を引くため）。
             中継はShikimoriの公開データを控えたり、MyAnimeListとAnnictで同じ作品を指すIDの組（公開されている作品のIDどうし）を覚えたり、Shikimoriへの問い合わせの回数を数えたりするために、Upstash（Redis）を使います。1つの接続元が全員の問い合わせの枠を使い切らないよう、接続元のIPアドレスを時刻と混ぜたハッシュにした値と、その1分間の回数を、2分間だけ保存します。IPアドレスそのものは保存せず、ほかに中継がそこに利用者の情報を置くことはありません。
             共有のリンクで開かれたTier表の作品の題名と表紙も、この中継を通して取得します。
           </li>
@@ -119,6 +125,8 @@
           <li>
             <strong>GitHub</strong>（利用者が任意で連携した場合だけ）:
             興味なし・保留・「見てない」の記録、「見たい」の優先の印とメモ、マッチングで除く苦手な項目、見るサービス、Tier表（共有のリンクの編集の鍵を含みます）、バックアップを、利用者自身のリポジトリに保存します。
+            バックアップ（backup.json）には、Annictの記録（ライブラリ・評価と感想）も入ります。リポジトリは利用者のもので、運営者は読めません。
+            Annictとの連携を解除しても、リポジトリの中身は本アプリからは消さずに残ります。消すときは、利用者がGitHubでファイルかリポジトリを削除してください（ファイルを削除しても、Gitの変更履歴には以前の内容が残ります。履歴ごと消すにはリポジトリを削除してください）。
           </li>
           <li>
             <strong>Google Fonts</strong>: 画面の文字の表示のために、フォントを読み込みます。
@@ -181,7 +189,7 @@
 
       <section class="en" lang="en">
         <h1>Privacy Policy (English)</h1>
-        <p class="date">Effective date: October 2, 2026 / Last updated: November 10, 2026</p>
+        <p class="date">Effective date: October 2, 2026 / Last updated: November 24, 2026</p>
         <p>
           Anipair is a free, non-commercial, unofficial app developed and run by an individual. The operator does not collect or store any user information, except what you send through the feedback form, tier lists you choose to share as a link, and anonymous, aggregated usage statistics.
         </p>
@@ -193,22 +201,27 @@
         <section class="item">
           <h2>2. Information kept on your device</h2>
           <p>
-            Your Annict access token and how you logged in (“Log in with Annict” or a personal access token), your optional GitHub token and repository name, your pass, skip and "not watched" records, your priority marks and notes on
-            "want to watch" anime, your titles, key bindings, display settings, the streaming services and TV region you choose, short-lived caches of anime information (including the broadcast schedule of anime you are watching, Wikipedia synopses, and English titles and names), your tier lists (and, for shared ones, the link ID and edit key), a copy of your records last read from Annict (to show
+            Your Annict access token and how you logged in (“Log in with Annict” or a personal access token), your optional GitHub token and repository name, your "Not interested", "Later" and "Haven’t seen" records, your priority marks and notes on
+            "want to watch" anime, what you avoid in Match (the genres, studios and people you pick), your titles (and when the events that count toward them happened, such as recording late at night, early in the morning or on New Year's Day), key bindings, display settings, the streaming services and TV region you choose, short-lived caches of anime information (including the broadcast schedule of anime you are watching, Wikipedia synopses, and English titles and names), your tier lists (and, for shared ones, the link ID and edit key), a copy of your records last read from Annict (to show
             them quickly next time), records not yet sent to Annict, and unfinished comments are stored only in your browser's storage. They are never sent to the operator. Logging out deletes the Annict
-            token, the GitHub token and the copy of your Annict records. Records that exist only on this device (passes, "not watched", titles and so on) are kept
+            token, the GitHub token and the copy of your Annict records. Records that exist only on this device ("Not interested", "Haven’t seen", titles and so on) are kept
             for when you log in again with the same account, and the app does not show them to anyone who logs in with another account. To delete them as well, use "Log out and
-            delete Anipair data" under "Details" in the Annict section of Settings, or clear the site data in your browser.
+            delete Anipair’s data" under "Details" in the Annict section of Settings, or clear the site data in your browser.
+          </p>
+          <p>
+            If you disconnect Anipair in your Annict settings, or delete your personal access token, Anipair finds that the token no longer works the next time it talks to Annict.
+            It then deletes the copy of your Annict records on this device and the caches that reveal them (cover image locations, similar anime, the broadcast schedule of anime you are watching, and so on).
+            Records not yet sent to Annict, unfinished comments, and Anipair's own records ("Not interested", "Haven’t seen", titles and so on) are kept for when you log in again.
           </p>
         </section>
         <section class="item">
           <h2>3. Services Anipair connects to</h2>
           <ul>
             <li><strong>Annict</strong>: login, reading and writing your watch records and ratings, and anime information, using only Annict's public API. Your records are stored in your own Annict account.</li>
-            <li><strong>Anime data provider</strong> (currently Shikimori): public data such as genres, similar and related anime, cover image locations, and the works of voice actors, staff and studios, fetched through Anipair's proxy without any information that identifies you. To look up the works of a person, Anipair sends that person's public name as listed on Annict. The proxy uses Upstash (Redis) to keep copies of Shikimori's public data, to remember which MyAnimeList and Annict entries are the same anime (only the public anime IDs), and to count requests to Shikimori. So that a single source can’t use up everyone’s share of requests, it also keeps, for two minutes, a hash of your IP address mixed with the time and the number of requests in that minute. The IP address itself is not stored, and the proxy stores no other information about you there. Titles and covers on shared tier lists are fetched through this proxy too.</li>
+            <li><strong>Anime data provider</strong> (currently Shikimori): public data such as genres, similar and related anime, cover image locations, and the works of voice actors, staff and studios, fetched through Anipair's proxy without any information that identifies you. To look up the works of a person, Anipair sends that person's public name as listed on Annict. When you search Browse with a word in English or romanized Japanese, that word is sent (to look up the Japanese title). The proxy uses Upstash (Redis) to keep copies of Shikimori's public data, to remember which MyAnimeList and Annict entries are the same anime (only the public anime IDs), and to count requests to Shikimori. So that a single source can’t use up everyone’s share of requests, it also keeps, for two minutes, a hash of your IP address mixed with the time and the number of requests in that minute. The IP address itself is not stored, and the proxy stores no other information about you there. Titles and covers on shared tier lists are fetched through this proxy too.</li>
             <li><strong>Wikipedia</strong> (ja.wikipedia.org, and en.wikipedia.org on the English screen): when you open the details of an anime, or tap an anime on a shared tier list, its synopsis is read from the article through Wikipedia's public API, without any information that identifies you. On the English screen, the English article linked from the Japanese article is used when there is one.</li>
             <li><strong>Wikidata</strong> (www.wikidata.org and query.wikidata.org): on the English screen, the English names of voice actors and staff shown in anime details and trends are looked up by their Japanese names. When you tap an anime on a shared tier list, its Wikipedia article, official website and X account are looked up by its MyAnimeList ID. Both use Wikidata's public API, without any information that identifies you.</li>
-            <li><strong>GitHub</strong>, only if you connect it: your pass, skip and "not watched" records, your priority marks and notes on "want to watch" anime, the streaming services you choose, your tier lists (including the edit keys of shared links), and backups are saved to your own repository.</li>
+            <li><strong>GitHub</strong>, only if you connect it: your "Not interested", "Later" and "Haven’t seen" records, your priority marks and notes on "want to watch" anime, what you avoid in Match, the streaming services you choose, your tier lists (including the edit keys of shared links), and backups are saved to your own repository. The backup (backup.json) also contains your Annict records (your library, ratings and comments). The repository is yours, and the operator cannot read it. Disconnecting from Annict does not delete anything in it from Anipair. To delete it, delete the file or the repository on GitHub (deleting the file keeps its earlier contents in the Git history; to remove the history too, delete the repository).</li>
             <li><strong>Google Fonts</strong>: web fonts used to display the app.</li>
             <li><strong>Image hosts</strong>: cover images (Shikimori posters, and images such as official websites' images returned by Annict's API) and your Annict profile image are loaded by your browser directly from where they are hosted. As with any image on a web page, your IP address and browser type reach that host.</li>
             <li><strong>Vercel Web Analytics</strong>: the name of the screen you open and the other items in 1, for aggregated usage statistics, under <a href="https://vercel.com/docs/analytics/privacy-policy" rel="noreferrer">Vercel Web Analytics privacy information</a>.</li>

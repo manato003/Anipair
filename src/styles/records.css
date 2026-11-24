@@ -16,6 +16,44 @@
   padding-top: 10px;
 }
 
+/* 年末（12月）のふり返りの知らせ（2026-11-19、Cの案 C3）。一覧の上に1行で、細い枠だけの控えめな形 */
+.records__yearnote {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 0;
+  padding: 8px 8px 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  font-size: 0.85rem;
+}
+
+.records__yearnote > svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+
+/* 文は折らない。横に入りきらない幅（360px のスマホ）では、「見る」「閉じる」がまとまって次の行の右へ回る
+   （文を折ると「できま／した」「ふり／返り」と語の途中で切れた） */
+.records__yearnote-text {
+  flex: 1 1 auto;
+  white-space: nowrap;
+}
+
+.records__yearnote-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.records__yearnote .btn {
+  min-height: 34px;
+  padding: 0 14px;
+}
+
 .records__tools {
   display: flex;
   gap: 8px;
@@ -263,8 +301,8 @@
 }
 
 .row__star[aria-pressed='true'] {
-  border-color: #f4c44f;
-  color: #f4c44f;
+  border-color: var(--brand-gradient);
+  color: var(--brand-gradient);
 }
 
 .row__memo {
@@ -2066,6 +2104,14 @@
   padding-inline: 0;
   font-size: 0.7rem;
   white-space: nowrap;
+}
+
+/* 幅 360px ほどの端末では、4つ並べると「とても良い」が箱からはみ出すので、少しだけ小さく詰める */
+@media (max-width: 374px) {
+  .watchcard__rate .mini-rating {
+    font-size: 0.66rem;
+    letter-spacing: -0.02em;
+  }
 }
 
 /* メモのシート: 「メモを消す」は入力欄のすぐ下に（閉じる・保存と並べない）。下の帯は保存だけ */

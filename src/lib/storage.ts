@@ -54,6 +54,8 @@ const KEYS = {
   sheetHint: 'animax.sheetHint.v1',
   // 押した結果が画面に出ない操作の、一度だけの知らせ（lib/tips.ts）で、もう出したものの名前の並び。端末ごと
   tipsSeen: 'animax.tipsSeen.v1',
+  // 年末のふり返りの知らせを済ませた年（閉じたか、ふり返りを開いた。features/records/yearNotice.ts）。端末ごと
+  yearNotice: 'animax.yearNotice.v1',
   // 「開発記録」を最後に開いたときの版（新しい版が出たら、設定に新着の点を付ける。features/settings/historySeen.ts）。端末ごと
   historySeen: 'animax.historySeen.v1',
   // クールごとの人気作の ID の控え（進み具合の分母。だれのものでも同じなので、トークンが変わっても使える）
@@ -131,6 +133,7 @@ export function pageIsCurrent(): boolean {
 export function resetPageForTests(): void {
   frozen = false
   page = null
+  revokedToken = null
 }
 
 function read(key: string): string | null {
@@ -147,6 +150,7 @@ function write(key: string, value: string | null): void {
 // 書けたかを返す write（退避の控えのように、書けなかったら先へ進めないところで使う）
 function tryWrite(key: string, value: string | null): boolean {
   if (!pageIsCurrent()) return false
+  if (value !== null && blockedByRevoke(key)) return false
   try {
     if (value === null) localStorage.removeItem(key)
     else localStorage.setItem(key, value)
@@ -271,6 +275,41 @@ const NOT_KEPT: readonly string[] = [KEYS.githubToken]
 
 // 古いページに読ませない鍵（人ごとの記録と、Annict の記録の写し）
 const GUARDED: ReadonlySet<string> = new Set([...PERSONAL_KEYS, ...ANNICT_COPIES])
+
+// ── Annict との連携が解除されたとき ──
+// Annict の API利用規約 第7条（2026-11-25 施行）: 利用者が連携を解除したら、その人の利用者情報を消す（Issue #40）。
+// Annict のトークンには期限が無いので、いまのトークンに 401 が返るのは、連携の解除か個人用アクセストークンの削除とみなす
+// （ほかの理由の 401 でも、消すのは読み直せるものだけなので、失うのは次に開いたときの読み込みの時間だけ）。
+// 消すのは Annict から読んだ記録の写しと、記録から分かる控え（表紙・似た作品・放送予定・開いた作品の英題など）。
+// 送れなかった記録の控え・書きかけ・興味なし・称号など、Anipair の記録は消さない（Annict の写しではなく、ログインし直した人が続きに使う）
+const REVOKED_COPIES: readonly string[] = [...ANNICT_COPIES, KEYS.covers, KEYS.similar, KEYS.programs, ...VIEWED_CACHES]
+
+// このページで、連携が解除されたと分かったトークン。そのトークンのままのあいだは、上の控えを書き戻させない
+// （画面が手元に持っている記録を、あとから控えに書き直すのを止める。トークンが替われば外れる）
+let revokedToken: string | null = null
+
+// token: 401 を受けたトークン。いまのトークンと違えば（ログインし直したあとに遅れて届いた古い要求の失敗）何もしない。消したら true
+export function forgetRevokedAnnict(token: string): boolean {
+  if (!token || loadAnnictToken() !== token.trim() || !pageIsCurrent()) return false
+  revokedToken = token.trim()
+  for (const key of REVOKED_COPIES) write(key, null)
+  // 戻しきれずに退避の控えに残っている、この人の分からも消す
+  const owner = loadOwner()
+  if (owner !== null) {
+    const accounts = loadAccounts()
+    const kept = accounts[owner]
+    if (kept && REVOKED_COPIES.some((k) => k in kept)) {
+      for (const k of REVOKED_COPIES) delete kept[k]
+      if (Object.keys(kept).length === 0) delete accounts[owner]
+      saveAccounts(accounts)
+    }
+  }
+  return true
+}
+
+function blockedByRevoke(key: string): boolean {
+  return revokedToken !== null && REVOKED_COPIES.includes(key) && rawRead(KEYS.annictToken)?.trim() === revokedToken
+}
 
 type Accounts = Record<string, Record<string, string>>
 
@@ -660,6 +699,16 @@ export function loadTipsSeen(): string[] {
 
 export function saveTipsSeen(ids: readonly string[]): void {
   write(KEYS.tipsSeen, JSON.stringify(ids))
+}
+
+// 年末のふり返りの知らせを済ませた年（無ければ null）
+export function loadYearNoticeDone(): number | null {
+  const value = readJson(KEYS.yearNotice)
+  return typeof value === 'number' && Number.isInteger(value) ? value : null
+}
+
+export function saveYearNoticeDone(year: number): void {
+  write(KEYS.yearNotice, JSON.stringify(year))
 }
 
 // 初めて使う人に一度だけ出す案内（使い方のシート・シートの閉じ方・一度だけの知らせ）を、まだ見ていないことにする（preview の ?firstrun。lib/welcomePreview.ts）

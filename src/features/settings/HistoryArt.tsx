@@ -148,6 +148,17 @@ const ART: Record<ArtKind, () => ReactNode> = {
       ))}
     </>
   ),
+  compare: () => (
+    <>
+      {/* 2つの表紙を並べて片方を選び、下に決まった順番が並ぶ */}
+      <rect x="32" y="6" width="38" height="52" rx="4" fill="currentColor" fillOpacity=".25" />
+      <rect x="90" y="6" width="38" height="52" rx="4" />
+      {label(80, 38, 16, '?')}
+      {[0, 1, 2, 3, 4].map((i) => (
+        <rect key={i} x={44 + i * 15} y="70" width="11" height="14" rx="2" fill="currentColor" fillOpacity={0.7 - i * 0.14} />
+      ))}
+    </>
+  ),
 }
 
 export function HistoryArt({ kind }: { kind: ArtKind }) {

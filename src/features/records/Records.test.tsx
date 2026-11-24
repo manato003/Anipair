@@ -309,6 +309,40 @@ describe('Records: まとめ', () => {
   })
 })
 
+// Cの案 C3: 12月だけ、その年に見た作品があれば一度だけ知らせる
+describe('Records: 年末のふり返りの知らせ', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+    localStorage.removeItem('animax.yearNotice.v1')
+  })
+
+  it('in December, offers this year’s review above the list; 見る opens it, and it does not come back', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 11, 5, 12))
+    render(<Records token="t" active />)
+    expect(screen.getByText('2026年のふり返りができました')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '見る' }))
+    expect(await screen.findByRole('heading', { name: 'ふり返り' }, { timeout: 5000 })).toBeTruthy()
+    cleanup()
+    render(<Records token="t" active />)
+    expect(screen.queryByText('2026年のふり返りができました')).toBeNull()
+  })
+
+  it('閉じる puts it away for the year; outside December it never shows', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 11, 5, 12))
+    render(<Records token="t" active />)
+    fireEvent.click(screen.getByRole('button', { name: '閉じる' }))
+    expect(screen.queryByText('2026年のふり返りができました')).toBeNull()
+    expect(localStorage.getItem('animax.yearNotice.v1')).toBe('2026')
+    cleanup()
+    localStorage.removeItem('animax.yearNotice.v1')
+    vi.setSystemTime(new Date(2026, 10, 30, 12))
+    render(<Records token="t" active />)
+    expect(screen.queryByText(/のふり返りができました/)).toBeNull()
+  })
+})
+
 describe('Records: 実績', () => {
   it('marks まとめ and 実績 until the achievements are first opened', async () => {
     render(<Records token="t" active />)

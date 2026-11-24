@@ -1,6 +1,7 @@
 import { fetchLibrary, type LibraryEntry, type RatingState } from '../../lib/annict'
 import { t, tx, type Text } from '../../lib/i18n'
 import { refreshMyReviews } from '../../lib/myReviews'
+import { libraryLoadingLabel } from '../../lib/useLibraryProgress'
 import { fetchMedia, fetchSimilarMany, isSimilarCached, type FetchOptions, type Media } from '../../lib/shikimori'
 import { buildProfile, buildSeeds, type Seed } from './taste'
 
@@ -99,7 +100,7 @@ function ratingsOf(reviews: ReadonlyMap<number, { ratingOverallState: RatingStat
 export type StepHandler = (step: string, note?: string, work?: { done: number; total: number }) => void
 
 async function load(token: string, onStep?: StepHandler, shikimori: FetchOptions = {}): Promise<Taste> {
-  onStep?.(t('Annictの記録を読み込み中', 'Loading your Annict records'))
+  onStep?.(libraryLoadingLabel())
   const library = await fetchLibrary(token)
   const ratings = ratingsOf(await refreshMyReviews(token))
   const seeds = buildSeeds(library, ratings)

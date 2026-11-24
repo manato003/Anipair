@@ -84,13 +84,4 @@
     font-size: 0.9rem;
     text-align: left;
   }
-
-  .card__step {
-    position: relative;
-    z-index: 1;
-    grid-column: 2;
-    grid-row: 3;
-    align-self: start;
-    padding-top: 28px;
-  }
 }

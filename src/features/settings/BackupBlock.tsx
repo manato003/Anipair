@@ -135,6 +135,13 @@ export function BackupBlock(props: { annictToken: string; github: GithubConnecti
                 `When you open the app and a day or more has passed since the last backup, it saves automatically to backup.json in ${props.github.repo}. It only writes when something has changed, so you can look at earlier versions in GitHub’s change history.`,
               )}
             </p>
+            {/* Annict の API利用規約 第7条（連携を解除したら利用者情報を消す）。バックアップは利用者のリポジトリにあり、アプリからは消さないので、消し方を伝える（Issue #40） */}
+            <p className="settings__lead">
+              {t(
+                'バックアップにはAnnictの記録（ライブラリ・評価と感想）も入ります。Annictとの連携を解除しても、このリポジトリの中身は残ります。消すときはGitHubでファイルを削除してください。変更履歴にも残るので、履歴ごと消すにはリポジトリを削除してください。',
+                'The backup also contains your Annict records (your library, ratings and comments). Disconnecting from Annict does not delete anything in this repository. To delete it, delete the file on GitHub. Its earlier contents stay in the change history, so to remove those too, delete the repository.',
+              )}
+            </p>
           </details>
         </>
       )}

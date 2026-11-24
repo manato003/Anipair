@@ -2,6 +2,43 @@
 
 Changes to Anipair, newest first. Your records and the data saved on your device carry over from version to version.
 
+## v0.30.0 — 2026-11-24
+
+When you have many records, the first load now shows its progress. Clearing a season can now point out something you watched a lot of, and in December a one-time note tells you your Year in review is ready. If Anipair is disconnected from Annict, the copy of your Annict records on this device is now deleted.
+
+- If you have 300 or more records, the first time you open Anipair the loading text now shows how far it has got, such as “Loading your Annict records 600 / 1,905”, and roughly how long is left
+- When you clear a season, the screen now adds a line if three or more of the anime you watched that season share a studio (or, failing that, a genre), such as “3 of the anime you watched this season were made by MAPPA”
+- In December, if you watched anything that year, Records shows a one-time note that your Year in review is ready. Once you close it or open the Year in review, it won’t show again that year
+- If you disconnect Anipair in your Annict settings or delete your personal access token, the next time you open Anipair it deletes the copy of your Annict records on this device. Records not yet sent, unfinished comments, and Anipair’s own records such as Not interested are kept for when you log in again
+- The Backup section in Settings and the privacy policy now say that the GitHub backup also contains your Annict records, and how to delete it
+- In Safari, pressing Tab right after opening a sheet such as anime details could move to the screen behind it. This is fixed
+
+## v0.29.7 — 2026-11-18
+
+You can now read the full reasons behind a Match suggestion, and text that was hard to read on the light or dark theme or on phones, plus a few misaligned layouts, has been fixed.
+
+- “Details” in Match now starts with “Why it’s suggested”. On phones the reasons under a suggestion get cut off; here you can read them in full
+- On the light theme, “★ First” on Want to watch rows in Records is now easy to read
+- On the dark theme, the text on delete buttons (such as “Delete the link” for Tier lists) and on the urgent notification count is now easy to read
+- In Settings, the selected side of the Display toggles is now easy to read
+- On PC, the mascot and the loading text no longer appear offset diagonally while anime are loading
+- On phones, the guide shown when you first open Tier lists is now centered instead of leaning left
+- On phones, the one-time tip shown the first time you tap Want to watch and similar buttons now appears below the heading instead of covering its buttons
+- On narrow phones, “Great” on the rating buttons of Watching cards in Records no longer overflows its button
+- In Tier list “Rank by comparing”, on touch devices the card you tapped no longer keeps a darker border into the next question
+- Seasons are now written the same way everywhere in Japanese (Browse, anime details, and Records rows)
+- “About this app” in Settings now also mentions that Tier list share links store when the link was last updated
+
+## v0.29.6 — 2026-11-17
+
+The privacy policy and the “About this app” text now match how Anipair works today. Development history has a new milestone.
+
+- The privacy policy now says that when you search Browse with a word in English or romanized Japanese, that word is sent to the anime data provider (to look up the Japanese title)
+- The English privacy policy now lists what you avoid in Match and when the events that count toward your titles happened, and its wording matches the screens
+- “About this app” in Settings now describes the values kept to prevent overuse (a hash of your IP address and a request count) and what is stored for Tier list share links
+- The “where your records are kept” table in the README now matches where “Where I watch” is kept
+- Development history has a new milestone from v0.29.0, “Rank by comparing two at a time”
+
 ## v0.29.5 — 2026-11-17
 
 The season picker panel is now easier to close with the keyboard.

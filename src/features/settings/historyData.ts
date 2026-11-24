@@ -11,7 +11,7 @@ import { getLang, t } from '../../lib/i18n'
 export type ChangeBlock = { kind: 'p' | 'h' | 'li'; depth: 0 | 1; text: string }
 export type ChangeEntry = { version: string; date: string; blocks: ChangeBlock[] }
 
-export type HistoryArt = 'rate' | 'data' | 'thumb' | 'medal' | 'episodes' | 'season' | 'mascot' | 'mail' | 'lang' | 'tier' | 'search' | 'moon'
+export type HistoryArt = 'rate' | 'data' | 'thumb' | 'medal' | 'episodes' | 'season' | 'mascot' | 'mail' | 'lang' | 'tier' | 'search' | 'moon' | 'compare'
 
 type MilestoneSource = { from: string; art: HistoryArt; readonly title: string; readonly summary: string }
 
@@ -170,6 +170,19 @@ const MILESTONES: readonly MilestoneSource[] = [
       return t(
         'ログインする前に、できることを見てそのまま試せる紹介ページができました。明るいテーマは淡い星の「有明」になり、右上の月は今日の月齢の形で出ます。',
         'Before you log in, an introduction page shows what Anipair can do and lets you try it. The light theme became Ariake, with faint stars, and the moon in the top right shows today’s moon phase.',
+      )
+    },
+  },
+  {
+    from: 'v0.29.0',
+    art: 'compare',
+    get title() {
+      return t('2つずつ比べて順番を決める', 'Rank by comparing two at a time')
+    },
+    get summary() {
+      return t(
+        'Tier表で、同じ段の中の順番を、2つずつ比べて決められるようになりました。あわせて全体を見直し、取り消しや複数の端末での同期まわりの不具合を直しました。',
+        'In a tier list, you can now set the order inside a tier by comparing two anime at a time. The whole app was also reviewed, and bugs around undo and syncing across devices were fixed.',
       )
     },
   },

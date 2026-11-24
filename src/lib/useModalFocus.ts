@@ -1,4 +1,4 @@
-import { useEffect, type RefObject } from 'react'
+import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react'
 
 // 画面の上に重ねて開くもの（シート・覚醒の演出・使い方の案内。どれも aria-modal を名乗る）のフォーカス。
 // - Tab と Shift+Tab を、いちばん上に開いているものの中で回す（後ろの画面に移らない）
@@ -18,15 +18,24 @@ function focusables(container: HTMLElement): HTMLElement[] {
 }
 
 export function useModalFocus(ref: RefObject<HTMLElement | null>, active = true): void {
-  // 開く前にフォーカスがあった要素を覚え、閉じたら戻す
+  // 開く前にフォーカスがあった要素を、描く前に覚える（下の Tab の受け持ちより前。後で覚えると、開いた直後の Tab で
+  // 中へ移したあとの要素を覚えてしまい、閉じても戻らなかった。WebKit で起きた）
+  const openerRef = useRef<HTMLElement | null>(null)
+  useLayoutEffect(() => {
+    openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+  }, [])
+  // 閉じたら戻す。戻すのは Tab の受け持ちを外したあと（描く前の片付けで戻すと、まだ受け持っていて中へ引き戻される）
   useEffect(() => {
-    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const ref = openerRef
     return () => {
+      const opener = ref.current
       if (opener && opener.isConnected && !opener.closest('[hidden]')) opener.focus()
     }
   }, [])
 
-  useEffect(() => {
+  // 描く前に受け持つ（useEffect だと、WebKit ではシートが見えてから登録までに隙間があり、
+  // 開いた直後に押した Tab が後ろの画面へ抜けた。2026-11-19、Cの案 C4 の WebKit の E2E で見つけた）
+  useLayoutEffect(() => {
     const container = ref.current
     if (!active || !container) return
     stack.push(container)
